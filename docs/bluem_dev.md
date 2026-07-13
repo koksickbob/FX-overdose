@@ -83,4 +83,87 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - 날짜, 시간, 자산, 체력, 멘탈을 표시하는 HUD
 - 수익률에 따른 캐릭터 감정 및 스프라이트 변경
 
+---
 
+## 2026-07-13 — 회복 아이템 데이터 및 사용 처리
+
+### 구현 완료
+
+- ScriptableObject 기반 아이템 데이터 구조 구현
+- 아이템 고유 ID, 이름, 설명, 아이콘 및 가격 정의
+- 체력 및 멘탈 아이템 효과 유형 구분
+- 아이템별 회복량 설정
+- 에너지 드링크 데이터 생성
+  - 체력 30 회복
+  - 가격 500
+- 디저트 데이터 생성
+  - 멘탈 20 회복
+  - 가격 700
+- ItemUser를 통한 체력 및 멘탈 회복 효과 적용
+- 체력이나 멘탈이 가득 찬 경우 아이템 사용 방지
+- 아이템 사용 성공 여부 반환
+- 잘못된 데이터 또는 참조 누락 시 Console 경고 처리
+
+### 관련 파일
+
+- `Assets/Scripts/Items/ItemData.cs`
+- `Assets/Scripts/Items/ItemUser.cs`
+- `Assets/Data/Items/EnergyDrink.asset`
+- `Assets/Data/Items/Dessert.asset`
+- `Assets/Scripts/TraderStatus.cs`
+
+### Unity 연결
+
+- GameScene의 TraderStatus 오브젝트에 ItemUser 컴포넌트 추가
+- ItemUser의 TraderStatus 참조 연결
+
+### 검증 완료
+
+- 두 아이템 데이터 에셋의 효과 유형과 회복량 설정 확인
+- EnergyDrink의 이름과 ID 설정 확인
+- GameScene에서 ItemUser와 TraderStatus 참조 연결 확인
+- Unity에서 스크립트 컴파일 및 컴포넌트 추가 확인
+
+### 다음 작업 후보
+
+- 아이템 보유 개수 관리용 Inventory 구현
+- 실제 아이템 사용 버튼 및 아이콘 배치
+- 아이템 사용 시 보유 개수 차감 및 HUD 갱신
+
+---
+
+## 2026-07-13 — 인벤토리 및 아이템 사용 버튼
+
+### 구현 완료
+
+- 아이템별 보유 개수 관리
+- 같은 아이템 획득 시 수량 합산
+- 보유하지 않은 아이템 사용 차단
+- 아이템 효과 적용 성공 시에만 수량 차감
+- 능력치가 가득 찬 경우 아이템 수량 유지
+- 아이템 수량 변경 이벤트 제공
+- 에너지 드링크 및 디저트 사용 버튼 생성
+- 버튼에 아이템 이름과 현재 보유 수량 표시
+- 보유 수량이 0이면 버튼 비활성화
+- 에디터 메뉴를 통한 버튼 및 참조 자동 생성 도구 추가
+
+### 관련 파일
+
+- `Assets/Scripts/Items/Inventory.cs`
+- `Assets/Scripts/Items/InventoryItemButton.cs`
+- `Assets/Editor/ItemButtonsUIBuilder.cs`
+- `Assets/Scripts/Items/ItemUser.cs`
+
+### 검증 완료
+
+- Unity Play 모드에서 아이템 버튼 표시 확인
+- 에너지 드링크 사용 시 체력 회복 확인
+- 디저트 사용 시 멘탈 회복 확인
+- 아이템 사용 후 보유 수량 차감 확인
+- 아이템 버튼과 Inventory 참조가 정상적으로 작동함
+
+### 다음 작업 후보
+
+- 아이템 구매를 위한 상점 시스템
+- 상점 구매 성공 시 자산 차감 및 인벤토리 추가
+- 상점 UI 열기 및 닫기
