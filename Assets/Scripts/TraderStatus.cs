@@ -22,12 +22,12 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private float maxMental = 100f;     // 최대 멘탈
     [SerializeField] private float currentMental = 100f; // 현재 멘탈
 
-    [Header("시간에 따른 감소량")]
-    [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
-    [SerializeField] private float healthDecreasePerSecond = 0.5f;
+    [Header("시간에 따른 감소량 (게임 1시간 = 5분에 맞춘 속도)")]
+    [Tooltip("현실 시간 1초마다 감소하는 체력입니다. (약 16게임시간 동안 100 소모)")]
+    [SerializeField] private float healthDecreasePerSecond = 0.02f;
 
     [Tooltip("체력이 0일 때 현실 시간 1초마다 감소하는 멘탈입니다.")]
-    [SerializeField] private float mentalDecreasePerSecond = 1f;
+    [SerializeField] private float mentalDecreasePerSecond = 0.04f;
 
     [Header("현재 상태")]
     [SerializeField] private MentalState currentMentalState;
@@ -120,12 +120,26 @@ public class TraderStatus : MonoBehaviour
         UpdateMentalState();
     }
 
+    [Header("트레이딩 컨트롤러 연동")]
+    [SerializeField] private FXOverdose.Trading.TradingController tradingController;
+
     // 현재 멘탈 수치에 따라 감정 상태 결정
     private void UpdateMentalState()
     {
+        if (tradingController == null)
+        {
+            tradingController = FindFirstObjectByType<FXOverdose.Trading.TradingController>();
+        }
+
         if (currentMental <= 0f)
         {
             currentMentalState = MentalState.Overdose;
+
+            // 통제 불능 시 즉각 고레버리지 뇌동매매/물타기 강행
+            if (tradingController != null)
+            {
+                tradingController.TriggerOverdoseTrade();
+            }
 
             // 멘탈이 0이면 GameManager에 Overdose 엔딩 요청
             if (gameManager != null)
@@ -135,7 +149,16 @@ public class TraderStatus : MonoBehaviour
         }
         else if (currentMental <= 25f)
         {
-            currentMentalState = MentalState.Danger;
+            // 위험 상태 진입 시 일정 확률로 뇌동매매 트리거
+            if (currentMentalState != MentalState.Danger)
+            {
+                currentMentalState = MentalState.Danger;
+                if (tradingController != null && UnityEngine.Random.value < 0.4f)
+                {
+                    Debug.LogWarning("[TraderStatus] ⚠️ [Danger 상태 진입] AI 파트너의 불안감이 극에 달해 뇌동매매를 시도합니다!");
+                    tradingController.TriggerOverdoseTrade();
+                }
+            }
         }
         else if (currentMental <= 50f)
         {

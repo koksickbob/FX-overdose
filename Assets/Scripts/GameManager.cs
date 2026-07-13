@@ -1,7 +1,10 @@
+using System;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    // 1분 경과 시 발행하는 이벤트
+    public event Action OnGameMinuteAdvanced;
     //게임 진행 상태
     public enum GameState
     {
@@ -33,9 +36,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int currentHour = 9;   // 현재 시간
     [SerializeField] private int currentMinute = 0; // 현재 분
 
-    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정
+    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (게임 시간 1시간 = 실제 시간 5분 = 300초 -> 1분 = 5초)
     [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다.")]
-    [SerializeField] private float secondsPerGameMinute = 0.1f;
+    [SerializeField] private float secondsPerGameMinute = 5.0f;
 
     // 실제로 흐른 시간을 누적하는 변수
     private float timeAccumulator;
@@ -44,11 +47,13 @@ public class GameManager : MonoBehaviour
     // 값 변경은 할 수 없음
     public GameState CurrentState => currentState;
     public EndingType CurrentEnding => currentEnding;
+    public float StartingBalance => startingBalance;
     public float CurrentBalance => currentBalance;
     public float TargetBalance => targetBalance;
     public int CurrentDay => currentDay;
     public int CurrentHour => currentHour;
     public int CurrentMinute => currentMinute;
+    public float SecondsPerGameMinute => secondsPerGameMinute;
 
     // 게임 시작 시 한 번 실행
     private void Start()
@@ -123,6 +128,9 @@ public class GameManager : MonoBehaviour
 
             Debug.Log($"{currentDay}일차 시작");
         }
+
+        // 1분 경과 이벤트 발행
+        OnGameMinuteAdvanced?.Invoke();
     }
 
     // 자산을 증가하거나 감소시키는 함수
