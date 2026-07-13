@@ -34,6 +34,18 @@ namespace FXOverdose.Trading
         private int minutesUntilNextRegimeChange = 60;
         private float ouCenterPrice; // OU 평균 회귀 중심 가격
 
+        [Header("차트 신호 및 확정적 주가 제어 (Phase 3)")]
+        [SerializeField] private SignalPhase currentSignalPhase = SignalPhase.None;
+        [SerializeField] private MarketSignal activeSignal;
+        [SerializeField] private int signalPhaseTimerMinutes = 0;
+        [SerializeField] private int minutesUntilNextSignal = 45; // 30~60분 주기
+
+        public SignalPhase CurrentSignalPhase => currentSignalPhase;
+        public MarketSignal ActiveSignal => activeSignal;
+
+        public event Action<MarketSignal> OnMarketSignalGenerated;
+        public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
+
         // 실시간 1분봉 진행 캔들
         private CandleData liveM1Candle;
         private long currentTotalMinutes = 0;
@@ -66,7 +78,7 @@ namespace FXOverdose.Trading
         {
             if (gameManager == null)
             {
-                gameManager = FindFirstObjectByType<GameManager>();
+                gameManager = FindAnyObjectByType<GameManager>();
             }
 
             if (gameManager != null)
@@ -93,6 +105,9 @@ namespace FXOverdose.Trading
             current24hLow = startPrice;
             current24hVolume = 0f;
             currentTotalMinutes = 0;
+            currentSignalPhase = SignalPhase.None;
+            signalPhaseTimerMinutes = 0;
+            minutesUntilNextSignal = UnityEngine.Random.Range(30, 61);
 
             foreach (var list in candleHistories.Values)
             {
@@ -166,6 +181,26 @@ namespace FXOverdose.Trading
             float randNormal = Mathf.Sqrt(-2f * Mathf.Log(Mathf.Max(1e-6f, u1))) * Mathf.Sin(2f * Mathf.PI * u2);
 
             float stochasticNoise = currentVolatility * Mathf.Sqrt(dtFraction) * randNormal;
+
+            // 확정적 신호 구간(SignalPhase)에 따른 주가 오버라이드 제어
+            if (currentSignalPhase == SignalPhase.GraceWindow)
+            {
+                // 1단계 판단 여유 시간: 노이즈를 10% 수준으로 억제하고 횡보 유지 (골든타임 보장)
+                stochasticNoise *= 0.1f;
+                drift = 0f;
+            }
+            else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
+            {
+                // 2단계 확정적 주가 제어 구간: 위너 노이즈 억제 및 확정적 드리프트 주입
+                stochasticNoise *= 0.15f; // 잔파도 최소화
+
+                // 목표 변동률(TargetPercentageDelta)을 남은 보장 시간 동안 분할 반영
+                float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
+                drift = targetDriftPerMinute;
+
+                // OU 평균 회귀 항 무력화 (일방향 궤적 보장)
+                ouTerm = 0f;
+            }
 
             // 5. 최종 수익률 및 가격 변동
             float totalReturn = (drift * dtFraction) + (ouTerm * dtFraction) + stochasticNoise;
@@ -248,6 +283,9 @@ namespace FXOverdose.Trading
 
             // 6. OU 중심 가격(Center Price)을 서서히 이동평균 쪽으로 이동
             ouCenterPrice = Mathf.Lerp(ouCenterPrice, currentPrice, 0.05f);
+
+            // 7. 차트 신호 및 주가 오버라이드 타임라인 진행 (Phase 3)
+            UpdateSignalSystem();
         }
 
         // 캔들을 확정하여 히스토리 버퍼에 추가
@@ -399,12 +437,135 @@ namespace FXOverdose.Trading
                     }
                 }
             }
+        }
 
-            currentPrice = tempPrice;
-            ouCenterPrice = tempPrice;
-            current24hHigh = tempPrice * 1.05f;
-            current24hLow = tempPrice * 0.95f;
-            current24hVolume = 12543.8f;
+        // Phase 3: 차트 신호 및 3단계 주가 제어 타임라인 업데이트 (1분마다 호출)
+        private void UpdateSignalSystem()
+        {
+            switch (currentSignalPhase)
+            {
+                case SignalPhase.None:
+                    minutesUntilNextSignal--;
+                    if (minutesUntilNextSignal <= 0)
+                    {
+                        GenerateMarketSignal();
+                    }
+                    break;
+
+                case SignalPhase.GraceWindow:
+                    signalPhaseTimerMinutes--;
+                    if (signalPhaseTimerMinutes <= 0)
+                    {
+                        // 여유 시간 종료 -> 2단계 확정적 주가 오버라이드 구간 돌입
+                        currentSignalPhase = SignalPhase.GuaranteedOverride;
+                        signalPhaseTimerMinutes = activeSignal.DurationMinutes;
+                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()}");
+                        OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+                    }
+                    break;
+
+                case SignalPhase.GuaranteedOverride:
+                    signalPhaseTimerMinutes--;
+                    if (signalPhaseTimerMinutes <= 0)
+                    {
+                        // 확정적 구간 종료 -> 3단계 쿨다운 돌입
+                        currentSignalPhase = SignalPhase.Cooldown;
+                        signalPhaseTimerMinutes = UnityEngine.Random.Range(30, 61); // 30~60분 쿨다운
+                        Debug.Log($"[MarketEngine] 🛑 [확정 주가 제어 종료 -> 쿨다운 돌입] ({signalPhaseTimerMinutes}분 유지)");
+                        OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+                    }
+                    break;
+
+                case SignalPhase.Cooldown:
+                    signalPhaseTimerMinutes--;
+                    if (signalPhaseTimerMinutes <= 0)
+                    {
+                        currentSignalPhase = SignalPhase.None;
+                        minutesUntilNextSignal = UnityEngine.Random.Range(15, 31);
+                    }
+                    break;
+            }
+        }
+
+        // 새 차트 신호 생성 및 방송
+        public void GenerateMarketSignal()
+        {
+            float rand = UnityEngine.Random.value;
+            MarketSignalType type;
+            if (rand < 0.35f) type = MarketSignalType.BullishBreakout;
+            else if (rand < 0.70f) type = MarketSignalType.BearishBreakout;
+            else if (rand < 0.85f) type = MarketSignalType.BullTrap;
+            else type = MarketSignalType.BearTrap;
+
+            // 강도 설정 (65% 확률로 Strong, 35% 확률로 Weak)
+            SignalStrength strength = UnityEngine.Random.value < 0.65f ? SignalStrength.Strong : SignalStrength.Weak;
+
+            // IsTrueSignal 결정: Breakout은 75% 확률로 진짜, Trap은 100% 가짜 속임수
+            bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < 0.75f;
+
+            int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);
+            int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
+
+            // 확정 변동률(TargetPercentageDelta) 연산
+            float targetDelta = 0f;
+            if (strength == SignalStrength.Strong)
+            {
+                // 강한 신호: ±3.0% ~ ±6.0% (10배 레버리지 기준 ±30%~±60% ROE)
+                float mag = UnityEngine.Random.Range(3.0f, 6.0f);
+                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
+                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
+                else if (type == MarketSignalType.BullTrap) targetDelta = -mag; // 롱 유도 후 급락 빔
+                else if (type == MarketSignalType.BearTrap) targetDelta = mag;  // 숏 유도 후 급등 빔
+            }
+            else
+            {
+                // 약한 신호(단타/미끼): ±0.6% ~ ±1.5% (10배 레버리지 기준 ±6%~±15% ROE)
+                float mag = UnityEngine.Random.Range(0.6f, 1.5f);
+                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
+                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
+                else if (type == MarketSignalType.BullTrap) targetDelta = -mag;
+                else if (type == MarketSignalType.BearTrap) targetDelta = mag;
+            }
+
+            activeSignal = new MarketSignal
+            {
+                Type = type,
+                Strength = strength,
+                IsTrueSignal = isTrue,
+                TargetPercentageDelta = targetDelta,
+                DurationMinutes = duration,
+                GraceMinutes = grace,
+                SignalStartPrice = currentPrice
+            };
+
+            currentSignalPhase = SignalPhase.GraceWindow;
+            signalPhaseTimerMinutes = grace;
+
+            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()}");
+            OnMarketSignalGenerated?.Invoke(activeSignal);
+            OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+        }
+
+        // 강제로 특정 차트 신호를 외부(이벤트나 AI 튜닝용)에서 주입하는 함수
+        public void ForceInjectSignal(MarketSignalType type, SignalStrength strength, bool isTrue, float targetDelta, int durationMinutes, int graceMinutes = 3)
+        {
+            activeSignal = new MarketSignal
+            {
+                Type = type,
+                Strength = strength,
+                IsTrueSignal = isTrue,
+                TargetPercentageDelta = targetDelta,
+                DurationMinutes = durationMinutes,
+                GraceMinutes = graceMinutes,
+                SignalStartPrice = currentPrice
+            };
+
+            currentSignalPhase = SignalPhase.GraceWindow;
+            signalPhaseTimerMinutes = graceMinutes;
+
+            Debug.Log($"[MarketEngine] ⚡ [외부 강제 신호 주입] {activeSignal.GetSignalDescription()}");
+            OnMarketSignalGenerated?.Invoke(activeSignal);
+            OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
         }
     }
 }

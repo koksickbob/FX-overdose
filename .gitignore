@@ -84,3 +84,7 @@ Thumbs.db
 .gemini/
 .idea/
 .vscode/
+
+# Large AI model files (>100MB)
+*.gguf
+*.bin

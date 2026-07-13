@@ -1,5 +1,7 @@
 using UnityEngine;
 
+#pragma warning disable CS0649
+
 public class TraderStatus : MonoBehaviour
 {
     // 트레이더의 현재 감정 상태
@@ -128,7 +130,7 @@ public class TraderStatus : MonoBehaviour
     {
         if (tradingController == null)
         {
-            tradingController = FindFirstObjectByType<FXOverdose.Trading.TradingController>();
+            tradingController = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
         }
 
         if (currentMental <= 0f)
@@ -155,7 +157,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Danger;
                 if (tradingController != null && UnityEngine.Random.value < 0.4f)
                 {
-                    Debug.LogWarning("[TraderStatus] ⚠️ [Danger 상태 진입] AI 파트너의 불안감이 극에 달해 뇌동매매를 시도합니다!");
+                    Debug.LogWarning("[TraderStatus] ⚠️ [Danger 상태 진입] AI 트레이더의 불안감이 극에 달해 뇌동매매를 시도합니다!");
                     tradingController.TriggerOverdoseTrade();
                 }
             }

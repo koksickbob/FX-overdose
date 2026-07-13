@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+#pragma warning disable CS0649
+
 namespace FXOverdose.UI.TopBar
 {
     public class SparklineRenderer : MonoBehaviour

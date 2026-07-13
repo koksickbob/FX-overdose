@@ -4,6 +4,8 @@ using UnityEngine;
 using TMPro;
 using FXOverdose.Trading;
 
+#pragma warning disable CS0649
+
 namespace FXOverdose.UI.TopBar
 {
     public class TopStatusBarUIController : MonoBehaviour
@@ -36,8 +38,8 @@ namespace FXOverdose.UI.TopBar
 
         private void Start()
         {
-            if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
-            if (tradingController == null) tradingController = FindFirstObjectByType<TradingController>();
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (sparklineRenderer == null) sparklineRenderer = GetComponentInChildren<SparklineRenderer>();
 
             if (gameManager != null)

@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using FXOverdose.Trading;
 
+#pragma warning disable CS0649
+
 namespace FXOverdose.UI.Chart
 {
     public class CandleItemUI : MonoBehaviour
@@ -53,6 +55,9 @@ namespace FXOverdose.UI.Chart
 
             if (candleContainerTransform != null)
             {
+                candleContainerTransform.anchorMin = Vector2.zero;
+                candleContainerTransform.anchorMax = Vector2.zero;
+                candleContainerTransform.pivot = Vector2.zero;
                 candleContainerTransform.anchoredPosition = new Vector2(xPos, 0f);
                 candleContainerTransform.sizeDelta = new Vector2(candleWidth, chartHeight);
             }
@@ -67,10 +72,13 @@ namespace FXOverdose.UI.Chart
             if (lowerWickImage != null) lowerWickImage.color = targetColor;
             if (volumeBarImage != null) volumeBarImage.color = volColor;
 
-            // 2. Y 좌표 변환 함수
+            // 2. Y 좌표 변환 함수 (차트 영역 상단 26% ~ 100% 전용 구역으로 분리)
+            float priceAreaBottom = chartHeight * 0.26f;
+            float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
+
             float PriceToY(float price)
             {
-                return ((price - chartMinPrice) / priceRange) * chartHeight;
+                return priceAreaBottom + ((price - chartMinPrice) / priceRange) * priceAreaHeight;
             }
 
             float highY = PriceToY(data.high);
@@ -113,11 +121,12 @@ namespace FXOverdose.UI.Chart
                 lowerWickImage.enabled = wickHeight > 0.5f;
             }
 
-            // 6. 하단 거래량 바(Volume Bar) 배치
+            // 6. 하단 거래량 바(Volume Bar) 배치 (하단 0% ~ 22% 전용 구역으로 분리)
             if (volumeBarRect != null)
             {
+                float maxVolHeight = chartHeight * 0.22f; // 거래량 최대 높이 22% 제한
                 float volRatio = data.volume / Mathf.Max(1f, maxVolume);
-                float volHeight = Mathf.Max(2f, volRatio * volumeAreaHeight);
+                float volHeight = Mathf.Max(2f, volRatio * maxVolHeight);
                 volumeBarRect.anchorMin = new Vector2(0.5f, 0f);
                 volumeBarRect.anchorMax = new Vector2(0.5f, 0f);
                 volumeBarRect.pivot = new Vector2(0.5f, 0f);

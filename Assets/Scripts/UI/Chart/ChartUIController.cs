@@ -5,6 +5,8 @@ using UnityEngine.UI;
 using TMPro;
 using FXOverdose.Trading;
 
+#pragma warning disable CS0649
+
 namespace FXOverdose.UI.Chart
 {
     public class ChartUIController : MonoBehaviour
@@ -61,7 +63,7 @@ namespace FXOverdose.UI.Chart
         {
             if (marketEngine == null)
             {
-                marketEngine = FindFirstObjectByType<MarketSimulationEngine>();
+                marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             }
 
             if (marketEngine != null)
@@ -167,8 +169,10 @@ namespace FXOverdose.UI.Chart
             float chartHeight = chartAreaTransform.rect.height;
             if (chartHeight <= 0f) chartHeight = 400f;
 
+            float priceAreaBottom = chartHeight * 0.26f;
+            float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
             float priceRange = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
-            float yPos = ((currentPrice - currentChartMinPrice) / priceRange) * chartHeight;
+            float yPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
 
             // 라인 위치 이동
             currentPriceLineTransform.anchoredPosition = new Vector2(0f, yPos);

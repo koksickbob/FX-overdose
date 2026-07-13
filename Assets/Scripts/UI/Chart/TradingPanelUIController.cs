@@ -4,6 +4,8 @@ using UnityEngine.UI;
 using TMPro;
 using FXOverdose.Trading;
 
+#pragma warning disable CS0649
+
 namespace FXOverdose.UI.Chart
 {
     public class TradingPanelUIController : MonoBehaviour
@@ -30,6 +32,7 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private Button btnTabMarginRatioMode; // "MARGIN 비율" 탭
         [SerializeField] private GameObject leverageControlContainer;    // 레버리지 조작부 컨테이너
         [SerializeField] private GameObject marginRatioControlContainer; // 투자비율 조작부 컨테이너
+        [SerializeField] private GameObject tabsBarContainer;            // 모드 전환 탭 바 컨테이너
 
         [Header("증거금(Margin Ratio) 설정 [10% 단위 스태퍼 + 프리셋 + 슬라이더 호환]")]
         [SerializeField] private Slider marginPercentageSlider; // 기존 슬라이더 (호환 유지)
@@ -76,8 +79,8 @@ namespace FXOverdose.UI.Chart
 
         private void Start()
         {
-            if (tradingController == null) tradingController = FindFirstObjectByType<TradingController>();
-            if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
 
             if (tradingController != null)
             {
@@ -179,14 +182,16 @@ namespace FXOverdose.UI.Chart
         {
             currentControlMode = mode;
 
+            bool hasPosition = tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None;
+
             if (leverageControlContainer != null)
             {
-                leverageControlContainer.SetActive(mode == ControlMode.Leverage);
+                leverageControlContainer.SetActive(!hasPosition && mode == ControlMode.Leverage);
             }
 
             if (marginRatioControlContainer != null)
             {
-                marginRatioControlContainer.SetActive(mode == ControlMode.MarginRatio);
+                marginRatioControlContainer.SetActive(!hasPosition && mode == ControlMode.MarginRatio);
             }
 
             // 탭 버튼 하이라이트 색상 갱신
@@ -214,7 +219,7 @@ namespace FXOverdose.UI.Chart
 
             if (marginAmountText != null)
             {
-                marginAmountText.text = $"투입: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
+                marginAmountText.text = $"MARGIN: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
             }
 
             // 프리셋 비율 버튼 하이라이트
@@ -291,18 +296,30 @@ namespace FXOverdose.UI.Chart
             if (longSubtitleText != null)
             {
                 longSubtitleText.text = tradingController.CurrentPosition == TradingController.PositionType.Long 
-                    ? "포지션 보유중" : "Tap to Open Long";
+                    ? "IN POSITION" : "Tap to Open Long";
             }
             if (shortSubtitleText != null)
             {
                 shortSubtitleText.text = tradingController.CurrentPosition == TradingController.PositionType.Short 
-                    ? "포지션 보유중" : "Tap to Open Short";
+                    ? "IN POSITION" : "Tap to Open Short";
             }
 
-            // 상태 오버레이 패널 표시 여부
+            // 상태 오버레이 패널 및 탭 바 표시 여부
             if (positionStatusPanel != null)
             {
                 positionStatusPanel.SetActive(hasPosition);
+            }
+            if (tabsBarContainer != null)
+            {
+                tabsBarContainer.SetActive(!hasPosition);
+            }
+            if (leverageControlContainer != null)
+            {
+                leverageControlContainer.SetActive(!hasPosition && currentControlMode == ControlMode.Leverage);
+            }
+            if (marginRatioControlContainer != null)
+            {
+                marginRatioControlContainer.SetActive(!hasPosition && currentControlMode == ControlMode.MarginRatio);
             }
 
             if (hasPosition)
@@ -314,8 +331,8 @@ namespace FXOverdose.UI.Chart
                     positionTypeText.color = tradingController.CurrentPosition == TradingController.PositionType.Long 
                         ? bullishColor : bearishColor;
                 }
-                if (entryPriceText != null) entryPriceText.text = $"진입가: ${tradingController.EntryPrice:N1}";
-                if (liquidationPriceText != null) liquidationPriceText.text = $"청산가: ${tradingController.LiquidationPrice:N1}";
+                if (entryPriceText != null) entryPriceText.text = $"ENTRY: ${tradingController.EntryPrice:N1}";
+                if (liquidationPriceText != null) liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1}";
             }
         }
 

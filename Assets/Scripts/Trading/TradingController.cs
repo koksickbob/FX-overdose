@@ -37,9 +37,9 @@ namespace FXOverdose.Trading
 
         private void Start()
         {
-            if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
-            if (marketEngine == null) marketEngine = FindFirstObjectByType<MarketSimulationEngine>();
-            if (traderStatus == null) traderStatus = FindFirstObjectByType<TraderStatus>();
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
+            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
 
             if (marketEngine != null)
             {
@@ -123,7 +123,7 @@ namespace FXOverdose.Trading
             // 자산 정산
             gameManager.ChangeBalance(totalReturn);
 
-            // 멘탈 및 체력 상태 반영 (손실 크기에 비례한 파트너 멘탈 변화)
+            // 멘탈 및 체력 상태 반영 (손실 크기에 비례한 AI 트레이더 멘탈 변화)
             if (traderStatus != null)
             {
                 if (pnl < 0f)
@@ -210,7 +210,7 @@ namespace FXOverdose.Trading
             OnPositionChanged?.Invoke();
         }
 
-        // 멘헤라 파트너 폭주(Overdose 상태) 시 호출되는 고레버리지 뇌동매매 실행 함수
+        // 멘헤라 AI 트레이더 폭주(Overdose 상태) 시 호출되는 고레버리지 뇌동매매 실행 함수
         public void TriggerOverdoseTrade()
         {
             if (gameManager == null || marketEngine == null) return;

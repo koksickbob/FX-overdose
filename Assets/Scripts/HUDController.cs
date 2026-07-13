@@ -2,6 +2,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+#pragma warning disable CS0649
+
 public class HUDController : MonoBehaviour
 {
     [Header("게임 시스템")]
