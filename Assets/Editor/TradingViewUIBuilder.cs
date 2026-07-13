@@ -534,7 +534,7 @@ namespace FXOverdose.EditorTools
             LayoutElement longPillElem = longPill.AddComponent<LayoutElement>();
             longPillElem.preferredWidth = 210f;
             longPillElem.preferredHeight = 44f;
-            TMP_Text longSubText = CreateTMPText("Text", longPill.transform, "Tap to Open Long", 15, Color.white);
+            TMP_Text longSubText = CreateTMPText("Text", longPill.transform, "AI 매수 판단 대기중", 15, Color.white);
             longSubText.alignment = TextAlignmentOptions.Center;
             RectTransform lpTextRect = longSubText.GetComponent<RectTransform>();
             lpTextRect.anchorMin = Vector2.zero; lpTextRect.anchorMax = Vector2.one;
@@ -565,7 +565,7 @@ namespace FXOverdose.EditorTools
             LayoutElement shortPillElem = shortPill.AddComponent<LayoutElement>();
             shortPillElem.preferredWidth = 210f;
             shortPillElem.preferredHeight = 44f;
-            TMP_Text shortSubText = CreateTMPText("Text", shortPill.transform, "Tap to Open Short", 15, Color.white);
+            TMP_Text shortSubText = CreateTMPText("Text", shortPill.transform, "AI 매도 판단 대기중", 15, Color.white);
             shortSubText.alignment = TextAlignmentOptions.Center;
             RectTransform spTextRect = shortSubText.GetComponent<RectTransform>();
             spTextRect.anchorMin = Vector2.zero; spTextRect.anchorMax = Vector2.one;
@@ -671,10 +671,12 @@ namespace FXOverdose.EditorTools
             posPnl.alignment = TextAlignmentOptions.Center;
             TMP_Text posEntry = CreateTMPText("PosEntry", statusOverlay.transform, "ENTRY: $67,840", 14, Color.white);
             posEntry.alignment = TextAlignmentOptions.Center;
+            TMP_Text posTarget = CreateTMPText("PosTarget", statusOverlay.transform, "TARGET: $68,500 (AI 목표가)", 14, new Color(0.024f, 0.714f, 0.831f, 1f));
+            posTarget.alignment = TextAlignmentOptions.Center;
             TMP_Text posLiq = CreateTMPText("PosLiq", statusOverlay.transform, "LIQ: $61,200", 14, new Color(0.937f, 0.267f, 0.267f, 1f));
             posLiq.alignment = TextAlignmentOptions.Center;
 
-            Button btnClose = CreateButton("ClosePositionButton", statusOverlay.transform, "X CLOSE POSITION", 260, 44, new Color(0.918f, 0.702f, 0.031f, 1f));
+            Button btnClose = CreateButton("ClosePositionButton", statusOverlay.transform, "🔒 AI 자동 청산 시스템 (Player Locked)", 260, 44, new Color(0.18f, 0.23f, 0.33f, 1f));
             statusOverlay.SetActive(false);
 
             // TradingPanelUIController 슬롯 연결
@@ -712,6 +714,7 @@ namespace FXOverdose.EditorTools
             SetField(controller, "roeText", posRoe);
             SetField(controller, "pnlText", posPnl);
             SetField(controller, "entryPriceText", posEntry);
+            SetField(controller, "targetPriceText", posTarget);
             SetField(controller, "liquidationPriceText", posLiq);
             if (tc != null) SetField(controller, "tradingController", tc);
             if (gm != null) SetField(controller, "gameManager", gm);

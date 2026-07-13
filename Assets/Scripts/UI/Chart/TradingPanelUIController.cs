@@ -65,6 +65,7 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private TMP_Text pnlText;
         [SerializeField] private TMP_Text entryPriceText;
         [SerializeField] private TMP_Text liquidationPriceText;
+        [SerializeField] private TMP_Text targetPriceText; // AI 결정 목표 주가 (TARGET PRICE) 표시기
 
         // 색상 토큰
         private readonly Color cyanHighlight = new Color(0.024f, 0.714f, 0.831f, 1f); // #06B6D4
@@ -141,7 +142,7 @@ namespace FXOverdose.UI.Chart
         {
             if (longButton != null) longButton.onClick.AddListener(OnLongButtonClicked);
             if (shortButton != null) shortButton.onClick.AddListener(OnShortButtonClicked);
-            if (closePositionButton != null) closePositionButton.onClick.AddListener(() => tradingController?.ClosePosition());
+            if (closePositionButton != null) closePositionButton.onClick.AddListener(OnCloseButtonClicked);
 
             // 모드 전환 탭 버튼 바인딩
             if (btnTabLeverageMode != null) btnTabLeverageMode.onClick.AddListener(() => SwitchControlMode(ControlMode.Leverage));
@@ -260,26 +261,20 @@ namespace FXOverdose.UI.Chart
             }
         }
 
+        // 플레이어 매매 개입 방지: AI 독자 트레이딩 시스템 안내
         private void OnLongButtonClicked()
         {
-            if (tradingController == null || gameManager == null) return;
-
-            if (tradingController.CurrentPosition == TradingController.PositionType.None)
-            {
-                float margin = gameManager.CurrentBalance * selectedMarginPercentage;
-                tradingController.OpenPosition(TradingController.PositionType.Long, margin, currentSelectedLeverage);
-            }
+            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 직접 매수(LONG) 주문을 내거나 트레이딩에 개입할 수 없습니다. 진입 타이밍, 레버리지 및 목표 주가(TARGET PRICE)는 오직 AI 트레이더가 결정합니다.");
         }
 
         private void OnShortButtonClicked()
         {
-            if (tradingController == null || gameManager == null) return;
+            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 직접 매도(SHORT) 주문을 내거나 트레이딩에 개입할 수 없습니다. 진입 타이밍, 레버리지 및 목표 주가(TARGET PRICE)는 오직 AI 트레이더가 결정합니다.");
+        }
 
-            if (tradingController.CurrentPosition == TradingController.PositionType.None)
-            {
-                float margin = gameManager.CurrentBalance * selectedMarginPercentage;
-                tradingController.OpenPosition(TradingController.PositionType.Short, margin, currentSelectedLeverage);
-            }
+        private void OnCloseButtonClicked()
+        {
+            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 임의로 포지션을 강제 청산시킬 수 없습니다. 청산 및 익절/손절 시점은 AI 트레이더가 결정합니다.");
         }
 
         public void RefreshPanelUI()
@@ -288,20 +283,26 @@ namespace FXOverdose.UI.Chart
 
             bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
 
-            // 진입 버튼 상태 업데이트
-            if (longButton != null) longButton.interactable = !hasPosition;
-            if (shortButton != null) shortButton.interactable = !hasPosition;
-            if (closePositionButton != null) closePositionButton.gameObject.SetActive(hasPosition);
+            // 플레이어 직접 매매 개입 방지 (항상 비활성화 또는 AI 전용 안내 모드)
+            if (longButton != null) longButton.interactable = false;
+            if (shortButton != null) shortButton.interactable = false;
+            if (closePositionButton != null)
+            {
+                closePositionButton.gameObject.SetActive(hasPosition);
+                closePositionButton.interactable = false; // 플레이어 직접 청산 불가
+            }
 
             if (longSubtitleText != null)
             {
-                longSubtitleText.text = tradingController.CurrentPosition == TradingController.PositionType.Long 
-                    ? "IN POSITION" : "Tap to Open Long";
+                longSubtitleText.text = hasPosition 
+                    ? (tradingController.CurrentPosition == TradingController.PositionType.Long ? "AI LONG 보유중" : "AI 대기중") 
+                    : "AI 매수 판단중";
             }
             if (shortSubtitleText != null)
             {
-                shortSubtitleText.text = tradingController.CurrentPosition == TradingController.PositionType.Short 
-                    ? "IN POSITION" : "Tap to Open Short";
+                shortSubtitleText.text = hasPosition 
+                    ? (tradingController.CurrentPosition == TradingController.PositionType.Short ? "AI SHORT 보유중" : "AI 대기중") 
+                    : "AI 매도 판단중";
             }
 
             // 상태 오버레이 패널 및 탭 바 표시 여부
@@ -327,12 +328,22 @@ namespace FXOverdose.UI.Chart
                 UpdatePositionStatusNumbers();
                 if (positionTypeText != null)
                 {
-                    positionTypeText.text = $"{tradingController.CurrentPosition} {tradingController.CurrentLeverage}x";
+                    positionTypeText.text = $"[AI] {tradingController.CurrentPosition} {tradingController.CurrentLeverage}x";
                     positionTypeText.color = tradingController.CurrentPosition == TradingController.PositionType.Long 
                         ? bullishColor : bearishColor;
                 }
                 if (entryPriceText != null) entryPriceText.text = $"ENTRY: ${tradingController.EntryPrice:N1}";
-                if (liquidationPriceText != null) liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1}";
+                if (targetPriceText != null)
+                {
+                    targetPriceText.text = tradingController.TargetPrice > 0f 
+                        ? $"TARGET: ${tradingController.TargetPrice:N1} (AI 목표가)" 
+                        : "TARGET: 무제한 (Overdose 뇌동매매)";
+                }
+                if (liquidationPriceText != null)
+                {
+                    string stopText = tradingController.StopLossPrice > 0f ? $"${tradingController.StopLossPrice:N1}" : "없음";
+                    liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1} | STOP: {stopText}";
+                }
             }
         }
 

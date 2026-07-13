@@ -43,6 +43,7 @@ namespace FXOverdose.AI
             if (tradingController != null)
             {
                 tradingController.OnPositionClosed += HandlePositionClosed;
+                tradingController.OnPositionLiquidated += HandlePositionLiquidated;
             }
         }
 
@@ -57,6 +58,7 @@ namespace FXOverdose.AI
             if (tradingController != null)
             {
                 tradingController.OnPositionClosed -= HandlePositionClosed;
+                tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
             }
         }
 
@@ -79,6 +81,18 @@ namespace FXOverdose.AI
             else if (phase == SignalPhase.Cooldown)
             {
                 isProcessingSignal = false;
+                // [게임적 허용 완벽 보장 장치 (2중 보장)]
+                // 만약 True Signal(정상 확정 신호)을 따라 진입한 포지션이 캔들 노이즈 등으로 인해 
+                // TargetPrice에 미세하게 닿지 못한 채 보장 구간(GuaranteedOverride)이 종료되더라도,
+                // 기획상 설계된 상승/하락 수익률을 확실하게 보장받기 위해 Cooldown 돌입 즉시 자동 익절 청산!
+                if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+                {
+                    if (currentActiveSignal.IsTrueSignal && traderStatus != null && traderStatus.HealthRatio > 0.40f)
+                    {
+                        Debug.Log($"[AITradingBrain] 🎯 확정 주가 보장 구간(GuaranteedOverride) 종료 -> 게임 기획 수익률 100% 획득을 위한 즉시 익절 청산 실행");
+                        tradingController.ClosePosition();
+                    }
+                }
             }
         }
 
@@ -119,11 +133,16 @@ namespace FXOverdose.AI
 
                     float margin = availableBalance * 0.8f; // 풀시드 80% 물림
                     int leverage = Mathf.Min(50, defaultLeverage * 3);
-                    bool opened = tradingController.OpenPosition(trapPos, margin, leverage);
+                    float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+                    // 오인 진입 시 대박(+15%)을 꿈꾸며 목표가 설정
+                    float aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.15f : startPrice * 0.85f;
+                    float aiStopLoss = trapPos == TradingController.PositionType.Long ? startPrice * 0.95f : startPrice * 1.05f;
+
+                    bool opened = tradingController.OpenPosition(trapPos, margin, leverage, aiTarget, aiStopLoss);
 
                     if (opened)
                     {
-                        TriggerDialogue($"[오인 진입] 그래, 바로 지금이야!! 세력들의 거대한 매수벽이 들어왔어! 시드 80%를 {leverage}배로 다 박는다!!", -0.15f);
+                        TriggerDialogue($"[오인 진입] 그래, 바로 지금이야!! 세력들의 거대한 매수벽이 들어왔어! 시드 80%를 {leverage}배로 다 박는다!! (목표가: ${aiTarget:N0})", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                 }
@@ -152,11 +171,16 @@ namespace FXOverdose.AI
 
                     float margin = availableBalance * 0.25f; // 가볍게 25% 진입
                     int leverage = defaultLeverage;
-                    bool opened = tradingController.OpenPosition(weakPos, margin, leverage);
+                    float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+                    // 단타 목표가 (+3%), 손절가 (-2%)
+                    float aiTarget = weakPos == TradingController.PositionType.Long ? startPrice * 1.03f : startPrice * 0.97f;
+                    float aiStopLoss = weakPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
+
+                    bool opened = tradingController.OpenPosition(weakPos, margin, leverage, aiTarget, aiStopLoss);
 
                     if (opened)
                     {
-                        TriggerDialogue($"[가벼운 단타 진입] 어? 돌파 각이 보인다! 가볍게 {leverage}배로 단타만 치고 나오자!", -0.02f);
+                        TriggerDialogue($"[가벼운 단타 진입] 어? 돌파 각이 보인다! 가볍게 {leverage}배로 단타만 치고 나오자! (목표가: ${aiTarget:N0})", -0.02f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                 }
@@ -208,11 +232,16 @@ namespace FXOverdose.AI
             };
 
             float margin = balance * Mathf.Clamp01(ratio);
-            bool opened = tradingController.OpenPosition(posType, margin, leverage);
+            float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+            float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
+            float aiTarget = posType == TradingController.PositionType.Long ? startPrice * (1f + deltaPct) : startPrice * (1f - deltaPct);
+            float aiStopLoss = posType == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
+
+            bool opened = tradingController.OpenPosition(posType, margin, leverage, aiTarget, aiStopLoss);
 
             if (opened)
             {
-                TriggerDialogue($"[골든타임 제어] 완벽한 3분 돌파 타점이다. 내 분석대로 시드 {ratio*100:0}%를 {leverage}배로 진입 완료.", 0.1f);
+                TriggerDialogue($"[골든타임 제어] 완벽한 3분 돌파 타점이다. 내 분석대로 시드 {ratio*100:0}%를 {leverage}배로 진입 완료. (목표가: ${aiTarget:N0})", 0.1f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
         }
@@ -224,11 +253,14 @@ namespace FXOverdose.AI
             TradingController.PositionType crazyPos = UnityEngine.Random.value < 0.5f ? TradingController.PositionType.Long : TradingController.PositionType.Short;
             float margin = balance * 0.95f;
             int leverage = 125;
+            float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+            // Overdose 시에는 목표가는 터무니없이 높게(+50%), 손절선은 없음(0f)
+            float aiTarget = crazyPos == TradingController.PositionType.Long ? startPrice * 1.5f : startPrice * 0.5f;
 
-            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage);
+            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f);
             if (opened)
             {
-                TriggerDialogue($"[OVERDOSE 뇌동매매] 몰라!! 다 필요 없어!! 지금 당장 125배로 올인 박자!!", -0.3f);
+                TriggerDialogue($"[OVERDOSE 뇌동매매] 몰라!! 다 필요 없어!! 지금 당장 125배로 올인 박자!! (목표가: ${aiTarget:N0})", -0.3f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
         }
@@ -237,8 +269,10 @@ namespace FXOverdose.AI
         private void HandlePositionClosed(float returnedAmount, float pnl)
         {
             float balance = gameManager != null ? gameManager.CurrentBalance : returnedAmount;
-            float roe = tradingController != null && tradingController.MarginAmount > 0f 
-                        ? (pnl / tradingController.MarginAmount) * 100f : 0f;
+            float baseMargin = tradingController != null 
+                ? (tradingController.MarginAmount > 0f ? tradingController.MarginAmount : tradingController.LastMarginAmount) 
+                : 0f;
+            float roe = baseMargin > 0f ? (pnl / baseMargin) * 100f : 0f;
 
             if (pnl < 0f)
             {
@@ -255,6 +289,13 @@ namespace FXOverdose.AI
             {
                 TriggerDialogue($"[익절 성공] 하하하!! {roe:+0.0}% 익절 달성!! 봤지? 차트의 신은 바로 나야!!", 0.15f);
             }
+        }
+
+        // 강제 청산(Liquidation) 시 극도의 멘탈 붕괴 리액션
+        private void HandlePositionLiquidated()
+        {
+            isProcessingSignal = false;
+            TriggerDialogue("[강제청산 대참사] 뭐...? 청산당했다고?! 내 전재산이... 안 돼!! 다 거짓말이야!! 차트가 나를 죽이려 하고 있어!!", -0.5f);
         }
 
         private void TriggerDialogue(string dialogue, float emotionDelta)

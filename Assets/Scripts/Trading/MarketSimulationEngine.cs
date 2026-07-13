@@ -46,6 +46,25 @@ namespace FXOverdose.Trading
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
 
+        // 테스트 및 디버그용 수동 신호 발행 Helper
+        public void TriggerSignalForTest(MarketSignal signal)
+        {
+            activeSignal = signal;
+            currentSignalPhase = SignalPhase.GraceWindow;
+            // 💡 [타이머 정상화] 신호 주입 시 여유 시간(GraceWindow)을 정상 반영하여 즉시 GuaranteedOverride로 건너뛰지 않도록 보호
+            signalPhaseTimerMinutes = signal.GraceMinutes > 0 ? signal.GraceMinutes : 3;
+            OnMarketSignalGenerated?.Invoke(signal);
+            OnSignalPhaseChanged?.Invoke(currentSignalPhase, signal);
+        }
+
+        // 테스트 및 디버그용 수동 주가 틱 이동 Helper (진입 포지션의 자동 익절/손절/청산 연동 검증용)
+        public void SimulatePriceTickForTest(float newPrice)
+        {
+            currentPrice = newPrice;
+            Debug.Log($"[MarketEngine 🧪] 테스트 주가 실시간 틱 이동 강제 실행: -> ${currentPrice:N1}");
+            OnPriceUpdated?.Invoke(currentPrice);
+        }
+
         // 실시간 1분봉 진행 캔들
         private CandleData liveM1Candle;
         private long currentTotalMinutes = 0;
@@ -67,15 +86,31 @@ namespace FXOverdose.Trading
 
         private void Awake()
         {
-            // 모든 타임프레임 리스트 초기화
+            EnsureCandleHistoriesInitialized();
+        }
+
+        private void EnsureCandleHistoriesInitialized()
+        {
+            if (candleHistories == null)
+            {
+                candleHistories = new Dictionary<Timeframe, List<CandleData>>();
+            }
+            if (liveAggregatedCandles == null)
+            {
+                liveAggregatedCandles = new Dictionary<Timeframe, CandleData>();
+            }
             foreach (Timeframe tf in Enum.GetValues(typeof(Timeframe)))
             {
-                candleHistories[tf] = new List<CandleData>();
+                if (!candleHistories.ContainsKey(tf) || candleHistories[tf] == null)
+                {
+                    candleHistories[tf] = new List<CandleData>();
+                }
             }
         }
 
         private void Start()
         {
+            EnsureCandleHistoriesInitialized();
             if (gameManager == null)
             {
                 gameManager = FindAnyObjectByType<GameManager>();
@@ -99,6 +134,7 @@ namespace FXOverdose.Trading
 
         public void ResetEngine(float startPrice)
         {
+            EnsureCandleHistoriesInitialized();
             currentPrice = startPrice;
             ouCenterPrice = startPrice;
             current24hHigh = startPrice;
