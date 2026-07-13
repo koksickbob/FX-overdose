@@ -1,0 +1,169 @@
+# FX OVERDOSE 개발 기록
+
+bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
+기능 하나를 완성할 때마다 아래 형식으로 계속 추가합니다.
+
+---
+
+## 2026-07-13 — GameManager 기본 게임 진행 시스템
+
+### 구현 완료
+
+- 게임 상태 구분
+  - `Playing`: 게임 진행 중
+  - `Paused`: 일시정지
+  - `GameOver`: 게임 종료
+- 엔딩 종류 구분
+  - `Success`: 목표 자산 달성
+  - `Bankruptcy`: 보유 자산 소진
+  - `Overdose`: 멘탈 관리 실패
+- 시작 자산, 현재 자산, 목표 자산 관리
+- 인게임 날짜와 시간 진행
+- 현실 시간과 인게임 시간의 진행 속도 설정
+- 자산 증가 및 감소 처리
+- 목표 자산 달성 시 성공 엔딩 판정
+- 자산이 0 이하가 되면 파산 엔딩 판정
+- 게임 일시정지 및 재개 처리
+- 추후 멘탈 시스템에서 호출할 Overdose 엔딩 진입 함수 준비
+
+### 관련 파일
+
+- `Assets/Scripts/GameManager.cs`
+
+### 검증 완료
+
+- Unity Play 모드에서 게임 시간이 정상적으로 흐르는 것을 확인함
+- 날짜, 시간, 분 값이 정상적으로 변경되는 것을 확인함
+- GameManager 기본 기능이 정상 작동함
+
+### 다음 작업 후보
+
+- AI 트레이더의 체력 및 멘탈 상태 시스템
+- 임시 버튼을 이용한 자산 증감 테스트
+- 날짜, 시간, 자산을 표시하는 HUD
+
+---
+
+## 2026-07-13 — AI 트레이더 체력 및 멘탈 시스템
+
+### 구현 완료
+
+- 트레이더 최대 체력 및 현재 체력 관리
+- 트레이더 최대 멘탈 및 현재 멘탈 관리
+- 게임 진행 중 시간에 따른 체력 감소
+- 체력이 0일 때 시간에 따른 멘탈 감소
+- 체력과 멘탈 수치를 `0 ~ 최대 수치` 범위로 제한
+- 현재 멘탈 수치에 따른 감정 상태 구분
+  - `Stable`: 안정
+  - `Anxious`: 불안
+  - `Danger`: 위험
+  - `Overdose`: 통제 불능
+- 멘탈이 0이 되면 GameManager의 Overdose 엔딩 호출
+- UI 게이지 연결에 사용할 체력 및 멘탈 비율 제공
+
+### 관련 파일
+
+- `Assets/Scripts/TraderStatus.cs`
+- `Assets/Scripts/GameManager.cs`
+
+### Unity 연결
+
+- TraderStatus 컴포넌트의 `Game Manager` 참조 연결
+- 게임 진행 상태가 `Playing`일 때만 수치가 감소하도록 연결
+
+### 검증 완료
+
+- Unity Play 모드에서 체력이 정상적으로 감소하는 것을 확인함
+- 체력이 0이 된 후 멘탈이 정상적으로 감소하는 것을 확인함
+- TraderStatus와 GameManager 연결이 정상 작동함
+
+### 다음 작업 후보
+
+- 테스트 버튼을 이용한 체력, 멘탈 및 자산 증감
+- 날짜, 시간, 자산, 체력, 멘탈을 표시하는 HUD
+- 수익률에 따른 캐릭터 감정 및 스프라이트 변경
+
+---
+
+## 2026-07-13 — 회복 아이템 데이터 및 사용 처리
+
+### 구현 완료
+
+- ScriptableObject 기반 아이템 데이터 구조 구현
+- 아이템 고유 ID, 이름, 설명, 아이콘 및 가격 정의
+- 체력 및 멘탈 아이템 효과 유형 구분
+- 아이템별 회복량 설정
+- 에너지 드링크 데이터 생성
+  - 체력 30 회복
+  - 가격 500
+- 디저트 데이터 생성
+  - 멘탈 20 회복
+  - 가격 700
+- ItemUser를 통한 체력 및 멘탈 회복 효과 적용
+- 체력이나 멘탈이 가득 찬 경우 아이템 사용 방지
+- 아이템 사용 성공 여부 반환
+- 잘못된 데이터 또는 참조 누락 시 Console 경고 처리
+
+### 관련 파일
+
+- `Assets/Scripts/Items/ItemData.cs`
+- `Assets/Scripts/Items/ItemUser.cs`
+- `Assets/Data/Items/EnergyDrink.asset`
+- `Assets/Data/Items/Dessert.asset`
+- `Assets/Scripts/TraderStatus.cs`
+
+### Unity 연결
+
+- GameScene의 TraderStatus 오브젝트에 ItemUser 컴포넌트 추가
+- ItemUser의 TraderStatus 참조 연결
+
+### 검증 완료
+
+- 두 아이템 데이터 에셋의 효과 유형과 회복량 설정 확인
+- EnergyDrink의 이름과 ID 설정 확인
+- GameScene에서 ItemUser와 TraderStatus 참조 연결 확인
+- Unity에서 스크립트 컴파일 및 컴포넌트 추가 확인
+
+### 다음 작업 후보
+
+- 아이템 보유 개수 관리용 Inventory 구현
+- 실제 아이템 사용 버튼 및 아이콘 배치
+- 아이템 사용 시 보유 개수 차감 및 HUD 갱신
+
+---
+
+## 2026-07-13 — 인벤토리 및 아이템 사용 버튼
+
+### 구현 완료
+
+- 아이템별 보유 개수 관리
+- 같은 아이템 획득 시 수량 합산
+- 보유하지 않은 아이템 사용 차단
+- 아이템 효과 적용 성공 시에만 수량 차감
+- 능력치가 가득 찬 경우 아이템 수량 유지
+- 아이템 수량 변경 이벤트 제공
+- 에너지 드링크 및 디저트 사용 버튼 생성
+- 버튼에 아이템 이름과 현재 보유 수량 표시
+- 보유 수량이 0이면 버튼 비활성화
+- 에디터 메뉴를 통한 버튼 및 참조 자동 생성 도구 추가
+
+### 관련 파일
+
+- `Assets/Scripts/Items/Inventory.cs`
+- `Assets/Scripts/Items/InventoryItemButton.cs`
+- `Assets/Editor/ItemButtonsUIBuilder.cs`
+- `Assets/Scripts/Items/ItemUser.cs`
+
+### 검증 완료
+
+- Unity Play 모드에서 아이템 버튼 표시 확인
+- 에너지 드링크 사용 시 체력 회복 확인
+- 디저트 사용 시 멘탈 회복 확인
+- 아이템 사용 후 보유 수량 차감 확인
+- 아이템 버튼과 Inventory 참조가 정상적으로 작동함
+
+### 다음 작업 후보
+
+- 아이템 구매를 위한 상점 시스템
+- 상점 구매 성공 시 자산 차감 및 인벤토리 추가
+- 상점 UI 열기 및 닫기

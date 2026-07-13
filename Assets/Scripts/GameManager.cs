@@ -153,6 +153,33 @@ public class GameManager : MonoBehaviour
         CheckEnding();
     }
 
+    // 상점 등에서 자산 지출을 요청할 때 사용합니다.
+    // 상점으로 게임이 일시정지된 상태에서도 구매할 수 있습니다.
+    public bool TrySpendBalance(float amount)
+    {
+        if (currentState == GameState.GameOver)
+        {
+            return false;
+        }
+
+        if (amount <= 0f)
+        {
+            Debug.LogWarning("지출 금액은 0보다 커야 합니다.");
+            return false;
+        }
+
+        if (currentBalance < amount)
+        {
+            Debug.Log("자산이 부족합니다.");
+            return false;
+        }
+
+        currentBalance -= amount;
+        Debug.Log($"자산 지출: -{amount:N0}, 현재 자산: {currentBalance:N0}");
+        CheckEnding();
+        return true;
+    }
+
     // 성공 또는 파산 조건 확인
     private void CheckEnding()
     {
