@@ -8,6 +8,12 @@ namespace FXOverdose.UI.Chart
 {
     public class TradingPanelUIController : MonoBehaviour
     {
+        public enum ControlMode
+        {
+            Leverage,
+            MarginRatio
+        }
+
         [Header("시스템 연결")]
         [SerializeField] private TradingController tradingController;
         [SerializeField] private GameManager gameManager;
@@ -19,9 +25,23 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private TMP_Text longSubtitleText; // "Tap to Open Long" 또는 "LONG 보유중"
         [SerializeField] private TMP_Text shortSubtitleText; // "Tap to Open Short" 또는 "SHORT 보유중"
 
-        [Header("증거금(Margin) 설정")]
-        [SerializeField] private Slider marginPercentageSlider; // 자산 대비 투입 비율 (10% ~ 100%)
-        [SerializeField] private TMP_Text marginAmountText;
+        [Header("조작부 모드 전환 탭 (우측 상단)")]
+        [SerializeField] private Button btnTabLeverageMode;   // "LEVERAGE 배율" 탭
+        [SerializeField] private Button btnTabMarginRatioMode; // "MARGIN 비율" 탭
+        [SerializeField] private GameObject leverageControlContainer;    // 레버리지 조작부 컨테이너
+        [SerializeField] private GameObject marginRatioControlContainer; // 투자비율 조작부 컨테이너
+
+        [Header("증거금(Margin Ratio) 설정 [10% 단위 스태퍼 + 프리셋 + 슬라이더 호환]")]
+        [SerializeField] private Slider marginPercentageSlider; // 기존 슬라이더 (호환 유지)
+        [SerializeField] private TMP_Text marginAmountText;     // "투입: $3,737 (30%)"
+        [SerializeField] private Button btnMarginRatioMinus;    // -10% 버튼
+        [SerializeField] private Button btnMarginRatioPlus;     // +10% 버튼
+        [SerializeField] private TMP_Text marginRatioDisplayText; // "30% ($3,737)"
+        [SerializeField] private Button btnPresetRatio10;       // 10% 프리셋
+        [SerializeField] private Button btnPresetRatio25;       // 25% 프리셋
+        [SerializeField] private Button btnPresetRatio50;       // 50% 프리셋
+        [SerializeField] private Button btnPresetRatio75;       // 75% 프리셋
+        [SerializeField] private Button btnPresetRatio100;      // 100% 프리셋
 
         [Header("레버리지(Leverage) 선택")]
         [SerializeField] private Button btnLeverageMinus;
@@ -49,8 +69,10 @@ namespace FXOverdose.UI.Chart
         private readonly Color bullishColor = new Color(0.133f, 0.773f, 0.369f, 1f);
         private readonly Color bearishColor = new Color(0.937f, 0.267f, 0.267f, 1f);
 
+        private ControlMode currentControlMode = ControlMode.Leverage;
         private int currentSelectedLeverage = 10;
-        private float selectedMarginPercentage = 0.25f; // 기본 25% 투입
+        private int currentSelectedMarginPercent = 30; // 기본 30%
+        private float selectedMarginPercentage = 0.30f;
 
         private void Start()
         {
@@ -64,7 +86,9 @@ namespace FXOverdose.UI.Chart
             }
 
             SetupButtons();
-            SelectLeverage(10);
+            SelectLeverage(currentSelectedLeverage);
+            SelectMarginRatio(currentSelectedMarginPercent);
+            SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
             RefreshPanelUI();
         }
 
@@ -85,14 +109,27 @@ namespace FXOverdose.UI.Chart
                 UpdatePositionStatusNumbers();
             }
 
-            // 슬라이더 변경 감지 및 증거금 표시
+            // 슬라이더를 드래그한 경우 동기화
             if (marginPercentageSlider != null && gameManager != null)
             {
-                selectedMarginPercentage = Mathf.Clamp(marginPercentageSlider.value, 0.05f, 1f);
-                float margin = gameManager.CurrentBalance * selectedMarginPercentage;
+                if (Mathf.Abs(marginPercentageSlider.value - selectedMarginPercentage) > 0.005f)
+                {
+                    int roundedPercent = Mathf.RoundToInt(marginPercentageSlider.value * 100f);
+                    SelectMarginRatio(roundedPercent);
+                }
+            }
+
+            // 실시간 자본금 변화에 맞춰 투자 비율 금액 텍스트 동적 갱신
+            if (gameManager != null)
+            {
+                float marginAmount = gameManager.CurrentBalance * selectedMarginPercentage;
+                if (marginRatioDisplayText != null)
+                {
+                    marginRatioDisplayText.text = $"{currentSelectedMarginPercent}% (${marginAmount:N0})";
+                }
                 if (marginAmountText != null)
                 {
-                    marginAmountText.text = $"투입: ${margin:N0} ({selectedMarginPercentage * 100f:F0}%)";
+                    marginAmountText.text = $"투입: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
                 }
             }
         }
@@ -103,6 +140,11 @@ namespace FXOverdose.UI.Chart
             if (shortButton != null) shortButton.onClick.AddListener(OnShortButtonClicked);
             if (closePositionButton != null) closePositionButton.onClick.AddListener(() => tradingController?.ClosePosition());
 
+            // 모드 전환 탭 버튼 바인딩
+            if (btnTabLeverageMode != null) btnTabLeverageMode.onClick.AddListener(() => SwitchControlMode(ControlMode.Leverage));
+            if (btnTabMarginRatioMode != null) btnTabMarginRatioMode.onClick.AddListener(() => SwitchControlMode(ControlMode.MarginRatio));
+
+            // 레버리지 조작 버튼 바인딩
             if (btnLeverageMinus != null) btnLeverageMinus.onClick.AddListener(() => SelectLeverage(currentSelectedLeverage - 1));
             if (btnLeveragePlus != null) btnLeveragePlus.onClick.AddListener(() => SelectLeverage(currentSelectedLeverage + 1));
 
@@ -114,14 +156,76 @@ namespace FXOverdose.UI.Chart
             if (btnPreset100x != null) btnPreset100x.onClick.AddListener(() => SelectLeverage(100));
             if (btnPreset125x != null) btnPreset125x.onClick.AddListener(() => SelectLeverage(125));
 
+            // 투자 사용 비율(Margin Ratio) 10% 단위 증감 및 프리셋 바인딩
+            if (btnMarginRatioMinus != null) btnMarginRatioMinus.onClick.AddListener(() => SelectMarginRatio(currentSelectedMarginPercent - 10));
+            if (btnMarginRatioPlus != null) btnMarginRatioPlus.onClick.AddListener(() => SelectMarginRatio(currentSelectedMarginPercent + 10));
+
+            if (btnPresetRatio10 != null) btnPresetRatio10.onClick.AddListener(() => SelectMarginRatio(10));
+            if (btnPresetRatio25 != null) btnPresetRatio25.onClick.AddListener(() => SelectMarginRatio(25));
+            if (btnPresetRatio50 != null) btnPresetRatio50.onClick.AddListener(() => SelectMarginRatio(50));
+            if (btnPresetRatio75 != null) btnPresetRatio75.onClick.AddListener(() => SelectMarginRatio(75));
+            if (btnPresetRatio100 != null) btnPresetRatio100.onClick.AddListener(() => SelectMarginRatio(100));
+
             if (marginPercentageSlider != null)
             {
-                marginPercentageSlider.minValue = 0.05f;
+                marginPercentageSlider.minValue = 0.10f;
                 marginPercentageSlider.maxValue = 1f;
-                marginPercentageSlider.value = 0.25f;
+                marginPercentageSlider.value = 0.30f;
             }
         }
 
+        // 1. 우측 상단 탭 모드 전환
+        public void SwitchControlMode(ControlMode mode)
+        {
+            currentControlMode = mode;
+
+            if (leverageControlContainer != null)
+            {
+                leverageControlContainer.SetActive(mode == ControlMode.Leverage);
+            }
+
+            if (marginRatioControlContainer != null)
+            {
+                marginRatioControlContainer.SetActive(mode == ControlMode.MarginRatio);
+            }
+
+            // 탭 버튼 하이라이트 색상 갱신
+            UpdatePresetHighlight(btnTabLeverageMode, mode == ControlMode.Leverage);
+            UpdatePresetHighlight(btnTabMarginRatioMode, mode == ControlMode.MarginRatio);
+        }
+
+        // 2. 투자 사용 비율 설정 (10% 단위 또는 프리셋)
+        public void SelectMarginRatio(int percent)
+        {
+            currentSelectedMarginPercent = Mathf.Clamp(percent, 10, 100);
+            selectedMarginPercentage = currentSelectedMarginPercent / 100f;
+
+            if (marginPercentageSlider != null)
+            {
+                marginPercentageSlider.value = selectedMarginPercentage;
+            }
+
+            float marginAmount = gameManager != null ? gameManager.CurrentBalance * selectedMarginPercentage : 0f;
+
+            if (marginRatioDisplayText != null)
+            {
+                marginRatioDisplayText.text = $"{currentSelectedMarginPercent}% (${marginAmount:N0})";
+            }
+
+            if (marginAmountText != null)
+            {
+                marginAmountText.text = $"투입: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
+            }
+
+            // 프리셋 비율 버튼 하이라이트
+            UpdatePresetHighlight(btnPresetRatio10, currentSelectedMarginPercent == 10);
+            UpdatePresetHighlight(btnPresetRatio25, currentSelectedMarginPercent == 25);
+            UpdatePresetHighlight(btnPresetRatio50, currentSelectedMarginPercent == 50);
+            UpdatePresetHighlight(btnPresetRatio75, currentSelectedMarginPercent == 75);
+            UpdatePresetHighlight(btnPresetRatio100, currentSelectedMarginPercent == 100);
+        }
+
+        // 3. 레버리지 배율 선택
         public void SelectLeverage(int lev)
         {
             currentSelectedLeverage = Mathf.Clamp(lev, 1, 125);

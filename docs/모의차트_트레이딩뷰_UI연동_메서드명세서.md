@@ -62,9 +62,9 @@ graph TD
 #### [TradingPanelUIController.cs](file:///d:/Project/fx%20overdose/Assets/Scripts/UI/Chart/TradingPanelUIController.cs)
 참고 이미지 하단의 `LONG` / `SHORT` 진입 버튼, 7단 레버리지 선택 프리셋, 포지션 상태 오버레이 패널을 총괄합니다.
 
-| 메서드명 | 매개변수 | 호출 시기 및 UI 연동 방법 | 주요 기능 및 연산 설명 |
-| :--- | :--- | :--- | :--- |
-| **`OnLongButtonClicked`**<br/>**`OnShortButtonClicked`** | `없음` | UI의 `⬆ LONG` / `⬇ SHORT` 버튼 클릭 이벤트(`onClick`)에 바인딩 | 슬라이더로 설정된 증거금 비율(`selectedMarginPercentage`, 기본 25%)만큼 자산을 투입하여 `TradingController.OpenPosition(PositionType, margin, leverage)`을 실행합니다. |
+| **`SwitchControlMode`** | `ControlMode mode`<br/>(`Leverage, MarginRatio`) | 우측 상단 모드 전환 탭(`LEVERAGE 배율`, `MARGIN 비율`) 버튼 클릭 시 바인딩 | 선택된 조작 모드에 맞춰 레버리지 패널(`leverageControlContainer`)과 투자비율 패널(`marginRatioControlContainer`)을 교차 활성화(`SetActive`)하고 탭 버튼 하이라이트를 적용합니다. |
+| **`SelectMarginRatio`** | `int percent`<br/>(`10 ~ 100`) | 투자 비율 모드의 `[-]/[+]` 10% 단위 증감 스태퍼 버튼(`btnMarginRatioMinus`, `btnMarginRatioPlus`) 및 5단 프리셋(`10%, 25%, ...`) 버튼 클릭 시 바인딩 | 투자 사용 비율을 `Mathf.Clamp(10, 100)`으로 제한하고, 실시간 자본금에 맞춘 달러 금액(`"30% ($3,737)"`)을 표기하며 선택된 프리셋 버튼 하이라이트를 갱신합니다. |
+| **`OnLongButtonClicked`**<br/>**`OnShortButtonClicked`** | `없음` | UI의 `⬆ LONG` / `⬇ SHORT` 버튼 클릭 이벤트(`onClick`)에 바인딩 | 탭 또는 슬라이더로 설정된 증거금 비율(`selectedMarginPercentage`)만큼 자산을 투입하여 `TradingController.OpenPosition(PositionType, margin, leverage)`을 실행합니다. |
 | **`SelectLeverage`** | `int lev`<br/>(`1, 5, 10, 25, 50, 100, 125`) | 7단 프리셋 버튼(`1x, 5x, ...`) 및 `[-]/[+]` 스태퍼 버튼 클릭 시 바인딩 | 선택된 레버리지 배율을 `Mathf.Clamp(1, 125)`로 설정하고, 프리셋 버튼의 하이라이트 색상 및 텍스트(`"10x"`)를 갱신합니다. |
 | **`RefreshPanelUI`** | `없음` | 포지션 진입/종료/강제청산 이벤트(`OnPositionChanged`, `OnPositionLiquidated`) 발생 시 자동 호출 | 포지션 보유 여부에 따라 진입 버튼의 활성/비활성 상태를 제어하고, 포지션 보유 중일 때 실시간 `ROE %`, `PnL ($)`, `진입가`, `청산가` 오버레이 패널을 노출합니다. |
 | **`UpdatePositionStatusNumbers`** | `없음` | 포지션 보유 중일 때 매 프레임(`Update()`) 자동 호출 | 실시간 주가에 따라 `tradingController.CalculateROEPercentage()`와 `CalculateUnrealizedPnL()`을 호출하여 오버레이 숫자를 60 FPS로 갱신합니다. |
