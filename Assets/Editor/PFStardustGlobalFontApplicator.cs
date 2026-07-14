@@ -10,7 +10,7 @@ public static class PFStardustGlobalFontApplicator
 {
     public const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
     private const string KoreanFallbackPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/KoreanDynamicFont_TMP.asset";
-    private const string AppliedKey = "FXOverdose_GlobalPFStardust_v2";
+    private const string AppliedKey = "FXOverdose_GlobalPFStardust_v4";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -29,6 +29,12 @@ public static class PFStardustGlobalFontApplicator
 
     private static void TryApplyOnce()
     {
+        // Play 중에도 현재 실행 인스턴스에 PF Stardust를 즉시 적용합니다.
+        if (EditorApplication.isPlaying)
+        {
+            Apply(false);
+            return;
+        }
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
         if (EditorPrefs.GetBool(AppliedKey, false)) return;
         Apply(false);
@@ -54,13 +60,6 @@ public static class PFStardustGlobalFontApplicator
     {
         TMP_FontAsset font = GetFont();
         if (font == null) return;
-
-        TMP_Settings settings = TMP_Settings.instance;
-        if (settings != null)
-        {
-            settings.defaultFontAsset = font;
-            EditorUtility.SetDirty(settings);
-        }
 
         int changed = 0;
         foreach (TMP_Text text in Resources.FindObjectsOfTypeAll<TMP_Text>()
