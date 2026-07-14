@@ -754,9 +754,9 @@ namespace FXOverdose.EditorTools
 
             GameObject charGO = CreateUIObject("ProtagonistCharacterImage", canvas.transform);
             RectTransform charRect = charGO.GetComponent<RectTransform>();
-            // 우측 하단 배치 설정
-            charRect.anchorMin = new Vector2(0.5f + 0.15f * 0.5f, 0.01f);
-            charRect.anchorMax = new Vector2(0.5f + 0.85f * 0.5f, 0.64f);
+            // 우측 캐릭터 영역의 왼쪽 아래에 배치합니다.
+            charRect.anchorMin = new Vector2(0.515f, 0.015f);
+            charRect.anchorMax = new Vector2(0.775f, 0.655f);
             charRect.offsetMin = Vector2.zero;
             charRect.offsetMax = Vector2.zero;
 
@@ -800,9 +800,9 @@ namespace FXOverdose.EditorTools
             // 말풍선 패널
             GameObject balloonGO = CreateUIObject("DialogueBalloonPanel", canvas.transform);
             RectTransform balloonRect = balloonGO.GetComponent<RectTransform>();
-            // 우측 상단 배치 설정
-            balloonRect.anchorMin = new Vector2(0.5f + 0.05f * 0.5f, 0.65f);
-            balloonRect.anchorMax = new Vector2(0.5f + 0.95f * 0.5f, 0.85f);
+            // 캐릭터 오른쪽에 꼬리가 캐릭터를 향하도록 가로형으로 배치합니다.
+            balloonRect.anchorMin = new Vector2(0.70f, 0.35f);
+            balloonRect.anchorMax = new Vector2(0.975f, 0.56f);
             balloonRect.offsetMin = Vector2.zero;
             balloonRect.offsetMax = Vector2.zero;
 

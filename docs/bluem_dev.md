@@ -288,3 +288,49 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/AI/AIVisualController.cs`
 - `Assets/Editor/TradingViewUIBuilder.cs`
 - `Assets/Scenes/GameScene.unity`
+
+---
+
+## 2026-07-14 — 픽셀 설정 버튼 및 일시정지 메뉴
+
+- HP/Mental UI 우측 상단 슬롯에 픽셀 톱니바퀴 버튼 이미지 적용
+- 설정 버튼 클릭 시 `GameManager`와 Unity 전체 시간을 함께 일시정지
+- PF Stardust 폰트를 적용한 설정 팝업 생성
+- `CONTINUE` 버튼으로 이전 플레이 상태 복원
+- `QUIT GAME` 버튼으로 빌드에서는 게임 종료, Unity Editor에서는 Play Mode 종료
+- 설정 팝업 전용 Overlay Canvas를 사용해 다른 게임 UI보다 위에 표시
+- TMP 텍스트와 Image를 같은 오브젝트에 추가하던 설치 오류를 수정하고 이미지 전용 자식 오브젝트로 분리
+
+관련 파일:
+
+- `Assets/Img/UI/SettingsGearPixel.png`
+- `Assets/Scripts/UI/SettingsMenuController.cs`
+- `Assets/Editor/SettingsMenuInstaller.cs`
+
+---
+
+## 2026-07-14 — 캐릭터 및 말풍선 누끼 보정
+
+- 캐릭터 스프라이트 외곽의 초록색 크로마키 잔여 픽셀 제거
+- 말풍선 테두리 주변의 초록색 번짐 제거
+- 기존 픽셀 외곽선과 투명 배경을 유지하도록 디스필 및 1px 가장자리 정리 적용
+- 기존 씬의 Sprite 참조를 유지하기 위해 원본 경로에 보정 PNG 반영
+
+관련 파일:
+
+- `Assets/Img/Generated_image_2-removebg-preview.png`
+- `Assets/Img/Generated_image_1-removebg-preview.png`
+
+---
+
+## 2026-07-14 — 캐릭터·말풍선 좌우 배치
+
+- 캐릭터를 우측 화면의 왼쪽 아래 영역으로 이동
+- 말풍선을 캐릭터 위가 아닌 오른쪽 옆으로 이동
+- 말풍선 원본의 왼쪽 꼬리가 캐릭터를 향하도록 위치 조정
+- 현재 GameScene과 UI 재생성 도구에 동일한 앵커 비율 적용
+
+관련 파일:
+
+- `Assets/Scenes/GameScene.unity`
+- `Assets/Editor/TradingViewUIBuilder.cs`
