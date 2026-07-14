@@ -256,30 +256,42 @@ namespace FXOverdose.EditorTools
             Image dtCardBg = dayTimeCard.AddComponent<Image>();
             dtCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f); // #131C31 Dark Blue Card
             LayoutElement dtElem = dayTimeCard.AddComponent<LayoutElement>();
-            dtElem.preferredWidth = 180f;
+            dtElem.preferredWidth = 310f;
 
-            VerticalLayoutGroup dtLayout = dayTimeCard.AddComponent<VerticalLayoutGroup>();
+            HorizontalLayoutGroup dtLayout = dayTimeCard.AddComponent<HorizontalLayoutGroup>();
             dtLayout.childAlignment = TextAnchor.MiddleCenter;
-            dtLayout.padding = new RectOffset(12, 12, 6, 6);
-            TMP_Text dayText = CreateTMPText("DayLabel", dayTimeCard.transform, "DAY 03", 15, Color.white);
+            dtLayout.padding = new RectOffset(18, 18, 12, 12);
+            dtLayout.spacing = 8f;
+            dtLayout.childForceExpandWidth = false;
+            TMP_Text dayText = CreateTMPText("DayLabel", dayTimeCard.transform, "DAY 03", 30, Color.white);
             dayText.fontStyle = FontStyles.Bold;
             dayText.alignment = TextAlignmentOptions.Center;
-            TMP_Text timeText = CreateTMPText("TimeLabel", dayTimeCard.transform, "23:47", 24, new Color(0.024f, 0.714f, 0.831f, 1f));
+            LayoutElement dayElem = dayText.gameObject.AddComponent<LayoutElement>();
+            dayElem.preferredWidth = 132f;
+
+            TMP_Text clockText = CreateTMPText("ClockIcon", dayTimeCard.transform, "◷", 34, new Color(0.024f, 0.714f, 0.831f, 1f));
+            clockText.alignment = TextAlignmentOptions.Center;
+            LayoutElement clockElem = clockText.gameObject.AddComponent<LayoutElement>();
+            clockElem.preferredWidth = 46f;
+
+            TMP_Text timeText = CreateTMPText("TimeLabel", dayTimeCard.transform, "23:47", 30, Color.white);
             timeText.fontStyle = FontStyles.Bold;
             timeText.alignment = TextAlignmentOptions.Center;
+            LayoutElement timeElem = timeText.gameObject.AddComponent<LayoutElement>();
+            timeElem.preferredWidth = 105f;
 
             // 카드 2: 총 자산 (BALANCE) Card
             GameObject balanceCard = CreateUIObject("BalanceCard", panelGO.transform);
             Image balCardBg = balanceCard.AddComponent<Image>();
             balCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f);
             LayoutElement balElem = balanceCard.AddComponent<LayoutElement>();
-            balElem.preferredWidth = 250f;
+            balElem.preferredWidth = 310f;
 
             VerticalLayoutGroup balLayout = balanceCard.AddComponent<VerticalLayoutGroup>();
             balLayout.childAlignment = TextAnchor.MiddleLeft;
-            balLayout.padding = new RectOffset(18, 18, 6, 6);
-            CreateTMPText("BalanceTitle", balanceCard.transform, "BALANCE", 12, new Color(0.58f, 0.64f, 0.72f, 1f));
-            TMP_Text balValueText = CreateTMPText("BalanceValue", balanceCard.transform, "$12,458.36", 24, Color.white);
+            balLayout.padding = new RectOffset(30, 22, 15, 14);
+            CreateTMPText("BalanceTitle", balanceCard.transform, "BALANCE", 21, new Color(0.74f, 0.78f, 0.86f, 1f));
+            TMP_Text balValueText = CreateTMPText("BalanceValue", balanceCard.transform, "$12,458.36", 36, Color.white);
             balValueText.fontStyle = FontStyles.Bold;
 
             // 카드 3: P&L 및 스파크라인 Card
@@ -287,18 +299,18 @@ namespace FXOverdose.EditorTools
             Image pnlCardBg = pnlCard.AddComponent<Image>();
             pnlCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f);
             LayoutElement pnlElem = pnlCard.AddComponent<LayoutElement>();
-            pnlElem.preferredWidth = 454f;
+            pnlElem.preferredWidth = 420f;
 
             HorizontalLayoutGroup pnlCardLayout = pnlCard.AddComponent<HorizontalLayoutGroup>();
             pnlCardLayout.childAlignment = TextAnchor.MiddleLeft;
-            pnlCardLayout.padding = new RectOffset(18, 18, 6, 6);
-            pnlCardLayout.spacing = 20f;
+            pnlCardLayout.padding = new RectOffset(30, 28, 14, 13);
+            pnlCardLayout.spacing = 18f;
 
             GameObject pnlTextContainer = CreateUIObject("PnLTextGroup", pnlCard.transform);
             VerticalLayoutGroup pnlTextLayout = pnlTextContainer.AddComponent<VerticalLayoutGroup>();
             pnlTextLayout.childAlignment = TextAnchor.MiddleLeft;
-            CreateTMPText("PnLTitle", pnlTextContainer.transform, "P&L", 12, new Color(0.58f, 0.64f, 0.72f, 1f));
-            TMP_Text pnlPctText = CreateTMPText("PnLPct", pnlTextContainer.transform, "+18.47%", 24, new Color(0.133f, 0.773f, 0.369f, 1f));
+            CreateTMPText("PnLTitle", pnlTextContainer.transform, "P&L", 21, new Color(0.34f, 0.90f, 0.43f, 1f));
+            TMP_Text pnlPctText = CreateTMPText("PnLPct", pnlTextContainer.transform, "+18.47%", 36, new Color(0.133f, 0.773f, 0.369f, 1f));
             pnlPctText.fontStyle = FontStyles.Bold;
             TMP_Text pnlAmtText = CreateTMPText("PnLAmt", pnlTextContainer.transform, "+$1,458.36", 13, new Color(0.133f, 0.773f, 0.369f, 1f));
 

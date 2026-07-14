@@ -68,10 +68,11 @@ public static class ShopUIBuilder
     {
         Button button = GetOrCreateButton(hud, "ShopOpenButton");
         RectTransform rect = button.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 0f);
-        rect.anchorMax = new Vector2(0f, 0f);
-        rect.pivot = new Vector2(0f, 0f);
-        rect.anchoredPosition = new Vector2(30f, 30f);
+        // 인벤토리 패널(우측 하단 450x130)의 바로 위쪽에 배치합니다.
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-30f, 175f);
         rect.sizeDelta = new Vector2(180f, 70f);
         button.GetComponent<Image>().color = new Color(0.12f, 0.25f, 0.35f, 0.95f);
 
