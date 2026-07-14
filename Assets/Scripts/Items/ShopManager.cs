@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,9 +16,15 @@ public class ShopManager : MonoBehaviour
     [SerializeField] private Button openButton;
     [SerializeField] private Button closeButton;
 
+    [Header("판매 상품 (추가/삭제 시 상점 UI 자동 반영)")]
+    [SerializeField] private List<ItemData> catalogItems = new();
+
     private bool pausedByShop;
 
     public bool IsOpen => shopPanel != null && shopPanel.activeSelf;
+    public IReadOnlyList<ItemData> CatalogItems => catalogItems;
+    public Inventory Inventory => inventory;
+    public GameManager GameManager => gameManager;
 
     private void Awake()
     {
