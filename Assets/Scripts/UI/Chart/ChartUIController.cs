@@ -73,6 +73,7 @@ namespace FXOverdose.UI.Chart
                 marketEngine.OnCandleClosed += HandleCandleClosed;
             }
 
+            CleanupOldScrollView();
             SetupTimeframeButtons();
             SelectTimeframe(Timeframe.M5);
         }
@@ -83,6 +84,18 @@ namespace FXOverdose.UI.Chart
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
                 marketEngine.OnCandleClosed -= HandleCandleClosed;
+            }
+        }
+
+        private void CleanupOldScrollView()
+        {
+            if (chartAreaTransform != null)
+            {
+                Transform existingScroll = chartAreaTransform.Find("CandleScrollView");
+                if (existingScroll != null)
+                {
+                    Destroy(existingScroll.gameObject);
+                }
             }
         }
 
@@ -177,20 +190,16 @@ namespace FXOverdose.UI.Chart
             float absoluteYPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
             absoluteYPos = Mathf.Clamp(absoluteYPos, priceAreaBottom, priceAreaTop);
 
-            // 현재가 라인의 Y 앵커가 중앙(0.5)이므로 바닥 기준 좌표를 중앙 기준 좌표로 변환합니다.
             float anchoredYPos = absoluteYPos - (chartHeight * 0.5f);
 
-            // 라인 위치 이동
             currentPriceLineTransform.anchoredPosition = new Vector2(0f, anchoredYPos);
 
-            // 우측 가격 태그 갱신
             if (currentPriceTagText != null)
             {
                 currentPriceTagText.text = currentPrice.ToString("N1");
             }
             if (currentPriceTagRect != null)
             {
-                // 가격 태그는 현재가 라인의 자식이므로 Y를 또 더하면 패널 밖으로 밀려납니다.
                 currentPriceTagRect.anchoredPosition = Vector2.zero;
             }
         }
@@ -203,12 +212,27 @@ namespace FXOverdose.UI.Chart
                 return;
             }
 
+            CleanupOldScrollView();
+
             List<CandleData> history = marketEngine.GetCandleHistory(currentSelectedTimeframe);
             CandleData liveCandle = marketEngine.GetLiveCandle(currentSelectedTimeframe);
 
-            // 표시할 캔들 리스트 구성 (히스토리 중 최신 N개 + Live 캔들)
+            float chartWidth = chartAreaTransform.rect.width > 0 ? chartAreaTransform.rect.width : 700f;
+            float chartHeight = chartAreaTransform.rect.height > 0 ? chartAreaTransform.rect.height : 400f;
+            float plotWidth = Mathf.Max(candleWidth, chartWidth - internalPriceAxisWidth);
+
+            // 고정 캔들 폭 및 간격 유지 (예: 캔들폭 10f, 간격 14f)
+            float effectiveSpacing = Mathf.Max(candleSpacing, candleWidth + 4f);
+
+            // 최적화를 위해 화면 영역(plotWidth) 내에 들어올 수 있는 최대 캔들 개수 산출
+            int maxCandlesThatFit = Mathf.Max(5, Mathf.FloorToInt(plotWidth / effectiveSpacing));
+            if (maxVisibleCandles > 0 && maxCandlesThatFit > maxVisibleCandles)
+            {
+                maxCandlesThatFit = maxVisibleCandles;
+            }
+
             List<CandleData> visibleCandles = new List<CandleData>();
-            int startIndex = Mathf.Max(0, history.Count - maxVisibleCandles + 1);
+            int startIndex = Mathf.Max(0, history.Count - maxCandlesThatFit + 1);
             for (int i = startIndex; i < history.Count; i++)
             {
                 visibleCandles.Add(history[i]);
@@ -220,7 +244,7 @@ namespace FXOverdose.UI.Chart
 
             if (visibleCandles.Count == 0) return;
 
-            // 1. 동적 오토 스케일링 (최고가 및 최저가 계산 + 위아래 5% 패딩)
+            // 1. 오토 스케일링 (화면에 보이는 캔들 기준 최고가/최저가 및 거래량 계산)
             float minPrice = float.MaxValue;
             float maxPrice = float.MinValue;
             float maxVolume = float.MinValue;
@@ -238,59 +262,49 @@ namespace FXOverdose.UI.Chart
             currentChartMinPrice = minPrice - padding;
             currentChartMaxPrice = maxPrice + padding;
 
-            // 우측 Y축 가격 눈금 텍스트 업데이트
             UpdateYAxisLabels(currentChartMinPrice, currentChartMaxPrice);
 
-            // 2. 기존 활성화된 캔들을 풀로 반환
+            // 2. 기존 활성화된 캔들을 풀로 반환 (지나간 캔들 및 거래량봉 제거/풀링)
             foreach (var item in activeCandleItems)
             {
-                item.gameObject.SetActive(false);
-                pooledCandleItems.Push(item);
+                if (item != null && item.gameObject != null)
+                {
+                    item.gameObject.SetActive(false);
+                    pooledCandleItems.Push(item);
+                }
             }
             activeCandleItems.Clear();
 
-            // 3. 차트 크기 및 캔들 간격 계산
-            float chartWidth = chartAreaTransform.rect.width;
-            float chartHeight = chartAreaTransform.rect.height;
-            if (chartWidth <= 0f) chartWidth = 700f;
-            if (chartHeight <= 0f) chartHeight = 400f;
-
-            // 가격축을 차트 안으로 옮겼으므로 캔들은 축 왼쪽의 실제 플롯 영역만 사용합니다.
-            float plotWidth = Mathf.Max(candleWidth, chartWidth - internalPriceAxisWidth);
-
             float volumeHeight = chartHeight * volumeAreaRatio;
-            float effectiveSpacing = visibleCandles.Count > 1
-                ? Mathf.Max(candleWidth + 2f, (plotWidth - candleWidth) / (visibleCandles.Count - 1f))
-                : candleSpacing;
 
-            // 4. 캔들 배치 (우측부터 왼쪽으로 또는 왼쪽부터 우측으로 균등 배치)
+            // 3. 고정 간격으로 캔들 배치 (화면 내 최신 캔들만 렌더링, 왼쪽으로 밀려난 캔들은 삭제 효과)
             for (int i = 0; i < visibleCandles.Count; i++)
             {
                 CandleData data = visibleCandles[i];
                 float xPos = i * effectiveSpacing;
 
                 CandleItemUI item = GetCandleItemFromPool();
-                item.gameObject.SetActive(true);
-                item.transform.SetParent(chartAreaTransform, false);
+                if (item != null)
+                {
+                    item.gameObject.SetActive(true);
+                    item.transform.SetParent(chartAreaTransform, false);
 
-                item.UpdateCandleDisplay(
-                    data,
-                    currentChartMinPrice,
-                    currentChartMaxPrice,
-                    chartHeight,
-                    xPos,
-                    candleWidth,
-                    maxVolume,
-                    volumeHeight
-                );
+                    item.UpdateCandleDisplay(
+                        data,
+                        currentChartMinPrice,
+                        currentChartMaxPrice,
+                        chartHeight,
+                        xPos,
+                        candleWidth,
+                        maxVolume,
+                        volumeHeight
+                    );
 
-                activeCandleItems.Add(item);
+                    activeCandleItems.Add(item);
+                }
             }
 
-            // 하단 시간 눈금 업데이트
             UpdateXAxisTimeLabels(visibleCandles);
-
-            // 스케일 갱신 후 실시간 현재가 라인 위치 동기화 및 클램핑
             UpdateCurrentPriceLine(marketEngine.CurrentPrice);
         }
 
@@ -301,9 +315,8 @@ namespace FXOverdose.UI.Chart
 
             int labelCount = yAxisPriceLabels.Length;
             
-            // 텍스트가 차트 위아래 밖으로 삐져나가지 않도록 상하단에 약간의 패딩(여백)을 준 Y축 정규화 범위 설정 (0.28 ~ 0.96)
-            float startY = 0.28f; // 하단 거래량 영역(0.26)보다 살짝 위
-            float endY = 0.96f;   // 상단 헤더(1.0)보다 살짝 아래
+            float startY = 0.28f;
+            float endY = 0.96f;
             float stepY = (endY - startY) / Mathf.Max(1, labelCount - 1);
 
             for (int i = 0; i < labelCount; i++)
@@ -311,12 +324,9 @@ namespace FXOverdose.UI.Chart
                 if (yAxisPriceLabels[i] != null)
                 {
                     float normalizedY = startY + (i * stepY);
-                    
-                    // 0.26(min) ~ 1.0(max) 구간 비율에 맞춰, 현재 앵커(normalizedY)에 해당하는 실제 가격 계산
                     float labelPrice = min + ((normalizedY - 0.26f) / 0.74f) * (max - min);
                     yAxisPriceLabels[i].text = labelPrice.ToString("N1");
 
-                    // 텍스트 부모 객체의 위치(앵커)를 안전한 범위(normalizedY)로 재배치하여 차트 밖으로 나가지 않게 고정
                     RectTransform lblRect = yAxisPriceLabels[i].transform.parent.GetComponent<RectTransform>();
                     if (lblRect != null)
                     {
@@ -350,7 +360,12 @@ namespace FXOverdose.UI.Chart
         {
             if (pooledCandleItems.Count > 0)
             {
-                return pooledCandleItems.Pop();
+                CandleItemUI pooledItem = pooledCandleItems.Pop();
+                if (pooledItem != null)
+                {
+                    pooledItem.transform.SetParent(chartAreaTransform, false);
+                    return pooledItem;
+                }
             }
 
             CandleItemUI newItem = Instantiate(candlePrefab, chartAreaTransform);

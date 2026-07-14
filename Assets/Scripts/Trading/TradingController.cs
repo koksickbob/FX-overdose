@@ -311,5 +311,45 @@ namespace FXOverdose.Trading
                 }
             }
         }
+
+        // --- 돌발 선택 이벤트 연동 메서드 ---
+        public void ExecuteEmergencyTrade(PositionType posType, int leverage)
+        {
+            if (posType == PositionType.None)
+            {
+                CloseAllPositions();
+                return;
+            }
+
+            if (currentPosition != PositionType.None && currentPosition != posType)
+            {
+                ClosePosition();
+            }
+
+            if (currentPosition == PositionType.None && gameManager != null && marketEngine != null)
+            {
+                float forcedMargin = Mathf.Max(10f, gameManager.CurrentBalance * 0.4f);
+                if (forcedMargin <= gameManager.CurrentBalance)
+                {
+                    float currentP = marketEngine.CurrentPrice;
+                    float aiTarget = posType == PositionType.Long ? currentP * 1.15f : currentP * 0.85f;
+                    float aiStop = posType == PositionType.Long ? currentP * 0.95f : currentP * 1.05f;
+                    OpenPosition(posType, forcedMargin, Mathf.Clamp(leverage, 1, 125), aiTarget, aiStop);
+                    Debug.Log($"[TradingController] ⚡ ExecuteEmergencyTrade 실행: {posType} / 레버리지 {leverage}배");
+                }
+            }
+        }
+
+        public void CloseAllPositions(bool isZeroFee = false)
+        {
+            if (currentPosition != PositionType.None)
+            {
+                ClosePosition();
+                if (isZeroFee)
+                {
+                    Debug.Log("[TradingController] ⚡ 수수료 면제(Zero-Fee) 혜택으로 포지션 청산 완료.");
+                }
+            }
+        }
     }
 }

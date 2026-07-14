@@ -429,6 +429,20 @@ namespace FXOverdose.Trading
             Debug.Log($"[MarketEngine] 외부 이벤트 충격 발생! 변화율: {percentageChange:F2}%, 현재가: {currentPrice:N1}");
         }
 
+        // 돌발 선택 이벤트 차트 빔 확정 주입 (OverrideMarketTrend)
+        public void OverrideMarketTrend(float targetChangePercent, int durationSeconds, bool isWhipsaw = false)
+        {
+            int durationMins = Mathf.Max(1, durationSeconds / 60);
+            TriggerMarketShock(targetChangePercent, isWhipsaw ? 5.0f : 2.5f, durationMins);
+
+            MarketSignalType sigType = isWhipsaw 
+                ? (targetChangePercent >= 0f ? MarketSignalType.BullTrap : MarketSignalType.BearTrap) 
+                : (targetChangePercent >= 0f ? MarketSignalType.BullishBreakout : MarketSignalType.BearishBreakout);
+
+            ForceInjectSignal(sigType, SignalStrength.Strong, !isWhipsaw, targetChangePercent, durationMins, 0);
+            Debug.Log($"[MarketEngine] ⚡ OverrideMarketTrend 실행! 목표 변동률: {targetChangePercent:F2}%, 휩소여부: {isWhipsaw}");
+        }
+
         // 타임프레임별 과거 캔들 리스트 조회
         public List<CandleData> GetCandleHistory(Timeframe tf)
         {

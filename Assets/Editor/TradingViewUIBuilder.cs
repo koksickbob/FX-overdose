@@ -497,11 +497,19 @@ namespace FXOverdose.EditorTools
             {
                 GameObject lblGO = CreateUIObject($"YLabel_{i}", yAxisContainer.transform);
                 RectTransform lblRect = lblGO.GetComponent<RectTransform>();
-                float normalizedY = 0.26f + (i / 5f) * 0.74f; // 상단 가격 차트 전용 구역(26% ~ 100%)으로 눈금 재배치
+                
+                // 텍스트가 차트 영역 밖으로 삐져나가지 않도록 0.28 ~ 0.96 구간에 패딩을 주어 배치
+                float startY = 0.28f;
+                float endY = 0.96f;
+                float normalizedY = startY + (i / 5f) * (endY - startY);
+                
                 lblRect.anchorMin = new Vector2(0f, normalizedY);
                 lblRect.anchorMax = new Vector2(1f, normalizedY);
                 lblRect.sizeDelta = new Vector2(0f, 18f);
-                yLabels[i] = CreateTMPText("Text", lblGO.transform, "68,000.0", 11, new Color(0.58f, 0.64f, 0.72f, 1f));
+                
+                // 에디터 미리보기용으로 가격이 다르게 보이도록 설정
+                float previewPrice = 67800.0f + (i * 200f); 
+                yLabels[i] = CreateTMPText("Text", lblGO.transform, previewPrice.ToString("N1"), 11, new Color(0.58f, 0.64f, 0.72f, 1f));
                 yLabels[i].alignment = TextAlignmentOptions.Right;
             }
 
@@ -861,6 +869,66 @@ namespace FXOverdose.EditorTools
             Undo.RegisterCreatedObjectUndo(balloonGO, "Build AI Dialogue Balloon UI");
             UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
             Debug.Log("[FX OVERDOSE] AI 말풍선 패널 및 VisualController 연동이 독립적으로 완료되었습니다.");
+        }
+
+        // =========================================================================================
+        // [긴급 패치 도구] 씬에 이미 꾸며진 UI를 날리지 않고 우측 가격축 앵커만 보정하는 기능
+        // =========================================================================================
+        [MenuItem("FX Overdose/Fix Y Axis Anchors in Current Scene")]
+        private static void FixYAxisAnchorsInScene()
+        {
+            GameObject yContainer = GameObject.Find("YAxisContainer");
+            if (yContainer == null)
+            {
+                Debug.LogError("[FX OVERDOSE] 씬에서 YAxisContainer를 찾을 수 없습니다.");
+                return;
+            }
+
+            int labelCount = 0;
+            for (int i = 0; i < yContainer.transform.childCount; i++)
+            {
+                Transform child = yContainer.transform.GetChild(i);
+                if (child.name.StartsWith("YLabel_"))
+                {
+                    labelCount++;
+                }
+            }
+
+            if (labelCount == 0)
+            {
+                Debug.LogWarning("[FX OVERDOSE] YAxisContainer 내부에 YLabel_ 로 시작하는 오브젝트가 없습니다.");
+                return;
+            }
+
+            Undo.RecordObject(yContainer.transform, "Fix Y Axis Anchors");
+            
+            float startY = 0.28f;
+            float endY = 0.96f;
+            int currentIndex = 0;
+
+            for (int i = 0; i < yContainer.transform.childCount; i++)
+            {
+                Transform child = yContainer.transform.GetChild(i);
+                if (child.name.StartsWith("YLabel_"))
+                {
+                    RectTransform lblRect = child.GetComponent<RectTransform>();
+                    Undo.RecordObject(lblRect, "Fix Y Axis Anchors");
+
+                    float normalizedY = startY + (currentIndex / (float)Mathf.Max(1, labelCount - 1)) * (endY - startY);
+                    
+                    lblRect.anchorMin = new Vector2(lblRect.anchorMin.x, normalizedY);
+                    lblRect.anchorMax = new Vector2(lblRect.anchorMax.x, normalizedY);
+                    
+                    // 유니티 RectTransform 특성상 앵커를 바꿔도 시각적 위치를 유지하려 하므로, 
+                    // 정확히 앵커 위치로 이동시키려면 오프셋을 0으로 초기화해야 합니다.
+                    lblRect.anchoredPosition = Vector2.zero;
+                    
+                    currentIndex++;
+                }
+            }
+
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+            Debug.Log($"[FX OVERDOSE] 성공적으로 씬의 기존 UI를 유지한 채 {labelCount}개의 Y축 라벨 위치를 안전 영역(0.28~0.96)으로 보정했습니다!");
         }
 
         private static Slider CreateBiometricSlider(string name, Transform parent, string labelText, Color fillColor)

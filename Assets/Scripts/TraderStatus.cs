@@ -196,4 +196,48 @@ public class TraderStatus : MonoBehaviour
             currentMentalState = MentalState.Stable;
         }
     }
+
+    // --- 돌발 선택 이벤트 연동 메서드 ---
+    public void ModifyMentalState(float amount)
+    {
+        ChangeMental(amount);
+    }
+
+    public void ModifyHealthState(float amount)
+    {
+        ChangeHealth(amount);
+    }
+
+    public bool ConsumeItem(int itemIndex, int count = 1)
+    {
+        if (itemIndex < 0 || count <= 0) return true;
+
+        ShopManager shop = FindAnyObjectByType<ShopManager>();
+        Inventory inv = null;
+        if (shop != null) inv = shop.Inventory;
+        if (inv == null) inv = FindAnyObjectByType<Inventory>();
+
+        if (inv != null)
+        {
+            if (shop != null && shop.CatalogItems != null && itemIndex < shop.CatalogItems.Count)
+            {
+                ItemData item = shop.CatalogItems[itemIndex];
+                if (item != null && inv.GetQuantity(item) >= count)
+                {
+                    return inv.RemoveItem(item, count);
+                }
+            }
+
+            if (inv.Slots != null && itemIndex < inv.Slots.Count)
+            {
+                ItemData slotItem = inv.Slots[itemIndex].Item;
+                if (slotItem != null && inv.GetQuantity(slotItem) >= count)
+                {
+                    return inv.RemoveItem(slotItem, count);
+                }
+            }
+        }
+
+        return false;
+    }
 }
