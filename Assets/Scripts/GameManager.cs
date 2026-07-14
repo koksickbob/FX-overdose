@@ -91,7 +91,32 @@ public class GameManager : MonoBehaviour
         // 시간 누적값 초기화
         timeAccumulator = 0f;
 
+        // 돌발 선택 이벤트 컨트롤러(ChoiceEventController) 자동 부착 및 초기화
+        InitializeChoiceEventController();
+
         Debug.Log("새 게임 시작");
+    }
+
+    // 돌발 선택 이벤트 컨트롤러 자동 연결 및 초기화
+    private void InitializeChoiceEventController()
+    {
+        var choiceEventCtrl = GetComponent<FXOverdose.Events.ChoiceEventController>();
+        if (choiceEventCtrl == null)
+        {
+            choiceEventCtrl = gameObject.AddComponent<FXOverdose.Events.ChoiceEventController>();
+            Debug.Log("[GameManager] 💡 ChoiceEventController 컴포넌트 자동 부착 완료");
+        }
+
+        var marketEngine = GetComponent<FXOverdose.Trading.MarketSimulationEngine>();
+        if (marketEngine == null) marketEngine = FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
+
+        var tradingCtrl = GetComponent<FXOverdose.Trading.TradingController>();
+        if (tradingCtrl == null) tradingCtrl = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+
+        var status = GetComponent<TraderStatus>();
+        if (status == null) status = FindAnyObjectByType<TraderStatus>();
+
+        choiceEventCtrl.Initialize(this, marketEngine, tradingCtrl, status);
     }
 
     // 실제 시간을 게임 시간으로 변환
@@ -183,16 +208,27 @@ public class GameManager : MonoBehaviour
     // 성공 또는 파산 조건 확인
     private void CheckEnding()
     {
-        // 현재 자산이 목표 자산 이상이면 성공
-        if (currentBalance >= targetBalance)
+        var status = GetComponent<TraderStatus>();
+        if (status == null) status = FindAnyObjectByType<TraderStatus>();
+        bool isOverdose = status != null && (status.CurrentMentalState == TraderStatus.MentalState.Overdose || status.CurrentMental <= 0f);
+
+        // [Overdose 폭주 상태가 아닐 때만] 현재 자산이 목표 자산 이상이면 성공 엔딩 발동
+        if (!isOverdose && currentBalance >= targetBalance)
         {
             EndGame(EndingType.Success);
         }
-        // 현재 자산이 0 이하이면 파산
+        // 현재 자산이 0 이하이면 파산 또는 Overdose 엔딩
         else if (currentBalance <= 0f)
         {
             currentBalance = 0f;
-            EndGame(EndingType.Bankruptcy);
+            if (isOverdose)
+            {
+                EndGame(EndingType.Overdose);
+            }
+            else
+            {
+                EndGame(EndingType.Bankruptcy);
+            }
         }
     }
 

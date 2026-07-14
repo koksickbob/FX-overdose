@@ -92,6 +92,11 @@ namespace FXOverdose.AI
                         Debug.Log($"[AITradingBrain] 🎯 확정 주가 보장 구간(GuaranteedOverride) 종료 -> 게임 기획 수익률 100% 획득을 위한 즉시 익절 청산 실행");
                         tradingController.ClosePosition();
                     }
+                    else if (!currentActiveSignal.IsTrueSignal)
+                    {
+                        Debug.Log($"[AITradingBrain] ⚠️ 가짜 신호/트랩(Trap) 구간 종료 -> 휩소 갇힘 방지를 위해 포지션을 손절/정리합니다.");
+                        tradingController.ClosePosition();
+                    }
                 }
             }
         }
@@ -249,8 +254,10 @@ namespace FXOverdose.AI
         // 폭주 뇌동매매 (Overdose)
         private void ExecuteOverdoseTrade(MarketSignal signal, float balance)
         {
-            // 방향과 무관하게 125배 고레버리지 풀시드 물타기
-            TradingController.PositionType crazyPos = UnityEngine.Random.value < 0.5f ? TradingController.PositionType.Long : TradingController.PositionType.Short;
+            // [기획서 4.5장 부합] Overdose 시 "손실이 큰 방향으로 고레버리지 진입 강제 실행"
+            // 신호가 상승(TargetPercentageDelta > 0)이면 반대인 Short(숏) 진입, 하락이면 Long(롱) 진입하여 손실 유도
+            TradingController.PositionType crazyPos = signal.TargetPercentageDelta > 0f 
+                ? TradingController.PositionType.Short : TradingController.PositionType.Long;
             float margin = balance * 0.95f;
             int leverage = 125;
             float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);

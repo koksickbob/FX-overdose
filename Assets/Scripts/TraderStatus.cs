@@ -168,8 +168,9 @@ public class TraderStatus : MonoBehaviour
                 tradingController.TriggerOverdoseTrade();
             }
 
-            // 멘탈이 0이면 GameManager에 Overdose 엔딩 요청
-            if (gameManager != null)
+            // [기획서 7장 엔딩 조건 부합] 멘탈이 0일 때 자금/증거금까지 소진(0 이하)된 경우에만 Overdose 배드엔딩 발동
+            // (자산이 남아있다면 뇌동매매/물타기를 진행하며 즉시 게임이 종료되지 않음)
+            if (gameManager != null && gameManager.CurrentBalance <= 0f)
             {
                 gameManager.TriggerOverdoseEnding();
             }

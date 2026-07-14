@@ -40,6 +40,8 @@ namespace FXOverdose.Events
 
         private void Start()
         {
+            if (lastTriggerDay != -1 && gameManager != null) return;
+
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();

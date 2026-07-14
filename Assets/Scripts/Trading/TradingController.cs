@@ -124,8 +124,8 @@ namespace FXOverdose.Trading
 
             if (currentPosition != PositionType.None)
             {
-                Debug.LogWarning("[TradingController] 이미 포지션을 보유 중입니다. 먼저 포지션을 종료하세요.");
-                return false;
+                Debug.LogWarning($"[TradingController] 🔄 기존 {currentPosition} 포지션 보유 중 새로운 {type} 포지션 진입 요청 감지 -> 기존 포지션을 정리하고 스위칭합니다.");
+                ClosePosition();
             }
 
             if (gameManager.CurrentBalance < margin || margin <= 0f)
@@ -280,12 +280,41 @@ namespace FXOverdose.Trading
 
             Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] AI 트레이더가 통제를 벗어나 고레버리지 뇌동매매를 강행합니다!");
 
+            // 만약 기존 포지션이 수익(익절) 중이라면 통제 불능 상태에서는 이를 바로 청산하고 손실 나는 방향으로 스위칭
+            if (currentPosition != PositionType.None && CalculateUnrealizedPnL() > 0f)
+            {
+                Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] 수익 중인 포지션을 뒤엎고 반대 방향 고레버리지 뇌동매매로 전환합니다!");
+                ClosePosition();
+            }
+
             // 기존 포지션이 없다면 남은 자산의 50% 이상을 고레버리지(100배~125배)로 진입
             if (currentPosition == PositionType.None)
             {
                 float forcedMargin = gameManager.CurrentBalance * UnityEngine.Random.Range(0.5f, 0.8f);
                 int forcedLeverage = UnityEngine.Random.Range(100, 126);
-                PositionType forcedDirection = UnityEngine.Random.value > 0.5f ? PositionType.Long : PositionType.Short;
+
+                // [기획서 4.5장 부합] Overdose 시 "손실이 큰 방향으로 고레버리지 진입 강제 실행"
+                PositionType forcedDirection = PositionType.Long;
+                if (marketEngine.CurrentSignalPhase != SignalPhase.None && Mathf.Abs(marketEngine.ActiveSignal.TargetPercentageDelta) > 0.01f)
+                {
+                    // 현재 차트 신호가 상승(TargetPercentageDelta > 0)이면 반대인 Short(숏) 진입, 하락이면 Long(롱) 진입하여 강제 손실 및 청산 유도
+                    forcedDirection = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? PositionType.Short : PositionType.Long;
+                }
+                else if (marketEngine.CurrentRegime == MarketSimulationEngine.MarketRegime.Bull)
+                {
+                    forcedDirection = PositionType.Short;
+                }
+                else if (marketEngine.CurrentRegime == MarketSimulationEngine.MarketRegime.Bear)
+                {
+                    forcedDirection = PositionType.Long;
+                }
+                else
+                {
+                    // 횡보장 등에서는 최근 일일 고점 부근이면 고점 매수(Long) 물림, 저점 부근이면 저점 매도(Short) 물림
+                    forcedDirection = marketEngine.CurrentPrice > (marketEngine.Current24hHigh + marketEngine.Current24hLow) * 0.5f 
+                        ? PositionType.Long : PositionType.Short;
+                }
+
                 float currentP = marketEngine.CurrentPrice;
                 // 뇌동매매는 목표가를 +50% 등 터무니없이 높게, 손절선은 0(없음)으로 설정
                 float aiTarget = forcedDirection == PositionType.Long ? currentP * 1.5f : currentP * 0.5f;
