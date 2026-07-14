@@ -299,14 +299,30 @@ namespace FXOverdose.UI.Chart
         {
             if (yAxisPriceLabels == null || yAxisPriceLabels.Length == 0) return;
 
-            float step = (max - min) / Mathf.Max(1, yAxisPriceLabels.Length - 1);
-            for (int i = 0; i < yAxisPriceLabels.Length; i++)
+            int labelCount = yAxisPriceLabels.Length;
+            
+            // 텍스트가 차트 위아래 밖으로 삐져나가지 않도록 상하단에 약간의 패딩(여백)을 준 Y축 정규화 범위 설정 (0.28 ~ 0.96)
+            float startY = 0.28f; // 하단 거래량 영역(0.26)보다 살짝 위
+            float endY = 0.96f;   // 상단 헤더(1.0)보다 살짝 아래
+            float stepY = (endY - startY) / Mathf.Max(1, labelCount - 1);
+
+            for (int i = 0; i < labelCount; i++)
             {
                 if (yAxisPriceLabels[i] != null)
                 {
-                    // YLabel_0은 차트 아래쪽, 마지막 라벨은 위쪽에 배치되어 있습니다.
-                    float labelPrice = min + (i * step);
+                    float normalizedY = startY + (i * stepY);
+                    
+                    // 0.26(min) ~ 1.0(max) 구간 비율에 맞춰, 현재 앵커(normalizedY)에 해당하는 실제 가격 계산
+                    float labelPrice = min + ((normalizedY - 0.26f) / 0.74f) * (max - min);
                     yAxisPriceLabels[i].text = labelPrice.ToString("N1");
+
+                    // 텍스트 부모 객체의 위치(앵커)를 안전한 범위(normalizedY)로 재배치하여 차트 밖으로 나가지 않게 고정
+                    RectTransform lblRect = yAxisPriceLabels[i].transform.parent.GetComponent<RectTransform>();
+                    if (lblRect != null)
+                    {
+                        lblRect.anchorMin = new Vector2(lblRect.anchorMin.x, normalizedY);
+                        lblRect.anchorMax = new Vector2(lblRect.anchorMax.x, normalizedY);
+                    }
                 }
             }
         }
