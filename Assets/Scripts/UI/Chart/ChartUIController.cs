@@ -170,14 +170,18 @@ namespace FXOverdose.UI.Chart
             float chartHeight = chartAreaTransform.rect.height;
             if (chartHeight <= 0f) chartHeight = 400f;
 
-            float priceAreaBottom = chartHeight * 0.26f;
-            float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
+            float priceAreaBottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f;
+            float priceAreaTop = chartHeight - 4f;
+            float priceAreaHeight = Mathf.Max(10f, priceAreaTop - priceAreaBottom);
             float priceRange = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
-            float yPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
-            yPos = Mathf.Clamp(yPos, priceAreaBottom, chartHeight - 4f);
+            float absoluteYPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
+            absoluteYPos = Mathf.Clamp(absoluteYPos, priceAreaBottom, priceAreaTop);
+
+            // 현재가 라인의 Y 앵커가 중앙(0.5)이므로 바닥 기준 좌표를 중앙 기준 좌표로 변환합니다.
+            float anchoredYPos = absoluteYPos - (chartHeight * 0.5f);
 
             // 라인 위치 이동
-            currentPriceLineTransform.anchoredPosition = new Vector2(0f, yPos);
+            currentPriceLineTransform.anchoredPosition = new Vector2(0f, anchoredYPos);
 
             // 우측 가격 태그 갱신
             if (currentPriceTagText != null)
