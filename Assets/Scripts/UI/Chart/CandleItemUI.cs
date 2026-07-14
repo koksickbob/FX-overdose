@@ -21,14 +21,23 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private RectTransform volumeBarRect;
         [SerializeField] private Image volumeBarImage;
 
-        // 양봉 및 음봉 색상 설정 (TradingView 테마)
-        private readonly Color bullishColor = new Color(0.25f, 0.80f, 0.60f, 1f); // 민트 양봉
-        private readonly Color bearishColor = new Color(0.96f, 0.31f, 0.40f, 1f); // 코랄 음봉
-        private readonly Color bullishVolumeColor = new Color(0.12f, 0.48f, 0.52f, 0.62f);
-        private readonly Color bearishVolumeColor = new Color(0.55f, 0.18f, 0.27f, 0.62f);
+        // 양봉 및 음봉 색상 설정 (TradingView 공식 컬러 디자인 시스템 #22C55E, #EF4444)
+        private readonly Color bullishColor = new Color(0.133f, 0.773f, 0.369f, 1f); // #22C55E 양봉
+        private readonly Color bearishColor = new Color(0.937f, 0.267f, 0.267f, 1f); // #EF4444 음봉
+        private readonly Color bullishVolumeColor = new Color(0.133f, 0.773f, 0.369f, 0.6f); // RGBA(34, 197, 94, 0.6)
+        private readonly Color bearishVolumeColor = new Color(0.937f, 0.267f, 0.267f, 0.6f); // RGBA(239, 68, 68, 0.6)
 
         private CandleData currentData;
         public CandleData CurrentData => currentData;
+
+        public float GetXPos()
+        {
+            if (candleContainerTransform == null)
+            {
+                candleContainerTransform = GetComponent<RectTransform>();
+            }
+            return candleContainerTransform != null ? candleContainerTransform.anchoredPosition.x : 0f;
+        }
 
         // 캔들 및 거래량 렌더링 갱신
         public void UpdateCandleDisplay(

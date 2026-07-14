@@ -35,6 +35,17 @@ public class InventorySlot
         quantity--;
         return true;
     }
+
+    public bool RemoveAmount(int amount)
+    {
+        if (quantity < amount || amount <= 0)
+        {
+            return false;
+        }
+
+        quantity -= amount;
+        return true;
+    }
 }
 
 /// <summary>
@@ -127,6 +138,20 @@ public class Inventory : MonoBehaviour
         slot.RemoveOne();
         QuantityChanged?.Invoke(item, slot.Quantity);
         Debug.Log($"[Inventory] {item.ItemName} 사용 완료, 남은 수량 {slot.Quantity}개");
+        return true;
+    }
+
+    /// <summary>
+    /// 지정된 수량의 아이템을 차감합니다. (돌발 선택 이벤트 등 이벤트 소비용)
+    /// </summary>
+    public bool RemoveItem(ItemData item, int amount = 1)
+    {
+        if (item == null || amount <= 0) return false;
+        InventorySlot slot = FindSlot(item);
+        if (slot == null || slot.Quantity < amount) return false;
+        slot.RemoveAmount(amount);
+        QuantityChanged?.Invoke(item, slot.Quantity);
+        Debug.Log($"[Inventory] {item.ItemName} {amount}개 소비 완료, 남은 수량 {slot.Quantity}개");
         return true;
     }
 
