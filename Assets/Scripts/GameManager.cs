@@ -36,9 +36,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int currentHour = 9;   // 현재 시간
     [SerializeField] private int currentMinute = 0; // 현재 분
 
-    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (게임 시간 1시간 = 실제 시간 5분 = 300초 -> 1분 = 5초)
-    [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다.")]
-    [SerializeField] private float secondsPerGameMinute = 5.0f;
+    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (기본 5.0초 대비 5배/기존 2.0초 대비 2배 빠른 속도 -> 1분 = 1.0초)
+    [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다. (1.0초 = 5배속)")]
+    [SerializeField] private float secondsPerGameMinute = 1.0f;
 
     // 실제로 흐른 시간을 누적하는 변수
     private float timeAccumulator;

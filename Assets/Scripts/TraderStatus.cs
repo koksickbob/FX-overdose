@@ -24,9 +24,9 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private float maxMental = 100f;     // 최대 멘탈
     [SerializeField] private float currentMental = 100f; // 현재 멘탈
 
-    [Header("시간에 따른 감소량 (게임 1시간 = 5분에 맞춘 속도)")]
-    [Tooltip("현실 시간 1초마다 감소하는 체력입니다. (약 16게임시간 동안 100 소모)")]
-    [SerializeField] private float healthDecreasePerSecond = 0.02f;
+    [Header("시간에 따른 감소량 (게임 8시간 = 100 소모 속도)")]
+    [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
+    [SerializeField] private float healthDecreasePerSecond = 0.04f;
 
     [Tooltip("체력이 0일 때 현실 시간 1초마다 감소하는 멘탈입니다.")]
     [SerializeField] private float mentalDecreasePerSecond = 0.04f;
@@ -56,10 +56,11 @@ public class TraderStatus : MonoBehaviour
 
     private void Update()
     {
-        // GameManager가 연결되지 않았다면 실행 중단
+        // GameManager가 연결되지 않았다면 자동 탐색
         if (gameManager == null)
         {
-            return;
+            gameManager = Object.FindAnyObjectByType<GameManager>();
+            if (gameManager == null) return;
         }
 
         // 게임이 진행 중일 때만 체력과 멘탈을 감소시킴
@@ -83,13 +84,18 @@ public class TraderStatus : MonoBehaviour
     // 시간에 따라 상태를 감소시키는 함수
     private void DecreaseStatusOverTime()
     {
-        // Time.deltaTime을 곱하면 초당 일정한 속도로 감소
-        ChangeHealth(-healthDecreasePerSecond * Time.deltaTime);
+        // 인게임 1분 속도(SecondsPerGameMinute)에 동기화하여 체력/멘탈 감소 속도 자동 조절
+        float speedScale = 5.0f / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
+        ChangeHealth(-healthDecreasePerSecond * speedScale * Time.deltaTime);
 
-        // 체력이 모두 떨어지면 멘탈도 계속 감소
+        // 체력이 모두 떨어지면 멘탈이 최대 속도로 감소, 체력이 절반 이하일 때도 서서히 멘탈 감소
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * speedScale * Time.deltaTime);
+        }
+        else if (currentHealth <= maxHealth * 0.5f)
+        {
+            ChangeMental(-mentalDecreasePerSecond * 0.5f * speedScale * Time.deltaTime);
         }
     }
 

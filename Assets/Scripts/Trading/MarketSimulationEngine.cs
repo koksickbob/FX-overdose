@@ -62,6 +62,7 @@ namespace FXOverdose.Trading
         {
             currentPrice = newPrice;
             Debug.Log($"[MarketEngine 🧪] 테스트 주가 실시간 틱 이동 강제 실행: -> ${currentPrice:N1}");
+            UpdateLiveCandlesWithTick(currentPrice, Mathf.Abs(currentPrice * 0.01f) * UnityEngine.Random.Range(5f, 20f));
             OnPriceUpdated?.Invoke(currentPrice);
         }
 
@@ -83,6 +84,8 @@ namespace FXOverdose.Trading
         // 가격이나 캔들이 갱신될 때 UI 및 트레이딩 컨트롤러에 알리는 이벤트
         public event Action<float> OnPriceUpdated;
         public event Action<Timeframe, CandleData> OnCandleClosed;
+
+        private float tickTimer = 0f;
 
         private void Awake()
         {
@@ -141,9 +144,11 @@ namespace FXOverdose.Trading
             current24hLow = startPrice;
             current24hVolume = 0f;
             currentTotalMinutes = 0;
+            tickTimer = 0f;
             currentSignalPhase = SignalPhase.None;
             signalPhaseTimerMinutes = 0;
-            minutesUntilNextSignal = UnityEngine.Random.Range(30, 61);
+            // 💡 [AI 매매 실시간 검증 최적화] 게임 시작 후 단 3초(3분봉) 만에 첫 매매 신호가 발생하여 주인공 AI가 즉시 판단 및 매매를 개시하도록 설정
+            minutesUntilNextSignal = 3;
 
             foreach (var list in candleHistories.Values)
             {
@@ -165,8 +170,16 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            // 프레임 단위 실시간 틱 주가 이동 (보간 및 미시 변동성)
-            SimulateTickMovement(Time.deltaTime);
+            // 1초마다 주가 틱이 변동될 때 발생 (명세서 L101 기준. 1분 = 5초 속도 기준 1분당 5틱 유지)
+            float secondsPerMinute = gameManager != null ? gameManager.SecondsPerGameMinute : 5.0f;
+            float tickInterval = Mathf.Clamp(secondsPerMinute / 5.0f, 0.05f, 1.0f);
+
+            tickTimer += Time.deltaTime;
+            while (tickTimer >= tickInterval)
+            {
+                tickTimer -= tickInterval;
+                SimulateTickMovement(tickInterval);
+            }
         }
 
         // 프레임 단위 실시간 주가 움직임 시뮬레이션
@@ -506,7 +519,7 @@ namespace FXOverdose.Trading
                     {
                         // 확정적 구간 종료 -> 3단계 쿨다운 돌입
                         currentSignalPhase = SignalPhase.Cooldown;
-                        signalPhaseTimerMinutes = UnityEngine.Random.Range(30, 61); // 30~60분 쿨다운
+                        signalPhaseTimerMinutes = UnityEngine.Random.Range(10, 16); // 10~15분 쿨다운
                         Debug.Log($"[MarketEngine] 🛑 [확정 주가 제어 종료 -> 쿨다운 돌입] ({signalPhaseTimerMinutes}분 유지)");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
@@ -517,7 +530,7 @@ namespace FXOverdose.Trading
                     if (signalPhaseTimerMinutes <= 0)
                     {
                         currentSignalPhase = SignalPhase.None;
-                        minutesUntilNextSignal = UnityEngine.Random.Range(15, 31);
+                        minutesUntilNextSignal = UnityEngine.Random.Range(5, 11); // 쿨다운 종료 후 5~10초 내 신속 재진입
                     }
                     break;
             }

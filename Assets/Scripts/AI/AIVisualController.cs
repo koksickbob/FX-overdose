@@ -33,7 +33,7 @@ namespace FXOverdose.AI
         [SerializeField] private GameObject dialogueBalloonPanel;
         [SerializeField] private TextMeshProUGUI dialogueText;
         [SerializeField] private float typewriterCharDelay = 0.03f;
-        [SerializeField] private float balloonDisplayDuration = 5.0f;
+        [SerializeField] private float balloonDisplayDuration = 8.0f;
 
         [Header("현재 상태 (읽기 전용)")]
         [SerializeField] private ExpressionState currentExpression = ExpressionState.Confident;

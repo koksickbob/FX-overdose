@@ -247,7 +247,7 @@ public static class ItemButtonsUIBuilder
 
     private static void EnsureEventSystem()
     {
-        if (Object.FindFirstObjectByType<EventSystem>() != null)
+        if (Object.FindAnyObjectByType<EventSystem>() != null)
         {
             return;
         }

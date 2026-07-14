@@ -12,6 +12,21 @@ namespace FXOverdose.EditorTools
 {
     public static class TradingViewUIBuilder
     {
+        [InitializeOnLoadMethod]
+        private static void AutoBuildOnRecompileOnce()
+        {
+            if (!UnityEditor.EditorPrefs.GetBool("FXOverdose_AutoBuildDone_v2", false))
+            {
+                UnityEditor.EditorPrefs.SetBool("FXOverdose_AutoBuildDone_v2", true);
+                UnityEditor.EditorApplication.delayCall += () =>
+                {
+                    BuildTradingChartUI();
+                    UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+                    Debug.Log("[FX OVERDOSE] 🚀 주인공 AI 캐릭터 및 말풍선 UI 원클릭 자동 조립 & 씬 저장 완료!");
+                };
+            }
+        }
+
         [MenuItem("Tools/FX OVERDOSE/Build Trading Chart UI")]
         public static void BuildTradingChartUI()
         {
@@ -76,17 +91,15 @@ namespace FXOverdose.EditorTools
 
             if (mainCam != null)
             {
-                canvas.renderMode = RenderMode.ScreenSpaceCamera;
-                canvas.worldCamera = mainCam;
-                canvas.planeDistance = 10f;
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = 10;
-                Debug.Log($"[FX OVERDOSE] 메인 카메라({mainCam.name}) 뷰에 ScreenSpaceCamera 모드로 연결되었습니다.");
+                Debug.Log($"[FX OVERDOSE] 메인 카메라({mainCam.name}) 확인 완료. 캔버스 렌더 모드가 ScreenSpaceOverlay(Screen Space - Overlay)로 설정되었습니다.");
             }
             else
             {
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = 10;
-                Debug.LogWarning("[FX OVERDOSE] 씬에서 메인 카메라를 찾을 수 없어 ScreenSpaceOverlay 모드로 생성합니다.");
+                Debug.LogWarning("[FX OVERDOSE] ScreenSpaceOverlay 모드로 캔버스를 생성합니다.");
             }
 
             canvasGO.AddComponent<GraphicRaycaster>();
@@ -125,9 +138,20 @@ namespace FXOverdose.EditorTools
             CreateChartMainPanel(leftContainerGO.transform, candlePrefab, mse);
             CreateBottomTradingPanel(leftContainerGO.transform, tc, gm);
 
+            // 8. 메인 카메라 뷰의 우측 절반 (Right Half: 0.5 ~ 1.0) 주인공 AI 캐릭터 + 말풍선 + 체력/멘탈 연동 UI 생성
+            GameObject rightContainerGO = CreateUIObject("RightHalfAIContainer", canvasGO.transform);
+            RectTransform rightContainerRect = rightContainerGO.GetComponent<RectTransform>();
+            rightContainerRect.anchorMin = new Vector2(0.5f, 0f);
+            rightContainerRect.anchorMax = new Vector2(1f, 1f);
+            rightContainerRect.offsetMin = Vector2.zero;
+            rightContainerRect.offsetMax = Vector2.zero;
+            // 배경 누끼 및 기존 UI(HP, 멘탈, 아이템 등) 가림 방지를 위해 투명하게 유지 (Image 컴포넌트 추가하지 않음)
+
+            CreateRightHalfAIPanel(rightContainerGO.transform, gm, mse, tc, ts);
+
             // 씬 갱신 및 dirty 표시
             UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
-            Debug.Log("[FX OVERDOSE] 🚀 신규 차트 전용 캔버스 (TradingViewCanvas) 및 3대 컨트롤러 UI 조립 완료!");
+            Debug.Log("[FX OVERDOSE] 🚀 신규 차트 전용 캔버스 (TradingViewCanvas) 및 주인공 AI 매매 연동 UI 조립 완료!");
         }
 
         // =========================================================================================
@@ -721,6 +745,130 @@ namespace FXOverdose.EditorTools
         }
 
         // =========================================================================================
+        // [4. 우측 주인공 AI 매매 연동 패널 생성] RightHalfAIContainer (체력/멘탈 바 + 말풍선 + 주인공 이미지 + AI 컨트롤러)
+        // =========================================================================================
+
+        private static void CreateRightHalfAIPanel(Transform parent, GameManager gm, FXOverdose.Trading.MarketSimulationEngine mse, FXOverdose.Trading.TradingController tc, TraderStatus ts)
+        {
+            // 4-1. AITradingBrain 보장 및 바인딩
+            FXOverdose.AI.AITradingBrain aiBrain = null;
+            if (gm != null)
+            {
+                aiBrain = gm.gameObject.GetComponent<FXOverdose.AI.AITradingBrain>();
+                if (aiBrain == null) aiBrain = gm.gameObject.AddComponent<FXOverdose.AI.AITradingBrain>();
+                SetField(aiBrain, "marketEngine", mse);
+                SetField(aiBrain, "tradingController", tc);
+                SetField(aiBrain, "traderStatus", ts);
+                SetField(aiBrain, "gameManager", gm);
+                SetField(aiBrain, "defaultLeverage", 10);
+                SetField(aiBrain, "tradeMarginRatio", 0.35f);
+                EditorUtility.SetDirty(gm.gameObject);
+            }
+
+            // [중복 UI 생성 방지] 기존 씬에 HP, Mental, Item 등 HUD 기능 및 UI가 사전 구현되어 있으므로
+            // 우측 패널에는 중복된 체력/멘탈 바(AIStatusSummaryCard)와 HUDController를 추가하지 않고 주인공 캐릭터와 말풍선만 연동합니다.
+
+            // 4-3. 말풍선 패널 (DialogueBalloonPanel - 주인공 대사 표시부)
+            GameObject balloonGO = CreateUIObject("DialogueBalloonPanel", parent);
+            RectTransform balloonRect = balloonGO.GetComponent<RectTransform>();
+            balloonRect.anchorMin = new Vector2(0.05f, 0.65f);
+            balloonRect.anchorMax = new Vector2(0.95f, 0.85f);
+            balloonRect.offsetMin = Vector2.zero;
+            balloonRect.offsetMax = Vector2.zero;
+
+            Image balloonImg = balloonGO.AddComponent<Image>();
+            Sprite balloonSprite = LoadSpriteAsset("Assets/Img/Generated_image_1-removebg-preview.png");
+            if (balloonSprite != null) balloonImg.sprite = balloonSprite;
+            else balloonImg.color = new Color(0.08f, 0.12f, 0.22f, 0.95f);
+            balloonImg.preserveAspect = false;
+            balloonGO.SetActive(false); // 주인공이 대사를 출력할 때만 표시되도록 기본 숨김
+
+            GameObject textGO = CreateUIObject("DialogueText", balloonGO.transform);
+            RectTransform textRect = textGO.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(45f, 25f);
+            textRect.offsetMax = new Vector2(-45f, -30f);
+
+            TextMeshProUGUI dialogueText = textGO.AddComponent<TextMeshProUGUI>();
+            TMP_FontAsset kFont = GetOrCreateKoreanFontAsset();
+            if (kFont != null) dialogueText.font = kFont;
+            dialogueText.fontSize = 21;
+            dialogueText.color = Color.white;
+            dialogueText.fontStyle = FontStyles.Bold;
+            dialogueText.alignment = TextAlignmentOptions.Center;
+            dialogueText.textWrappingMode = TMPro.TextWrappingModes.Normal;
+            dialogueText.text = "";
+
+            // 4-4. 주인공 AI 캐릭터 이미지 (ProtagonistCharacterImage)
+            GameObject charGO = CreateUIObject("ProtagonistCharacterImage", parent);
+            RectTransform charRect = charGO.GetComponent<RectTransform>();
+            charRect.anchorMin = new Vector2(0.15f, 0.01f);
+            charRect.anchorMax = new Vector2(0.85f, 0.64f);
+            charRect.offsetMin = Vector2.zero;
+            charRect.offsetMax = Vector2.zero;
+
+            Image charImg = charGO.AddComponent<Image>();
+            Sprite charSprite = LoadSpriteAsset("Assets/Img/Generated_image_2-removebg-preview.png");
+            if (charSprite != null) charImg.sprite = charSprite;
+            charImg.preserveAspect = true;
+
+            // 4-5. AIVisualController 부착 및 바인딩
+            FXOverdose.AI.AIVisualController visualController = parent.gameObject.GetComponent<FXOverdose.AI.AIVisualController>();
+            if (visualController == null) visualController = parent.gameObject.AddComponent<FXOverdose.AI.AIVisualController>();
+            SetField(visualController, "traderStatus", ts);
+            SetField(visualController, "tradingController", tc);
+            SetField(visualController, "aiBrain", aiBrain);
+            SetField(visualController, "dialogueBalloonPanel", balloonGO);
+            SetField(visualController, "dialogueText", dialogueText);
+            SetField(visualController, "balloonDisplayDuration", 8.0f);
+        }
+
+        private static Slider CreateBiometricSlider(string name, Transform parent, string labelText, Color fillColor)
+        {
+            GameObject rowGO = CreateUIObject(name, parent);
+            HorizontalLayoutGroup hLayout = rowGO.AddComponent<HorizontalLayoutGroup>();
+            hLayout.childAlignment = TextAnchor.MiddleLeft;
+            hLayout.spacing = 14f;
+            LayoutElement rowElem = rowGO.AddComponent<LayoutElement>();
+            rowElem.preferredHeight = 22f;
+
+            TMP_Text label = CreateTMPText("Label", rowGO.transform, labelText, 14, Color.white);
+            label.fontStyle = FontStyles.Bold;
+            LayoutElement lblElem = label.gameObject.AddComponent<LayoutElement>();
+            lblElem.preferredWidth = 130f;
+
+            GameObject sliderGO = CreateUIObject("Slider", rowGO.transform);
+            LayoutElement sldElem = sliderGO.AddComponent<LayoutElement>();
+            sldElem.flexibleWidth = 1f;
+            sldElem.preferredHeight = 18f;
+
+            Image bgImg = sliderGO.AddComponent<Image>();
+            bgImg.color = new Color(0.18f, 0.23f, 0.33f, 0.6f);
+
+            GameObject fillArea = CreateUIObject("Fill Area", sliderGO.transform);
+            RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
+            fillAreaRect.anchorMin = Vector2.zero; fillAreaRect.anchorMax = Vector2.one;
+            fillAreaRect.offsetMin = fillAreaRect.offsetMax = Vector2.zero;
+
+            GameObject fillGO = CreateUIObject("Fill", fillArea.transform);
+            RectTransform fillRect = fillGO.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = fillRect.offsetMax = Vector2.zero;
+
+            Image fillImg = fillGO.AddComponent<Image>();
+            fillImg.color = fillColor;
+
+            Slider slider = sliderGO.AddComponent<Slider>();
+            slider.fillRect = fillRect;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 1f;
+
+            return slider;
+        }
+
+        // =========================================================================================
         // [유틸리티 Helper 메서드]
         // =========================================================================================
 
@@ -731,10 +879,97 @@ namespace FXOverdose.EditorTools
             return go;
         }
 
+        private static TMP_FontAsset cachedKoreanFontAsset = null;
+        public static TMP_FontAsset GetOrCreateKoreanFontAsset()
+        {
+            if (cachedKoreanFontAsset != null) return cachedKoreanFontAsset;
+
+            string[] guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.Contains("Korean") || path.Contains("Malgun") || path.Contains("Dynamic"))
+                {
+                    cachedKoreanFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+                    if (cachedKoreanFontAsset != null) return cachedKoreanFontAsset;
+                }
+            }
+
+            try
+            {
+                string fontDir = "Assets/Fonts";
+                string ttfPath = $"{fontDir}/malgun.ttf";
+                if (!System.IO.File.Exists(ttfPath) && System.IO.File.Exists("C:/Windows/Fonts/malgun.ttf"))
+                {
+                    if (!AssetDatabase.IsValidFolder(fontDir)) System.IO.Directory.CreateDirectory(fontDir);
+                    System.IO.File.Copy("C:/Windows/Fonts/malgun.ttf", ttfPath, true);
+                    AssetDatabase.ImportAsset(ttfPath, ImportAssetOptions.ForceUpdate);
+                }
+
+                Font ttfFont = AssetDatabase.LoadAssetAtPath<Font>(ttfPath);
+                if (ttfFont != null)
+                {
+                    TMP_FontAsset created = TMP_FontAsset.CreateFontAsset(ttfFont);
+                    if (created != null)
+                    {
+                        cachedKoreanFontAsset = created;
+                        cachedKoreanFontAsset.name = "KoreanDynamicFont_TMP";
+
+                        string dir = "Assets/TextMesh Pro/Resources/Fonts & Materials";
+                        if (!AssetDatabase.IsValidFolder(dir))
+                        {
+                            System.IO.Directory.CreateDirectory(dir);
+                        }
+                        string savePath = $"{dir}/KoreanDynamicFont_TMP.asset";
+                        AssetDatabase.CreateAsset(cachedKoreanFontAsset, savePath);
+                        AssetDatabase.SaveAssets();
+                        Debug.Log($"[FX OVERDOSE] 💡 TextMeshPro 한글 폰트 에셋({savePath})을 자동 생성 및 저장했습니다.");
+                        return cachedKoreanFontAsset;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[FX OVERDOSE] 한글 Dynamic 폰트 에셋 생성 중 예외 발생 (기본 폰트로 대체): {ex.Message}");
+            }
+
+            if (cachedKoreanFontAsset == null)
+            {
+                cachedKoreanFontAsset = TMPro.TMP_Settings.defaultFontAsset;
+                if (cachedKoreanFontAsset == null && guids.Length > 0)
+                {
+                    cachedKoreanFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guids[0]));
+                }
+            }
+
+            return cachedKoreanFontAsset;
+        }
+
+        private static Sprite LoadSpriteAsset(string path)
+        {
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) return s;
+
+            Object[] allAssets = AssetDatabase.LoadAllAssetsAtPath(path);
+            if (allAssets != null)
+            {
+                foreach (Object obj in allAssets)
+                {
+                    if (obj is Sprite subSprite)
+                    {
+                        return subSprite;
+                    }
+                }
+            }
+            return null;
+        }
+
         private static TMP_Text CreateTMPText(string name, Transform parent, string text, int fontSize, Color color)
         {
             GameObject go = CreateUIObject(name, parent);
             TMP_Text tmp = go.AddComponent<TextMeshProUGUI>();
+            TMP_FontAsset kFont = GetOrCreateKoreanFontAsset();
+            if (kFont != null) tmp.font = kFont;
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.color = color;
@@ -794,12 +1029,20 @@ namespace FXOverdose.EditorTools
             tc = go.GetComponent<FXOverdose.Trading.TradingController>();
             if (tc == null) tc = go.AddComponent<FXOverdose.Trading.TradingController>();
 
+            FXOverdose.AI.AITradingBrain aiBrain = go.GetComponent<FXOverdose.AI.AITradingBrain>();
+            if (aiBrain == null) aiBrain = go.AddComponent<FXOverdose.AI.AITradingBrain>();
+
             // 상호 참조 자동 바인딩
             SetField(ts, "gameManager", gm);
             SetField(mse, "gameManager", gm);
             SetField(tc, "gameManager", gm);
             SetField(tc, "marketEngine", mse);
             SetField(tc, "traderStatus", ts);
+
+            SetField(aiBrain, "marketEngine", mse);
+            SetField(aiBrain, "tradingController", tc);
+            SetField(aiBrain, "traderStatus", ts);
+            SetField(aiBrain, "gameManager", gm);
 
             EditorUtility.SetDirty(go);
         }

@@ -52,10 +52,10 @@ public class HUDController : MonoBehaviour
     private void UpdateTimeUI()
     {
         // 01, 02처럼 두 자리 숫자로 표시
-        dayText.text = $"DAY {gameManager.CurrentDay:00}";
+        if (dayText != null) dayText.text = $"DAY {gameManager.CurrentDay:00}";
 
         // 09:05처럼 시와 분을 두 자리 숫자로 표시
-        timeText.text =
+        if (timeText != null) timeText.text =
             $"{gameManager.CurrentHour:00}:{gameManager.CurrentMinute:00}";
     }
 
@@ -63,7 +63,7 @@ public class HUDController : MonoBehaviour
     private void UpdateStatusUI()
     {
         // TraderStatus에서 0~1 사이 비율을 받아 Slider에 적용
-        healthSlider.value = traderStatus.HealthRatio;
-        mentalSlider.value = traderStatus.MentalRatio;
+        if (healthSlider != null) healthSlider.value = traderStatus.HealthRatio;
+        if (mentalSlider != null) mentalSlider.value = traderStatus.MentalRatio;
     }
 }
