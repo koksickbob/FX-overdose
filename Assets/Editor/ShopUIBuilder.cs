@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using FXOverdose.EditorTools;
 
 public static class ShopUIBuilder
 {
@@ -236,6 +237,14 @@ public static class ShopUIBuilder
         text.alignment = TextAlignmentOptions.Center;
         text.color = Color.white;
         text.raycastTarget = false;
+
+        TMP_FontAsset kFont = FXOverdose.EditorTools.TradingViewUIBuilder.GetOrCreateKoreanFontAsset();
+        if (kFont != null)
+        {
+            text.font = kFont;
+            if (kFont.material != null) text.fontSharedMaterial = kFont.material;
+        }
+
         return text;
     }
 }
