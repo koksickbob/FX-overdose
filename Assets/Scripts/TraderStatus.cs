@@ -88,20 +88,22 @@ public class TraderStatus : MonoBehaviour
         float speedScale = 5.0f / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
         ChangeHealth(-healthDecreasePerSecond * speedScale * Time.deltaTime);
 
-        // 체력이 모두 떨어지면 멘탈이 최대 속도로 감소, 체력이 절반 이하일 때도 서서히 멘탈 감소
+        // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * 2.0f * speedScale * Time.deltaTime);
         }
         else if (currentHealth <= maxHealth * 0.5f)
         {
-            ChangeMental(-mentalDecreasePerSecond * 0.5f * speedScale * Time.deltaTime);
+            // 체력이 절반 이하일 때는 기본 멘탈 지속 감소 속도 적용
+            ChangeMental(-mentalDecreasePerSecond * speedScale * Time.deltaTime);
         }
     }
 
     // 체력을 증가하거나 감소시키는 함수
     public void ChangeHealth(float amount)
     {
+        float prevHealth = currentHealth;
         currentHealth += amount;
 
         // 체력이 0보다 작거나 최대 체력보다 커지지 않도록 제한
@@ -110,6 +112,23 @@ public class TraderStatus : MonoBehaviour
             0f,
             maxHealth
         );
+
+        // [핵심 기능 규격] 체력이 절반 이하(<= 50%)로 떨어진 이후부터는 
+        // 체력이 감소할 때마다 멘탈 수치도 동일한 비율로 함께 감소하도록 연동
+        if (amount < 0f && prevHealth <= maxHealth * 0.5f)
+        {
+            // 이미 절반 이하인 상태에서 추가 체력 감소 시 감소량만큼 멘탈도 즉각 같이 감소
+            ChangeMental(amount);
+        }
+        else if (amount < 0f && prevHealth > maxHealth * 0.5f && currentHealth < maxHealth * 0.5f)
+        {
+            // 이번 체력 감소로 인해 50% 선을 아래로 돌파했다면, 50% 아래로 떨어진 분량만큼 멘탈 감소
+            float excessDrop = currentHealth - (maxHealth * 0.5f);
+            if (excessDrop < 0f)
+            {
+                ChangeMental(excessDrop);
+            }
+        }
     }
 
     // 멘탈을 증가하거나 감소시키는 함수

@@ -15,16 +15,38 @@ namespace FXOverdose.EditorTools
         [InitializeOnLoadMethod]
         private static void AutoBuildOnRecompileOnce()
         {
-            if (!UnityEditor.EditorPrefs.GetBool("FXOverdose_AutoBuildDone_v2", false))
+            if (!UnityEditor.EditorPrefs.GetBool("FXOverdose_AutoBuildDone_v9_IntegrityRebuild", false))
             {
-                UnityEditor.EditorPrefs.SetBool("FXOverdose_AutoBuildDone_v2", true);
                 UnityEditor.EditorApplication.delayCall += () =>
                 {
-                    BuildTradingChartUI();
-                    UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
-                    Debug.Log("[FX OVERDOSE] 🚀 주인공 AI 캐릭터 및 말풍선 UI 원클릭 자동 조립 & 씬 저장 완료!");
+                    try
+                    {
+                        TMP_FontAsset fontAsset = GetOrCreateKoreanFontAsset(forceRecreate: true);
+                        if (fontAsset != null)
+                        {
+                            Debug.Log("[FX OVERDOSE] 한글 Dynamic 폰트 에셋 무결성 검증 및 강제 재생성/아틀라스/머티리얼 연동 완료.");
+                        }
+
+                        BuildTradingChartUI();
+                        UnityEditor.EditorPrefs.SetBool("FXOverdose_AutoBuildDone_v9_IntegrityRebuild", true);
+                        UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+                        Debug.Log("[FX OVERDOSE] 🚀 주인공 AI 캐릭터 및 말풍선 UI 원클릭 자동 조립 & 씬 저장 완료!");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[FX OVERDOSE] 자동 UI 조립 중 오류 발생: {ex}");
+                    }
                 };
             }
+        }
+
+        [MenuItem("Tools/FX OVERDOSE/Force Rebuild Korean Font Asset Integrity")]
+        public static void ForceRebuildKoreanFontAssetIntegrity()
+        {
+            GetOrCreateKoreanFontAsset(forceRecreate: true);
+            BuildTradingChartUI();
+            UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+            Debug.Log("[FX OVERDOSE] 💡 한글 동적 폰트 무결성 강제 재건 및 차트 UI 바인딩 완료!");
         }
 
         [MenuItem("Tools/FX OVERDOSE/Build Trading Chart UI")]
@@ -92,13 +114,13 @@ namespace FXOverdose.EditorTools
             if (mainCam != null)
             {
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 10;
+                canvas.sortingOrder = 5;
                 Debug.Log($"[FX OVERDOSE] 메인 카메라({mainCam.name}) 확인 완료. 캔버스 렌더 모드가 ScreenSpaceOverlay(Screen Space - Overlay)로 설정되었습니다.");
             }
             else
             {
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 10;
+                canvas.sortingOrder = 5;
                 Debug.LogWarning("[FX OVERDOSE] ScreenSpaceOverlay 모드로 캔버스를 생성합니다.");
             }
 
@@ -148,6 +170,34 @@ namespace FXOverdose.EditorTools
             // 배경 누끼 및 기존 UI(HP, 멘탈, 아이템 등) 가림 방지를 위해 투명하게 유지 (Image 컴포넌트 추가하지 않음)
 
             CreateRightHalfAIPanel(rightContainerGO.transform, gm, mse, tc, ts);
+
+            // 9. 기존 메인 배경(BackGround)은 TradingViewCanvas(5) 뒤(0)에 그대로 두어 차트와 캐릭터가 가려지지 않게 하고,
+            //    아이템 UI(ItemButtons) 및 상점 버튼이 포함된 HUD 오브젝트에 독립 Canvas(sortingOrder: 20)와 GraphicRaycaster를 부여하여 최상단 클릭 보장
+            GameObject hudGO = GameObject.Find("HUD");
+            if (hudGO != null)
+            {
+                Canvas hudCanvas = hudGO.GetComponent<Canvas>();
+                if (hudCanvas == null) hudCanvas = hudGO.AddComponent<Canvas>();
+                hudCanvas.overrideSorting = true;
+                hudCanvas.sortingOrder = 20;
+
+                GraphicRaycaster hudRaycaster = hudGO.GetComponent<GraphicRaycaster>();
+                if (hudRaycaster == null) hudRaycaster = hudGO.AddComponent<GraphicRaycaster>();
+
+                hudGO.transform.SetAsLastSibling();
+                Debug.Log("[FX OVERDOSE] 우측 하단 아이템 UI 및 HUD 클릭 보장과 차트 가림 방지를 위해 HUD에 독립 Canvas(sortingOrder: 20)를 부여했습니다.");
+            }
+
+            GameObject mainCanvasGO = GameObject.Find("Canvas");
+            if (mainCanvasGO != null)
+            {
+                Canvas mainCanvas = mainCanvasGO.GetComponent<Canvas>();
+                if (mainCanvas != null)
+                {
+                    mainCanvas.overrideSorting = false;
+                    mainCanvas.sortingOrder = 0;
+                }
+            }
 
             // 씬 갱신 및 dirty 표시
             UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
@@ -408,7 +458,8 @@ namespace FXOverdose.EditorTools
             chartAreaRect.anchorMin = Vector2.zero;
             chartAreaRect.anchorMax = Vector2.one;
             chartAreaRect.offsetMin = new Vector2(10f, 26f);
-            chartAreaRect.offsetMax = new Vector2(-66f, -56f);
+            chartAreaRect.offsetMax = new Vector2(-10f, -56f);
+            chartArea.AddComponent<RectMask2D>();
 
             // 2-2-1. 거래량 구역(0~22%) 및 차트 구역(26~100%) 구분선 (Y = 0.24)
             GameObject volSeparator = CreateUIObject("VolumeSeparatorLine", chartArea.transform);
@@ -446,8 +497,8 @@ namespace FXOverdose.EditorTools
             yAxisRect.anchorMin = new Vector2(1f, 0f);
             yAxisRect.anchorMax = new Vector2(1f, 1f);
             yAxisRect.pivot = new Vector2(1f, 0.5f);
-            yAxisRect.offsetMin = new Vector2(-66f, 26f);
-            yAxisRect.offsetMax = new Vector2(0f, -56f);
+            yAxisRect.offsetMin = new Vector2(-68f, 26f);
+            yAxisRect.offsetMax = new Vector2(-10f, -56f);
 
             TMP_Text[] yLabels = new TMP_Text[6];
             for (int i = 0; i < 6; i++)
@@ -477,7 +528,7 @@ namespace FXOverdose.EditorTools
             xAxisRect.anchorMin = new Vector2(0f, 0f);
             xAxisRect.anchorMax = new Vector2(1f, 0f);
             xAxisRect.offsetMin = new Vector2(10f, 0f);
-            xAxisRect.offsetMax = new Vector2(-66f, 26f);
+            xAxisRect.offsetMax = new Vector2(-10f, 26f);
 
             TMP_Text[] xLabels = new TMP_Text[6];
             string[] timeSamples = { "18:00", "19:30", "21:00", "22:30", "23:47", "01:00" };
@@ -546,75 +597,14 @@ namespace FXOverdose.EditorTools
             TradingPanelUIController controller = panelGO.AddComponent<TradingPanelUIController>();
 
             // -------------------------------------------------------------------------------------
-            // [카드 1: 녹색 LONG 매수 버튼 카드]
-            // -------------------------------------------------------------------------------------
-            GameObject longCard = CreateUIObject("LongButtonCard", panelGO.transform);
-            Image longBg = longCard.AddComponent<Image>();
-            longBg.color = new Color(0.133f, 0.773f, 0.369f, 0.2f); // Dark Green Background
-            Button btnLong = longCard.AddComponent<Button>();
-            LayoutElement longElem = longCard.AddComponent<LayoutElement>();
-            longElem.preferredWidth = 264f;
-
-            VerticalLayoutGroup longVLayout = longCard.AddComponent<VerticalLayoutGroup>();
-            longVLayout.childAlignment = TextAnchor.MiddleCenter;
-            longVLayout.spacing = 16f;
-            longVLayout.padding = new RectOffset(14, 14, 24, 20);
-
-            TMP_Text longTitle = CreateTMPText("LongTitle", longCard.transform, "^ LONG", 34, new Color(0.133f, 0.773f, 0.369f, 1f));
-            longTitle.fontStyle = FontStyles.Bold;
-            longTitle.alignment = TextAlignmentOptions.Center;
-
-            GameObject longPill = CreateUIObject("LongPill", longCard.transform);
-            Image longPillImg = longPill.AddComponent<Image>();
-            longPillImg.color = new Color(0.133f, 0.773f, 0.369f, 0.8f);
-            LayoutElement longPillElem = longPill.AddComponent<LayoutElement>();
-            longPillElem.preferredWidth = 210f;
-            longPillElem.preferredHeight = 44f;
-            TMP_Text longSubText = CreateTMPText("Text", longPill.transform, "AI 매수 판단 대기중", 15, Color.white);
-            longSubText.alignment = TextAlignmentOptions.Center;
-            RectTransform lpTextRect = longSubText.GetComponent<RectTransform>();
-            lpTextRect.anchorMin = Vector2.zero; lpTextRect.anchorMax = Vector2.one;
-            lpTextRect.offsetMin = lpTextRect.offsetMax = Vector2.zero;
-
-            // -------------------------------------------------------------------------------------
-            // [카드 2: 적색 SHORT 매도 버튼 카드]
-            // -------------------------------------------------------------------------------------
-            GameObject shortCard = CreateUIObject("ShortButtonCard", panelGO.transform);
-            Image shortBg = shortCard.AddComponent<Image>();
-            shortBg.color = new Color(0.937f, 0.267f, 0.267f, 0.2f); // Dark Red Background
-            Button btnShort = shortCard.AddComponent<Button>();
-            LayoutElement shortElem = shortCard.AddComponent<LayoutElement>();
-            shortElem.preferredWidth = 264f;
-
-            VerticalLayoutGroup shortVLayout = shortCard.AddComponent<VerticalLayoutGroup>();
-            shortVLayout.childAlignment = TextAnchor.MiddleCenter;
-            shortVLayout.spacing = 16f;
-            shortVLayout.padding = new RectOffset(14, 14, 24, 20);
-
-            TMP_Text shortTitle = CreateTMPText("ShortTitle", shortCard.transform, "v SHORT", 34, new Color(0.937f, 0.267f, 0.267f, 1f));
-            shortTitle.fontStyle = FontStyles.Bold;
-            shortTitle.alignment = TextAlignmentOptions.Center;
-
-            GameObject shortPill = CreateUIObject("ShortPill", shortCard.transform);
-            Image shortPillImg = shortPill.AddComponent<Image>();
-            shortPillImg.color = new Color(0.937f, 0.267f, 0.267f, 0.8f);
-            LayoutElement shortPillElem = shortPill.AddComponent<LayoutElement>();
-            shortPillElem.preferredWidth = 210f;
-            shortPillElem.preferredHeight = 44f;
-            TMP_Text shortSubText = CreateTMPText("Text", shortPill.transform, "AI 매도 판단 대기중", 15, Color.white);
-            shortSubText.alignment = TextAlignmentOptions.Center;
-            RectTransform spTextRect = shortSubText.GetComponent<RectTransform>();
-            spTextRect.anchorMin = Vector2.zero; spTextRect.anchorMax = Vector2.one;
-            spTextRect.offsetMin = spTextRect.offsetMax = Vector2.zero;
-
-            // -------------------------------------------------------------------------------------
-            // [카드 3: 다크 블루 LEVERAGE & MARGIN 조작부 및 포지션 오버레이 박스]
+            // [카드 3: 다크 블루 LEVERAGE & MARGIN 조작부 및 포지션 오버레이 박스 (단독 확장 배치)]
             // -------------------------------------------------------------------------------------
             GameObject controlCard = CreateUIObject("ControlBoxCard", panelGO.transform);
             Image ctrlBg = controlCard.AddComponent<Image>();
             ctrlBg.color = new Color(0.075f, 0.11f, 0.19f, 1f); // #131C31 Dark Slate
             LayoutElement ctrlElem = controlCard.AddComponent<LayoutElement>();
-            ctrlElem.preferredWidth = 356f;
+            ctrlElem.preferredWidth = 920f;
+            ctrlElem.flexibleWidth = 1f;
 
             VerticalLayoutGroup ctrlVLayout = controlCard.AddComponent<VerticalLayoutGroup>();
             ctrlVLayout.childAlignment = TextAnchor.UpperCenter;
@@ -716,11 +706,11 @@ namespace FXOverdose.EditorTools
             statusOverlay.SetActive(false);
 
             // TradingPanelUIController 슬롯 연결
-            SetField(controller, "longButton", btnLong);
-            SetField(controller, "shortButton", btnShort);
+            SetField(controller, "longButton", null);
+            SetField(controller, "shortButton", null);
             SetField(controller, "closePositionButton", btnClose);
-            SetField(controller, "longSubtitleText", longSubText);
-            SetField(controller, "shortSubtitleText", shortSubText);
+            SetField(controller, "longSubtitleText", null);
+            SetField(controller, "shortSubtitleText", null);
             SetField(controller, "btnTabLeverageMode", btnTabLev);
             SetField(controller, "btnTabMarginRatioMode", btnTabMar);
             SetField(controller, "tabsBarContainer", tabsBar);
@@ -793,6 +783,7 @@ namespace FXOverdose.EditorTools
             if (balloonSprite != null) balloonImg.sprite = balloonSprite;
             else balloonImg.color = new Color(0.08f, 0.12f, 0.22f, 0.95f);
             balloonImg.preserveAspect = false;
+            balloonImg.raycastTarget = false; // 말풍선이 하위 UI 클릭을 방해하지 않도록 RaycastTarget 해제
             balloonGO.SetActive(false); // 주인공이 대사를 출력할 때만 표시되도록 기본 숨김
 
             GameObject textGO = CreateUIObject("DialogueText", balloonGO.transform);
@@ -804,12 +795,25 @@ namespace FXOverdose.EditorTools
 
             TextMeshProUGUI dialogueText = textGO.AddComponent<TextMeshProUGUI>();
             TMP_FontAsset kFont = GetOrCreateKoreanFontAsset();
-            if (kFont != null) dialogueText.font = kFont;
-            dialogueText.fontSize = 21;
+            if (IsFontAssetValid(kFont))
+            {
+                dialogueText.font = kFont;
+                if (kFont.material != null) dialogueText.fontSharedMaterial = kFont.material;
+            }
+            else if (IsFontAssetValid(TMPro.TMP_Settings.defaultFontAsset))
+            {
+                dialogueText.font = TMPro.TMP_Settings.defaultFontAsset;
+                if (TMPro.TMP_Settings.defaultFontAsset.material != null) dialogueText.fontSharedMaterial = TMPro.TMP_Settings.defaultFontAsset.material;
+            }
+            dialogueText.enableAutoSizing = true;
+            dialogueText.fontSizeMin = 15;
+            dialogueText.fontSizeMax = 21;
+            dialogueText.overflowMode = TMPro.TextOverflowModes.Overflow;
             dialogueText.color = Color.white;
             dialogueText.fontStyle = FontStyles.Bold;
             dialogueText.alignment = TextAlignmentOptions.Center;
             dialogueText.textWrappingMode = TMPro.TextWrappingModes.Normal;
+            dialogueText.raycastTarget = false;
             dialogueText.text = "";
 
             // 4-4. 주인공 AI 캐릭터 이미지 (ProtagonistCharacterImage)
@@ -824,6 +828,7 @@ namespace FXOverdose.EditorTools
             Sprite charSprite = LoadSpriteAsset("Assets/Img/Generated_image_2-removebg-preview.png");
             if (charSprite != null) charImg.sprite = charSprite;
             charImg.preserveAspect = true;
+            charImg.raycastTarget = false; // 주인공 이미지가 우측 하단 아이템 UI 클릭을 막지 않도록 RaycastTarget 해제
 
             // 4-5. AIVisualController 부착 및 바인딩
             FXOverdose.AI.AIVisualController visualController = parent.gameObject.GetComponent<FXOverdose.AI.AIVisualController>();
@@ -891,10 +896,49 @@ namespace FXOverdose.EditorTools
             return go;
         }
 
-        private static TMP_FontAsset cachedKoreanFontAsset = null;
-        public static TMP_FontAsset GetOrCreateKoreanFontAsset()
+        private static bool IsFontAssetValid(TMP_FontAsset fontAsset)
         {
-            if (cachedKoreanFontAsset != null) return cachedKoreanFontAsset;
+            if (fontAsset == null) return false;
+            try
+            {
+                if (fontAsset.atlasTextures == null || fontAsset.atlasTextures.Length == 0) return false;
+                Texture2D tex = fontAsset.atlasTextures[0];
+                if (tex == null) return false;
+                if (fontAsset.material == null || fontAsset.material.mainTexture == null) return false;
+                if (fontAsset.material.GetTexture(TMPro.ShaderUtilities.ID_MainTex) == null) return false;
+                if (fontAsset.material.GetTexture(TMPro.ShaderUtilities.ID_MainTex) != tex) return false;
+                string checkName = tex.name;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static TMP_FontAsset cachedKoreanFontAsset = null;
+        public static TMP_FontAsset GetOrCreateKoreanFontAsset(bool forceRecreate = false)
+        {
+            string dir = "Assets/TextMesh Pro/Resources/Fonts & Materials";
+            string savePath = $"{dir}/KoreanDynamicFont_TMP.asset";
+
+            if (forceRecreate)
+            {
+                cachedKoreanFontAsset = null;
+                TMP_FontAsset existingAtPath = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(savePath);
+                if (existingAtPath != null)
+                {
+                    AssetDatabase.DeleteAsset(savePath);
+                }
+            }
+
+            if (!forceRecreate && IsFontAssetValid(cachedKoreanFontAsset))
+            {
+                cachedKoreanFontAsset.atlasPopulationMode = TMPro.AtlasPopulationMode.Dynamic;
+                try { cachedKoreanFontAsset.isMultiAtlasTexturesEnabled = true; } catch {}
+                return cachedKoreanFontAsset;
+            }
+            cachedKoreanFontAsset = null;
 
             string[] guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
             foreach (string guid in guids)
@@ -902,8 +946,19 @@ namespace FXOverdose.EditorTools
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.Contains("Korean") || path.Contains("Malgun") || path.Contains("Dynamic"))
                 {
-                    cachedKoreanFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
-                    if (cachedKoreanFontAsset != null) return cachedKoreanFontAsset;
+                    TMP_FontAsset loaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+                    if (!forceRecreate && IsFontAssetValid(loaded))
+                    {
+                        cachedKoreanFontAsset = loaded;
+                        cachedKoreanFontAsset.atlasPopulationMode = TMPro.AtlasPopulationMode.Dynamic;
+                        try { cachedKoreanFontAsset.isMultiAtlasTexturesEnabled = true; } catch {}
+                        return cachedKoreanFontAsset;
+                    }
+                    else if (loaded != null)
+                    {
+                        // 머티리얼 또는 텍스처 아틀라스가 손상되거나 비어있는 에셋은 재생성을 위해 즉시 제거
+                        AssetDatabase.DeleteAsset(path);
+                    }
                 }
             }
 
@@ -922,20 +977,45 @@ namespace FXOverdose.EditorTools
                 if (ttfFont != null)
                 {
                     TMP_FontAsset created = TMP_FontAsset.CreateFontAsset(ttfFont);
-                    if (created != null)
+                    if (created != null && created.atlasTextures != null && created.atlasTextures.Length > 0 && created.atlasTextures[0] != null && created.material != null)
                     {
                         cachedKoreanFontAsset = created;
                         cachedKoreanFontAsset.name = "KoreanDynamicFont_TMP";
+                        cachedKoreanFontAsset.atlasPopulationMode = TMPro.AtlasPopulationMode.Dynamic;
+                        try { cachedKoreanFontAsset.isMultiAtlasTexturesEnabled = true; } catch {}
 
-                        string dir = "Assets/TextMesh Pro/Resources/Fonts & Materials";
-                        if (!AssetDatabase.IsValidFolder(dir))
+                        if (!AssetDatabase.IsValidFolder("Assets/TextMesh Pro")) System.IO.Directory.CreateDirectory("Assets/TextMesh Pro");
+                        if (!AssetDatabase.IsValidFolder("Assets/TextMesh Pro/Resources")) System.IO.Directory.CreateDirectory("Assets/TextMesh Pro/Resources");
+                        if (!AssetDatabase.IsValidFolder(dir)) System.IO.Directory.CreateDirectory(dir);
+
+                        if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(savePath) != null)
                         {
-                            System.IO.Directory.CreateDirectory(dir);
+                            AssetDatabase.DeleteAsset(savePath);
                         }
-                        string savePath = $"{dir}/KoreanDynamicFont_TMP.asset";
+
                         AssetDatabase.CreateAsset(cachedKoreanFontAsset, savePath);
+
+                        if (cachedKoreanFontAsset.atlasTextures[0] != null)
+                        {
+                            cachedKoreanFontAsset.atlasTextures[0].name = "KoreanDynamicFont_TMP Atlas";
+                            AssetDatabase.AddObjectToAsset(cachedKoreanFontAsset.atlasTextures[0], cachedKoreanFontAsset);
+                        }
+
+                        if (cachedKoreanFontAsset.material != null)
+                        {
+                            cachedKoreanFontAsset.material.name = "KoreanDynamicFont_TMP Material";
+                            cachedKoreanFontAsset.material.mainTexture = cachedKoreanFontAsset.atlasTextures[0];
+                            cachedKoreanFontAsset.material.SetTexture(TMPro.ShaderUtilities.ID_MainTex, cachedKoreanFontAsset.atlasTextures[0]);
+                            AssetDatabase.AddObjectToAsset(cachedKoreanFontAsset.material, cachedKoreanFontAsset);
+                        }
+
+                        EditorUtility.SetDirty(cachedKoreanFontAsset);
+                        if (cachedKoreanFontAsset.material != null) EditorUtility.SetDirty(cachedKoreanFontAsset.material);
+                        if (cachedKoreanFontAsset.atlasTextures[0] != null) EditorUtility.SetDirty(cachedKoreanFontAsset.atlasTextures[0]);
+
                         AssetDatabase.SaveAssets();
-                        Debug.Log($"[FX OVERDOSE] 💡 TextMeshPro 한글 폰트 에셋({savePath})을 자동 생성 및 저장했습니다.");
+                        AssetDatabase.Refresh();
+                        Debug.Log($"[FX OVERDOSE] 💡 TextMeshPro 한글 폰트 에셋({savePath})을 아틀라스 텍스처 및 머티리얼과 함께 안전하게 자동 생성 및 저장했습니다.");
                         return cachedKoreanFontAsset;
                     }
                 }
@@ -945,13 +1025,27 @@ namespace FXOverdose.EditorTools
                 Debug.LogWarning($"[FX OVERDOSE] 한글 Dynamic 폰트 에셋 생성 중 예외 발생 (기본 폰트로 대체): {ex.Message}");
             }
 
-            if (cachedKoreanFontAsset == null)
+            if (!IsFontAssetValid(cachedKoreanFontAsset))
             {
                 cachedKoreanFontAsset = TMPro.TMP_Settings.defaultFontAsset;
-                if (cachedKoreanFontAsset == null && guids.Length > 0)
+                if (!IsFontAssetValid(cachedKoreanFontAsset) && guids.Length > 0)
                 {
-                    cachedKoreanFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guids[0]));
+                    foreach (string guid in guids)
+                    {
+                        TMP_FontAsset anyLoaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guid));
+                        if (IsFontAssetValid(anyLoaded))
+                        {
+                            cachedKoreanFontAsset = anyLoaded;
+                            break;
+                        }
+                    }
                 }
+            }
+
+            if (IsFontAssetValid(cachedKoreanFontAsset))
+            {
+                cachedKoreanFontAsset.atlasPopulationMode = TMPro.AtlasPopulationMode.Dynamic;
+                try { cachedKoreanFontAsset.isMultiAtlasTexturesEnabled = true; } catch {}
             }
 
             return cachedKoreanFontAsset;
@@ -981,7 +1075,16 @@ namespace FXOverdose.EditorTools
             GameObject go = CreateUIObject(name, parent);
             TMP_Text tmp = go.AddComponent<TextMeshProUGUI>();
             TMP_FontAsset kFont = GetOrCreateKoreanFontAsset();
-            if (kFont != null) tmp.font = kFont;
+            if (IsFontAssetValid(kFont))
+            {
+                tmp.font = kFont;
+                if (kFont.material != null) tmp.fontSharedMaterial = kFont.material;
+            }
+            else if (IsFontAssetValid(TMPro.TMP_Settings.defaultFontAsset))
+            {
+                tmp.font = TMPro.TMP_Settings.defaultFontAsset;
+                if (TMPro.TMP_Settings.defaultFontAsset.material != null) tmp.fontSharedMaterial = TMPro.TMP_Settings.defaultFontAsset.material;
+            }
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.color = color;

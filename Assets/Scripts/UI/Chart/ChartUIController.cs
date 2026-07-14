@@ -173,6 +173,7 @@ namespace FXOverdose.UI.Chart
             float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
             float priceRange = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
             float yPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
+            yPos = Mathf.Clamp(yPos, priceAreaBottom, chartHeight - 4f);
 
             // 라인 위치 이동
             currentPriceLineTransform.anchoredPosition = new Vector2(0f, yPos);
@@ -276,6 +277,9 @@ namespace FXOverdose.UI.Chart
 
             // 하단 시간 눈금 업데이트
             UpdateXAxisTimeLabels(visibleCandles);
+
+            // 스케일 갱신 후 실시간 현재가 라인 위치 동기화 및 클램핑
+            UpdateCurrentPriceLine(marketEngine.CurrentPrice);
         }
 
         // 우측 Y축 눈금 업데이트

@@ -103,7 +103,9 @@ namespace FXOverdose.AI.LLM
 
                 if (endIndex == -1) return "";
                 string rawText = json.Substring(startIndex, endIndex - startIndex);
-                return rawText.Replace("\\n", "\n").Replace("\\\"", "\"");
+                rawText = rawText.Replace("\\n", "\n").Replace("\\\"", "\"");
+                try { rawText = System.Text.RegularExpressions.Regex.Unescape(rawText); } catch {}
+                return rawText;
             }
             catch
             {
@@ -111,18 +113,23 @@ namespace FXOverdose.AI.LLM
             }
         }
 
-        // 대사 후처리 (1~2문장 길이 제한 및 불필요 접두어 제거)
+        // 대사 후처리 (단어/문장 생략 및 인코딩 손실 방지)
         private string PostProcessDialogue(string text)
         {
+            if (string.IsNullOrEmpty(text)) return "";
             text = text.Trim();
             if (text.StartsWith("AI:") || text.StartsWith("트레이더:")) text = text.Substring(3).Trim();
 
-            // 3개 이상의 마침표/느낌표 등으로 문장이 길어질 경우 자르기
-            string[] sentences = text.Split(new char[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
-            if (sentences.Length > 2)
+            // 단어 및 문장 생략 방지: Split으로 단어를 잘라먹던 기존 오류 수정
+            // 150자 이상의 과도하게 긴 텍스트만 자연스러운 마침표 기준으로 안전 제한
+            if (text.Length > 150)
             {
-                char lastChar = text[sentences[0].Length + sentences[1].Length + 1];
-                return $"{sentences[0].Trim()}{text[sentences[0].Length]} {sentences[1].Trim()}{lastChar}";
+                int cutIndex = text.LastIndexOfAny(new char[] { '.', '!', '?', '~' }, 150);
+                if (cutIndex > 30)
+                {
+                    return text.Substring(0, cutIndex + 1).Trim();
+                }
+                return text.Substring(0, 150).Trim() + "...";
             }
             return text;
         }
