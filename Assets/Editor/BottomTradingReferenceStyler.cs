@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// <summary>하단 주문부를 LONG / SHORT / LEVERAGE 3카드 레이아웃으로 정리합니다.</summary>
 public static class BottomTradingReferenceStyler
 {
-    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_v2";
+    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_v3";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -26,6 +26,12 @@ public static class BottomTradingReferenceStyler
 
     private static void TryApply()
     {
+        if (EditorApplication.isPlaying)
+        {
+            if (EditorSceneManager.GetActiveScene().name == "GameScene" && Find("BottomTradingPanel") != null)
+                Apply(false);
+            return;
+        }
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
         if (EditorPrefs.GetBool(AppliedKey, false)) return;
         if (EditorSceneManager.GetActiveScene().name != "GameScene") return;
@@ -117,19 +123,24 @@ public static class BottomTradingReferenceStyler
         if (tabs != null)
         {
             RemoveLayouts(tabs);
-            SetRect(tabs.GetComponent<RectTransform>(), new Vector2(0.08f, 0.77f), new Vector2(0.92f, 0.98f), Vector2.zero, Vector2.zero);
+            SetRect(tabs.GetComponent<RectTransform>(), new Vector2(0.05f, 0.77f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero);
         }
         GameObject leverageTab = Find("BtnTabLeverageMode");
         if (leverageTab != null)
         {
-            Image tabImage = leverageTab.GetComponent<Image>();
-            if (tabImage != null) tabImage.color = Color.clear;
-            SetRect(leverageTab.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            leverageTab.SetActive(true);
+            SetRect(leverageTab.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0.49f, 1f), Vector2.zero, Vector2.zero);
             TMP_Text text = leverageTab.GetComponentInChildren<TMP_Text>(true);
-            if (text != null) { text.text = "LEVERAGE"; StyleText(text, 23f, Color.white); }
+            if (text != null) { text.text = "LEVERAGE"; StyleText(text, 18f, Color.white); }
         }
         GameObject marginTab = Find("BtnTabMarginRatioMode");
-        if (marginTab != null) marginTab.SetActive(false);
+        if (marginTab != null)
+        {
+            marginTab.SetActive(true);
+            SetRect(marginTab.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+            TMP_Text text = marginTab.GetComponentInChildren<TMP_Text>(true);
+            if (text != null) { text.text = "MARGIN"; StyleText(text, 18f, Color.white); }
+        }
 
         GameObject container = Find("Container_LeverageMode");
         if (container != null)
@@ -176,6 +187,57 @@ public static class BottomTradingReferenceStyler
                 if (label != null) StyleText(label, 16f, Color.white);
             }
         }
+
+        StyleMarginControls();
+    }
+
+    private static void StyleMarginControls()
+    {
+        GameObject container = Find("Container_MarginRatioMode");
+        if (container != null)
+        {
+            RemoveLayouts(container);
+            SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.78f), Vector2.zero, Vector2.zero);
+        }
+
+        GameObject box = Find("MarginRatioBox");
+        if (box != null)
+        {
+            RemoveLayouts(box);
+            SetRect(box.GetComponent<RectTransform>(), new Vector2(0f, 0.46f), Vector2.one, Vector2.zero, Vector2.zero);
+        }
+        PlaceButton("BtnMarMinus", new Vector2(0f, 0.08f), new Vector2(0.25f, 0.92f), 18f);
+        PlaceButton("BtnMarPlus", new Vector2(0.75f, 0.08f), new Vector2(1f, 0.92f), 18f);
+
+        TMP_Text display = Find("MarDisplay")?.GetComponent<TMP_Text>();
+        if (display != null)
+        {
+            SetRect(display.rectTransform, new Vector2(0.27f, 0.05f), new Vector2(0.73f, 0.95f), Vector2.zero, Vector2.zero);
+            StyleText(display, 22f, Color.white);
+        }
+
+        GameObject presets = Find("MarPresets");
+        if (presets != null)
+        {
+            SetRect(presets.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.39f), Vector2.zero, Vector2.zero);
+            HorizontalLayoutGroup layout = GetOrAdd<HorizontalLayoutGroup>(presets);
+            layout.padding = new RectOffset(4, 4, 4, 4);
+            layout.spacing = 3f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+            foreach (Button button in presets.GetComponentsInChildren<Button>(true))
+            {
+                LayoutElement element = GetOrAdd<LayoutElement>(button.gameObject);
+                element.minWidth = 0f;
+                element.preferredWidth = 52f;
+                element.flexibleWidth = 1f;
+                TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+                if (label != null) StyleText(label, 15f, Color.white);
+            }
+        }
     }
 
     private static void PlaceButton(string name, Vector2 min, Vector2 max, float fontSize)
@@ -189,7 +251,7 @@ public static class BottomTradingReferenceStyler
 
     private static void StyleText(TMP_Text text, float size, Color color)
     {
-        text.font = TMP_Settings.defaultFontAsset;
+        text.font = PFStardustGlobalFontApplicator.GetFont() ?? TMP_Settings.defaultFontAsset;
         text.fontSize = size;
         text.fontSizeMin = Mathf.Max(11f, size - 8f);
         text.fontSizeMax = size;

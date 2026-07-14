@@ -13,6 +13,8 @@ public class ShopItemButton : MonoBehaviour
     [SerializeField] private Button button;
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text priceText;
+    [SerializeField] private TMP_Text ownedText;
+    [SerializeField] private Inventory inventory;
 
     private void Awake()
     {
@@ -33,6 +35,25 @@ public class ShopItemButton : MonoBehaviour
         }
     }
 
+    public void Configure(
+        ShopManager targetShop,
+        Inventory targetInventory,
+        ItemData targetItem,
+        Button targetButton,
+        TMP_Text targetName,
+        TMP_Text targetPrice,
+        TMP_Text targetOwned)
+    {
+        shopManager = targetShop;
+        inventory = targetInventory;
+        item = targetItem;
+        button = targetButton;
+        nameText = targetName;
+        priceText = targetPrice;
+        ownedText = targetOwned;
+        Refresh();
+    }
+
     private void Refresh()
     {
         if (item == null)
@@ -49,6 +70,12 @@ public class ShopItemButton : MonoBehaviour
         {
             priceText.text = $"${item.Price:N0}";
         }
+
+        if (ownedText != null)
+        {
+            int owned = inventory != null ? inventory.GetQuantity(item) : 0;
+            ownedText.text = $"OWNED x{owned}";
+        }
     }
 
     private void BuyItem()
@@ -59,6 +86,6 @@ public class ShopItemButton : MonoBehaviour
             return;
         }
 
-        shopManager.BuyItem(item);
+        if (shopManager.BuyItem(item)) Refresh();
     }
 }

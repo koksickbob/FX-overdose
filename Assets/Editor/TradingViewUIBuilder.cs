@@ -1008,6 +1008,10 @@ namespace FXOverdose.EditorTools
         private static TMP_FontAsset cachedKoreanFontAsset = null;
         public static TMP_FontAsset GetOrCreateKoreanFontAsset(bool forceRecreate = false)
         {
+            // 모든 UI의 주 폰트는 PF Stardust를 사용하고, 한글은 폰트의 fallback으로 처리합니다.
+            TMP_FontAsset pfStardust = PFStardustGlobalFontApplicator.GetFont();
+            if (IsFontAssetValid(pfStardust)) return pfStardust;
+
             string dir = "Assets/TextMesh Pro/Resources/Fonts & Materials";
             string savePath = $"{dir}/KoreanDynamicFont_TMP.asset";
 

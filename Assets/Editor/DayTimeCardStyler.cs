@@ -161,10 +161,6 @@ public static class DayTimeCardStyler
 
     private static TMP_FontAsset GetOrCreateFontAsset()
     {
-        // 손상된 커스텀 Atlas가 UI 복구를 중단하지 않도록 정상 기본 폰트를 우선 사용합니다.
-        TMP_FontAsset safeDefault = TMP_Settings.defaultFontAsset;
-        if (safeDefault != null) return safeDefault;
-
         TMP_FontAsset existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
         if (existing != null)
         {
@@ -178,6 +174,9 @@ public static class DayTimeCardStyler
             // 머지 중 서브 에셋이 유실된 TMP 에셋은 원본 TTF에서 다시 생성합니다.
             AssetDatabase.DeleteAsset(FontAssetPath);
         }
+
+        TMP_FontAsset safeDefault = TMP_Settings.defaultFontAsset;
+        if (safeDefault != null) return safeDefault;
 
         Font source = AssetDatabase.LoadAssetAtPath<Font>(SourceFontPath);
         if (source == null)

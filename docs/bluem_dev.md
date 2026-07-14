@@ -183,6 +183,8 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - 현재가 태그를 차트 우측 경계 안쪽으로 이동해 화면 이탈 방지
 - 하단 주문부를 LONG / SHORT / LEVERAGE 3카드 비율로 재배치
 - 롱·숏 대형 버튼과 레버리지 증감·프리셋 버튼을 모바일 터치 크기로 확대
+- LEVERAGE / MARGIN 탭 전환 UI 복구
+- MARGIN 비율 증감 버튼과 10%·25%·50%·75%·100% 프리셋 재배치
 
 ### 관련 파일
 
@@ -195,3 +197,75 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - Unity 스크립트 컴파일 성공
 - 기존 차트 데이터 갱신 및 시간봉 버튼 연결 유지
+
+---
+
+## 2026-07-14 — 게임 전체 PF Stardust 폰트 통일
+
+### 구현 완료
+
+- TextMesh Pro 프로젝트 기본 폰트를 PF Stardust Bold Dynamic SDF로 변경
+- 현재 GameScene의 모든 TMP 텍스트에 PF Stardust 일괄 적용
+- 런타임 씬 로드 시 활성·비활성 UI 전체에 동일 폰트 자동 적용
+- 새로 생성되는 차트, 상점, 아이템 및 상태 UI의 기본 폰트 통일
+- PF Stardust에 없는 한글 글리프는 Korean Dynamic Font로 fallback 처리
+
+### 관련 파일
+
+- `Assets/Editor/PFStardustGlobalFontApplicator.cs`
+- `Assets/Scripts/UI/GlobalPFStardustFont.cs`
+- `Assets/Fonts/PFStardustBold Dynamic SDF.asset`
+- `Assets/TextMesh Pro/Resources/TMP Settings.asset`
+
+---
+
+## 2026-07-14 — 동적 픽셀 인벤토리 및 아이템 스프라이트
+
+### 구현 완료
+
+- CARE ITEMS 스타일의 픽셀 인벤토리 슬롯 프레임 제작
+- 에너지 드링크 및 딸기 디저트 픽셀 스프라이트 제작
+- 초록 크로마 배경 제거 후 투명 PNG로 프로젝트에 저장
+- `Inventory.Slots`의 유효 아이템 수만큼 슬롯 자동 생성
+- 최대 5열 배치 후 슬롯이 늘어나면 다음 행으로 자동 확장
+- 슬롯 개수에 따라 패널 너비·높이·슬롯 크기·간격 자동 계산
+- 슬롯에 아이콘과 우측 하단 보유 수량 표시
+- 아이템 추가로 슬롯 수가 변하면 인벤토리 UI 자동 재생성
+
+### 관련 파일
+
+- `Assets/Img/Items/EnergyDrinkPixel.png`
+- `Assets/Img/Items/DessertPixel.png`
+- `Assets/Img/UI/InventorySlotFramePixel.png`
+- `Assets/Scripts/Items/DynamicInventoryUI.cs`
+- `Assets/Scripts/Items/InventoryItemButton.cs`
+- `Assets/Editor/InventoryPixelUIInstaller.cs`
+
+### 추가 — 픽셀 SHOP 버튼
+
+- 인벤토리 슬롯 프레임과 같은 네이비·라벤더 픽셀 SHOP 버튼 제작
+- 기존 ShopManager 클릭 기능을 유지한 채 버튼 Image 교체
+- PF Stardust `SHOP` 텍스트를 이미지 위에 별도로 배치
+- 인벤토리 슬롯 행이 늘어나면 버튼이 패널 위로 자동 이동
+
+관련 파일:
+
+- `Assets/Img/UI/ShopButtonPixel.png`
+- `Assets/Editor/ShopPixelButtonStyler.cs`
+- `Assets/Scripts/UI/ShopButtonInventoryFollower.cs`
+
+### 추가 — 동적 CARE SHOP 팝업
+
+- 승인된 프리뷰를 기준으로 네이비·라벤더 픽셀 상점 팝업 구현
+- `ShopManager.catalogItems` 목록을 기준으로 상품 카드 자동 생성·삭제
+- 상품 1~3개는 한 행에 자동 맞춤, 더 많아지면 다음 행 및 세로 스크롤 사용
+- 상품 아이콘, 효과, 가격, 보유 수량 및 BUY 버튼 자동 구성
+- 구매 성공 즉시 보유 수량과 상단 잔액 갱신
+- 기존 상점 열기·닫기·게임 일시정지·잔액 차감 기능 유지
+
+관련 파일:
+
+- `Assets/Scripts/Items/DynamicShopUI.cs`
+- `Assets/Scripts/Items/ShopManager.cs`
+- `Assets/Scripts/Items/ShopItemButton.cs`
+- `Assets/Editor/DynamicShopUIInstaller.cs`

@@ -15,7 +15,7 @@ MonoBehaviour:
   itemId: dessert
   itemName: Dessert
   description: "\uBA58\uD0C8 20\uD68C\uBCF5"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: ff2b8913b8ba447cca57be3c34a53f3c, type: 3}
   effectType: 1
   effectAmount: 20
   price: 700

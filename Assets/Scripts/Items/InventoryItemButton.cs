@@ -30,6 +30,25 @@ public class InventoryItemButton : MonoBehaviour
         ApplyItemInformation();
     }
 
+    /// <summary>동적 인벤토리 UI가 생성한 슬롯에 데이터와 표시 요소를 연결합니다.</summary>
+    public void Configure(
+        Inventory targetInventory,
+        ItemData targetItem,
+        Button targetButton,
+        Image targetIcon,
+        TMP_Text targetName,
+        TMP_Text targetQuantity)
+    {
+        inventory = targetInventory;
+        item = targetItem;
+        button = targetButton;
+        iconImage = targetIcon;
+        nameText = targetName;
+        quantityText = targetQuantity;
+        ApplyItemInformation();
+        RefreshQuantity();
+    }
+
     private void OnEnable()
     {
         if (inventory != null)
