@@ -456,12 +456,51 @@ namespace FXOverdose.Trading
             for (int i = 0; i < minutesCount; i++)
             {
                 long ts = startTimestamp + i;
-                float drift = UnityEngine.Random.Range(-0.0015f, 0.0015f);
+                float drift = UnityEngine.Random.Range(-0.0018f, 0.0018f);
                 float open = tempPrice;
-                float close = open * (1f + drift + UnityEngine.Random.Range(-0.002f, 0.002f));
-                float high = Mathf.Max(open, close) * (1f + UnityEngine.Random.Range(0f, 0.003f));
-                float low = Mathf.Min(open, close) * (1f - UnityEngine.Random.Range(0f, 0.003f));
-                float vol = UnityEngine.Random.Range(10f, 100f);
+                float close = open * (1f + drift + UnityEngine.Random.Range(-0.0022f, 0.0022f));
+                float high = Mathf.Max(open, close) * (1f + UnityEngine.Random.Range(0f, 0.0032f));
+                float low = Mathf.Min(open, close) * (1f - UnityEngine.Random.Range(0f, 0.0032f));
+
+                // 1. 캔들 크기(전체 고점-저점 변동폭 및 실물 몸통 크기)에 비례하는 기본 거래량 산출
+                float bodySize = Mathf.Abs(close - open);
+                float totalRange = Mathf.Max(0.01f, high - low);
+                float baseVolume = (totalRange * UnityEngine.Random.Range(4.5f, 7.5f)) + (bodySize * UnityEngine.Random.Range(6.0f, 11.0f));
+
+                // 2. 캔들 방향(양봉/음봉) 및 형태(장대/긴 꼬리/도지)에 따른 거래량 가중치 부여
+                float directionMultiplier = 1.0f;
+                bool isBullish = close >= open;
+
+                if (totalRange / Mathf.Max(1f, open) > 0.003f) // 변동성이 큰 장대캔들 또는 큰 꼬리 캔들
+                {
+                    if (bodySize > totalRange * 0.6f)
+                    {
+                        // 장대양봉 또는 장대음봉: 거래량 폭발 실린 추세 돌파 또는 패닉셀
+                        directionMultiplier = isBullish 
+                            ? UnityEngine.Random.Range(1.4f, 2.1f) // 강한 매수 돌파 거래량
+                            : UnityEngine.Random.Range(1.6f, 2.6f); // 공포 패닉셀 급락 거래량
+                    }
+                    else
+                    {
+                        // 긴 꼬리 망치/유성형: 위아래 치열한 매수/매도 공방 거래량
+                        directionMultiplier = UnityEngine.Random.Range(1.2f, 1.7f);
+                    }
+                }
+                else if (bodySize < totalRange * 0.3f && totalRange / Mathf.Max(1f, open) < 0.0015f)
+                {
+                    // 변동성이 적고 몸통이 작은 횡보 도지: 거래량 극감
+                    directionMultiplier = UnityEngine.Random.Range(0.3f, 0.65f);
+                }
+                else
+                {
+                    // 일반적인 추세 캔들
+                    directionMultiplier = isBullish 
+                        ? UnityEngine.Random.Range(0.9f, 1.35f) 
+                        : UnityEngine.Random.Range(1.0f, 1.55f);
+                }
+
+                // 자연스러운 노이즈를 결합하여 최종 1분봉 거래량 확정
+                float vol = Mathf.Max(40f, baseVolume * directionMultiplier * UnityEngine.Random.Range(0.88f, 1.12f));
 
                 CandleData m1 = new CandleData(ts, open, high, low, close, vol);
                 candleHistories[Timeframe.M1].Add(m1);

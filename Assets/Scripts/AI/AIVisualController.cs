@@ -154,10 +154,14 @@ namespace FXOverdose.AI
 
         private IEnumerator TypewriterCoroutine(string text)
         {
-            dialogueText.text = "";
-            foreach (char c in text)
+            dialogueText.text = text;
+            dialogueText.maxVisibleCharacters = 0;
+            dialogueText.ForceMeshUpdate();
+
+            int totalChars = text.Length;
+            for (int i = 1; i <= totalChars; i++)
             {
-                dialogueText.text += c;
+                dialogueText.maxVisibleCharacters = i;
                 yield return new WaitForSeconds(typewriterCharDelay);
             }
 
