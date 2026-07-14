@@ -80,7 +80,6 @@ public class InventoryItemButton : MonoBehaviour
     {
         if (item == null)
         {
-            Debug.LogWarning("[InventoryItemButton] ItemData가 연결되지 않았습니다.", this);
             return;
         }
 
