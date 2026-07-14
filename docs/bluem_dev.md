@@ -195,3 +195,22 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - Unity 스크립트 컴파일 성공
 - 기존 차트 데이터 갱신 및 시간봉 버튼 연결 유지
+
+---
+
+## 2026-07-14 — 게임 전체 PF Stardust 폰트 통일
+
+### 구현 완료
+
+- TextMesh Pro 프로젝트 기본 폰트를 PF Stardust Bold Dynamic SDF로 변경
+- 현재 GameScene의 모든 TMP 텍스트에 PF Stardust 일괄 적용
+- 런타임 씬 로드 시 활성·비활성 UI 전체에 동일 폰트 자동 적용
+- 새로 생성되는 차트, 상점, 아이템 및 상태 UI의 기본 폰트 통일
+- PF Stardust에 없는 한글 글리프는 Korean Dynamic Font로 fallback 처리
+
+### 관련 파일
+
+- `Assets/Editor/PFStardustGlobalFontApplicator.cs`
+- `Assets/Scripts/UI/GlobalPFStardustFont.cs`
+- `Assets/Fonts/PFStardustBold Dynamic SDF.asset`
+- `Assets/TextMesh Pro/Resources/TMP Settings.asset`

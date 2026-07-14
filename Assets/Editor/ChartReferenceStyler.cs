@@ -274,7 +274,7 @@ public static class ChartReferenceStyler
 
     private static void StyleText(TMP_Text text, float size, Color color, TextAlignmentOptions alignment)
     {
-        text.font = TMP_Settings.defaultFontAsset;
+        text.font = PFStardustGlobalFontApplicator.GetFont() ?? TMP_Settings.defaultFontAsset;
         text.fontSize = size;
         text.color = color;
         text.alignment = alignment;

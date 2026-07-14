@@ -35,7 +35,7 @@ public static class BalancePnLCardStyler
     {
         GameObject balanceCard = Find("BalanceCard");
         GameObject pnlCard = Find("PnLCard");
-        TMP_FontAsset font = TMP_Settings.defaultFontAsset ?? AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+        TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath) ?? TMP_Settings.defaultFontAsset;
         Sprite frame = PrepareFrameSprite();
 
         if (balanceCard == null || pnlCard == null || font == null || frame == null)

@@ -189,7 +189,7 @@ public static class BottomTradingReferenceStyler
 
     private static void StyleText(TMP_Text text, float size, Color color)
     {
-        text.font = TMP_Settings.defaultFontAsset;
+        text.font = PFStardustGlobalFontApplicator.GetFont() ?? TMP_Settings.defaultFontAsset;
         text.fontSize = size;
         text.fontSizeMin = Mathf.Max(11f, size - 8f);
         text.fontSizeMax = size;

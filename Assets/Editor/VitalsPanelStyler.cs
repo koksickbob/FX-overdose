@@ -49,7 +49,7 @@ public static class VitalsPanelStyler
     private static void Apply(bool showResult)
     {
         GameObject topBar = Find("TopStatusBarPanel");
-        TMP_FontAsset font = TMP_Settings.defaultFontAsset ?? AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+        TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath) ?? TMP_Settings.defaultFontAsset;
         Sprite frame = PrepareSprite(FramePath);
         Sprite heart = PrepareSprite(HeartPath);
         Sprite brain = PrepareSprite(BrainPath);
