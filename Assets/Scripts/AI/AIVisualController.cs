@@ -32,6 +32,9 @@ namespace FXOverdose.AI
         [Header("말풍선 UI (Typewriter Effect)")]
         [SerializeField] private GameObject dialogueBalloonPanel;
         [SerializeField] private TextMeshProUGUI dialogueText;
+        [SerializeField] private TMP_FontAsset dialogueFont;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMin = 11f;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMax = 17f;
         [SerializeField] private float typewriterCharDelay = 0.03f;
         [SerializeField] private float balloonDisplayDuration = 8.0f;
 
@@ -47,6 +50,8 @@ namespace FXOverdose.AI
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
             if (llmService == null) llmService = FindAnyObjectByType<LocalLLMService>();
 
+            ApplyDialogueTextStyle();
+
             if (aiBrain != null)
             {
                 aiBrain.OnAIDecisionMade += HandleAIDecisionMade;
@@ -59,6 +64,34 @@ namespace FXOverdose.AI
 
             if (dialogueBalloonPanel != null) dialogueBalloonPanel.SetActive(false);
             if (dangerAuraEffect != null) dangerAuraEffect.SetActive(false);
+        }
+
+        // AI가 새 대사를 출력할 때도 말풍선 안에서 동일한 폰트와 크기를 유지한다.
+        private void ApplyDialogueTextStyle()
+        {
+            if (dialogueText == null) return;
+
+            TMP_FontAsset targetFont = dialogueFont != null
+                ? dialogueFont
+                : TMP_Settings.defaultFontAsset;
+
+            if (targetFont != null)
+            {
+                dialogueText.font = targetFont;
+                if (targetFont.material != null)
+                {
+                    dialogueText.fontSharedMaterial = targetFont.material;
+                }
+            }
+
+            dialogueText.enableAutoSizing = true;
+            dialogueText.fontSizeMin = dialogueFontSizeMin;
+            dialogueText.fontSizeMax = Mathf.Max(dialogueFontSizeMin, dialogueFontSizeMax);
+            dialogueText.fontStyle = FontStyles.Normal;
+            dialogueText.alignment = TextAlignmentOptions.MidlineLeft;
+            dialogueText.textWrappingMode = TextWrappingModes.Normal;
+            dialogueText.overflowMode = TextOverflowModes.Truncate;
+            dialogueText.margin = new Vector4(8f, 5f, 8f, 5f);
         }
 
         private void OnDestroy()
@@ -144,6 +177,8 @@ namespace FXOverdose.AI
         public void DisplayDialogueBalloon(string text)
         {
             if (dialogueBalloonPanel == null || dialogueText == null) return;
+
+            ApplyDialogueTextStyle();
 
             if (typewriterCoroutine != null) StopCoroutine(typewriterCoroutine);
             if (hideBalloonCoroutine != null) StopCoroutine(hideBalloonCoroutine);

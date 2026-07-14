@@ -834,13 +834,14 @@ namespace FXOverdose.EditorTools
                 if (TMPro.TMP_Settings.defaultFontAsset.material != null) dialogueText.fontSharedMaterial = TMPro.TMP_Settings.defaultFontAsset.material;
             }
             dialogueText.enableAutoSizing = true;
-            dialogueText.fontSizeMin = 15;
-            dialogueText.fontSizeMax = 21;
-            dialogueText.overflowMode = TMPro.TextOverflowModes.Overflow;
+            dialogueText.fontSizeMin = 11;
+            dialogueText.fontSizeMax = 17;
+            dialogueText.overflowMode = TMPro.TextOverflowModes.Truncate;
             dialogueText.color = Color.white;
-            dialogueText.fontStyle = FontStyles.Bold;
-            dialogueText.alignment = TextAlignmentOptions.Center;
+            dialogueText.fontStyle = FontStyles.Normal;
+            dialogueText.alignment = TextAlignmentOptions.MidlineLeft;
             dialogueText.textWrappingMode = TMPro.TextWrappingModes.Normal;
+            dialogueText.margin = new Vector4(8f, 5f, 8f, 5f);
             dialogueText.raycastTarget = false;
             dialogueText.text = "";
 

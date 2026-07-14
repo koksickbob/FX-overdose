@@ -49,6 +49,12 @@ public class DynamicShopUI : MonoBehaviour
 
     private void BuildStructure()
     {
+        // TradingViewCanvas(sortingOrder 10)보다 위에 표시되는 전용 상점 Canvas입니다.
+        Canvas overlayCanvas = GetOrAdd<Canvas>(gameObject);
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = 100;
+        GetOrAdd<GraphicRaycaster>(gameObject);
+
         RectTransform root = GetComponent<RectTransform>();
         root.anchorMin = Vector2.zero;
         root.anchorMax = Vector2.one;
@@ -119,12 +125,15 @@ public class DynamicShopUI : MonoBehaviour
 
     private void BuildFooter()
     {
-        TMP_Text footer = GetOrCreateText(modal, "Footer", 18f, TextAlignmentOptions.Center);
+        RectTransform footerBackground = GetOrCreateRect(modal, "FooterBackground");
+        SetRect(footerBackground, new Vector2(0.035f, 0.035f), new Vector2(0.965f, 0.15f), Vector2.zero, Vector2.zero);
+        Image bg = GetOrAdd<Image>(footerBackground.gameObject);
+        bg.color = new Color(0.07f, 0.08f, 0.16f, 0.9f);
+
+        TMP_Text footer = GetOrCreateText(footerBackground, "Footer", 18f, TextAlignmentOptions.Center);
         footer.text = "♥  Take care of yourself before the next trade.";
         footer.color = new Color(0.79f, 0.74f, 0.91f, 1f);
-        SetRect(footer.rectTransform, new Vector2(0.035f, 0.035f), new Vector2(0.965f, 0.15f), Vector2.zero, Vector2.zero);
-        Image bg = GetOrAdd<Image>(footer.gameObject);
-        bg.color = new Color(0.07f, 0.08f, 0.16f, 0.9f);
+        SetRect(footer.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
     }
 
     private GameObject CreateProductCard(ItemData item)
@@ -182,9 +191,14 @@ public class DynamicShopUI : MonoBehaviour
     {
         int count = cards.Count;
         int columns = Mathf.Max(1, Mathf.Min(maxColumns, count <= 2 ? 2 : count));
-        float width = content.rect.width > 0f ? content.rect.width : 900f;
+        Canvas.ForceUpdateCanvases();
+        RectTransform viewport = content.parent as RectTransform;
+        float width = viewport != null && viewport.rect.width > 0f
+            ? viewport.rect.width
+            : (content.rect.width > 0f ? content.rect.width : 900f);
         float spacing = 16f;
-        float cardWidth = (width - spacing * (columns - 1)) / columns;
+        float sidePadding = 12f; // RectMask2D 경계에서 카드 테두리가 잘리지 않도록 안전 여백 확보
+        float cardWidth = (width - sidePadding * 2f - spacing * (columns - 1)) / columns;
         float cardHeight = Mathf.Clamp(cardWidth * 0.78f, 260f, 350f);
         int rows = Mathf.Max(1, Mathf.CeilToInt(count / (float)columns));
         content.sizeDelta = new Vector2(0f, rows * cardHeight + (rows - 1) * spacing);
@@ -198,7 +212,7 @@ public class DynamicShopUI : MonoBehaviour
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
             rect.sizeDelta = new Vector2(cardWidth, cardHeight);
-            rect.anchoredPosition = new Vector2(col * (cardWidth + spacing), -row * (cardHeight + spacing));
+            rect.anchoredPosition = new Vector2(sidePadding + col * (cardWidth + spacing), -row * (cardHeight + spacing));
         }
     }
 
