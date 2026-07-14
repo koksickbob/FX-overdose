@@ -231,6 +231,7 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - 슬롯 개수에 따라 패널 너비·높이·슬롯 크기·간격 자동 계산
 - 슬롯에 아이콘과 우측 하단 보유 수량 표시
 - 아이템 추가로 슬롯 수가 변하면 인벤토리 UI 자동 재생성
+- 상점 구매 및 아이템 사용 직후 인벤토리 수량 텍스트 즉시 갱신
 
 ### 관련 파일
 
@@ -262,6 +263,8 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - 상품 아이콘, 효과, 가격, 보유 수량 및 BUY 버튼 자동 구성
 - 구매 성공 즉시 보유 수량과 상단 잔액 갱신
 - 기존 상점 열기·닫기·게임 일시정지·잔액 차감 기능 유지
+- 전용 Overlay Canvas(sorting order 100)로 트레이딩 UI보다 항상 위에 표시
+- 상품 카드 좌우 안전 여백을 적용해 오른쪽 디저트 카드 테두리 잘림 방지
 
 관련 파일:
 
@@ -269,3 +272,19 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/Items/ShopManager.cs`
 - `Assets/Scripts/Items/ShopItemButton.cs`
 - `Assets/Editor/DynamicShopUIInstaller.cs`
+
+---
+
+## 2026-07-14 — AI 대사 텍스트 가독성 조정
+
+- 캐릭터 AI 대사에 PF Stardust 기본 폰트 적용
+- 말풍선 크기에 맞춰 자동 글자 크기를 11~17 범위로 축소
+- 긴 대사가 자연스럽게 줄바꿈되도록 설정
+- 좌측 중앙 정렬과 내부 여백을 적용해 말풍선 테두리와 겹치지 않도록 개선
+- 대사 갱신 시에도 스타일이 유지되도록 `AIVisualController`에서 재적용
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Scenes/GameScene.unity`

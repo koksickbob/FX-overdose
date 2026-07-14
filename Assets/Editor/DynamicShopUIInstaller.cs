@@ -4,6 +4,7 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>프리뷰 기반 동적 CARE SHOP UI를 GameScene에 설치합니다.</summary>
 public static class DynamicShopUIInstaller
@@ -11,7 +12,7 @@ public static class DynamicShopUIInstaller
     private const string EnergyPath = "Assets/Data/Items/EnergyDrink.asset";
     private const string DessertPath = "Assets/Data/Items/Dessert.asset";
     private const string CardFramePath = "Assets/Img/UI/InventorySlotFramePixel.png";
-    private const string AppliedKey = "FXOverdose_DynamicCareShop_v1";
+    private const string AppliedKey = "FXOverdose_DynamicCareShop_v2";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -59,6 +60,13 @@ public static class DynamicShopUIInstaller
 
         DynamicShopUI dynamicUI = panel.GetComponent<DynamicShopUI>();
         if (dynamicUI == null) dynamicUI = Undo.AddComponent<DynamicShopUI>(panel);
+
+        Canvas overlayCanvas = panel.GetComponent<Canvas>();
+        if (overlayCanvas == null) overlayCanvas = Undo.AddComponent<Canvas>(panel);
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = 100;
+        if (panel.GetComponent<GraphicRaycaster>() == null) Undo.AddComponent<GraphicRaycaster>(panel);
+
         SerializedObject uiSerialized = new(dynamicUI);
         uiSerialized.FindProperty("shopManager").objectReferenceValue = manager;
         uiSerialized.FindProperty("cardFrameSprite").objectReferenceValue = cardFrame;

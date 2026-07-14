@@ -53,7 +53,19 @@ public class DynamicInventoryUI : MonoBehaviour
 
     private void OnInventoryChanged(ItemData item, int quantity)
     {
-        if (inventory != null && inventory.Slots.Count != lastSlotCount) Rebuild();
+        if (inventory != null && inventory.Slots.Count != lastSlotCount)
+        {
+            Rebuild();
+            return;
+        }
+
+        // 기존 슬롯의 수량만 바뀐 경우에도 같은 프레임 안의 숫자를 즉시 갱신합니다.
+        foreach (GameObject slot in generatedSlots)
+        {
+            if (slot == null) continue;
+            InventoryItemButton button = slot.GetComponent<InventoryItemButton>();
+            if (button != null) button.RefreshDisplay();
+        }
     }
 
     [ContextMenu("Rebuild Inventory UI")]

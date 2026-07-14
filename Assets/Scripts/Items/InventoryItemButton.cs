@@ -27,7 +27,7 @@ public class InventoryItemButton : MonoBehaviour
         }
 
         button.onClick.AddListener(UseItem);
-        ApplyItemInformation();
+        if (item != null) ApplyItemInformation();
     }
 
     /// <summary>동적 인벤토리 UI가 생성한 슬롯에 데이터와 표시 요소를 연결합니다.</summary>
@@ -39,20 +39,37 @@ public class InventoryItemButton : MonoBehaviour
         TMP_Text targetName,
         TMP_Text targetQuantity)
     {
+        if (inventory != null)
+        {
+            inventory.QuantityChanged -= OnQuantityChanged;
+        }
+
         inventory = targetInventory;
         item = targetItem;
         button = targetButton;
         iconImage = targetIcon;
         nameText = targetName;
         quantityText = targetQuantity;
+
+        // 런타임 AddComponent 직후에는 OnEnable이 Configure보다 먼저 호출될 수 있으므로
+        // 데이터 연결이 끝난 이 시점에 수량 변경 이벤트를 확실히 다시 구독합니다.
+        if (isActiveAndEnabled && inventory != null)
+        {
+            inventory.QuantityChanged -= OnQuantityChanged;
+            inventory.QuantityChanged += OnQuantityChanged;
+        }
+
         ApplyItemInformation();
         RefreshQuantity();
     }
+
+    public void RefreshDisplay() => RefreshQuantity();
 
     private void OnEnable()
     {
         if (inventory != null)
         {
+            inventory.QuantityChanged -= OnQuantityChanged;
             inventory.QuantityChanged += OnQuantityChanged;
         }
 
