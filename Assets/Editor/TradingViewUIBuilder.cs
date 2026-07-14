@@ -160,16 +160,8 @@ namespace FXOverdose.EditorTools
             CreateChartMainPanel(leftContainerGO.transform, candlePrefab, mse);
             CreateBottomTradingPanel(leftContainerGO.transform, tc, gm);
 
-            // 8. 메인 카메라 뷰의 우측 절반 (Right Half: 0.5 ~ 1.0) 주인공 AI 캐릭터 + 말풍선 + 체력/멘탈 연동 UI 생성
-            GameObject rightContainerGO = CreateUIObject("RightHalfAIContainer", canvasGO.transform);
-            RectTransform rightContainerRect = rightContainerGO.GetComponent<RectTransform>();
-            rightContainerRect.anchorMin = new Vector2(0.5f, 0f);
-            rightContainerRect.anchorMax = new Vector2(1f, 1f);
-            rightContainerRect.offsetMin = Vector2.zero;
-            rightContainerRect.offsetMax = Vector2.zero;
-            // 배경 누끼 및 기존 UI(HP, 멘탈, 아이템 등) 가림 방지를 위해 투명하게 유지 (Image 컴포넌트 추가하지 않음)
-
-            CreateRightHalfAIPanel(rightContainerGO.transform, gm, mse, tc, ts);
+            // [수정] 메인 카메라 뷰의 우측 절반 (Right Half: 0.5 ~ 1.0) 컨테이너는 더 이상 이 도구에서 일괄 생성하지 않습니다.
+            // 캐릭터와 말풍선은 각각 독립적인 툴 기능(Build AI Character UI, Build AI Dialogue Balloon UI)으로 분리되었습니다.
 
             // 9. 기존 메인 배경(BackGround)은 TradingViewCanvas(5) 뒤(0)에 그대로 두어 차트와 캐릭터가 가려지지 않게 하고,
             //    아이템 UI(ItemButtons) 및 상점 버튼이 포함된 HUD 오브젝트에 독립 Canvas(sortingOrder: 20)와 GraphicRaycaster를 부여하여 최상단 클릭 보장
@@ -747,12 +739,51 @@ namespace FXOverdose.EditorTools
         }
 
         // =========================================================================================
-        // [4. 우측 주인공 AI 매매 연동 패널 생성] RightHalfAIContainer (체력/멘탈 바 + 말풍선 + 주인공 이미지 + AI 컨트롤러)
+        // [4. 분리된 독립 도구 메뉴] 주인공 캐릭터 및 말풍선 개별 생성기
         // =========================================================================================
 
-        private static void CreateRightHalfAIPanel(Transform parent, GameManager gm, FXOverdose.Trading.MarketSimulationEngine mse, FXOverdose.Trading.TradingController tc, TraderStatus ts)
+        [MenuItem("FX Overdose/Build AI Character UI")]
+        private static void BuildAICharacterUI()
         {
-            // 4-1. AITradingBrain 보장 및 바인딩
+            Canvas canvas = Object.FindAnyObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogError("[FX OVERDOSE] 씬에 Canvas가 없습니다. Trading Chart UI를 먼저 생성하거나 Canvas를 수동으로 추가하세요.");
+                return;
+            }
+
+            GameObject charGO = CreateUIObject("ProtagonistCharacterImage", canvas.transform);
+            RectTransform charRect = charGO.GetComponent<RectTransform>();
+            // 우측 하단 배치 설정
+            charRect.anchorMin = new Vector2(0.5f + 0.15f * 0.5f, 0.01f);
+            charRect.anchorMax = new Vector2(0.5f + 0.85f * 0.5f, 0.64f);
+            charRect.offsetMin = Vector2.zero;
+            charRect.offsetMax = Vector2.zero;
+
+            Image charImg = charGO.AddComponent<Image>();
+            Sprite charSprite = LoadSpriteAsset("Assets/Img/Generated_image_2-removebg-preview.png");
+            if (charSprite != null) charImg.sprite = charSprite;
+            charImg.preserveAspect = true;
+            charImg.raycastTarget = false;
+
+            Undo.RegisterCreatedObjectUndo(charGO, "Build AI Character UI");
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+            Debug.Log("[FX OVERDOSE] AI 주인공 캐릭터 이미지가 독립적으로 생성되었습니다.");
+        }
+
+        [MenuItem("FX Overdose/Build AI Dialogue Balloon UI")]
+        private static void BuildAIDialogueBalloonUI()
+        {
+            Canvas canvas = Object.FindAnyObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogError("[FX OVERDOSE] 씬에 Canvas가 없습니다. Trading Chart UI를 먼저 생성하거나 Canvas를 수동으로 추가하세요.");
+                return;
+            }
+
+            EnsureCoreEngines(out GameManager gm, out FXOverdose.Trading.MarketSimulationEngine mse, out FXOverdose.Trading.TradingController tc, out TraderStatus ts);
+
+            // AITradingBrain 보장 및 바인딩
             FXOverdose.AI.AITradingBrain aiBrain = null;
             if (gm != null)
             {
@@ -764,17 +795,14 @@ namespace FXOverdose.EditorTools
                 SetField(aiBrain, "gameManager", gm);
                 SetField(aiBrain, "defaultLeverage", 10);
                 SetField(aiBrain, "tradeMarginRatio", 0.35f);
-                EditorUtility.SetDirty(gm.gameObject);
             }
 
-            // [중복 UI 생성 방지] 기존 씬에 HP, Mental, Item 등 HUD 기능 및 UI가 사전 구현되어 있으므로
-            // 우측 패널에는 중복된 체력/멘탈 바(AIStatusSummaryCard)와 HUDController를 추가하지 않고 주인공 캐릭터와 말풍선만 연동합니다.
-
-            // 4-3. 말풍선 패널 (DialogueBalloonPanel - 주인공 대사 표시부)
-            GameObject balloonGO = CreateUIObject("DialogueBalloonPanel", parent);
+            // 말풍선 패널
+            GameObject balloonGO = CreateUIObject("DialogueBalloonPanel", canvas.transform);
             RectTransform balloonRect = balloonGO.GetComponent<RectTransform>();
-            balloonRect.anchorMin = new Vector2(0.05f, 0.65f);
-            balloonRect.anchorMax = new Vector2(0.95f, 0.85f);
+            // 우측 상단 배치 설정
+            balloonRect.anchorMin = new Vector2(0.5f + 0.05f * 0.5f, 0.65f);
+            balloonRect.anchorMax = new Vector2(0.5f + 0.95f * 0.5f, 0.85f);
             balloonRect.offsetMin = Vector2.zero;
             balloonRect.offsetMax = Vector2.zero;
 
@@ -783,8 +811,8 @@ namespace FXOverdose.EditorTools
             if (balloonSprite != null) balloonImg.sprite = balloonSprite;
             else balloonImg.color = new Color(0.08f, 0.12f, 0.22f, 0.95f);
             balloonImg.preserveAspect = false;
-            balloonImg.raycastTarget = false; // 말풍선이 하위 UI 클릭을 방해하지 않도록 RaycastTarget 해제
-            balloonGO.SetActive(false); // 주인공이 대사를 출력할 때만 표시되도록 기본 숨김
+            balloonImg.raycastTarget = false;
+            balloonGO.SetActive(false);
 
             GameObject textGO = CreateUIObject("DialogueText", balloonGO.transform);
             RectTransform textRect = textGO.GetComponent<RectTransform>();
@@ -816,29 +844,22 @@ namespace FXOverdose.EditorTools
             dialogueText.raycastTarget = false;
             dialogueText.text = "";
 
-            // 4-4. 주인공 AI 캐릭터 이미지 (ProtagonistCharacterImage)
-            GameObject charGO = CreateUIObject("ProtagonistCharacterImage", parent);
-            RectTransform charRect = charGO.GetComponent<RectTransform>();
-            charRect.anchorMin = new Vector2(0.15f, 0.01f);
-            charRect.anchorMax = new Vector2(0.85f, 0.64f);
-            charRect.offsetMin = Vector2.zero;
-            charRect.offsetMax = Vector2.zero;
+            // AIVisualController 연결 (GameManager 오브젝트에 부착)
+            if (gm != null)
+            {
+                FXOverdose.AI.AIVisualController visualController = gm.gameObject.GetComponent<FXOverdose.AI.AIVisualController>();
+                if (visualController == null) visualController = gm.gameObject.AddComponent<FXOverdose.AI.AIVisualController>();
+                SetField(visualController, "traderStatus", ts);
+                SetField(visualController, "tradingController", tc);
+                SetField(visualController, "aiBrain", aiBrain);
+                SetField(visualController, "dialogueBalloonPanel", balloonGO);
+                SetField(visualController, "dialogueText", dialogueText);
+                SetField(visualController, "balloonDisplayDuration", 8.0f);
+            }
 
-            Image charImg = charGO.AddComponent<Image>();
-            Sprite charSprite = LoadSpriteAsset("Assets/Img/Generated_image_2-removebg-preview.png");
-            if (charSprite != null) charImg.sprite = charSprite;
-            charImg.preserveAspect = true;
-            charImg.raycastTarget = false; // 주인공 이미지가 우측 하단 아이템 UI 클릭을 막지 않도록 RaycastTarget 해제
-
-            // 4-5. AIVisualController 부착 및 바인딩
-            FXOverdose.AI.AIVisualController visualController = parent.gameObject.GetComponent<FXOverdose.AI.AIVisualController>();
-            if (visualController == null) visualController = parent.gameObject.AddComponent<FXOverdose.AI.AIVisualController>();
-            SetField(visualController, "traderStatus", ts);
-            SetField(visualController, "tradingController", tc);
-            SetField(visualController, "aiBrain", aiBrain);
-            SetField(visualController, "dialogueBalloonPanel", balloonGO);
-            SetField(visualController, "dialogueText", dialogueText);
-            SetField(visualController, "balloonDisplayDuration", 8.0f);
+            Undo.RegisterCreatedObjectUndo(balloonGO, "Build AI Dialogue Balloon UI");
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+            Debug.Log("[FX OVERDOSE] AI 말풍선 패널 및 VisualController 연동이 독립적으로 완료되었습니다.");
         }
 
         private static Slider CreateBiometricSlider(string name, Transform parent, string labelText, Color fillColor)
