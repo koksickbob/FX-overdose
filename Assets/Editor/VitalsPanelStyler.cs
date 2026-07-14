@@ -13,7 +13,7 @@ public static class VitalsPanelStyler
     private const string HeartPath = "Assets/Img/HealthHeartIcon.png";
     private const string BrainPath = "Assets/Img/MentalBrainIcon.png";
     private const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
-    private const string AppliedKey = "FXOverdose_VitalsPanelStyle_v7";
+    private const string AppliedKey = "FXOverdose_VitalsPanelStyle_v9_FinalFix";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
@@ -32,13 +32,25 @@ public static class VitalsPanelStyler
     private static void TryApplyOnce()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-        if (EditorPrefs.GetBool(AppliedKey, false)) return;
         if (EditorSceneManager.GetActiveScene().name != "GameScene") return;
         if (Find("TopStatusBarPanel") == null) return;
 
-        Apply(false);
-        EditorSceneManager.SaveOpenScenes();
-        EditorPrefs.SetBool(AppliedKey, true);
+        bool needsUpdate = !EditorPrefs.GetBool(AppliedKey, false);
+        GameObject panel = Find("VitalsPanel");
+        if (panel != null && panel.GetComponent<VitalsValueUI>() == null) needsUpdate = true;
+        if (panel == null) needsUpdate = true;
+
+        Slider mentalSlider = Find("Mental")?.GetComponent<Slider>();
+        if (mentalSlider != null && mentalSlider.fillRect != null && mentalSlider.fillRect.anchorMax.y < 0.5f) needsUpdate = true;
+
+        if (needsUpdate)
+        {
+            Apply(false);
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+            EditorPrefs.SetBool(AppliedKey, true);
+            Debug.Log("[VitalsPanelStyler] 🎨 HP/Mental UI 슬라이더 앵커 및 VitalsValueUI가 성공적으로 적용 및 자동 저장되었습니다.");
+        }
     }
 
     [MenuItem("Tools/FX OVERDOSE/Style HP and MENTAL Panel")]
@@ -104,15 +116,25 @@ public static class VitalsPanelStyler
         MoveAndStyleSlider(hp, panel.transform, new Vector2(0.105f, 0.18f), new Vector2(0.375f, 0.49f), new Color(1f, 0.27f, 0.43f, 1f));
         MoveAndStyleSlider(mental, panel.transform, new Vector2(0.525f, 0.18f), new Vector2(0.795f, 0.49f), new Color(0.62f, 0.30f, 0.88f, 1f));
 
-        HideIfExists(panel.transform, "HealthValue");
-        HideIfExists(panel.transform, "MentalValue");
+        TMP_Text hpValueText = BuildText(panel.transform, "HealthValue", font, "100/100", 22f, new Color(0.9f, 0.9f, 0.95f, 1f),
+            new Vector2(0.20f, 0.56f), new Vector2(0.38f, 0.91f));
+        hpValueText.alignment = TextAlignmentOptions.MidlineRight;
+
+        TMP_Text mentalValueText = BuildText(panel.transform, "MentalValue", font, "100/100", 22f, new Color(0.9f, 0.9f, 0.95f, 1f),
+            new Vector2(0.62f, 0.56f), new Vector2(0.80f, 0.91f));
+        mentalValueText.alignment = TextAlignmentOptions.MidlineRight;
 
         TMP_Text gear = BuildText(panel.transform, "SettingsIcon", font, "⚙", 39f, new Color(0.80f, 0.83f, 0.88f, 1f),
             new Vector2(0.885f, 0.14f), new Vector2(0.975f, 0.86f));
         gear.alignment = TextAlignmentOptions.Center;
 
-        VitalsValueUI values = panel.GetComponent<VitalsValueUI>();
-        if (values != null) Undo.DestroyObjectImmediate(values);
+        VitalsValueUI values = GetOrAdd<VitalsValueUI>(panel);
+        SerializedObject valObj = new SerializedObject(values);
+        valObj.FindProperty("healthSlider").objectReferenceValue = hp;
+        valObj.FindProperty("mentalSlider").objectReferenceValue = mental;
+        valObj.FindProperty("healthValueText").objectReferenceValue = hpValueText;
+        valObj.FindProperty("mentalValueText").objectReferenceValue = mentalValueText;
+        valObj.ApplyModifiedProperties();
 
         BindHUDController(hp, mental);
 
@@ -138,11 +160,31 @@ public static class VitalsPanelStyler
     {
         Undo.SetTransformParent(slider.transform, parent, "Move " + slider.name + " Slider");
         SetRect(slider.GetComponent<RectTransform>(), min, max);
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = 1f;
         slider.interactable = false;
 
         if (slider.fillRect != null)
         {
-            Image fill = slider.fillRect.GetComponent<Image>();
+            RectTransform fillRect = slider.fillRect;
+            if (fillRect.parent != null && fillRect.parent is RectTransform fillArea)
+            {
+                Undo.RecordObject(fillArea, "Fix Fill Area Rect");
+                fillArea.anchorMin = new Vector2(0f, 0f);
+                fillArea.anchorMax = new Vector2(1f, 1f);
+                fillArea.offsetMin = Vector2.zero;
+                fillArea.offsetMax = Vector2.zero;
+            }
+
+            Undo.RecordObject(fillRect, "Fix Fill Rect");
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(1f, 1f);
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            fillRect.sizeDelta = Vector2.zero;
+
+            Image fill = fillRect.GetComponent<Image>();
             if (fill != null)
             {
                 fill.color = fillColor;

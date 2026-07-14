@@ -66,19 +66,19 @@ public static class PFStardustGlobalFontApplicator
                      .Where(text => text.gameObject.scene.IsValid()))
         {
             if (text.font == font) continue;
-            Undo.RecordObject(text, "Apply PF Stardust Font");
+            if (!EditorApplication.isPlaying) Undo.RecordObject(text, "Apply PF Stardust Font");
             text.font = font;
             text.fontSharedMaterial = font.material;
-            EditorUtility.SetDirty(text);
+            if (!EditorApplication.isPlaying) EditorUtility.SetDirty(text);
             changed++;
         }
 
-        if (changed > 0)
+        if (changed > 0 && !EditorApplication.isPlaying)
         {
             EditorSceneManager.MarkAllScenesDirty();
             EditorSceneManager.SaveOpenScenes();
         }
-        AssetDatabase.SaveAssets();
+        if (!EditorApplication.isPlaying) AssetDatabase.SaveAssets();
 
         if (showResult)
             EditorUtility.DisplayDialog("PF Stardust 적용 완료", $"현재 열린 씬의 TMP 텍스트 {changed}개와 프로젝트 기본 폰트를 변경했습니다.", "확인");

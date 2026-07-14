@@ -45,7 +45,7 @@ namespace FXOverdose.Events
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
+            traderStatus = TraderStatus.CanonicalInstance;
 
             Initialize(gameManager, marketEngine, tradingController, traderStatus);
         }
@@ -63,7 +63,7 @@ namespace FXOverdose.Events
             gameManager = gm;
             marketEngine = market;
             tradingController = trading;
-            traderStatus = status;
+            traderStatus = TraderStatus.CanonicalInstance;
 
             if (gameManager != null)
             {
@@ -239,17 +239,26 @@ namespace FXOverdose.Events
                 }
             }
 
-            // 2. 팝업 종료 및 인게임 시간 재개
+            // 2. 팝업 종료
             uiController?.Hide();
+
+            // 3. 선택 효과 먼저 적용 (청산/진입/멘탈 소모 중 파산이나 Overdose 엔딩이 발생할 수 있음)
+            ApplyOptionEffects(option);
+
+            // 4. 효과 적용 후 인게임 시간 재개 (단, 이벤트 효과로 게임이 종료(GameOver)되었다면 재개하지 않음!)
             if (pausedByChoiceEvent && gameManager != null)
             {
-                gameManager.ResumeGame();
-                Debug.Log($"[ChoiceEventController] ▶️ 선택 완료(옵션 {optionIndex}: {option.OptionTitle}). 인게임 시간 재개");
+                if (gameManager.CurrentState == GameManager.GameState.Paused)
+                {
+                    gameManager.ResumeGame();
+                    Debug.Log($"[ChoiceEventController] ▶️ 선택 완료(옵션 {optionIndex}: {option.OptionTitle}). 인게임 시간 재개");
+                }
+                else if (gameManager.CurrentState == GameManager.GameState.GameOver)
+                {
+                    Debug.LogWarning("[ChoiceEventController] 🛑 선택 이벤트 효과 처리 중 게임 종료(GameOver) 조건이 달성되어 시간을 재개하지 않고 종료합니다.");
+                }
             }
             pausedByChoiceEvent = false;
-
-            // 3. 선택 효과 적용
-            ApplyOptionEffects(option);
         }
 
         private void ApplyOptionEffects(ChoiceOptionData option)
@@ -261,6 +270,11 @@ namespace FXOverdose.Events
             {
                 traderStatus.ModifyMentalState(option.MentalChangeAmount);
                 traderStatus.ModifyHealthState(option.HealthChangeAmount);
+            }
+
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                return;
             }
 
             // 직접 방향 선택 판정 분기
@@ -283,6 +297,12 @@ namespace FXOverdose.Events
                 }
             }
 
+            // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 빔 주입 중단
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                return;
+            }
+
             // 차트 강제 빔 오버라이드
             if (marketEngine != null && Mathf.Abs(option.OverrideBeamPercent) > 0.001f)
             {
@@ -299,6 +319,12 @@ namespace FXOverdose.Events
             if (tradingController != null)
             {
                 tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100);
+            }
+
+            // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 트랩/빔 처리 중단
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                return;
             }
 
             bool isSuccess = UnityEngine.Random.value <= option.OverrideSignalProbTrue;

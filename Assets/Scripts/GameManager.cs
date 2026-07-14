@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
     //게임 진행 상태
     public enum GameState
     {
+        Loading,
         Playing,
         Paused,
         GameOver
@@ -23,7 +24,7 @@ public class GameManager : MonoBehaviour
     }
 
     [Header("게임 진행 상태")]
-    [SerializeField] private GameState currentState = GameState.Playing;
+    [SerializeField] private GameState currentState = GameState.Loading;
     [SerializeField] private EndingType currentEnding = EndingType.None;
 
     [Header("자산 설정")]
@@ -84,8 +85,8 @@ public class GameManager : MonoBehaviour
         currentHour = 9;
         currentMinute = 0;
 
-        // 게임 상태 초기화
-        currentState = GameState.Playing;
+        // 게임 상태 초기화 -> 초기에는 LLM 로딩 및 개장 준비 상태(Loading)로 대기
+        currentState = GameState.Loading;
         currentEnding = EndingType.None;
 
         // 시간 누적값 초기화
@@ -94,7 +95,16 @@ public class GameManager : MonoBehaviour
         // 돌발 선택 이벤트 컨트롤러(ChoiceEventController) 자동 부착 및 초기화
         InitializeChoiceEventController();
 
-        Debug.Log("새 게임 시작");
+        Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입)");
+    }
+
+    public void FinishLoadingAndStartPlaying()
+    {
+        if (currentState == GameState.Loading)
+        {
+            currentState = GameState.Playing;
+            Debug.Log("[GameManager] 🟢 LLM 예열 및 개장 대사 출력 완료 -> 게임 상태가 Playing으로 전환되어 시간이 흐르기 시작합니다.");
+        }
     }
 
     // 돌발 선택 이벤트 컨트롤러 자동 연결 및 초기화
@@ -113,8 +123,7 @@ public class GameManager : MonoBehaviour
         var tradingCtrl = GetComponent<FXOverdose.Trading.TradingController>();
         if (tradingCtrl == null) tradingCtrl = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
 
-        var status = GetComponent<TraderStatus>();
-        if (status == null) status = FindAnyObjectByType<TraderStatus>();
+        var status = TraderStatus.CanonicalInstance;
 
         choiceEventCtrl.Initialize(this, marketEngine, tradingCtrl, status);
     }
@@ -208,8 +217,7 @@ public class GameManager : MonoBehaviour
     // 성공 또는 파산 조건 확인
     private void CheckEnding()
     {
-        var status = GetComponent<TraderStatus>();
-        if (status == null) status = FindAnyObjectByType<TraderStatus>();
+        var status = TraderStatus.CanonicalInstance;
         bool isOverdose = status != null && (status.CurrentMentalState == TraderStatus.MentalState.Overdose || status.CurrentMental <= 0f);
 
         // [Overdose 폭주 상태가 아닐 때만] 현재 자산이 목표 자산 이상이면 성공 엔딩 발동

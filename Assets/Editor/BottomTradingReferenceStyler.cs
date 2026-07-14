@@ -62,7 +62,9 @@ public static class BottomTradingReferenceStyler
         if (chart != null)
             SetRect(chart.GetComponent<RectTransform>(), new Vector2(0f, 0.30f), new Vector2(1f, 0.92f), new Vector2(5f, 5f), new Vector2(-5f, -5f));
 
-        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        if (!EditorApplication.isPlaying)
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+
         if (showResult)
             EditorUtility.DisplayDialog("주문 UI 적용 완료", "LONG / SHORT / LEVERAGE 카드 비율을 적용했습니다.", "확인");
     }
@@ -278,12 +280,17 @@ public static class BottomTradingReferenceStyler
     private static T GetOrAdd<T>(GameObject go) where T : Component
     {
         T component = go.GetComponent<T>();
-        return component != null ? component : Undo.AddComponent<T>(go);
+        if (component != null) return component;
+        return EditorApplication.isPlaying ? go.AddComponent<T>() : Undo.AddComponent<T>(go);
     }
 
     private static void RemoveLayouts(GameObject go)
     {
-        foreach (LayoutGroup layout in go.GetComponents<LayoutGroup>()) Undo.DestroyObjectImmediate(layout);
+        foreach (LayoutGroup layout in go.GetComponents<LayoutGroup>())
+        {
+            if (EditorApplication.isPlaying) Object.DestroyImmediate(layout);
+            else Undo.DestroyObjectImmediate(layout);
+        }
     }
 }
 #endif

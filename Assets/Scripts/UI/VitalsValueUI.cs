@@ -12,14 +12,28 @@ public class VitalsValueUI : MonoBehaviour
 
     private void LateUpdate()
     {
-        UpdateValue(healthSlider, healthValueText);
-        UpdateValue(mentalSlider, mentalValueText);
+        UpdateValue(healthSlider, healthValueText, false);
+        UpdateValue(mentalSlider, mentalValueText, true);
     }
 
-    private static void UpdateValue(Slider slider, TMP_Text label)
+    private static void UpdateValue(Slider slider, TMP_Text label, bool isMental)
     {
-        if (slider == null || label == null) return;
-        int value = Mathf.RoundToInt(slider.normalizedValue * 100f);
-        label.text = $"{value}/100";
+        if (label == null && slider == null) return;
+
+        TraderStatus canonical = TraderStatus.CanonicalInstance;
+        if (canonical != null)
+        {
+            float ratio = isMental ? canonical.MentalRatio : canonical.HealthRatio;
+            int val = Mathf.RoundToInt(ratio * 100f);
+            if (label != null) label.text = $"{val}/100";
+            if (slider != null) slider.value = ratio;
+            return;
+        }
+
+        if (slider != null && label != null)
+        {
+            int value = Mathf.RoundToInt(slider.normalizedValue * 100f);
+            label.text = $"{value}/100";
+        }
     }
 }
