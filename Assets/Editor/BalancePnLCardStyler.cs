@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public static class BalancePnLCardStyler
 {
     private const string FramePath = "Assets/Img/StatusCardFrame.png";
-    private const string FontPath = "Assets/Fonts/PFStardustBold SDF.asset";
+    private const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
     private const string AppliedKey = "FXOverdose_BalancePnLStyle_v3";
 
     [InitializeOnLoadMethod]
@@ -29,11 +29,13 @@ public static class BalancePnLCardStyler
     [MenuItem("Tools/FX OVERDOSE/Style BALANCE and P&L Cards")]
     public static void ApplyFromMenu() => Apply(true);
 
+    public static void ApplySilently() => Apply(false);
+
     private static void Apply(bool showResult)
     {
         GameObject balanceCard = Find("BalanceCard");
         GameObject pnlCard = Find("PnLCard");
-        TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+        TMP_FontAsset font = TMP_Settings.defaultFontAsset ?? AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
         Sprite frame = PrepareFrameSprite();
 
         if (balanceCard == null || pnlCard == null || font == null || frame == null)

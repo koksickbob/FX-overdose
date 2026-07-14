@@ -20,12 +20,30 @@ public class HUDController : MonoBehaviour
 
     private void Start()
     {
-        // Slider는 0부터 1 사이의 비율을 사용
-        healthSlider.minValue = 0f;
-        healthSlider.maxValue = 1f;
+        if (healthSlider == null)
+        {
+            GameObject healthObject = GameObject.Find("HP");
+            if (healthObject != null) healthSlider = healthObject.GetComponent<Slider>();
+        }
 
-        mentalSlider.minValue = 0f;
-        mentalSlider.maxValue = 1f;
+        if (mentalSlider == null)
+        {
+            GameObject mentalObject = GameObject.Find("Mental");
+            if (mentalObject != null) mentalSlider = mentalObject.GetComponent<Slider>();
+        }
+
+        // Slider는 0부터 1 사이의 비율을 사용
+        if (healthSlider != null)
+        {
+            healthSlider.minValue = 0f;
+            healthSlider.maxValue = 1f;
+        }
+
+        if (mentalSlider != null)
+        {
+            mentalSlider.minValue = 0f;
+            mentalSlider.maxValue = 1f;
+        }
 
         UpdateHUD();
     }

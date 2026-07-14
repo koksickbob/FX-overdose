@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public static class DayTimeCardStyler
 {
     private const string SourceFontPath = "Assets/Fonts/PF스타더스트 3.0 Bold.ttf";
-    private const string FontAssetPath = "Assets/Fonts/PFStardustBold SDF.asset";
+    private const string FontAssetPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
     private const string FrameSpritePath = "Assets/Img/DayTimeCardFrame.png";
     private const string AppliedKey = "FXOverdose_DayTimeCard_PFStardust_v4";
 
@@ -34,11 +34,14 @@ public static class DayTimeCardStyler
         ApplyStyle(true);
     }
 
+    public static void ApplySilently() => ApplyStyle(false);
+
     private static void ApplyStyle(bool showResult)
     {
-        GameObject card = FindSceneObject("DayTimeCard");
-        TMP_Text day = FindSceneObject("DayLabel")?.GetComponent<TMP_Text>();
-        TMP_Text time = FindSceneObject("TimeLabel")?.GetComponent<TMP_Text>();
+        GameObject topBar = FindSceneObject("TopStatusBarPanel");
+        GameObject card = topBar != null ? FindChild(topBar.transform, "DayTimeCard") : null;
+        TMP_Text day = card != null ? FindChild(card.transform, "DayLabel")?.GetComponent<TMP_Text>() : null;
+        TMP_Text time = card != null ? FindChild(card.transform, "TimeLabel")?.GetComponent<TMP_Text>() : null;
         TMP_FontAsset fontAsset = GetOrCreateFontAsset();
 
         if (card == null || day == null || time == null || fontAsset == null)
@@ -158,8 +161,23 @@ public static class DayTimeCardStyler
 
     private static TMP_FontAsset GetOrCreateFontAsset()
     {
+        // 손상된 커스텀 Atlas가 UI 복구를 중단하지 않도록 정상 기본 폰트를 우선 사용합니다.
+        TMP_FontAsset safeDefault = TMP_Settings.defaultFontAsset;
+        if (safeDefault != null) return safeDefault;
+
         TMP_FontAsset existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-        if (existing != null) return existing;
+        if (existing != null)
+        {
+            SerializedObject serialized = new SerializedObject(existing);
+            SerializedProperty atlases = serialized.FindProperty("m_AtlasTextures");
+            SerializedProperty material = serialized.FindProperty("m_Material");
+            bool isValid = atlases != null && atlases.arraySize > 0 &&
+                           material != null && material.objectReferenceValue != null;
+            if (isValid) return existing;
+
+            // 머지 중 서브 에셋이 유실된 TMP 에셋은 원본 TTF에서 다시 생성합니다.
+            AssetDatabase.DeleteAsset(FontAssetPath);
+        }
 
         Font source = AssetDatabase.LoadAssetAtPath<Font>(SourceFontPath);
         if (source == null)
@@ -174,6 +192,22 @@ public static class DayTimeCardStyler
         created.name = "PFStardustBold SDF";
         created.atlasPopulationMode = AtlasPopulationMode.Dynamic;
         AssetDatabase.CreateAsset(created, FontAssetPath);
+
+        if (created.material != null)
+        {
+            created.material.name = "PFStardustBold Atlas Material";
+            created.material.hideFlags = HideFlags.None;
+            AssetDatabase.AddObjectToAsset(created.material, created);
+        }
+
+        if (created.atlasTexture != null)
+        {
+            created.atlasTexture.name = "PFStardustBold Atlas";
+            created.atlasTexture.hideFlags = HideFlags.None;
+            AssetDatabase.AddObjectToAsset(created.atlasTexture, created);
+        }
+
+        EditorUtility.SetDirty(created);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         return created;
@@ -204,6 +238,12 @@ public static class DayTimeCardStyler
     {
         return Resources.FindObjectsOfTypeAll<GameObject>()
             .FirstOrDefault(go => go.scene.IsValid() && go.name == objectName);
+    }
+
+    private static GameObject FindChild(Transform parent, string objectName)
+    {
+        return parent.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(child => child.name == objectName)?.gameObject;
     }
 }
 #endif

@@ -33,6 +33,7 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private float candleSpacing = 14f;
         [SerializeField] private float candleWidth = 10f;
         [SerializeField] private float volumeAreaRatio = 0.25f; // 차트 하단 25% 거래량 영역
+        [SerializeField] private float internalPriceAxisWidth = 86f; // 차트 내부 우측 가격축 전용 폭
 
         [Header("우측 가격축 및 하단 시간축")]
         [SerializeField] private TMP_Text[] yAxisPriceLabels;
@@ -185,7 +186,8 @@ namespace FXOverdose.UI.Chart
             }
             if (currentPriceTagRect != null)
             {
-                currentPriceTagRect.anchoredPosition = new Vector2(0f, yPos);
+                // 가격 태그는 현재가 라인의 자식이므로 Y를 또 더하면 패널 밖으로 밀려납니다.
+                currentPriceTagRect.anchoredPosition = Vector2.zero;
             }
         }
 
@@ -249,13 +251,19 @@ namespace FXOverdose.UI.Chart
             if (chartWidth <= 0f) chartWidth = 700f;
             if (chartHeight <= 0f) chartHeight = 400f;
 
+            // 가격축을 차트 안으로 옮겼으므로 캔들은 축 왼쪽의 실제 플롯 영역만 사용합니다.
+            float plotWidth = Mathf.Max(candleWidth, chartWidth - internalPriceAxisWidth);
+
             float volumeHeight = chartHeight * volumeAreaRatio;
+            float effectiveSpacing = visibleCandles.Count > 1
+                ? Mathf.Max(candleWidth + 2f, (plotWidth - candleWidth) / (visibleCandles.Count - 1f))
+                : candleSpacing;
 
             // 4. 캔들 배치 (우측부터 왼쪽으로 또는 왼쪽부터 우측으로 균등 배치)
             for (int i = 0; i < visibleCandles.Count; i++)
             {
                 CandleData data = visibleCandles[i];
-                float xPos = i * candleSpacing;
+                float xPos = i * effectiveSpacing;
 
                 CandleItemUI item = GetCandleItemFromPool();
                 item.gameObject.SetActive(true);
@@ -292,7 +300,8 @@ namespace FXOverdose.UI.Chart
             {
                 if (yAxisPriceLabels[i] != null)
                 {
-                    float labelPrice = max - (i * step);
+                    // YLabel_0은 차트 아래쪽, 마지막 라벨은 위쪽에 배치되어 있습니다.
+                    float labelPrice = min + (i * step);
                     yAxisPriceLabels[i].text = labelPrice.ToString("N1");
                 }
             }

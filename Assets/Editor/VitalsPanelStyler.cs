@@ -12,36 +12,49 @@ public static class VitalsPanelStyler
     private const string FramePath = "Assets/Img/VitalsPanelFrame.png";
     private const string HeartPath = "Assets/Img/HealthHeartIcon.png";
     private const string BrainPath = "Assets/Img/MentalBrainIcon.png";
-    private const string FontPath = "Assets/Fonts/PFStardustBold SDF.asset";
-    private const string AppliedKey = "FXOverdose_VitalsPanelStyle_v5";
+    private const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
+    private const string AppliedKey = "FXOverdose_VitalsPanelStyle_v7";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
     {
-        EditorApplication.delayCall += () =>
-        {
-            if (EditorPrefs.GetBool(AppliedKey, false)) return;
-            if (Find("TopStatusBarPanel") == null || Find("HP") == null || Find("Mental") == null) return;
-            Apply(false);
-            EditorSceneManager.SaveOpenScenes();
-            EditorPrefs.SetBool(AppliedKey, true);
-        };
+        EditorApplication.delayCall += TryApplyOnce;
+        EditorApplication.playModeStateChanged -= HandlePlayModeChanged;
+        EditorApplication.playModeStateChanged += HandlePlayModeChanged;
+    }
+
+    private static void HandlePlayModeChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.EnteredEditMode)
+            EditorApplication.delayCall += TryApplyOnce;
+    }
+
+    private static void TryApplyOnce()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+        if (EditorPrefs.GetBool(AppliedKey, false)) return;
+        if (EditorSceneManager.GetActiveScene().name != "GameScene") return;
+        if (Find("TopStatusBarPanel") == null) return;
+
+        Apply(false);
+        EditorSceneManager.SaveOpenScenes();
+        EditorPrefs.SetBool(AppliedKey, true);
     }
 
     [MenuItem("Tools/FX OVERDOSE/Style HP and MENTAL Panel")]
     public static void ApplyFromMenu() => Apply(true);
 
+    public static void ApplySilently() => Apply(false);
+
     private static void Apply(bool showResult)
     {
         GameObject topBar = Find("TopStatusBarPanel");
-        Slider hp = Find("HP")?.GetComponent<Slider>();
-        Slider mental = Find("Mental")?.GetComponent<Slider>();
-        TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+        TMP_FontAsset font = TMP_Settings.defaultFontAsset ?? AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
         Sprite frame = PrepareSprite(FramePath);
         Sprite heart = PrepareSprite(HeartPath);
         Sprite brain = PrepareSprite(BrainPath);
 
-        if (topBar == null || hp == null || mental == null || font == null || frame == null || heart == null || brain == null)
+        if (topBar == null || font == null || frame == null || heart == null || brain == null)
         {
             if (showResult)
                 EditorUtility.DisplayDialog("HP/MENTAL 적용 실패", "상태바, 슬라이더, 폰트 또는 생성 이미지를 찾지 못했습니다.", "확인");
@@ -49,6 +62,8 @@ public static class VitalsPanelStyler
         }
 
         GameObject panel = GetOrCreate(topBar.transform, "VitalsPanel");
+        Slider hp = Find("HP")?.GetComponent<Slider>() ?? CreateStatusSlider("HP", panel.transform);
+        Slider mental = Find("Mental")?.GetComponent<Slider>() ?? CreateStatusSlider("Mental", panel.transform);
         HorizontalLayoutGroup topLayout = topBar.GetComponent<HorizontalLayoutGroup>();
         if (topLayout != null)
         {
@@ -99,6 +114,8 @@ public static class VitalsPanelStyler
         VitalsValueUI values = panel.GetComponent<VitalsValueUI>();
         if (values != null) Undo.DestroyObjectImmediate(values);
 
+        BindHUDController(hp, mental);
+
         panel.transform.SetAsLastSibling();
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
 
@@ -136,6 +153,46 @@ public static class VitalsPanelStyler
 
         foreach (TMP_Text oldText in slider.GetComponentsInChildren<TMP_Text>(true))
             oldText.gameObject.SetActive(false);
+    }
+
+    private static Slider CreateStatusSlider(string name, Transform parent)
+    {
+        GameObject sliderObject = new GameObject(name, typeof(RectTransform), typeof(Slider));
+        Undo.RegisterCreatedObjectUndo(sliderObject, "Create " + name + " Slider");
+        sliderObject.transform.SetParent(parent, false);
+
+        GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
+        Undo.RegisterCreatedObjectUndo(fillArea, "Create Fill Area");
+        fillArea.transform.SetParent(sliderObject.transform, false);
+        SetRect(fillArea.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+        GameObject fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        Undo.RegisterCreatedObjectUndo(fillObject, "Create Fill");
+        fillObject.transform.SetParent(fillArea.transform, false);
+        RectTransform fillRect = fillObject.GetComponent<RectTransform>();
+        SetRect(fillRect, Vector2.zero, Vector2.one);
+
+        Slider slider = sliderObject.GetComponent<Slider>();
+        slider.fillRect = fillRect;
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = 1f;
+        slider.interactable = false;
+        return slider;
+    }
+
+    private static void BindHUDController(Slider hp, Slider mental)
+    {
+        HUDController hud = Resources.FindObjectsOfTypeAll<HUDController>()
+            .FirstOrDefault(controller => controller.gameObject.scene.IsValid());
+        if (hud == null) return;
+
+        SerializedObject serialized = new SerializedObject(hud);
+        SerializedProperty hpProperty = serialized.FindProperty("healthSlider");
+        SerializedProperty mentalProperty = serialized.FindProperty("mentalSlider");
+        if (hpProperty != null) hpProperty.objectReferenceValue = hp;
+        if (mentalProperty != null) mentalProperty.objectReferenceValue = mental;
+        serialized.ApplyModifiedProperties();
     }
 
     private static void BuildBarBackground(Transform parent, string name, Vector2 min, Vector2 max)
