@@ -161,7 +161,7 @@ namespace FXOverdose.UI.Chart
             }
         }
 
-        // 실시간 현재가 라인 및 우측 태그 위치 갱신
+        // 실시간 현재가 라인 및 우측 태그 위치 갱신 (차트 영역 경계 엄격 클램핑 및 앵커 오프셋 적용)
         private void UpdateCurrentPriceLine(float currentPrice)
         {
             if (currentPriceLineTransform == null || chartAreaTransform == null) return;
@@ -169,14 +169,24 @@ namespace FXOverdose.UI.Chart
             float chartHeight = chartAreaTransform.rect.height;
             if (chartHeight <= 0f) chartHeight = 400f;
 
-            float priceAreaBottom = chartHeight * 0.26f;
-            float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
+            // 가격 캔들이 그려지는 구간: 하단 26%(거래량 영역) ~ 상단 100%
+            float priceAreaBottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f; // 거래량 구분선 바로 위
+            float priceAreaTop = chartHeight; // 차트 영역 상단 경계 (ChartArea의 RectMask2D가 헤더 침범을 잘라냄)
+            float priceAreaHeight = Mathf.Max(10f, priceAreaTop - priceAreaBottom);
             float priceRange = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
-            float yPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
-            yPos = Mathf.Clamp(yPos, priceAreaBottom, chartHeight - 4f);
+            
+            // 바닥(0)을 기준으로 한 실제 Y 절대 높이
+            float absoluteYPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
+
+            // 차트 영역 경계를 절대로 넘지 않도록 엄격 클램핑
+            absoluteYPos = Mathf.Clamp(absoluteYPos, priceAreaBottom, priceAreaTop);
+
+            // 현재가 라인 및 태그의 RectTransform Anchor.y 가 0.5(중앙)로 설정되어 있으므로
+            // 바닥(0) 기준 높이에서 차트 절반 높이를 빼주어야 정확한 anchoredPosition 값이 나옴
+            float anchoredYPos = absoluteYPos - (chartHeight / 2f);
 
             // 라인 위치 이동
-            currentPriceLineTransform.anchoredPosition = new Vector2(0f, yPos);
+            currentPriceLineTransform.anchoredPosition = new Vector2(0f, anchoredYPos);
 
             // 우측 가격 태그 갱신
             if (currentPriceTagText != null)
@@ -185,7 +195,7 @@ namespace FXOverdose.UI.Chart
             }
             if (currentPriceTagRect != null)
             {
-                currentPriceTagRect.anchoredPosition = new Vector2(0f, yPos);
+                currentPriceTagRect.anchoredPosition = new Vector2(0f, anchoredYPos);
             }
         }
 
@@ -282,18 +292,33 @@ namespace FXOverdose.UI.Chart
             UpdateCurrentPriceLine(marketEngine.CurrentPrice);
         }
 
-        // 우측 Y축 눈금 업데이트
+        // 우측 Y축 눈금 업데이트 (캔들 가격 구간에 동기화)
         private void UpdateYAxisLabels(float min, float max)
         {
             if (yAxisPriceLabels == null || yAxisPriceLabels.Length == 0) return;
 
-            float step = (max - min) / Mathf.Max(1, yAxisPriceLabels.Length - 1);
-            for (int i = 0; i < yAxisPriceLabels.Length; i++)
+            // Y축 라벨은 거래량 영역(하단 ~26%)을 제외한 가격 캔들 구간(26%~100%)에만 배치되어 있으므로
+            // min~max 범위를 해당 라벨 개수에 맞춰 균등 분할하여 가격을 표시
+            int labelCount = yAxisPriceLabels.Length;
+            float priceStep = (max - min) / Mathf.Max(1, labelCount - 1);
+
+            for (int i = 0; i < labelCount; i++)
             {
                 if (yAxisPriceLabels[i] != null)
                 {
-                    float labelPrice = max - (i * step);
+                    // 라벨 인덱스 0이 차트 상단(max), 마지막 인덱스가 하단(min)에 해당
+                    float labelPrice = max - (i * priceStep);
                     yAxisPriceLabels[i].text = labelPrice.ToString("N1");
+
+                    // 라벨의 앵커 Y를 실제 가격 위치에 동기화 (거래량 구간 0.26 ~ 가격 상단 1.0)
+                    RectTransform lblRect = yAxisPriceLabels[i].transform.parent.GetComponent<RectTransform>();
+                    if (lblRect != null)
+                    {
+                        float normalizedY = 0.26f + ((labelPrice - min) / Mathf.Max(0.001f, max - min)) * 0.74f;
+                        normalizedY = Mathf.Clamp(normalizedY, 0.26f, 1.0f);
+                        lblRect.anchorMin = new Vector2(lblRect.anchorMin.x, normalizedY);
+                        lblRect.anchorMax = new Vector2(lblRect.anchorMax.x, normalizedY);
+                    }
                 }
             }
         }
