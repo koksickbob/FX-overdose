@@ -284,16 +284,28 @@ namespace FXOverdose.Trading
             }
 
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null)
+            {
+                reason = "자산 정보를 찾을 수 없습니다.";
+                return false;
+            }
+
             float cost = GetSkillCost(type);
-            if (gameManager != null && gameManager.CurrentBalance < cost)
+            if (gameManager.CurrentBalance < cost)
             {
                 reason = $"자산이 부족합니다. (필요: ${cost:N0})";
                 return false;
             }
 
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
+            if (traderStatus == null)
+            {
+                reason = "플레이어 상태 정보를 찾을 수 없습니다.";
+                return false;
+            }
+
             float healthCost = GetSkillHealthCost(type);
-            if (traderStatus != null && traderStatus.CurrentHealth <= healthCost + 5f)
+            if (traderStatus.CurrentHealth <= healthCost + 5f)
             {
                 reason = $"과로로 인한 탈진/사경(Overdose) 위험! 체력이 부족합니다. (필요 HP: {healthCost:N0})";
                 return false;
@@ -322,23 +334,18 @@ namespace FXOverdose.Trading
             int timeHours = GetSkillTimeCostHours(type);
 
             // 비용 지출
-            if (gameManager != null)
+            if (!gameManager.TrySpendBalance(cost))
             {
-                gameManager.TrySpendBalance(cost);
+                Debug.LogWarning("[TraderLevelSystem] 스킬 업그레이드 도중 자산 차감에 실패했습니다.");
+                return false;
             }
 
             // 체력 소모
-            if (traderStatus != null)
-            {
-                traderStatus.ChangeHealth(-healthCost);
-            }
+            traderStatus.ChangeHealth(-healthCost);
 
             // 시간 경과 처리 (예: 3시간이면 180분 경과)
             // GameManager에 AdvanceMinutes나 그에 준하는 시간이동이 있다면 수행
-            if (gameManager != null)
-            {
-                gameManager.AdvanceGameMinutes(timeHours * 60);
-            }
+            gameManager.AdvanceGameMinutes(timeHours * 60);
 
             // 레벨 증가
             switch (type)

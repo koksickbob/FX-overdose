@@ -35,13 +35,15 @@ public class SettingsMenuController : MonoBehaviour
 
         bool isAuto = controller.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.AI_Auto;
         string popupLabel = isAuto ? "모드: ⚡ AI 자동" : "모드: 🎮 수동 매매";
-        string floatLabel = isAuto ? "⚡\nAI" : "🎮\n수동";
+        string floatLabel = isAuto ? "AI" : "USER";
         Color btnColor = isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
 
         if (popupModeText != null) popupModeText.text = popupLabel;
         if (floatingModeText != null) floatingModeText.text = floatLabel;
         if (popupModeImage != null) popupModeImage.color = btnColor;
-        if (floatingModeImage != null) floatingModeImage.color = btnColor;
+        if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
+        if (floatingModeText != null)
+            floatingModeText.color = isAuto ? new Color32(207, 250, 254, 255) : new Color32(234, 179, 8, 255);
     }
 
     private void CreateFloatingModeToggleButton()
@@ -56,19 +58,27 @@ public class SettingsMenuController : MonoBehaviour
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.sizeDelta = new Vector2(44f, 44f);
+        rect.sizeDelta = new Vector2(92f, 46f);
         rect.anchoredPosition = new Vector2(-15f, -65f);
 
         floatingModeImage = go.GetComponent<Image>();
-        floatingModeImage.color = new Color(0.12f, 0.48f, 0.72f, 0.95f);
+        floatingModeImage.sprite = null;
+        floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
+
+        Outline outline = go.AddComponent<Outline>();
+        outline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
+        outline.effectDistance = new Vector2(2f, -2f);
 
         Button btn = go.GetComponent<Button>();
         btn.targetGraphic = floatingModeImage;
 
-        floatingModeText = CreateText(go.transform, "Label", "⚡\nAI", 11f, TextAlignmentOptions.Center);
-        floatingModeText.textWrappingMode = TextWrappingModes.Normal;
+        floatingModeText = CreateText(go.transform, "Label", "AI", 13f, TextAlignmentOptions.Center);
+        floatingModeText.textWrappingMode = TextWrappingModes.NoWrap;
         floatingModeText.fontSizeMin = 8f;
-        floatingModeText.fontSizeMax = 11f;
+        floatingModeText.fontSizeMax = 13f;
+        floatingModeText.fontStyle = FontStyles.Bold;
+        floatingModeText.outlineWidth = 0.18f;
+        floatingModeText.outlineColor = new Color32(11, 15, 25, 255);
         Stretch(floatingModeText.rectTransform);
 
         btn.onClick.AddListener(() => {
@@ -89,36 +99,65 @@ public class SettingsMenuController : MonoBehaviour
 
     private void UpdateFloatingButtonLayout()
     {
-        if (settingsButton == null || floatingModeImage == null) return;
-        RectTransform settingsRect = settingsButton.GetComponent<RectTransform>();
+        if (floatingModeImage == null) return;
         RectTransform myRect = floatingModeImage.GetComponent<RectTransform>();
-        if (settingsRect == null || myRect == null) return;
+        if (myRect == null) return;
 
         Canvas parentCanvas = GetComponentInParent<Canvas>();
         if (parentCanvas == null) return;
 
-        // 설정 버튼(SettingsIcon)의 실제 월드 모서리를 가져와 캔버스 내부 정확한 픽셀 크기 및 위치 계산
+        RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
+        RectTransform pnlRect = GameObject.Find("PnLCard")?.GetComponent<RectTransform>();
+        RectTransform chartRect = GameObject.Find("ChartMainPanel")?.GetComponent<RectTransform>();
+
+        // 레이아웃 기준 오브젝트를 찾지 못한 경우에만 기존 설정 버튼 아래 위치를 사용합니다.
+        if (canvasRect == null || pnlRect == null || chartRect == null)
+        {
+            PlaceBelowSettingsFallback(myRect, parentCanvas);
+            return;
+        }
+
+        Vector3[] pnlCorners = new Vector3[4];
+        Vector3[] chartCorners = new Vector3[4];
+        pnlRect.GetWorldCorners(pnlCorners);
+        chartRect.GetWorldCorners(chartCorners);
+
+        Vector3 pnlBottomLeft = parentCanvas.transform.InverseTransformPoint(pnlCorners[0]);
+        Vector3 chartTopRight = parentCanvas.transform.InverseTransformPoint(chartCorners[2]);
+
+        const float gap = 8f;
+        const float buttonWidth = 92f;
+        const float buttonHeight = 46f;
+
+        // 차트 오른쪽 + P&L 아래의 교차 영역에 배치하여 두 UI의 Rect를 침범하지 않습니다.
+        float x = chartTopRight.x + gap;
+        float y = pnlBottomLeft.y - gap;
+
+        Rect bounds = canvasRect.rect;
+        x = Mathf.Clamp(x, bounds.xMin + gap, bounds.xMax - buttonWidth - gap);
+        y = Mathf.Clamp(y, bounds.yMin + buttonHeight + gap, bounds.yMax - gap);
+
+        myRect.anchorMin = myRect.anchorMax = new Vector2(0.5f, 0.5f);
+        myRect.pivot = new Vector2(0f, 1f);
+        myRect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
+        myRect.localPosition = new Vector3(x, y, 0f);
+    }
+
+    private void PlaceBelowSettingsFallback(RectTransform myRect, Canvas parentCanvas)
+    {
+        if (settingsButton == null) return;
+        RectTransform settingsRect = settingsButton.GetComponent<RectTransform>();
+        if (settingsRect == null) return;
+
         Vector3[] corners = new Vector3[4];
         settingsRect.GetWorldCorners(corners);
 
-        Vector3 localBottomLeft = parentCanvas.transform.InverseTransformPoint(corners[0]);
-        Vector3 localTopLeft = parentCanvas.transform.InverseTransformPoint(corners[1]);
-        Vector3 localTopRight = parentCanvas.transform.InverseTransformPoint(corners[2]);
         Vector3 localBottomRight = parentCanvas.transform.InverseTransformPoint(corners[3]);
 
-        float width = Mathf.Abs(localTopRight.x - localTopLeft.x);
-        float height = Mathf.Abs(localTopLeft.y - localBottomLeft.y);
-
-        if (width <= 5f) width = 44f;
-        if (height <= 5f) height = 44f;
-
-        myRect.anchorMin = new Vector2(1f, 1f);
-        myRect.anchorMax = new Vector2(1f, 1f);
+        myRect.anchorMin = myRect.anchorMax = new Vector2(0.5f, 0.5f);
         myRect.pivot = new Vector2(1f, 1f);
-        myRect.sizeDelta = new Vector2(width, height);
-
-        // myRect(피벗이 우측상단 1,1)를 설정 버튼의 우측하단(localBottomRight) 바로 아래에 6px 간격으로 배치
-        myRect.localPosition = localBottomRight + new Vector3(0f, -6f, 0f);
+        myRect.sizeDelta = new Vector2(92f, 46f);
+        myRect.localPosition = localBottomRight + new Vector3(0f, -8f, 0f);
     }
 
     private void OnDestroy()

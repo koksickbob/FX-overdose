@@ -404,3 +404,65 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scenes/GameScene.unity`
 - `Assets/Editor/TradingViewUIBuilder.cs`
+
+---
+
+## 2026-07-15 — 캐릭터 머리 위 레벨·경험치 HUD
+
+- 기존 전체 화면 레벨 팝업, 스킬 카드, `LEVEL` 버튼 제거
+- 문서의 UI 색상 토큰(`#0B0F19`, `#0F172A`, `#141D33`, `#06B6D4`, `#CFFAFE`)만 사용한 픽셀 프레임 제작
+- 갈색, 금속 질감, 볼트, 스크래치와 장식 요소를 제거하고 2칸 구조로 단순화
+- 캐릭터 이미지의 자식으로 HUD를 배치해 캐릭터 위치 변경 시 함께 이동
+- 캐릭터 머리 위에 현재 `LV`와 `EXP 현재값 / 필요값`만 표시
+- 경험치 진행도를 작은 슬라이더로 표시하고 레벨 이벤트 발생 시 즉시 갱신
+- 머리 위 공간을 덜 차지하도록 HUD 높이를 최종 60px로 축소
+- 동적 텍스트에 프로젝트 기본 PF Stardust TMP 폰트 적용
+- GameScene 실행 시 `ProtagonistCharacterImage`에 HUD를 자동 설치
+
+관련 파일:
+
+- `Assets/Resources/UI/CharacterLevelExpFrame.png`
+- `Assets/Scripts/UI/TraderLevelUIController.cs`
+
+---
+
+## 2026-07-15 — 설정 버튼 하단 AI·USER 텍스트 전환
+
+- 잘못 추가한 AI·플레이어 공용 포지션 매도 버튼 이미지와 기능 변경 제거
+- 설정 버튼 바로 아래의 기존 매매 모드 전환 버튼에서 화살표 스프라이트 제거
+- 문서 색상 토큰(`#0B0F19`, `#0F172A`, `#141D33`, `#06B6D4`, `#CFFAFE`) 사용
+- 현재 AI 모드에서는 `AI`, 직접 매매 모드에서는 `USER` 라벨 표시
+- 단색 `#141D33` 배경과 `#06B6D4` 테두리만 사용해 텍스트 중심으로 단순화
+- 클릭 시 기존 `TradingController.ToggleTradingMode()`를 그대로 호출
+- 모드 버튼을 `ChartMainPanel` 오른쪽 8px, `PnLCard` 아래 8px의 교차 영역에 배치
+- 버튼 크기를 92×46px로 고정하고 캔버스 경계에서 클램핑해 다른 UI와 겹치지 않도록 처리
+
+관련 파일:
+
+- `Assets/Scripts/UI/SettingsMenuController.cs`
+
+---
+
+## 2026-07-15 — 우측 상단 3대 스킬 버튼 및 정보 창
+
+- 프로젝트의 3대 성장 스킬 `차트 공부`, `큐브 풀기`, `파산 회고록 읽기`를 개별 버튼으로 분리
+- 설정 버튼 아래에 66×66px 버튼 3개를 8px 간격의 세로 1열로 정렬
+- 화면 우측에서 8px, 설정 버튼 아래에서 24px 여백을 유지하도록 배치
+- 스킬 버튼 사이 간격을 12px로 조정해 각 버튼을 시각적으로 분리
+- 차트 노트, 큐브, 회고록을 표현한 독립 투명 픽셀 스프라이트 제작
+- 각 버튼에 현재 스킬 레벨 배지 표시
+- 버튼 클릭 시 전용 정보 팝업을 다른 UI보다 높은 Sorting Order로 표시
+- 정보 창에 현재 레벨, 실제 적용 효과, 다음 업그레이드 비용·HP·시간 표시
+- 정보 창에 실제 `UPGRADE` 버튼을 추가하고 자산·HP·최대 레벨 조건 검사
+- 업그레이드 성공 시 돈·체력·게임 시간을 실제 차감하고 스킬 레벨 및 효과 즉시 갱신
+- 조건 부족 및 업그레이드 성공 결과를 정보 창 하단 메시지로 표시
+- `TraderLevelSystem.OnSkillLevelChanged` 이벤트로 레벨 배지와 열린 정보 창을 즉시 갱신
+- PF Stardust 폰트 및 문서의 남색·시안 색상 토큰 적용
+
+관련 파일:
+
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+- `Assets/Scripts/Trading/TraderLevelSystem.cs`
+- `Assets/Resources/UI/Skills/ChartStudyIcon.png`
+- `Assets/Resources/UI/Skills/CubePatienceIcon.png`
+- `Assets/Resources/UI/Skills/BookJudgmentIcon.png`
