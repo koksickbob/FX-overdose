@@ -78,8 +78,8 @@ namespace FXOverdose.Trading
         {
             if (pnl <= 0f) return;
 
-            // 기본 EXP 20 + 손익금의 5% + 레버리지 배율 * 1.5
-            float gainedExp = 20f + (pnl * 0.05f) + (leverage * 1.5f);
+            // 기본 EXP 20 + 손익금의 5% + 레버리지 배율 * 1.5 (전체 획득량을 1/3로 축소)
+            float gainedExp = (20f + (pnl * 0.05f) + (leverage * 1.5f)) / 3.0f;
             protagonistEXP += gainedExp;
 
             Debug.Log($"[TraderLevelSystem 🌟] 거래 성공! 경험치 획득: +{gainedExp:N1} (현재 EXP: {protagonistEXP:N1} / {GetMaxProtagonistEXP(protagonistLevel):N1})");
