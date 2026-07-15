@@ -95,6 +95,10 @@ namespace FXOverdose.AI
             else if (phase == SignalPhase.Cooldown)
             {
                 isProcessingSignal = false;
+                if (tradingController != null && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected))
+                {
+                    return;
+                }
                 // [게임적 허용 완벽 보장 장치 (2중 보장)]
                 // 만약 True Signal(정상 확정 신호)을 따라 진입한 포지션이 캔들 노이즈 등으로 인해 
                 // TargetPrice에 미세하게 닿지 못한 채 보장 구간(GuaranteedOverride)이 종료되더라도,
@@ -131,6 +135,15 @@ namespace FXOverdose.AI
             if (availableBalance < 10f)
             {
                 TriggerDialogue("증거금이 바닥났어... 남은 시드가 이것밖에 안 남다니 말도 안 돼...", -0.05f);
+                OnSignalEvaluationCompleted?.Invoke(signal, false);
+                return;
+            }
+
+            // 💡 [매매 모드 분기] 플레이어 수동 매매 모드일 때는 AI가 자동으로 포지션을 개설하지 않고 시그널 브리핑만 제공
+            if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+            {
+                string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파(Bullish)" : "하락 돌파(Bearish)";
+                TriggerDialogue($"[시그널 브리핑] {dirText} 신호 포착! 현재 수동 매매 모드이므로 AI 자동 진입은 생략합니다. 판단과 진입은 플레이어 직접 결정하세요.", 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -299,6 +312,8 @@ namespace FXOverdose.AI
         // 정상/확실한 진입
         private void OpenNormalPosition(MarketSignal signal, float balance, float ratio, int leverage)
         {
+            var levelSystem = TraderLevelSystem.Instance;
+
             TradingController.PositionType posType = signal.Type switch
             {
                 MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
@@ -306,11 +321,45 @@ namespace FXOverdose.AI
                 _ => TradingController.PositionType.Long
             };
 
+            // 💡 [차트 공부 귀속] 정확도 검증: 차트 공부 레벨이 낮아 오판 시 정상 신호에서도 반대 방향으로 역진입(Error Entry)
+            if (levelSystem != null && signal.IsTrueSignal)
+            {
+                float accuracy = levelSystem.GetSignalAccuracy();
+                if (UnityEngine.Random.value > accuracy)
+                {
+                    posType = posType == TradingController.PositionType.Long ? TradingController.PositionType.Short : TradingController.PositionType.Long;
+                    Debug.Log($"[AITradingBrain ❌] 차트 공부 레벨 부족으로 신호 오판! 반대 방향({posType})으로 오진입합니다.");
+                }
+            }
+
             float margin = balance * Mathf.Clamp01(ratio);
             float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+
+            // 💡 [차트 공부 귀속] 진입 지연 패널티 반영: 이미 주가가 움직인 후 늦게 따라들어가는 슬리피지 보정
+            if (levelSystem != null)
+            {
+                float delayRatio = levelSystem.GetEntryDelayPenaltyRatio();
+                if (delayRatio > 0f)
+                {
+                    startPrice = posType == TradingController.PositionType.Long 
+                        ? startPrice * (1f + delayRatio) 
+                        : startPrice * (1f - delayRatio);
+                }
+            }
+
             float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
-            float aiTarget = posType == TradingController.PositionType.Long ? startPrice * (1f + deltaPct) : startPrice * (1f - deltaPct);
-            float aiStopLoss = posType == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
+
+            // 💡 [큐브 풀기 귀속] 인내심 계수 반영: 확정 수익 구간에서도 목표 수익의 일부만 먹고 조기 익절하거나 100% 홀딩
+            float takeProfitMult = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 1.0f;
+            float aiTarget = posType == TradingController.PositionType.Long 
+                ? startPrice * (1f + deltaPct * takeProfitMult) 
+                : startPrice * (1f - deltaPct * takeProfitMult);
+
+            // 💡 [책읽기 귀속] 판단력 계수 반영: 손절 타점 단축/확대 (LV 낮을수록 큰 손절 -9%, 높을수록 빠른 칼손절 -1.5%)
+            float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.02f;
+            float aiStopLoss = posType == TradingController.PositionType.Long 
+                ? startPrice * (1f - stopLossTightness) 
+                : startPrice * (1f + stopLossTightness);
 
             bool opened = tradingController.OpenPosition(posType, margin, leverage, aiTarget, aiStopLoss);
 
@@ -383,6 +432,51 @@ namespace FXOverdose.AI
         }
 
         private FXOverdose.AI.LLM.LocalLLMService llmService;
+
+        /// <summary>
+        /// 플레이어가 직접 매수/매도 진입했을 때, AI가 차트 국면과 함정 여부를 분석하여 힌트 대사를 출력합니다.
+        /// 차트 공부(ChartStudyLevel) 레벨이 낮을수록 부정확하거나 혼란스러운 힌트를 제공합니다.
+        /// </summary>
+        public void ProvideChartHintToPlayer(TradingController.PositionType playerPos)
+        {
+            var levelSystem = TraderLevelSystem.Instance;
+            int chartLv = levelSystem != null ? levelSystem.ChartStudyLevel : 1;
+            float accuracy = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.7f;
+
+            bool isAccurateHint = UnityEngine.Random.value <= accuracy;
+
+            string hintText = "";
+            if (chartLv >= 7 || (chartLv >= 4 && isAccurateHint))
+            {
+                // 고레벨 / 정확한 간파 힌트
+                if (isProcessingSignal && !currentActiveSignal.IsTrueSignal)
+                {
+                    hintText = $"꺄아악 마스터 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 내 말 들어줘 흐윽...!!";
+                }
+                else if (isProcessingSignal && currentActiveSignal.IsTrueSignal)
+                {
+                    hintText = $"앗...! 우리 마스터 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
+                }
+                else
+                {
+                    hintText = $"마스터가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 나 지금 심장 엄청 떨려 ♥";
+                }
+            }
+            else
+            {
+                // 차트 공부 레벨이 낮아 불안하거나 감에 의존하는 멘헤라 리액션
+                if (UnityEngine.Random.value < 0.5f)
+                {
+                    hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 나 미워하거나 버리면 안 돼 마스터...? 약속해... 흐윽...";
+                }
+                else
+                {
+                    hintText = $"꺄아아 마스터가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 마스터 돈 뺏어가는 세력 놈들은 내가 다 저주해 버릴 거야!! ♥";
+                }
+            }
+
+            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"[AI 차트 힌트] {hintText}", 0.05f);
+        }
 
         private void TriggerDialogue(string dialogue, float emotionDelta)
         {

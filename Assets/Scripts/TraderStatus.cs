@@ -226,7 +226,7 @@ public class TraderStatus : MonoBehaviour
         consecutiveHighLevWins = 0;
         hasDrawdownTrauma = false;
         if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
-        peakBalance = gameManager != null ? gameManager.StartingBalance : 10000f;
+        peakBalance = gameManager != null ? gameManager.StartingBalance : 2500f;
         currentDrawdownPercent = 0f;
         canRegenMental = true;
 

@@ -200,6 +200,12 @@ namespace FXOverdose.AI
         private void EvaluateLosingStreakCountdown(float deltaTime)
         {
             if (!isImpulsiveCountdownActive) return;
+            if (tradingController != null && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+            {
+                isImpulsiveCountdownActive = false;
+                impulsiveTradeCountdownTimer = 0f;
+                return;
+            }
 
             // 플레이어가 개입하여 연속 손절이 리셋되었거나 이미 새 포지션에 들어갔다면 카운트다운 종료
             if (traderStatus.CurrentLosingStreak < 4 || tradingController.IsActive)
@@ -247,6 +253,13 @@ namespace FXOverdose.AI
             }
             else
             {
+                // 플레이어 수동 매매 모드일 때는 손절 시에도 연속 손절 콤보 멘탈 감소 및 휩소 자책 기믹을 발생시키지 않음!
+                if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+                {
+                    Debug.Log("[MentalDrainGimmickController] 🛡️ 플레이어 수동 매매 중 손절 발생: 휩소 기믹 및 연속 손절 페널티를 면제합니다.");
+                    return;
+                }
+
                 // 손실 청산
                 traderStatus.CurrentLosingStreak++;
                 traderStatus.ConsecutiveHighLevWins = 0;
@@ -293,6 +306,12 @@ namespace FXOverdose.AI
         // --- [신규 기믹: 휩소 의심 등으로 진입을 포기한 신호 감지 및 주가 추적 시작] ---
         private void OnSignalEvaluationCompleted(MarketSignal signal, bool didEnter)
         {
+            if (tradingController != null && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+            {
+                isTrackingMissedSignal = false;
+                return;
+            }
+
             if (!didEnter)
             {
                 trackedMissedSignal = signal;
@@ -311,6 +330,11 @@ namespace FXOverdose.AI
         private void EvaluateMissedOpportunityRegret(float deltaTime)
         {
             if (!isTrackingMissedSignal || marketEngine == null || traderStatus == null) return;
+            if (tradingController != null && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+            {
+                isTrackingMissedSignal = false;
+                return;
+            }
 
             missedSignalTimer += deltaTime;
 

@@ -84,8 +84,7 @@ namespace FXOverdose.AI
 
             if (llmService != null)
             {
-                llmService.OnDialogueGenerated -= HandleLLMDialogueGenerated;
-                llmService.OnDialogueGenerated += HandleLLMDialogueGenerated;
+                // 중복 호출 방지를 위해 카테고리 정보가 포함된 이벤트만 단일 구독
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
                 llmService.OnDialogueGeneratedWithCategory += HandleLLMDialogueGeneratedWithCategory;
             }
@@ -103,7 +102,7 @@ namespace FXOverdose.AI
                 ? dialogueFont
                 : TMP_Settings.defaultFontAsset;
 
-            if (targetFont != null)
+            if (targetFont != null && targetFont.atlasTextures != null && targetFont.atlasTextures.Length > 0 && targetFont.atlasTextures[0] != null)
             {
                 dialogueText.font = targetFont;
                 if (targetFont.material != null)
@@ -127,7 +126,6 @@ namespace FXOverdose.AI
             if (aiBrain != null) aiBrain.OnAIDecisionMade -= HandleAIDecisionMade;
             if (llmService != null)
             {
-                llmService.OnDialogueGenerated -= HandleLLMDialogueGenerated;
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
             }
         }

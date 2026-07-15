@@ -28,8 +28,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private EndingType currentEnding = EndingType.None;
 
     [Header("자산 설정")]
-    [SerializeField] private float startingBalance = 10000f; // 시작 자산
-    [SerializeField] private float targetBalance = 100000f;  // 목표 자산
+    [SerializeField] private float startingBalance = 2500f; // 시작 자산 (초기 2,500)
+    [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
 
     [Header("시간 설정")]
@@ -101,7 +101,10 @@ public class GameManager : MonoBehaviour
         // AI 장기/단기 기억 시스템 초기화
         FXOverdose.AI.TraderMemoryManager.Instance?.ResetAll();
 
-        Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입)");
+        // 주인공 및 스킬 레벨 시스템 초기화
+        FXOverdose.Trading.TraderLevelSystem.Instance?.ResetLevels();
+
+        Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
     }
 
     public void FinishLoadingAndStartPlaying()
@@ -176,6 +179,15 @@ public class GameManager : MonoBehaviour
         OnGameMinuteAdvanced?.Invoke();
     }
 
+    // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출
+    public void AdvanceGameMinutes(int minutes)
+    {
+        for (int i = 0; i < minutes; i++)
+        {
+            AdvanceOneMinute();
+        }
+    }
+
     // 자산을 증가하거나 감소시키는 함수
     public void ChangeBalance(float amount)
     {
@@ -229,13 +241,9 @@ public class GameManager : MonoBehaviour
         var status = TraderStatus.CanonicalInstance;
         bool isOverdose = status != null && (status.CurrentMentalState == TraderStatus.MentalState.Overdose || status.CurrentMental <= 0f);
 
-        // [Overdose 폭주 상태가 아닐 때만] 현재 자산이 목표 자산 이상이면 성공 엔딩 발동
-        if (!isOverdose && currentBalance >= targetBalance)
-        {
-            EndGame(EndingType.Success);
-        }
+        // [목표 자산 성공 조건 철폐] 엔딩 방향 개편에 따라 targetBalance 도달 시 자동 클리어 조건을 철폐합니다.
         // 현재 자산이 0 이하이면 파산 또는 Overdose 엔딩
-        else if (currentBalance <= 0f)
+        if (currentBalance <= 0f)
         {
             currentBalance = 0f;
             if (isOverdose)

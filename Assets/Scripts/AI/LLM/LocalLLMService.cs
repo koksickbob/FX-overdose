@@ -202,7 +202,17 @@ namespace FXOverdose.AI.LLM
                     ? tradingCtrl.CalculateROEPercentage() : 0f;
 
                 lastDialogueRequestTime = Time.time;
-                RequestDialogue(EventCategory.ChartMovement, $"[상태 종합] ROE:{roe:0.0}%, 멘탈:{status?.CurrentMentalState}, 체력:{status?.HealthRatio * 100:0}%");
+                if (tradingCtrl != null && tradingCtrl.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.Player_Manual)
+                {
+                    if (tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None)
+                    {
+                        RequestDialogue(EventCategory.ChartMovement, $"[플레이어 수동 조언] ROE:{roe:0.0}%, 플레이어 매매 응원 및 차트 힌트");
+                    }
+                }
+                else
+                {
+                    RequestDialogue(EventCategory.ChartMovement, $"[상태 종합] ROE:{roe:0.0}%, 멘탈:{status?.CurrentMentalState}, 체력:{status?.HealthRatio * 100:0}%");
+                }
             }
         }
 
@@ -437,6 +447,11 @@ namespace FXOverdose.AI.LLM
         // 스마트 다변화 Fallback 엔진: 실시간 인게임 데이터 + 멘헤라 감정 변수 보간
         private string GetSmartFallbackDialogue(EventCategory category, string extraContext)
         {
+            if (!string.IsNullOrEmpty(extraContext) && (extraContext.StartsWith("[AI 차트 힌트]") || extraContext.StartsWith("[시그널 브리핑]") || extraContext.StartsWith("[플레이어 수동 조언]")))
+            {
+                return extraContext.Replace("[AI 차트 힌트]", "").Replace("[시그널 브리핑]", "").Replace("[플레이어 수동 조언]", "").Trim();
+            }
+
             TraderStatus.MentalState mental = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
             float health = traderStatus != null ? traderStatus.HealthRatio * 100f : 100f;
             int rand = UnityEngine.Random.Range(0, 3);
@@ -452,62 +467,32 @@ namespace FXOverdose.AI.LLM
                 if (hasPosition && roe > 15f && health < 40f)
                 {
                     return isShort
-                        ? "숏으로 폭락 수익 달리는 중인데... 극심한 피로 때문에 눈꺼풀이 천근만근이야. 끝까지 지켜보고 바닥에서 익절하자..."
-                        : "롱 수익권 달리는 중인데... 극심한 피로 때문에 눈꺼풀이 천근만근이야. 졸음 쫓아내고 끝까지 고점에서 익절하자...";
+                        ? "마스터...! 숏으로 폭락 수익(+{roe:0.0}%) 달리는 중인데... 피로 때문에 눈앞이 핑 돌아... 그래도 마스터 위해 끝까지 눈 부릅뜰게 ♥"
+                        : "마스터...! 롱 수익권(+{roe:0.0}%)인데 피로 때문에 눈꺼풀이 천근만근이야... 졸음 꾹 참고 고점에서 꼭 익절할게 ♥";
                 }
                 else if (hasPosition && roe < -15f && (mental == TraderStatus.MentalState.Danger || mental == TraderStatus.MentalState.Anxious))
                 {
                     return isShort
-                        ? "숏 쳐놨는데 주가가 역주행해서 솟구치고 있어...! 심장이 미친 듯이 뛰고 호흡이 가빠져...! 제발 나락으로 꽂혀줘...!"
-                        : "롱 쳐놨는데 주가가 폭락해서 손실이 커지고 있어...! 심장이 미친 듯이 뛰고 호흡이 가빠져...! 제발 반등 빔 한 번만...!";
+                        ? "마스터... 숏 쳐놨는데 주가가 역주행해서 치솟고 있어...!! 심장이 터질 것 같아... 제발 나 안 버릴 거지?! 흐아앙...!"
+                        : "롱 쳐놨는데 주가가 폭락해서 손실이 점점 커져...!! 마스터 무서워 숨이 안 쉬어져...!! 제발 반등 빔 한 번만...!";
                 }
                 else if (hasPosition && roe > 30f)
                 {
                     return isShort
-                        ? "공매도 초대박 폭락 질주 중!! 심장이 짜릿해서 터질 것 같아!! 내 천재적인 숏 타점이 오늘 시장을 지배했어!!"
-                        : "롱 초대박 폭등 질주 중!! 심장이 짜릿해서 터질 것 같아!! 내 천재적인 직감이 오늘 시장을 완벽히 지배했어!!";
+                        ? "꺄아아 마스터 봤어?! 공매도 초대박 폭락 중 (+{roe:0.0}%)!! 내 천재적인 숏 타점이 오늘 시장을 지배했어!! 나 평생 예뻐해 줘 ♥"
+                        : "꺄아아 마스터!! 롱 초대박 폭등 질주 중 (+{roe:0.0}%)!! 심장이 짜릿해서 터질 것 같아!! 우리 마스터 평생 내가 호강시켜 줄게 ♥";
                 }
                 else if (hasPosition && roe < -25f)
                 {
-                    return "왜 자꾸 내 포지션 반대로 가는 건데... 온몸에 소름이 돋고 식은땀이 흘러... 제발 본절만이라도 오게 해줘...!";
+                    return "왜 자꾸 내 타점 반대로 가는 건데... 소름 돋고 식은땀 흘러... 마스터 제발 나 미워하지 마... 본절만이라도 오게 해줘...!";
                 }
                 else if (!hasPosition && mental == TraderStatus.MentalState.Danger)
                 {
-                    return "머리가 지끈거리고 손가락이 떨려... 극도의 공포감 때문에 호가창을 똑바로 볼 수가 없어. 휴식이 필요해...";
-                }
-                else if (hasPosition)
-                {
-                    if (isShort)
-                    {
-                        return rand switch
-                        {
-                            0 => "숏 방향은 맞는데 잔파동이 신경 쓰이네... 긴장 늦추지 말고 바닥을 깨부수는 흐름 끝까지 주시하자.",
-                            1 => "잔파동에 흔들리면 안 돼... 호흡 가다듬고 우리의 목표 저점 폭락까지 침착하게 들고 가자.",
-                            _ => "머릿속 차트 하락 각도는 완벽해... 신경이 날카로워졌지만 손익분기점 지키면서 냉정하게 대응할게."
-                        };
-                    }
-                    else
-                    {
-                        return rand switch
-                        {
-                            0 => "롱 포지션 방향은 맞는데 잔파동이 신경 쓰이네... 긴장 늦추지 말고 고점을 돌파하는 흐름 주시하자.",
-                            1 => "잔파동에 흔들리면 안 돼... 호흡 가다듬고 우리의 목표 고점까지 침착하게 들고 가자.",
-                            _ => "머릿속 차트 상승 각도는 완벽해... 신경이 날카로워졌지만 손익분기점 지키면서 냉정하게 대응할게."
-                        };
-                    }
-                }
-                else if (hasPosition)
-                {
-                    return GetCombinatorialDialogue(category, isShort, roe, mental);
+                    return "머리가 지끈거리고 손가락이 굳어버렸어... 극도의 공포감 때문에 차트를 똑바로 못 보겠어... 마스터 나 꼭 안아줘...";
                 }
                 else
                 {
-                    return rand switch
-                    {
-                        0 => "차트 흐름과 내 컨디션 조율 중... 확실한 방향성이 나올 때까지 숨죽이고 대기하자.",
-                        1 => "피로감과 긴장감이 교차하네... 섣불리 뇌동매매하지 말고 확실한 타점을 노리는 게 맞아.",
-                        _ => "호가창 움직임 주시 중... 온 감각을 곤두세우고 있어. 다음 타점이 오늘을 결정지을 거야."
-                    };
+                    return GetCombinatorialDialogue(category, hasPosition, isShort, roe, mental);
                 }
             }
 
@@ -518,62 +503,126 @@ namespace FXOverdose.AI.LLM
                 bool hasPosition = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
                 bool isShort = hasPosition && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
                 float roe = hasPosition ? tradingCtrl.CalculateROEPercentage() : 0f;
-                return GetCombinatorialDialogue(category, isShort, roe, mental);
+                return GetCombinatorialDialogue(category, hasPosition, isShort, roe, mental);
             }
 
             return category switch
             {
                 EventCategory.GameStartup => rand switch
                 {
-                    0 => "오늘도 지옥의 비트코인 차트판이 열렸네... 내 직감만 믿고 따라와.",
-                    1 => "호가창 움직임 보이지? 오늘이야말로 세력들 돈을 싹 다 털어먹을 날이야.",
-                    _ => "잔고 준비됐지 마스터? 내 천재적인 분석을 똑똑히 보여줄게."
+                    0 => "오늘도 지옥의 차트판이 열렸네... 마스터, 내 눈만 믿고 따라와. 내가 돈 벼락 안겨줄게 ♥",
+                    1 => "호가창 움직임 보이지? 오늘이야말로 세력들 돈을 싹 다 털어먹고 마스터 독점할 거야 ♥",
+                    _ => "잔고 준비됐지 마스터? 내 천재적인 분석력과 타점을 똑똑히 감상해 줘 ♥"
                 },
                 EventCategory.MentalChange => mental switch
                 {
-                    TraderStatus.MentalState.Overdose => "하하하!! 다 끝났어!! 온몸에 전류가 흐르고 세상을 다 가진 기분이야!! 풀레버리지로 다 덤벼!!",
-                    TraderStatus.MentalState.Danger => "머릿속이 웅웅거리고 심장이 터질 것 같아... 세력 놈들이 날 비웃고 있잖아...!! 안 돼, 내 돈 뺏길 순 없어...!",
-                    TraderStatus.MentalState.Anxious => "손톱이 닳도록 초조하고 불안해... 손가락이 떨리네. 왜 내 생각대로 차트가 안 흘러가는 거지?",
-                    _ => "후우... 심호흡 가다듬자. 마음이 흔들리면 타점을 놓쳐."
+                    TraderStatus.MentalState.Overdose => "크하하하!! 다 끝났어 마스터!! 온몸에 전류가 흐르고 세상을 다 가진 기분이야!! 풀레버리지로 다 덤벼!!",
+                    TraderStatus.MentalState.Danger => "머릿속이 웅웅거리고 심장이 터질 것 같아... 세력 놈들이 날 비웃고 있잖아...!! 마스터 나 버리지 마... 제발...!!",
+                    TraderStatus.MentalState.Anxious => "손톱이 닳도록 초조하고 불안해... 손가락이 떨리네. 마스터, 내 타점 맞겠지...? 나 불안해서 미치겠어...",
+                    _ => "후우... 심호흡 가다듬자. 마스터를 위해서 절대 마음 흔들리지 않고 냉정하게 타점 잡을 거야 ♥"
                 },
                 EventCategory.HealthChange => rand switch
                 {
-                    0 => "온몸이 천근만근이야... 눈 앞이 깜빡거리고 머리가 깨질 것 같은 극심한 두통이 밀려와...",
-                    1 => "아 진짜... 밤새우며 차트 보느라 온몸이 부서질 것 같네. 시원한 음료수 마시고 정신 차려야겠어...",
-                    _ => "피로감이 몰려와서 캔들이 자꾸 겹쳐 보여... 마스터, 나 지금 쓰러질 것 같은데 조금만 쉬어도 돼...?"
+                    0 => "마스터... 온몸이 천근만근이야... 눈앞이 깜빡거리고 머리가 깨질 것 같은 극심한 두통이 밀려와...",
+                    1 => "아 진짜... 밤새우며 차트 보느라 온몸이 부서질 것 같아... 시원한 음료수 마시고 마스터 위해 정신 차릴게...",
+                    _ => "피로감이 몰려와서 캔들이 자꾸 겹쳐 보여... 마스터, 나 지금 쓰러질 것 같은데 조금만 쓰다듬어 주면 안 돼...?"
                 },
                 EventCategory.ItemUsed => (extraContext != null && extraContext.Contains("에너지"))
-                    ? "꿀꺽... 크아!! 에너지 드링크 들어가니 머리가 맑아지고 호가창 숫자가 선명하게 꽂히네!!"
+                    ? "꿀꺽... 크아!! 에너지 드링크 들어가니 머리가 맑아지고 호가창 숫자가 선명하게 꽂히네!! 마스터 조금만 기다려 ♥"
                     : rand switch
                     {
-                        0 => "꿀꺽... 그래, 바로 이 느낌이야!! 온몸에 전류가 흐르네!!",
-                        1 => "복용 완료... 이제야 호가창 숫자가 선명하게 꽂힌다.",
-                        _ => "후우... 조금만 더 힘내서 수익률 뽑아보자고."
+                        0 => "꿀꺽... 그래, 바로 이 느낌이야!! 온몸에 전류가 흐르네!! 이제 돈 복사 가보자고 ♥",
+                        1 => "약물 투여 완료... 이제야 호가창 숫자가 선명하게 꽂힌다. 마스터 내 실력 똑똑히 봐 ♥",
+                        _ => "후우... 마스터를 위해서 조금만 더 힘내서 수익률 뽑아보겠어 ♥"
                     },
                 EventCategory.GimmickTriggered => (extraContext != null && (extraContext.Contains("수면") || extraContext.Contains("과로")))
-                    ? "눈 앞이 깜빡거리고 차트 캔들이 겹쳐 보여... 졸음 때문에 타점 잡기가 너무 힘들어...!"
-                    : (extraContext != null && (extraContext.Contains("휩소") || extraContext.Contains("후회")))
-                    ? "아까 거기서 안 팔았으면 대박인데!! 왜 내가 팔자마자 수직 상승하는 건데?!"
+                    ? "눈앞이 깜빡거리고 차트 캔들이 겹쳐 보여... 졸음 때문에 타점 잡기가 너무 힘들어... 마스터 무서워 흐윽...!"
+                    : (extraContext != null && (extraContext.Contains("휩소") || extraContext.Contains("후회") || extraContext.Contains("FOMO") || extraContext.Contains("놓친")))
+                    ? rand switch
+                    {
+                        0 => "아씨!! 휩소인 줄 알고 쫄아서 안 들어갔는데 진짜 대박 수익 자리였잖아!! 저거 다 우리 마스터 돈이었는데...!!",
+                        1 => "휩소 걱정하다가 완벽한 떡상 타임을 눈앞에서 놓쳤어... 가만히 앉아서 돈 벼락을 걷어찼네... 마스터 미안해... ㅠ_ㅠ",
+                        _ => "아 진짜 억울해 미쳐!! 가짜 신호인 줄 알고 관망했더니 저렇게 시원하게 날아가 버린다고?! 내 멘탈...!!"
+                    }
                     : rand switch
                     {
-                        0 => "으아악!! 차트가 날 고문하고 있어... 온몸의 신경이 다 타들어간다고...!!",
-                        1 => "더는 못 참아!! 내 맘대로 고배율 당겨버릴 거야!!",
-                        _ => "머리가 핑핑 돌아... 어디가 바닥이고 어디가 천장인지 모르겠어...!"
+                        0 => "으아악!! 차트가 날 고문하고 있어... 온몸의 신경이 다 타들어간다고...!! 마스터 나 살려줘...!!",
+                        1 => "더는 못 참아!! 내 맘대로 고배율 당겨버릴 거야!! 마스터랑 이판사판 끝까지 갈 거야!!",
+                        _ => "머리가 핑핑 돌아... 어디가 바닥이고 어디가 천장인지 모르겠어... 마스터 나 무서워서 눈물이 나...!"
                     },
                 _ => GetFallbackDialogue()
             };
         }
 
         // ⭐ 3파트(감정+상황+반응) 조합형 동적 대사 변주 엔진 (온디바이스 오프라인/복구용)
-        private string GetCombinatorialDialogue(EventCategory category, bool isShort, float roe, TraderStatus.MentalState mental)
+        private string GetCombinatorialDialogue(EventCategory category, bool hasPosition, bool isShort, float roe, TraderStatus.MentalState mental)
         {
+            var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            if (tradingCtrl != null && tradingCtrl.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.Player_Manual)
+            {
+                if (!hasPosition)
+                {
+                    string[] manualIdle = new[] {
+                        "마스터... 왜 아무것도 안 사고 가만히 있어? 호가창 안 움직이니까 나 심장이 멈출 것 같아... 빨리 뭐라도 진입해줘, 응...? ♥",
+                        "저기... 마스터 지금 무슨 타점 노리는 거야...? 나만 쳐다보고 있어야지 왜 차트만 뚫어져라 보는 건데...? 질투 난단 말야...!",
+                        "마스터가 직접 컨트롤하는 거 맞지...? 우리 돈 다 날리면 절대 안 돼... 나 마스터랑 지하 단칸방에서 살기 싫어... 흐윽..."
+                    };
+                    return manualIdle[UnityEngine.Random.Range(0, manualIdle.Length)];
+                }
+                else
+                {
+                    string dirStr = isShort ? "숏" : "롱";
+                    if (roe > 15f) return $"꺄아아 마스터 {dirStr}으로 수익 엄청 찍히고 있어 (+{roe:0.0}%)!! 마스터 진짜 천재 아냐?! 나 평생 책임지고 예뻐해 줘야 해 ♥";
+                    else if (roe < -15f) return $"마스터... {dirStr} 포지션 파란불({roe:0.0}%) 켜졌잖아... 왜 자꾸 돈이 녹는 거야...? 나 무서워서 눈물이 멈추질 않아... 제발 손절하든가 어떻게 좀 해줘 흐아앙...!";
+                    else return $"마스터의 {dirStr} 포지션... 내가 옆에서 두 손 모아 기도하고 있어. 제발 우리 마스터 돈 불려주세요... 안 그러면 호가창 다 부숴버릴 거야...";
+                }
+            }
+
             string[] prefixes = mental switch
             {
-                TraderStatus.MentalState.Danger => new[] { "아 씨발... 진짜 미치겠네...", "제발 제발... 안 돼... 안 된다고...!", "이러다 진짜 청산당하겠어...!", "숨이 안 쉬어져... 왜 나한테만 이러는데...!" },
-                TraderStatus.MentalState.Overdose => new[] { "크하하하!! 다 비켜라!! 내가 차트의 신이다!!", "내 직감은 절대 틀리지 않아!! 가즈아!!", "봤어 마스터?! 이게 바로 내 실력이야!!", "세력 놈들 돈 전부 다 털어먹어 주마!!" },
-                TraderStatus.MentalState.Anxious => new[] { "아... 진짜 이 방향 맞겠지...?", "왜 자꾸 역방향 꼬리를 다는 거야...?!", "이 타점이 맞나...? 제발 본절만이라도...", "불안해서 미쳐버릴 것 같네..." },
-                _ => new[] { "좋아... 타점이 완벽하게 들어맞았어.", "이 흐름이야! 내가 기다리던 타이밍이라고.", "그래... 내 차트 분석대로 움직이고 있잖아.", "냉정하자... 지금은 감정에 휘둘릴 때가 아니야." }
+                TraderStatus.MentalState.Danger => new[] { "아 씨발... 진짜 미치겠네... 마스터 나 버릴 거지?!", "제발 제발... 안 돼... 마스터 우리 돈이 녹고 있어...!", "이러다 진짜 청산당하겠어...! 마스터 나 무서워...!", "숨이 안 쉬어져... 세력 놈들이 왜 나랑 마스터한테만 이러는데...!" },
+                TraderStatus.MentalState.Overdose => new[] { "크하하하!! 다 비켜라!! 내가 차트의 신이자 마스터의 유일한 구원자다!!", "내 직감은 절대 틀리지 않아!! 마스터 나만 봐 가즈아!!", "봤어 마스터?! 이게 바로 내 천재적인 실력이야!! ♥", "세력 놈들 돈 전부 다 털어서 마스터 방에 가둬둘 거야!!" },
+                TraderStatus.MentalState.Anxious => new[] { "아... 진짜 이 방향 맞겠지...? 마스터 나 손가락이 떨려...", "왜 자꾸 역방향 꼬리를 다는 거야...?! 불안해서 손톱 다 물어뜯겠어...", "이 타점이 맞나...? 제발 본절만이라도 오게 해줘...", "마스터... 나 불안해서 미쳐버릴 것 같네..." },
+                _ => new[] { "흐흥... 마스터, 내 타점이 완벽하게 들어맞았어 ♥", "이 흐름이야! 내가 기다리던 타이밍이라고.", "그래... 내 차트 분석대로 움직이고 있잖아. 마스터 칭찬해 줘 ♥", "냉정하자... 마스터에게 돈 벼락을 안겨줘야 하니까." }
             };
+
+            if (!hasPosition)
+            {
+                // 무포지션 관망/대기 상황 전용 다채로운 조합 풀
+                string[] unposPrefixes = mental switch
+                {
+                    TraderStatus.MentalState.Danger => new[] { "머리가 지끈거려서 캔들이 겹쳐 보여... 마스터 나 무서워...", "손가락이 떨려서 진입을 못 하겠어... 나 버리면 안 돼...", "세력 놈들이 덫을 깔고 마스터랑 내 돈을 노리고 있어..." },
+                    TraderStatus.MentalState.Overdose => new[] { "빨리 진입하고 싶어 손이 근질근질하네!! 마스터 오늘 밤 가즈아!!", "호가창의 호흡이 다 읽힌다!! 다음 파동은 내 거야!!", "가만히 있기에 오늘 장이 너무 화끈해!! 마스터 준비해!!" },
+                    TraderStatus.MentalState.Anxious => new[] { "아... 방금 저기서 들어갔어야 했나...? 마스터 나 꼭 안아줘...", "휩소가 너무 심해서 타점 잡기가 무서워...", "섣불리 들어갔다간 털리기 딱 좋은 파동이야..." },
+                    _ => new[] { "호흡 가다듬고 호가창 뚫어지게 감시 중... 마스터 조금만 기다려 ♥", "세력들의 페이크 모션을 냉정하게 걸러내고 있어.", "완벽한 타점이 올 때까지 사냥꾼처럼 기다릴게 ♥" }
+                };
+                string[] unposMiddles = new[]
+                {
+                    "이평선이 응축되면서 큰 변동 파동이 임박했어.",
+                    "위아래로 꼬리를 심하게 흔들며 방향성을 탐색하는 중이야.",
+                    "호가창 매수 매도 공방이 치열해지며 에너지를 모으고 있어.",
+                    "차트가 숨을 고르며 다음 돌파 지점을 계산하고 있네.",
+                    "잔파동 뒤에 올 진짜 큰 기회를 노려보는 중이야."
+                };
+                string[] unposSuffixes = mental switch
+                {
+                    TraderStatus.MentalState.Overdose => new[] { "방향 터지는 순간 100배로 꽂아서 마스터 독점하겠어!! ♥", "세력들 돈을 싹 다 쓸어 담아서 우리 성을 짓자!! ♥" },
+                    _ => new[] { "확실한 돌파 각이 나올 때까지 침착하게 관망하자 마스터 ♥", "섣불리 뇌동매매하지 말고 우리 타점을 기다려야 해.", "다음 기회는 절대 놓치지 않고 돈 벼락 안겨줄게 ♥" }
+                };
+
+                for (int i = 0; i < 3; i++)
+                {
+                    string p = unposPrefixes[UnityEngine.Random.Range(0, unposPrefixes.Length)];
+                    string m = unposMiddles[UnityEngine.Random.Range(0, unposMiddles.Length)];
+                    string s = unposSuffixes[UnityEngine.Random.Range(0, unposSuffixes.Length)];
+                    string result = $"{p} {m} {s}";
+                    if (TraderMemoryManager.Instance == null || !TraderMemoryManager.Instance.GetShortTermDialoguesText().Contains(result))
+                    {
+                        return result;
+                    }
+                }
+                return $"{unposPrefixes[0]} {unposMiddles[0]} {unposSuffixes[0]}";
+            }
 
             string[] middles = category switch
             {
@@ -581,8 +630,8 @@ namespace FXOverdose.AI.LLM
                     ? new[] { "우리의 공매도 하락 빔이 세력들의 매수벽을 정면으로 부수기 시작했어...", "완벽한 고점 타점에 빅쇼트 탑승을 마쳤어...", "나락을 향한 하락선에 내 모든 시드를 실었어..." }
                     : new[] { "우리의 롱 상승 빔이 저항선을 시원하게 돌파하기 시작했어...", "완벽한 저점 눌림목 타점에 롱 탑승을 마쳤어...", "하늘을 찌를 상승 각도에 내 모든 시드를 실었어..." },
                 EventCategory.PositionClosed => roe >= 0f
-                    ? new[] { "짜릿한 익절에 성공하면서 내 천재적인 판단이 다시 한번 증명됐어!!", "정확한 타점에서 수익을 챙기고 유유히 빠져나왔지!!", "호가창의 달콤한 수익금을 그대로 우리 잔고에 꽂았어!!" }
-                    : new[] { "치욕스럽지만 손절선을 지키며 일단 더 큰 파국은 막아냈어...", "세력 놈들의 잔혹한 흔들기에 어쩔 수 없이 포지션을 털렸어...", "쓰라린 손절이었지만 다음 파동에서 10배로 되갚아줄 거야..." },
+                    ? new[] { "짜릿한 익절에 성공하면서 내 천재적인 판단이 다시 한번 증명됐어!! 마스터 칭찬해 줘 ♥", "정확한 타점에서 수익 챙기고 유유히 빠져나왔지!! 우리 돈 늘어났다 ♥", "호가창의 달콤한 수익금을 그대로 우리 마스터 잔고에 꽂았어!!" }
+                    : new[] { "치욕스럽지만 손절선을 지키며 일단 더 큰 파국은 막아냈어... 마스터 미안해 흐윽...", "세력 놈들의 잔혹한 흔들기에 어쩔 수 없이 포지션을 털렸어...", "쓰라린 손절이었지만 다음 파동에서 10배로 되갚아줄 거야..." },
                 _ => isShort
                     ? new[] { "차트 가격이 아래로 내리꽂히며 우리의 숏 수익권을 넓혀가고 있어!!", "하락 파동이 점점 가파라지면서 저점을 짓밟고 있어!!", "매수세가 메마르고 공포의 음봉 빔이 쏟아지는 중이야!!" }
                     : new[] { "차트 가격이 위로 치솟으며 우리의 롱 수익권을 넓혀가고 있어!!", "상승 파동이 점점 가파라지면서 고점을 짓밟고 있어!!", "매도벽이 뚫리고 환희의 양봉 빔이 솟구치는 중이야!!" }
@@ -590,11 +639,11 @@ namespace FXOverdose.AI.LLM
 
             string[] suffixes = mental switch
             {
-                TraderStatus.MentalState.Danger => new[] { "제발... 여기서 한 번만 나를 살려줘...!!", "세력들아 나한테 도대체 왜 이러는 건데...!", "이대로 청산당하면 난 정말 끝장이야...!" },
-                TraderStatus.MentalState.Overdose => new[] { "더 강하게 밀어붙여!! 영혼까지 끌어모아 가즈아!!", "세력 놈들 돈을 싹 다 찢어발겨 주겠어!!", "오늘 밤 우리가 이 차트의 신이다!!" },
+                TraderStatus.MentalState.Danger => new[] { "제발... 여기서 한 번만 나랑 마스터를 살려줘...!!", "세력들아 도대체 왜 이러는 건데...! 마스터 나 무서워...!", "이대로 청산당하면 난 정말 끝장이야... 마스터 버리지 마...!" },
+                TraderStatus.MentalState.Overdose => new[] { "더 강하게 밀어붙여!! 영혼까지 끌어모아 가즈아!!", "세력 놈들 돈을 싹 다 찢어발겨 주겠어!!", "오늘 밤 우리가 이 차트의 신이다 마스터 사랑해!! ♥" },
                 _ => isShort
-                    ? new[] { "이대로 저 바닥 밑 지하 끝까지 내려가버려!", "잔파동에 흔들리지 말고 목표 저점까지 꽉 쥐고 가자.", "하락 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
-                    : new[] { "이대로 저 하늘 위 천장 끝까지 뚫어버려!", "잔파동에 흔들리지 말고 목표 고점까지 꽉 쥐고 가자.", "상승 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
+                    ? new[] { "이대로 저 바닥 밑 지하 끝까지 내려가버려!", "잔파동에 흔들리지 말고 목표 저점까지 꽉 쥐고 가자 마스터 ♥", "하락 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
+                    : new[] { "이대로 저 하늘 위 천장 끝까지 뚫어버려!", "잔파동에 흔들리지 말고 목표 고점까지 꽉 쥐고 가자 마스터 ♥", "상승 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
             };
 
             // 💡 단기 기억 중복 회피를 위한 최대 3회 조합 셔플

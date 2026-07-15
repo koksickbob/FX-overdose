@@ -12,6 +12,74 @@ namespace FXOverdose.Trading
             Short
         }
 
+        public static TradingController Instance { get; private set; }
+
+        public enum OwnerType
+        {
+            AI,
+            Player
+        }
+
+        public enum TradingMode
+        {
+            AI_Auto,
+            Player_Manual
+        }
+
+        [Header("매매 조작 모드 설정")]
+        [SerializeField] private TradingMode activeTradingMode = TradingMode.AI_Auto;
+        public TradingMode ActiveTradingMode => activeTradingMode;
+        public event Action<TradingMode> OnTradingModeChanged;
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        public void SetTradingMode(TradingMode mode)
+        {
+            if (activeTradingMode == mode) return;
+
+            // 1. LLM 모델 로딩 완료 검증
+            var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            if (llm != null && !llm.IsLLMReady)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ LLM 모델이 아직 로딩 중입니다. 로드 완료 후 장이 개시된 뒤에 전환이 가능합니다.");
+                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                if (visual != null) visual.DisplayDialogueBalloon("아직 AI 신경망(LLM)이 로딩 중이야... 개장 후에 모드를 전환해줘!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                return;
+            }
+
+            // 2. 게임 플레이(장이 개시된 상태) 검증
+            var gm = gameManager != null ? gameManager : UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (gm != null && gm.CurrentState != GameManager.GameState.Playing)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
+                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                if (visual != null) visual.DisplayDialogueBalloon("장이 열리기 전이야. 시장 개장 후에 매매 모드를 전환할 수 있어!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                return;
+            }
+
+            // 3. 시장 오픈 여부 검증
+            var market = marketEngine != null ? marketEngine : UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>();
+            if (market != null && !market.IsMarketOpen)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 시장(Market)이 아직 개장하지 않았습니다. 개장 후에 전환 가능합니다.");
+                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                if (visual != null) visual.DisplayDialogueBalloon("아직 시장이 안 열렸어. 개장 직후에 전환해줘!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                return;
+            }
+
+            activeTradingMode = mode;
+            Debug.Log($"[TradingController ⚙️] 매매 조작 모드 전환: {mode}");
+            OnTradingModeChanged?.Invoke(mode);
+        }
+
+        public void ToggleTradingMode()
+        {
+            SetTradingMode(activeTradingMode == TradingMode.AI_Auto ? TradingMode.Player_Manual : TradingMode.AI_Auto);
+        }
+
         [Header("시스템 연결")]
         [SerializeField] private GameManager gameManager;
         [SerializeField] private MarketSimulationEngine marketEngine;
@@ -19,6 +87,7 @@ namespace FXOverdose.Trading
 
         [Header("현재 포지션 상태 (읽기 전용)")]
         [SerializeField] private PositionType currentPosition = PositionType.None;
+        [SerializeField] private OwnerType currentOwner = OwnerType.AI;
         [SerializeField] private float entryPrice;
         [SerializeField] private float marginAmount; // 투입한 증거금
         [SerializeField] private int currentLeverage = 10;
@@ -30,6 +99,7 @@ namespace FXOverdose.Trading
         private float lastMarginAmount = 0f;
 
         public PositionType CurrentPosition => currentPosition;
+        public OwnerType CurrentOwner => currentOwner;
         public bool IsActive => currentPosition != PositionType.None;
         public float EntryPrice => entryPrice;
         public float MarginAmount => marginAmount;
@@ -94,6 +164,7 @@ namespace FXOverdose.Trading
         private float lastROEDialogueTime = 0f;
         private float eventPositionOpenedTime = -1f;
         private float eventProtectionEndTime = -1f;
+        public bool IsEventProtected => Time.time < eventProtectionEndTime;
 
         private void TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory cat, string ctx)
         {
@@ -108,6 +179,12 @@ namespace FXOverdose.Trading
             // 1. 강제 청산(Liquidation) 판정
             CheckLiquidation(price);
             if (currentPosition == PositionType.None) return;
+
+            // ⭐ 이벤트 보호 쉴드 작동 중에는 AI의 자동 익절/손절 청산을 차단하여 이벤트 선택 효과(30초 유지)를 보장합니다.
+            if (Time.time < eventProtectionEndTime)
+            {
+                return;
+            }
 
             // 2. AI 목표 주가(Target Price) 도달 익절 자동 청산 (플레이어 개입 없음, AI 독자 결정)
             if (targetPrice > 0f)
@@ -170,6 +247,13 @@ namespace FXOverdose.Trading
                 return false;
             }
 
+            // ⭐ 이벤트 선택 우선 보호: 30초 쉴드 중일 때는 AI의 자의적 신규 진입/스위칭을 차단합니다!
+            if (Time.time < eventProtectionEndTime && currentPosition != PositionType.None)
+            {
+                Debug.Log("[TradingController] 🛡️ 이벤트 보호 쉴드(30초) 작동 중: AI의 신규 진입 및 스위칭을 차단하여 이벤트 선택지를 우선시합니다.");
+                return false;
+            }
+
             if (currentPosition != PositionType.None)
             {
                 Debug.LogWarning($"[TradingController] 🔄 기존 {currentPosition} 포지션 보유 중 새로운 {type} 포지션 진입 요청 감지 -> 기존 포지션을 정리하고 스위칭합니다.");
@@ -180,6 +264,18 @@ namespace FXOverdose.Trading
             {
                 Debug.LogWarning("[TradingController] 증거금이 부족합니다.");
                 return false;
+            }
+
+            // 주인공 레벨에 따른 레버리지 및 증거금 클램핑 적용
+            var levelSystem = TraderLevelSystem.Instance;
+            if (levelSystem != null)
+            {
+                int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                float maxMarginRatio = levelSystem.GetMaxAllowedMarginRatio();
+                float maxMarginAmount = gameManager.CurrentBalance * maxMarginRatio;
+                if (margin > maxMarginAmount) margin = maxMarginAmount;
             }
 
             // 💡 [진입 성공률 보장 안전망] 계산된 증거금이 현재 잔고보다 크더라도 잔고의 95%로 자동 조정하여 진입 실패(포지션 미개설 현상) 방지
@@ -194,6 +290,7 @@ namespace FXOverdose.Trading
             gameManager.ChangeBalance(-margin);
 
             currentPosition = type;
+            currentOwner = OwnerType.AI;
             entryPrice = marketEngine.CurrentPrice;
             marginAmount = margin;
             currentLeverage = leverage;
@@ -216,6 +313,83 @@ namespace FXOverdose.Trading
             eventPositionOpenedTime = Time.time;
             OnPositionChanged?.Invoke();
             OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
+            return true;
+        }
+
+        // 플레이어 직접(수동) 매매 진입
+        public bool OpenPlayerPosition(PositionType type, float marginPercentage, int leverage)
+        {
+            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
+
+            if (gameManager == null || marketEngine == null || type == PositionType.None)
+            {
+                return false;
+            }
+
+            if (currentPosition != PositionType.None)
+            {
+                Debug.LogWarning($"[TradingController] 🔄 기존 {currentPosition} 포지션 보유 중 플레이어 {type} 진입 요청 -> 기존 포지션을 종료하고 스위칭합니다.");
+                ClosePosition();
+            }
+
+            var levelSystem = TraderLevelSystem.Instance;
+            if (levelSystem != null)
+            {
+                int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
+                if (marginPercentage > maxAllowedRatio) marginPercentage = maxAllowedRatio;
+            }
+
+            float margin = gameManager.CurrentBalance * marginPercentage;
+            if (margin <= 0f || gameManager.CurrentBalance <= 1f)
+            {
+                Debug.LogWarning("[TradingController] 플레이어 매매: 증거금이 부족합니다.");
+                return false;
+            }
+
+            if (margin > gameManager.CurrentBalance)
+            {
+                margin = gameManager.CurrentBalance * 0.95f;
+            }
+
+            leverage = Mathf.Clamp(leverage, 1, 125);
+            gameManager.ChangeBalance(-margin);
+
+            currentPosition = type;
+            currentOwner = OwnerType.Player;
+            entryPrice = marketEngine.CurrentPrice;
+            marginAmount = margin;
+            currentLeverage = leverage;
+            targetPrice = 0f; // 플레이어 직접 판단 익절
+            stopLossPrice = 0f; // 플레이어 직접 판단 손절
+            lastReportedROE = 0f;
+
+            float maintenanceMarginRate = 0.005f;
+            if (type == PositionType.Long)
+            {
+                liquidationPrice = entryPrice * (1f - (1f / currentLeverage) + maintenanceMarginRate);
+            }
+            else
+            {
+                liquidationPrice = entryPrice * (1f + (1f / currentLeverage) - maintenanceMarginRate);
+            }
+
+            Debug.Log($"[TradingController 🎮] 플레이어 직접 {type} 포지션 진입! 진입가: ${entryPrice:N1}, 증거금: ${margin:N0} ({marginPercentage * 100f:N0}%), 레버리지: {leverage}x, 청산가: ${liquidationPrice:N1}");
+            eventPositionOpenedTime = Time.time;
+            OnPositionChanged?.Invoke();
+            OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
+
+            // 플레이어 매매 진행 시 AI 차트 힌트 대사 연동
+            var aiBrain = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AITradingBrain>();
+            if (aiBrain != null)
+            {
+                aiBrain.ProvideChartHintToPlayer(type);
+            }
+
             return true;
         }
 
@@ -257,8 +431,14 @@ namespace FXOverdose.Trading
                 }
                 else if (pnl > 0f)
                 {
-                    // 수익 시 흥분 및 기분 회복
-                    traderStatus.ChangeMental(pnl * 0.02f);
+                    // 수익 시 경험치 지급 및 주인공 레벨 비례 멘탈 회복 계수 차등 적용
+                    if (TraderLevelSystem.Instance != null)
+                    {
+                        TraderLevelSystem.Instance.AddProtagonistEXP(pnl, currentLeverage);
+                    }
+
+                    float winMultiplier = TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMentalRecoveryMultiplierOnWin() : 1.0f;
+                    traderStatus.ChangeMental(pnl * 0.02f * winMultiplier);
                     traderStatus.ChangeHealth(5f);
                 }
             }
@@ -272,6 +452,7 @@ namespace FXOverdose.Trading
             OnPositionClosed?.Invoke(totalReturn, pnl);
 
             currentPosition = PositionType.None;
+            currentOwner = OwnerType.AI;
             targetPrice = 0f;
             stopLossPrice = 0f;
             lastReportedROE = 0f;
@@ -451,7 +632,11 @@ namespace FXOverdose.Trading
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing && marketEngine != null)
             {
                 float forcedMargin = Mathf.Max(10f, gameManager.CurrentBalance * 0.4f);
-                if (forcedMargin <= gameManager.CurrentBalance)
+                if (forcedMargin > gameManager.CurrentBalance)
+                {
+                    forcedMargin = gameManager.CurrentBalance * 0.95f;
+                }
+                if (forcedMargin > 0f && gameManager.CurrentBalance > 1f)
                 {
                     float currentP = marketEngine.CurrentPrice;
                     float aiTarget = posType == PositionType.Long ? currentP * 1.15f : currentP * 0.85f;

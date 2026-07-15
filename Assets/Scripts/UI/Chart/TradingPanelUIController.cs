@@ -87,6 +87,7 @@ namespace FXOverdose.UI.Chart
             {
                 tradingController.OnPositionChanged += RefreshPanelUI;
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
+                tradingController.OnTradingModeChanged += (mode) => RefreshPanelUI();
             }
 
             SetupButtons();
@@ -203,7 +204,16 @@ namespace FXOverdose.UI.Chart
         // 2. 투자 사용 비율 설정 (10% 단위 또는 프리셋)
         public void SelectMarginRatio(int percent)
         {
-            currentSelectedMarginPercent = Mathf.Clamp(percent, 10, 100);
+            float maxAllowedRatio = TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMaxAllowedMarginRatio() : 1.0f;
+            int maxAllowedPercent = Mathf.RoundToInt(maxAllowedRatio * 100f);
+            if (percent > maxAllowedPercent)
+            {
+                currentSelectedMarginPercent = maxAllowedPercent;
+            }
+            else
+            {
+                currentSelectedMarginPercent = Mathf.Clamp(percent, 10, 100);
+            }
             selectedMarginPercentage = currentSelectedMarginPercent / 100f;
 
             if (marginPercentageSlider != null)
@@ -234,7 +244,15 @@ namespace FXOverdose.UI.Chart
         // 3. 레버리지 배율 선택
         public void SelectLeverage(int lev)
         {
-            currentSelectedLeverage = Mathf.Clamp(lev, 1, 125);
+            int maxAllowed = TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMaxAllowedLeverage() : 125;
+            if (lev > maxAllowed)
+            {
+                currentSelectedLeverage = maxAllowed;
+            }
+            else
+            {
+                currentSelectedLeverage = Mathf.Clamp(lev, 1, 125);
+            }
 
             if (leverageDisplayText != null)
             {
@@ -261,20 +279,42 @@ namespace FXOverdose.UI.Chart
             }
         }
 
-        // 플레이어 매매 개입 방지: AI 독자 트레이딩 시스템 안내
+        // 플레이어 직접 매수/매도/청산 진행
         private void OnLongButtonClicked()
         {
-            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 직접 매수(LONG) 주문을 내거나 트레이딩에 개입할 수 없습니다. 진입 타이밍, 레버리지 및 목표 주가(TARGET PRICE)는 오직 AI 트레이더가 결정합니다.");
+            if (tradingController == null) return;
+            if (tradingController.CurrentPosition != TradingController.PositionType.None)
+            {
+                Debug.Log("[TradingPanelUIController] 플레이어가 LONG 버튼을 다시 눌러 포지션을 직접 종료(청산)합니다.");
+                tradingController.ClosePosition();
+            }
+            else
+            {
+                tradingController.OpenPlayerPosition(TradingController.PositionType.Long, selectedMarginPercentage, currentSelectedLeverage);
+            }
         }
 
         private void OnShortButtonClicked()
         {
-            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 직접 매도(SHORT) 주문을 내거나 트레이딩에 개입할 수 없습니다. 진입 타이밍, 레버리지 및 목표 주가(TARGET PRICE)는 오직 AI 트레이더가 결정합니다.");
+            if (tradingController == null) return;
+            if (tradingController.CurrentPosition != TradingController.PositionType.None)
+            {
+                Debug.Log("[TradingPanelUIController] 플레이어가 SHORT 버튼을 다시 눌러 포지션을 직접 종료(청산)합니다.");
+                tradingController.ClosePosition();
+            }
+            else
+            {
+                tradingController.OpenPlayerPosition(TradingController.PositionType.Short, selectedMarginPercentage, currentSelectedLeverage);
+            }
         }
 
         private void OnCloseButtonClicked()
         {
-            Debug.LogWarning("[AI 전용 트레이딩 시스템] 플레이어는 임의로 포지션을 강제 청산시킬 수 없습니다. 청산 및 익절/손절 시점은 AI 트레이더가 결정합니다.");
+            if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+            {
+                Debug.Log("[TradingPanelUIController] 플레이어가 직접 포지션 종료(청산) 버튼을 클릭했습니다.");
+                tradingController.ClosePosition();
+            }
         }
 
         public void RefreshPanelUI()
@@ -282,27 +322,28 @@ namespace FXOverdose.UI.Chart
             if (tradingController == null) return;
 
             bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
+            bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
 
-            // 플레이어 직접 매매 개입 방지 (항상 비활성화 또는 AI 전용 안내 모드)
-            if (longButton != null) longButton.interactable = false;
-            if (shortButton != null) shortButton.interactable = false;
+            // 플레이어 매수/매도 버튼은 수동 매매 모드일 때 활성화 (포지션 보유 중일 때는 클릭 시 청산 Toggle 동작)
+            if (longButton != null) longButton.interactable = isManualMode;
+            if (shortButton != null) shortButton.interactable = isManualMode;
             if (closePositionButton != null)
             {
                 closePositionButton.gameObject.SetActive(hasPosition);
-                closePositionButton.interactable = false; // 플레이어 직접 청산 불가
+                closePositionButton.interactable = hasPosition;
             }
 
             if (longSubtitleText != null)
             {
                 longSubtitleText.text = hasPosition 
-                    ? (tradingController.CurrentPosition == TradingController.PositionType.Long ? "AI LONG 보유중" : "AI 대기중") 
-                    : "AI 매수 판단중";
+                    ? (isManualMode ? "클릭 시 LONG 청산" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AI)" : "대기중")) 
+                    : (isManualMode ? "LONG 수동 매수" : "AI 자동 매수 대기");
             }
             if (shortSubtitleText != null)
             {
                 shortSubtitleText.text = hasPosition 
-                    ? (tradingController.CurrentPosition == TradingController.PositionType.Short ? "AI SHORT 보유중" : "AI 대기중") 
-                    : "AI 매도 판단중";
+                    ? (isManualMode ? "클릭 시 SHORT 청산" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AI)" : "대기중")) 
+                    : (isManualMode ? "SHORT 수동 매도" : "AI 자동 매도 대기");
             }
 
             // 상태 오버레이 패널 및 탭 바 표시 여부
@@ -328,21 +369,36 @@ namespace FXOverdose.UI.Chart
                 UpdatePositionStatusNumbers();
                 if (positionTypeText != null)
                 {
-                    positionTypeText.text = $"[AI] {tradingController.CurrentPosition} {tradingController.CurrentLeverage}x";
+                    string ownerTag = tradingController.CurrentOwner == TradingController.OwnerType.Player ? "[플레이어]" : "[AI]";
+                    positionTypeText.text = $"{ownerTag} {tradingController.CurrentPosition} {tradingController.CurrentLeverage}x";
                     positionTypeText.color = tradingController.CurrentPosition == TradingController.PositionType.Long 
                         ? bullishColor : bearishColor;
                 }
                 if (entryPriceText != null) entryPriceText.text = $"ENTRY: ${tradingController.EntryPrice:N1}";
                 if (targetPriceText != null)
                 {
-                    targetPriceText.text = tradingController.TargetPrice > 0f 
-                        ? $"TARGET: ${tradingController.TargetPrice:N1} (AI 목표가)" 
-                        : "TARGET: 무제한 (Overdose 뇌동매매)";
+                    if (tradingController.CurrentOwner == TradingController.OwnerType.Player)
+                    {
+                        targetPriceText.text = "TARGET: 직접 판단 익절 (수동)";
+                    }
+                    else
+                    {
+                        targetPriceText.text = tradingController.TargetPrice > 0f 
+                            ? $"TARGET: ${tradingController.TargetPrice:N1} (AI 목표가)" 
+                            : "TARGET: 무제한 (Overdose 뇌동매매)";
+                    }
                 }
                 if (liquidationPriceText != null)
                 {
-                    string stopText = tradingController.StopLossPrice > 0f ? $"${tradingController.StopLossPrice:N1}" : "없음";
-                    liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1} | STOP: {stopText}";
+                    if (tradingController.CurrentOwner == TradingController.OwnerType.Player)
+                    {
+                        liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1} | STOP: 직접 판단 손절 (수동)";
+                    }
+                    else
+                    {
+                        string stopText = tradingController.StopLossPrice > 0f ? $"${tradingController.StopLossPrice:N1}" : "없음";
+                        liquidationPriceText.text = $"LIQ: ${tradingController.LiquidationPrice:N1} | STOP: {stopText}";
+                    }
                 }
             }
         }
