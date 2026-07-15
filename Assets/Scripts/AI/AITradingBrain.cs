@@ -437,9 +437,13 @@ namespace FXOverdose.AI
                     TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[대형 손실] 손절 충격 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.2f);
                 }
             }
-            else
+            else if (pnl > 0f)
             {
                 TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[익절 성공] 수익 달성 (ROE {roe:+0.0}%, PnL +${pnl:N0})", 0.15f);
+            }
+            else
+            {
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[본전 종료] 수익 없음 (ROE {roe:0.0}%, PnL ${pnl:N0})", 0.0f);
             }
         }
 

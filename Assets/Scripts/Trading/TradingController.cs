@@ -638,6 +638,11 @@ namespace FXOverdose.Trading
                     traderStatus.ChangeMental(pnl * 0.02f * winMultiplier);
                     traderStatus.ChangeHealth(5f);
                 }
+                else
+                {
+                    // pnl == 0f (본전 종료 등 실제 수익이 발생하지 않은 거래): 거래 성공으로 인정하지 않아 경험치 및 보너스 미지급
+                    Debug.Log("[TradingController] 실제 수익이 발생하지 않은 거래(PnL = 0)이므로 거래 성공 보너스 및 경험치가 지급되지 않습니다.");
+                }
             }
 
             Debug.Log($"[TradingController] 포지션 종료. 실현 손익: {pnl:N1} ({CalculateROEPercentage():F2}%), 최종 회수금: {totalReturn:N0}");

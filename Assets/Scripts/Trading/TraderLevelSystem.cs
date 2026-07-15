@@ -76,7 +76,12 @@ namespace FXOverdose.Trading
         /// </summary>
         public void AddProtagonistEXP(float pnl, int leverage)
         {
-            if (pnl <= 0f) return;
+            // 거래 성공(수익 발생) 시에만 경험치 지급: 수익이 0 이하인 경우 절대 지급하지 않음
+            if (pnl <= 0f)
+            {
+                Debug.Log($"[TraderLevelSystem] 수익이 발생하지 않은 거래(PnL: ${pnl:N1})이므로 경험치를 지급하지 않습니다.");
+                return;
+            }
 
             // 기본 EXP 20 + 손익금의 5% + 레버리지 배율 * 1.5 (전체 획득량을 1/3로 축소)
             float gainedExp = (20f + (pnl * 0.05f) + (leverage * 1.5f)) / 3.0f;
