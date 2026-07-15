@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c8fd3bc0d3a4cfd872440a5d36b172, type: 3}
+  m_Name: DualMonitor
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemId: dual_monitor
+  itemName: Dual Monitor
+  description: "\uCC28\uD2B8 \uC2DC\uC57C\uB97C \uD655\uC7A5\uD574 \uC218\uC775 \uC2E4\uD604\uC561\uC744
+    \uB192\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 8c509122258c24e81aa4724a9b29fbf3, type: 3}
+  effectType: 2
+  effectAmount: 8
+  price: 2000
+  isActiveItem: 1
+  maxLevel: 2
+  priceMultiplierPerLevel: 1.5

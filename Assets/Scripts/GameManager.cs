@@ -103,6 +103,7 @@ public class GameManager : MonoBehaviour
         InitializeTraderLevelSystem();
 
         // 액티브 아이템 효과 및 업그레이드 초기화
+        EnsureActiveItemEffectManager();
         ActiveItemEffectManager.Instance?.ResetAll();
 
         // AI 장기/단기 기억 시스템 초기화
@@ -112,6 +113,13 @@ public class GameManager : MonoBehaviour
         FXOverdose.Trading.TraderLevelSystem.Instance?.ResetLevels();
 
         Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
+    }
+
+    private void EnsureActiveItemEffectManager()
+    {
+        if (ActiveItemEffectManager.Instance != null) return;
+        ActiveItemEffectManager manager = GetComponent<ActiveItemEffectManager>();
+        if (manager == null) gameObject.AddComponent<ActiveItemEffectManager>();
     }
 
     public void FinishLoadingAndStartPlaying()

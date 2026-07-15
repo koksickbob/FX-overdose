@@ -7,10 +7,20 @@ using UnityEngine.UI;
 [RequireComponent(typeof(RectTransform), typeof(Image))]
 public class DynamicShopUI : MonoBehaviour
 {
+    private const string CareBadgeResource = "UI/Shop/CareBadgeFrame";
+    private const string ActiveBadgeResource = "UI/Shop/ActiveBadgeFrame";
+    private const string CareBuyResource = "UI/Shop/CareBuyButton";
+    private const string ActiveBuyResource = "UI/Shop/ActiveBuyButton";
+
     [SerializeField] private ShopManager shopManager;
     [SerializeField] private Sprite cardFrameSprite;
     [SerializeField] private TMP_FontAsset font;
     [SerializeField, Min(1)] private int maxColumns = 2;
+    [Header("Marketplace Skin")]
+    [SerializeField] private Sprite careBadgeSprite;
+    [SerializeField] private Sprite activeBadgeSprite;
+    [SerializeField] private Sprite careBuyButtonSprite;
+    [SerializeField] private Sprite activeBuyButtonSprite;
 
     private RectTransform modal;
     private RectTransform content;
@@ -64,7 +74,7 @@ public class DynamicShopUI : MonoBehaviour
 
         HideLegacyProductButtons();
         modal = GetOrCreateRect(transform, "ShopModal");
-        SetRect(modal, new Vector2(0.13f, 0.15f), new Vector2(0.87f, 0.85f), Vector2.zero, Vector2.zero);
+        SetRect(modal, new Vector2(0.06f, 0.08f), new Vector2(0.94f, 0.92f), Vector2.zero, Vector2.zero);
         Image modalImage = GetOrAdd<Image>(modal.gameObject);
         modalImage.color = new Color(0.018f, 0.043f, 0.078f, 0.995f);
         Outline modalOutline = GetOrAdd<Outline>(modal.gameObject);
@@ -72,6 +82,7 @@ public class DynamicShopUI : MonoBehaviour
         modalOutline.effectDistance = UIStrokeStyle.EffectDistance;
 
         BuildHeader();
+        BuildCategoryBar();
         BuildFooter();
         BuildScrollArea();
     }
@@ -79,10 +90,10 @@ public class DynamicShopUI : MonoBehaviour
     private void BuildHeader()
     {
         RectTransform header = GetOrCreateRect(modal, "Header");
-        SetRect(header, new Vector2(0.025f, 0.82f), new Vector2(0.975f, 0.98f), Vector2.zero, Vector2.zero);
+        SetRect(header, new Vector2(0.025f, 0.855f), new Vector2(0.975f, 0.98f), Vector2.zero, Vector2.zero);
 
         TMP_Text title = GetOrCreateText(header, "Title", 32f, TextAlignmentOptions.MidlineLeft);
-        title.text = "▣  CARE SHOP";
+        title.text = "FX MARKET";
         title.color = Color.white;
         SetRect(title.rectTransform, Vector2.zero, new Vector2(0.53f, 1f), new Vector2(10f, 0f), Vector2.zero);
 
@@ -106,10 +117,28 @@ public class DynamicShopUI : MonoBehaviour
         }
     }
 
+    private void BuildCategoryBar()
+    {
+        RectTransform bar = GetOrCreateRect(modal, "CategoryBar");
+        SetRect(bar, new Vector2(0.025f, 0.775f), new Vector2(0.975f, 0.845f), Vector2.zero, Vector2.zero);
+        Image background = GetOrAdd<Image>(bar.gameObject);
+        background.color = new Color(0.035f, 0.075f, 0.12f, 0.96f);
+
+        TMP_Text categories = GetOrCreateText(bar, "Categories", 18f, TextAlignmentOptions.MidlineLeft);
+        categories.text = "ALL ITEMS     CARE     ACTIVE GEAR";
+        categories.color = new Color(0.66f, 0.88f, 0.96f, 1f);
+        SetRect(categories.rectTransform, Vector2.zero, new Vector2(0.62f, 1f), new Vector2(18f, 0f), Vector2.zero);
+
+        TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight);
+        delivery.text = "INSTANT DELIVERY  •  BUFFS APPLY NOW";
+        delivery.color = new Color(1f, 0.76f, 0.25f, 1f);
+        SetRect(delivery.rectTransform, new Vector2(0.58f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
+    }
+
     private void BuildScrollArea()
     {
         RectTransform viewport = GetOrCreateRect(modal, "ProductViewport");
-        SetRect(viewport, new Vector2(0.025f, 0.19f), new Vector2(0.975f, 0.80f), Vector2.zero, Vector2.zero);
+        SetRect(viewport, new Vector2(0.025f, 0.145f), new Vector2(0.975f, 0.755f), Vector2.zero, Vector2.zero);
         GetOrAdd<RectMask2D>(viewport.gameObject);
 
         content = GetOrCreateRect(viewport, "ProductContent");
@@ -130,12 +159,12 @@ public class DynamicShopUI : MonoBehaviour
     private void BuildFooter()
     {
         RectTransform footerBackground = GetOrCreateRect(modal, "FooterBackground");
-        SetRect(footerBackground, new Vector2(0.035f, 0.035f), new Vector2(0.965f, 0.15f), Vector2.zero, Vector2.zero);
+        SetRect(footerBackground, new Vector2(0.035f, 0.025f), new Vector2(0.965f, 0.12f), Vector2.zero, Vector2.zero);
         Image bg = GetOrAdd<Image>(footerBackground.gameObject);
         bg.color = new Color(0.07f, 0.08f, 0.16f, 0.9f);
 
         TMP_Text footer = GetOrCreateText(footerBackground, "Footer", 18f, TextAlignmentOptions.Center);
-        footer.text = "♥  Take care of yourself before the next trade.";
+        footer.text = "SECURE CHECKOUT  •  PURCHASES APPLY IMMEDIATELY  •  TRADE RESPONSIBLY";
         footer.color = new Color(0.79f, 0.74f, 0.91f, 1f);
         SetRect(footer.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
     }
@@ -156,16 +185,31 @@ public class DynamicShopUI : MonoBehaviour
         bool isActive = item.IsActiveItem;
         frame.color = isActive ? new Color(1f, 0.88f, 0.5f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.62f, 0.91f, 1f, 1f) : new Color(1f, 0.72f, 0.98f, 1f));
 
+        GameObject badgeObject = new("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        badgeObject.transform.SetParent(card.transform, false);
+        Image badgeBackground = badgeObject.GetComponent<Image>();
+        badgeBackground.sprite = isActive
+            ? ResolveSprite(activeBadgeSprite, ActiveBadgeResource)
+            : ResolveSprite(careBadgeSprite, CareBadgeResource);
+        badgeBackground.type = Image.Type.Simple;
+        badgeBackground.preserveAspect = false;
+        badgeBackground.color = Color.white;
+        SetRect(badgeObject.GetComponent<RectTransform>(), new Vector2(0.04f, 0.82f), new Vector2(0.30f, 0.94f), Vector2.zero, Vector2.zero);
+        TMP_Text badge = CreateText(badgeObject.transform, "Label", 13f, TextAlignmentOptions.Center);
+        badge.text = isActive ? "ACTIVE GEAR" : "CARE ITEM";
+        badge.color = Color.white;
+        SetRect(badge.rectTransform, new Vector2(0.16f, 0f), new Vector2(0.97f, 1f), Vector2.zero, Vector2.zero);
+
         Image icon = CreateImage(card.transform, "Icon");
         icon.sprite = item.Icon;
         icon.preserveAspect = true;
         icon.raycastTarget = false;
-        SetRect(icon.rectTransform, new Vector2(0.04f, 0.34f), new Vector2(0.43f, 0.92f), Vector2.zero, Vector2.zero);
+        SetRect(icon.rectTransform, new Vector2(0.04f, 0.32f), new Vector2(0.39f, 0.80f), Vector2.zero, Vector2.zero);
 
         TMP_Text name = CreateText(card.transform, "Name", 21f, TextAlignmentOptions.MidlineLeft);
         name.text = item.ItemName.ToUpperInvariant();
         name.color = isActive ? new Color(1f, 0.75f, 0.2f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.16f, 0.82f, 1f, 1f) : new Color(0.91f, 0.50f, 1f, 1f));
-        SetRect(name.rectTransform, new Vector2(0.44f, 0.73f), new Vector2(0.96f, 0.94f), Vector2.zero, Vector2.zero);
+        SetRect(name.rectTransform, new Vector2(0.41f, 0.72f), new Vector2(0.96f, 0.92f), Vector2.zero, Vector2.zero);
 
         TMP_Text effect = CreateText(card.transform, "Effect", 18f, TextAlignmentOptions.MidlineLeft);
         string effectString = "";
@@ -181,22 +225,35 @@ public class DynamicShopUI : MonoBehaviour
         }
         effect.text = effectString;
         effect.color = isActive ? new Color(0.4f, 0.95f, 0.6f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.28f, 0.88f, 0.52f, 1f) : new Color(0.72f, 0.43f, 0.96f, 1f));
-        SetRect(effect.rectTransform, new Vector2(0.44f, 0.54f), new Vector2(0.96f, 0.73f), Vector2.zero, Vector2.zero);
+        SetRect(effect.rectTransform, new Vector2(0.41f, 0.53f), new Vector2(0.96f, 0.72f), Vector2.zero, Vector2.zero);
+
+        TMP_Text description = CreateText(card.transform, "Description", 13f, TextAlignmentOptions.TopLeft);
+        description.text = item.Description;
+        description.color = new Color(0.70f, 0.75f, 0.83f, 1f);
+        description.textWrappingMode = TextWrappingModes.Normal;
+        description.overflowMode = TextOverflowModes.Ellipsis;
+        SetRect(description.rectTransform, new Vector2(0.41f, 0.35f), new Vector2(0.96f, 0.53f), Vector2.zero, Vector2.zero);
 
         TMP_Text price = CreateText(card.transform, "Price", 25f, TextAlignmentOptions.MidlineLeft);
         price.text = $"$ {item.Price:N0}";
         price.color = new Color(1f, 0.76f, 0.22f, 1f);
-        SetRect(price.rectTransform, new Vector2(0.44f, 0.31f), new Vector2(0.76f, 0.54f), Vector2.zero, Vector2.zero);
+        SetRect(price.rectTransform, new Vector2(0.06f, 0.18f), new Vector2(0.54f, 0.33f), Vector2.zero, Vector2.zero);
 
         TMP_Text owned = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
-        SetRect(owned.rectTransform, new Vector2(0.72f, 0.31f), new Vector2(0.96f, 0.54f), Vector2.zero, Vector2.zero);
+        SetRect(owned.rectTransform, new Vector2(0.50f, 0.18f), new Vector2(0.94f, 0.33f), Vector2.zero, Vector2.zero);
 
         GameObject buyObject = new("BuyButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline), typeof(ShopItemButton));
         buyObject.transform.SetParent(card.transform, false);
-        SetRect(buyObject.GetComponent<RectTransform>(), new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.29f), Vector2.zero, Vector2.zero);
+        SetRect(buyObject.GetComponent<RectTransform>(), new Vector2(0.06f, 0.04f), new Vector2(0.94f, 0.17f), Vector2.zero, Vector2.zero);
         Image buyImage = buyObject.GetComponent<Image>();
-        buyImage.color = item.Type == ItemData.EffectType.Health ? new Color(0.06f, 0.65f, 0.84f, 1f) : new Color(0.68f, 0.28f, 0.75f, 1f);
+        buyImage.sprite = isActive
+            ? ResolveSprite(activeBuyButtonSprite, ActiveBuyResource)
+            : ResolveSprite(careBuyButtonSprite, CareBuyResource);
+        buyImage.type = Image.Type.Simple;
+        buyImage.preserveAspect = false;
+        buyImage.color = Color.white;
         Outline buyOutline = buyObject.GetComponent<Outline>();
+        buyOutline.enabled = buyImage.sprite == null;
         buyOutline.effectColor = UIStrokeStyle.DefaultColor;
         buyOutline.effectDistance = UIStrokeStyle.EffectDistance;
         buyOutline.useGraphicAlpha = true;
@@ -204,7 +261,7 @@ public class DynamicShopUI : MonoBehaviour
         buy.targetGraphic = buyImage;
         TMP_Text buyLabel = CreateText(buyObject.transform, "Label", 22f, TextAlignmentOptions.Center);
         buyLabel.text = "BUY";
-        buyLabel.color = new Color(0.02f, 0.04f, 0.08f, 1f);
+        buyLabel.color = Color.white;
         SetRect(buyLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         buyObject.GetComponent<ShopItemButton>().Configure(shopManager, shopManager.Inventory, item, buy, name, price, owned);
@@ -214,16 +271,16 @@ public class DynamicShopUI : MonoBehaviour
     private void LayoutCards()
     {
         int count = cards.Count;
-        int columns = Mathf.Max(1, Mathf.Min(maxColumns, count <= 2 ? 2 : count));
+        int columns = Mathf.Max(1, Mathf.Min(maxColumns, count));
         Canvas.ForceUpdateCanvases();
         RectTransform viewport = content.parent as RectTransform;
         float width = viewport != null && viewport.rect.width > 0f
             ? viewport.rect.width
             : (content.rect.width > 0f ? content.rect.width : 900f);
-        float spacing = 16f;
+        float spacing = 18f;
         float sidePadding = 12f; // RectMask2D 경계에서 카드 테두리가 잘리지 않도록 안전 여백 확보
         float cardWidth = (width - sidePadding * 2f - spacing * (columns - 1)) / columns;
-        float cardHeight = Mathf.Clamp(cardWidth * 0.78f, 260f, 350f);
+        float cardHeight = Mathf.Clamp(cardWidth * 0.72f, 250f, 330f);
         int rows = Mathf.Max(1, Mathf.CeilToInt(count / (float)columns));
         content.sizeDelta = new Vector2(0f, rows * cardHeight + (rows - 1) * spacing);
 
@@ -315,6 +372,30 @@ public class DynamicShopUI : MonoBehaviour
     {
         T value = go.GetComponent<T>();
         return value != null ? value : go.AddComponent<T>();
+    }
+
+    private static Sprite ResolveSprite(Sprite assigned, string resourcePath)
+    {
+        if (assigned != null) return assigned;
+        Sprite loaded = Resources.Load<Sprite>(resourcePath);
+        if (loaded != null) return loaded;
+        Sprite[] all = Resources.LoadAll<Sprite>(resourcePath);
+        if (all != null && all.Length > 0) return all[0];
+
+        Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+        if (texture == null)
+        {
+            Debug.LogError($"[DynamicShopUI] 상점 스킨을 불러오지 못했습니다: Resources/{resourcePath}");
+            return null;
+        }
+
+        return Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect);
     }
 
     private static void SetRect(RectTransform rect, Vector2 min, Vector2 max, Vector2 offsetMin, Vector2 offsetMax)

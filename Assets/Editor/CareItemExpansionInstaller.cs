@@ -75,7 +75,7 @@ public static class CareItemExpansionInstaller
         if (shopUI != null)
         {
             SerializedObject uiSerialized = new(shopUI);
-            uiSerialized.FindProperty("maxColumns").intValue = 2;
+            uiSerialized.FindProperty("maxColumns").intValue = 3;
             uiSerialized.ApplyModifiedProperties();
             EditorUtility.SetDirty(shopUI);
         }
@@ -90,7 +90,7 @@ public static class CareItemExpansionInstaller
         {
             EditorUtility.DisplayDialog(
                 "CARE ITEMS 확장 완료",
-                "영양제와 진정제를 생성하고 상점 2×2 카드 및 동적 인벤토리에 연결했습니다.",
+                "영양제와 진정제를 생성하고 상점 3열 카드 및 동적 인벤토리에 연결했습니다.",
                 "확인");
         }
 
