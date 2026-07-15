@@ -864,8 +864,8 @@ MonoBehaviour:
   dialogueBalloonPanel: {fileID: 1389656952}
   dialogueText: {fileID: 361591868}
   dialogueFont: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
-  dialogueFontSizeMin: 14
-  dialogueFontSizeMax: 22
+  dialogueFontSizeMin: 19
+  dialogueFontSizeMax: 27
   typewriterCharDelay: 0.03
   balloonDisplayDuration: 8
   currentExpression: 1
@@ -3269,11 +3269,11 @@ MonoBehaviour:
     serializedVersion: 2
     rgba: 4294967295
   m_fontSize: -99
-  m_fontSizeBase: 22
+  m_fontSizeBase: 27
   m_fontWeight: 400
   m_enableAutoSizing: 1
-  m_fontSizeMin: 14
-  m_fontSizeMax: 22
+  m_fontSizeMin: 19
+  m_fontSizeMax: 27
   m_fontStyle: 0
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256

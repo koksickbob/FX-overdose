@@ -78,6 +78,11 @@ namespace FXOverdose.AI
 
             if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) return;
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
+            if (tradingController != null && tradingController.IsEventProtected)
+            {
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: 신규 시그널 수신을 보류하고 이벤트 선택지를 우선시합니다.");
+                return;
+            }
 
             currentActiveSignal = signal;
             isProcessingSignal = true;
@@ -88,6 +93,11 @@ namespace FXOverdose.AI
 
         private void HandleSignalPhaseChanged(SignalPhase phase, MarketSignal signal)
         {
+            if (tradingController != null && tradingController.IsEventProtected)
+            {
+                return;
+            }
+
             if (phase == SignalPhase.GuaranteedOverride && isProcessingSignal)
             {
                 Debug.Log($"[AITradingBrain] ⚡ 확정적 주가 제어 2단계 작동: 진입 포지션 관리 중");
@@ -127,6 +137,12 @@ namespace FXOverdose.AI
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
 
             if (traderStatus == null || tradingController == null || gameManager == null) return;
+            if (tradingController.IsEventProtected)
+            {
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: AI 자동매매 판단을 보류하고 이벤트 선택 포지션을 유지합니다.");
+                OnSignalEvaluationCompleted?.Invoke(signal, false);
+                return;
+            }
 
             float healthRatio = traderStatus.HealthRatio;
             TraderStatus.MentalState mentalState = traderStatus.CurrentMentalState;

@@ -173,6 +173,9 @@ namespace FXOverdose.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"[ChoiceEventAssetGenerator] 🎉 총 {count}개의 돌발 선택 이벤트 ScriptableObject 애셋 생성 완료 ({SAVE_DIR})");
+
+            // 생성된 이벤트 텍스트 및 한글 문자열들을 폰트 아틀라스에 자동 캐싱하여 런타임 Dirtying 방지
+            ChoiceEventFontPrepopulator.PrepopulateFontAsset();
         }
 
         private static int CreateOrUpdate(string eventID, string title, string desc, string monologue, EventTriggerCondition condition, ChoiceOptionData[] options)
