@@ -273,6 +273,10 @@ public class GameManager : MonoBehaviour
         }
 
         currentBalance -= amount;
+        if (TraderStatus.CanonicalInstance != null)
+        {
+            TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(amount);
+        }
         Debug.Log($"자산 지출: -{amount:N0}, 현재 자산: {currentBalance:N0}");
         CheckEnding();
         return true;
@@ -285,8 +289,10 @@ public class GameManager : MonoBehaviour
         bool isOverdose = status != null && (status.CurrentMentalState == TraderStatus.MentalState.Overdose || status.CurrentMental <= 0f);
 
         // [목표 자산 성공 조건 철폐] 엔딩 방향 개편에 따라 targetBalance 도달 시 자동 클리어 조건을 철폐합니다.
-        // 현재 자산이 0 이하이면 파산 또는 Overdose 엔딩
-        if (currentBalance <= 0f)
+        // 올인(100% 증거금) 진입 시 현금 잔고(currentBalance)가 0원이 되어도 증거금에 자산이 살아있으므로,
+        // 총 자산(Total Equity)과 현금 잔고가 모두 0 이하인 진짜 청산/파산 시점에만 게임오버를 트리거합니다.
+        float totalEquity = status != null ? status.GetTotalEquity() : currentBalance;
+        if (totalEquity <= 0f && currentBalance <= 0f)
         {
             currentBalance = 0f;
             if (isOverdose)
@@ -318,6 +324,10 @@ public class GameManager : MonoBehaviour
         currentState = GameState.GameOver;
 
         Debug.Log($"게임 종료: {ending}");
+        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null)
+        {
+            FXOverdose.AI.LLM.LocalLLMService.Instance.TriggerGameOverSpiralLoop(ending.ToString());
+        }
     }
 
     // 게임 일시정지

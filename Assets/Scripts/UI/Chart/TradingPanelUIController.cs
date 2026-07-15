@@ -319,9 +319,7 @@ namespace FXOverdose.UI.Chart
 
             bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
             bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
-            bool showPlayerSellButton = hasPosition
-                && isManualMode
-                && tradingController.CurrentOwner == TradingController.OwnerType.Player;
+            bool showPlayerSellButton = hasPosition && isManualMode;
 
             // 진입 버튼은 포지션이 없을 때만 동작하고, 보유 중에는 전용 매도 버튼이 위를 덮습니다.
             if (longButton != null) longButton.interactable = isManualMode && !hasPosition;

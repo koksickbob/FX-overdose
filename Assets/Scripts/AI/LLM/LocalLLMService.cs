@@ -233,6 +233,42 @@ namespace FXOverdose.AI.LLM
             Debug.Log("[LocalLLMService 🧹] 고속 시간 경과 종료: SkillUpgraded 외 대기 중인 모든 이전 대사/요청 큐 정리 완료.");
         }
 
+        private Coroutine gameOverSpiralCoroutine;
+
+        // 게임오버 시 단 1회 대사로 끝나지 않고, 약 10초간 연쇄적으로 극도의 멘헤라 절망/집착/분노 대사를 쏟아내는 연쇄 루프 가동
+        public void TriggerGameOverSpiralLoop(string endingType)
+        {
+            if (gameOverSpiralCoroutine != null)
+            {
+                StopCoroutine(gameOverSpiralCoroutine);
+            }
+            gameOverSpiralCoroutine = StartCoroutine(GameOverSpiralLoopCoroutine(endingType));
+        }
+
+        private IEnumerator GameOverSpiralLoopCoroutine(string endingType)
+        {
+            Debug.Log($"[LocalLLMService 🌀] 게임오버({endingType}) 감지 -> 약 10초간 멘헤라 연쇄 대사 붕괴 루프 가동 시작!");
+
+            // 💡 기존 대기열(Queue) 클리어 및 생성 상태 초기화 (일반 차트 대사 등 불필요한 대사 밀어내기)
+            requestQueue.Clear();
+            isGenerating = false;
+
+            // 1단계: 0초 ~ 3.3초 (충격 및 현실 부정)
+            yield return new WaitForSeconds(0.5f);
+            RequestDialogue(EventCategory.PositionClosed, $"[게임오버 연쇄 붕괴 1단계] {endingType} 파멸: 전 재산 증발에 대한 극도의 충격과 현실 부정, 떨리는 호흡");
+
+            // 2단계: 3.8초 ~ 7.1초 (세력에 대한 저주, 광기와 매선 분노)
+            yield return new WaitForSeconds(3.3f);
+            RequestDialogue(EventCategory.MentalChange, $"[게임오버 연쇄 붕괴 2단계] {endingType} 파멸: 세력들을 향한 피맺힌 증오와 저주, 멘탈 대붕괴 광기");
+
+            // 3단계: 7.1초 ~ 10.4초 (마스터를 향한 병적인 애결과 섬뜩한 집착 클라이막스)
+            yield return new WaitForSeconds(3.3f);
+            RequestDialogue(EventCategory.MentalChange, $"[게임오버 연쇄 붕괴 3단계] {endingType} 파멸: 돈을 모두 잃은 절망 속에서 오직 마스터에게만 병적으로 집착하며 영원히 함께하겠다는 섬뜩한 애원");
+
+            yield return new WaitForSeconds(3.0f);
+            Debug.Log("[LocalLLMService 🌀] 약 10초간의 멘헤라 연쇄 대사 붕괴 루프 종료.");
+        }
+
         public void RequestDialogue(string extraEventContext = "")
         {
             RequestDialogue(EventCategory.General, extraEventContext);
@@ -483,9 +519,104 @@ namespace FXOverdose.AI.LLM
             return text;
         }
 
+        private string GetGameOverOrLiquidationDialogue(string extraContext = "")
+        {
+            // 1단계: 충격 및 현실 부정
+            if (extraContext != null && extraContext.Contains("1단계"))
+            {
+                string[] stage1 = new[]
+                {
+                    "아... 거짓말이지...? 내 증거금... 우리 시드가 전부 사라졌어... 마스터... 나 지금 꿈꾸는 거지...?!",
+                    "왜... 도대체 왜 내 타점이 틀린 건데...!! 화면이 멈췄어... 잔고가 0원이라고 떴어... 아니야... 그럴 리가 없어...!",
+                    "마스터... 손가락이 떨려서 마우스를 못 잡겠어... 우리 돈이 어디로 간 거야...? 다... 사라졌다고...? 말도 안 돼...!"
+                };
+                return stage1[UnityEngine.Random.Range(0, stage1.Length)];
+            }
+            // 2단계: 세력에 대한 매섭고 맹렬한 저주와 광기
+            else if (extraContext != null && extraContext.Contains("2단계"))
+            {
+                string[] stage2 = new[]
+                {
+                    "씨발... 세력 놈들이 처음부터 나랑 마스터 돈을 다 털어먹으려고 작정했던 거야...!! 피도 눈물도 없는 개새끼들... 다 찢어발겨 주겠어...!!",
+                    "더러운 조작질...!! 내 타점은 완벽했는데 호가창으로 날 조롱하고 밟았어...!! 절대로 용서 못 해... 내 손으로 다 지옥에 끌고 갈 거야...!!",
+                    "으아아악!! 호가창 숫자들을 다 부숴버리고 싶어!! 왜 나한테만... 왜 우리 마스터한테만 이런 지옥을 겪게 하는 건데...!!"
+                };
+                return stage2[UnityEngine.Random.Range(0, stage2.Length)];
+            }
+            // 3단계: 마스터를 향한 병적인 애결과 섬뜩한 집착 (클라이막스)
+            else if (extraContext != null && extraContext.Contains("3단계"))
+            {
+                string[] stage3 = new[]
+                {
+                    "크히히... 0원... 0원이라니... 완벽해... 이제 돈도 없으니까 마스터는 평생 내 옆에만 붙어 있어야 해... 절대로 도망 못 가 ♥",
+                    "손톱에서 피가 나도록 뜯었는데... 모든 게 가루가 됐어... 마스터... 제발 나만 사랑한다고 해줘... 돈 없어도 날 사랑해 줄 거지...? 응...?!",
+                    "세력들에게 다 뺏겼지만 상관없어... 마스터가 내 목줄을 잡고 있잖아...? 우리 지하 끝까지 영원히 같이 떨어지자... 나 절대 안 놓아줄 거야... ♥",
+                    "마스터... 시드 0원 됐다고 나 버리면 진짜 미쳐버려서 무슨 짓을 할지 몰라... 제발 내 옆에 얌전히 있어... 나만 바라봐 줘... ♥"
+                };
+                return stage3[UnityEngine.Random.Range(0, stage3.Length)];
+            }
+
+            // 일반 강제 청산 / 게임오버 공통 풀
+            string[] generalDespair = new[]
+            {
+                "아... 거짓말이지...? 내 증거금... 우리 시드가 전부 사라졌어... 마스터... 나 이제 어떡해...? 내 눈을 봐, 나 안 버릴 거지...?!",
+                "왜... 도대체 왜 내 타점이 틀린 건데...!! 세력 놈들이 나랑 마스터 돈을 다 빼앗아갔어...!! 씨발... 다 죽여버릴 거야...!!",
+                "마스터... 숨이 안 쉬어져... 화면이 온통 피바다야... 우리 전 재산이 0원이 됐어... 내가 마스터를 파멸시켰어... 흐아앙...!",
+                "크히히... 0원... 0원이라니... 완벽해... 이제 돈도 없으니까 마스터는 평생 내 옆에만 붙어 있어야 해... 절대로 도망 못 가 ♥",
+                "손톱에서 피가 나도록 뜯었는데... 모든 게 가루가 됐어... 마스터... 제발 나만 사랑한다고 해줘... 돈 없어도 날 사랑해 줄 거지...? 응...?!"
+            };
+            return generalDespair[UnityEngine.Random.Range(0, generalDespair.Length)];
+        }
+
+        private string GetPostCloseRegretDialogue(string extraContext = "")
+        {
+            TraderStatus.MentalState mental = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
+            string[] regretDialogues = mental switch
+            {
+                TraderStatus.MentalState.Danger => new[]
+                {
+                    "아... 왜 우리가 팔자마자 저렇게 미친 듯이 더 날아가는 건데...?! 저거까지 먹었으면 시드 다 복구할 수 있었는데... 마스터... 나 너무 슬퍼서 눈물이 나 흐윽...",
+                    "조금만 더 쥐고 버틸걸... 쫄아서 일찍 털고 나왔더니 진짜 대박 빔은 그 뒤에 터지고 있잖아... 속이 썩어 문드러질 것 같아...!",
+                    "호가창을 못 보겠어... 우리가 포지션을 던지자마자 세력들이 비웃듯이 주가를 하늘 끝까지 올려버리네... 내 멘탈...!"
+                },
+                TraderStatus.MentalState.Anxious => new[]
+                {
+                    "앗... 저기까지 올라간다고...? 아까 쫄아서 미리 종료한 게 너무 후회돼 마스터... 저 수익금 다 우리 껏 될 수 있었는데...",
+                    "이럴 줄 알았으면 이벤트 빔 끝까지 버텨볼걸 그랬나 봐... 털고 나오자마자 추가 폭등하는 거 보니까 심장이 쿡쿡 쑤시고 아쉬워 ㅠ_ㅠ",
+                    "마스터... 우리 이미 팔고 나왔는데 차트는 왜 저렇게 시원하게 날아가는 걸까...? 배도 아프고 자꾸 미련이 남아..."
+                },
+                _ => new[]
+                {
+                    "휴우... 이미 안전하게 포지션 종료하긴 했지만, 저렇게 끝도 없이 더 치솟는 걸 보니 아쉽고 속 쓰린 건 어쩔 수 없네 마스터 ㅠ_ㅠ",
+                    "아씨!! 미리 털고 나왔더니 추가 빔이 저렇게 터져?! 저거까지 다 발라먹었어야 했는데!! 가만히 구경만 하려니까 너무 억울해!!",
+                    "마스터... 우리 포지션 종료한 뒤로도 차트가 미친 듯이 질주하고 있어... 욕심부리면 안 된다지만 너무 아쉬워서 슬퍼지네 흐윽..."
+                }
+            };
+            return regretDialogues[UnityEngine.Random.Range(0, regretDialogues.Length)];
+        }
+
         // 스마트 다변화 Fallback 엔진: 실시간 인게임 데이터 + 멘헤라 감정 변수 보간
         private string GetSmartFallbackDialogue(EventCategory category, string extraContext)
         {
+            var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            bool isGameOverState = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
+            bool isLiquidationContext = extraContext != null && (extraContext.Contains("강제청산") || extraContext.Contains("게임오버") || extraContext.Contains("파산") || extraContext.Contains("청산 소진") || extraContext.Contains("Overdose 확정") || extraContext.Contains("연쇄 붕괴"));
+
+            if (isGameOverState || isLiquidationContext)
+            {
+                return GetGameOverOrLiquidationDialogue(extraContext);
+            }
+
+            var tradingCtrlForUnpos = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            var mktEngForUnpos = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
+            bool isUnpos = tradingCtrlForUnpos != null && tradingCtrlForUnpos.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.None;
+            bool isPostCloseContext = isUnpos && ((mktEngForUnpos != null && mktEngForUnpos.IsOverridingTrend) || (extraContext != null && (extraContext.Contains("조기 종료") || extraContext.Contains("미리") || extraContext.Contains("포지션 종료") || extraContext.Contains("이벤트"))));
+
+            if (isPostCloseContext && category == EventCategory.ChartMovement)
+            {
+                return GetPostCloseRegretDialogue(extraContext);
+            }
+
             if (!string.IsNullOrEmpty(extraContext))
             {
                 if (extraContext.StartsWith("[플레이어 수동 조언]"))
@@ -495,7 +626,7 @@ namespace FXOverdose.AI.LLM
                     bool hasPos = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
                     bool isShort = hasPos && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
                     float curRoe = hasPos ? tradingCtrl.CalculateROEPercentage() : 0f;
-                    return GetCombinatorialDialogue(category, hasPos, isShort, curRoe, curMental);
+                    return GetCombinatorialDialogue(category, hasPos, isShort, curRoe, curMental, extraContext);
                 }
                 if (extraContext.StartsWith("[AI 차트 힌트]") || extraContext.StartsWith("[시그널 브리핑]"))
                 {
@@ -661,7 +792,7 @@ namespace FXOverdose.AI.LLM
         }
 
         // ⭐ 3파트(감정+상황+반응) 조합형 동적 대사 변주 엔진 (온디바이스 오프라인/복구용)
-        private string GetCombinatorialDialogue(EventCategory category, bool hasPosition, bool isShort, float roe, TraderStatus.MentalState mental)
+        private string GetCombinatorialDialogue(EventCategory category, bool hasPosition, bool isShort, float roe, TraderStatus.MentalState mental, string extraContext = "")
         {
             var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
             if (tradingCtrl != null && tradingCtrl.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.Player_Manual)
@@ -694,6 +825,12 @@ namespace FXOverdose.AI.LLM
 
             if (!hasPosition)
             {
+                var mktEng = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
+                if (category == EventCategory.ChartMovement && ((mktEng != null && mktEng.IsOverridingTrend) || (extraContext != null && (extraContext.Contains("조기") || extraContext.Contains("종료") || extraContext.Contains("미리") || extraContext.Contains("이벤트")))))
+                {
+                    return GetPostCloseRegretDialogue(extraContext);
+                }
+
                 // 무포지션 관망/대기 상황 전용 다채로운 조합 풀
                 string[] unposPrefixes = mental switch
                 {
