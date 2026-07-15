@@ -95,6 +95,9 @@ public class GameManager : MonoBehaviour
         // 돌발 선택 이벤트 컨트롤러(ChoiceEventController) 자동 부착 및 초기화
         InitializeChoiceEventController();
 
+        // 액티브 아이템 효과 및 업그레이드 초기화
+        ActiveItemEffectManager.Instance?.ResetAll();
+
         Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입)");
     }
 

@@ -25,6 +25,7 @@ public class DynamicInventoryUI : MonoBehaviour
     private readonly List<GameObject> generatedSlots = new();
     private RectTransform panelRect;
     private TMP_Text titleText;
+    private TMP_Text activeBuffsText;
     private int lastSlotCount = -1;
 
     private void Awake()
@@ -39,11 +40,30 @@ public class DynamicInventoryUI : MonoBehaviour
     private void OnEnable()
     {
         if (inventory != null) inventory.QuantityChanged += OnInventoryChanged;
+        if (ActiveItemEffectManager.Instance != null)
+        {
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged -= RefreshActiveBuffsText;
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged += RefreshActiveBuffsText;
+        }
+        RefreshActiveBuffsText();
     }
 
     private void OnDisable()
     {
         if (inventory != null) inventory.QuantityChanged -= OnInventoryChanged;
+        if (ActiveItemEffectManager.Instance != null)
+        {
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged -= RefreshActiveBuffsText;
+        }
+    }
+
+    private void RefreshActiveBuffsText()
+    {
+        if (activeBuffsText == null) CreateTitleIfNeeded();
+        if (activeBuffsText != null && ActiveItemEffectManager.Instance != null)
+        {
+            activeBuffsText.text = ActiveItemEffectManager.Instance.GetSummaryText();
+        }
     }
 
     private void OnRectTransformDimensionsChange()
@@ -147,6 +167,16 @@ public class DynamicInventoryUI : MonoBehaviour
         titleText.text = "CARE ITEMS";
         titleText.fontStyle = FontStyles.Bold;
         SetAnchors(titleText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(22f, -44f), new Vector2(-12f, -4f));
+
+        Transform existingBuffs = transform.Find("ActiveBuffsSummary");
+        activeBuffsText = existingBuffs != null ? existingBuffs.GetComponent<TMP_Text>() : CreateText(transform, "ActiveBuffsSummary", 18f, TextAlignmentOptions.MidlineRight);
+        activeBuffsText.fontStyle = FontStyles.Bold;
+        activeBuffsText.color = new Color(0.4f, 0.95f, 0.6f, 1f);
+        SetAnchors(activeBuffsText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(200f, -44f), new Vector2(-22f, -4f));
+        if (ActiveItemEffectManager.Instance != null)
+        {
+            activeBuffsText.text = ActiveItemEffectManager.Instance.GetSummaryText();
+        }
     }
 
     private void HideLegacyButtons()
