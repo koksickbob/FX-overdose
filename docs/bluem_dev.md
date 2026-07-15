@@ -190,6 +190,71 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Editor/ChartReferenceStyler.cs`
 - `Assets/Editor/BottomTradingReferenceStyler.cs`
+
+---
+
+## 2026-07-16 — 차트 좌측·상단 안전 여백 정렬
+
+- 차트 좌측 여백을 DAY 카드와 동일한 12px로 통일
+- 차트 상단 앵커를 0.90으로 내려 108px TopBar 영역과 분리
+- TopBar 하단과 차트 상단 사이에 추가 8px 여백 적용
+- 하단 매매 UI 스타일러가 차트를 다시 0.92까지 올리던 덮어쓰기 제거
+- UI 최초 생성, 차트 스타일 재적용, TopBar 재적용 경로에 동일한 위치값 반영
+
+관련 파일:
+
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Editor/ChartReferenceStyler.cs`
+- `Assets/Editor/BottomTradingReferenceStyler.cs`
+- `Assets/Editor/BalancePnLCardStyler.cs`
+
+### 하단 매매 카드 여백 통일
+
+- LONG 카드 좌측 외곽 여백을 차트·DAY 카드와 동일한 12px로 적용
+- LONG↔SHORT, SHORT↔레버리지 카드 사이 간격을 각각 8px로 통일
+- 레버리지 카드 우측 외곽 여백도 12px로 적용
+- LONG·SHORT 합산 크기의 포지션 매도 버튼도 동일한 외곽선에 맞춤
+
+### 레버리지·마진 컨트롤 세로 중앙 정렬
+
+- 카드 위·아래 내부 여백을 각각 6%로 통일
+- LEVERAGE/MARGIN 탭과 `+/-` 조작 영역 사이 간격을 약 4.5%로 확보
+- `+/-` 조작 영역과 하단 수치 프리셋 버튼 사이 간격도 약 4.5%로 일치
+- 레버리지와 마진 모드에 동일한 앵커 범위 적용
+
+### 하단 매매 UI 우측선 정렬
+
+- 차트 우측선의 `-6px` 오프셋을 레버리지·마진 카드 우측에도 동일하게 적용
+- LONG·SHORT 사이 8px 간격과 좌측 12px 여백은 유지
+- 차트와 하단 매매 UI의 우측 수직선이 한 줄로 이어지도록 정렬
+
+### SHOP 버튼 세로 크기 확대
+
+- SHOP 버튼을 420×140px에서 절반인 210×70px로 축소
+- 가로와 세로를 같은 비율로 줄여 원본 3:1 비율 유지
+- 기존 인벤토리 추적 위치와 클릭 기능 유지
+
+### 캐릭터·말풍선·레벨 HUD 상향 정렬
+
+- 실제 AI 대사에 연결된 말풍선 중심 Y를 0.455에서 화면 중앙인 0.5로 이동
+- 말풍선 높이와 가로 위치는 유지하고 Y 앵커만 `0.395~0.605`로 조정
+- 캐릭터도 동일하게 화면 높이의 4.5%만큼 위로 이동
+- 레벨·EXP HUD는 캐릭터 자식 구조를 유지해 캐릭터와 함께 자동 이동
+- 현재 GameScene과 UI 생성 빌더에 동일한 위치값 적용
+
+### TopBar 좌우 마진 균등 정렬
+
+- TopBar 카드 묶음의 정렬을 `MiddleLeft`에서 `MiddleCenter`로 변경
+- 화면에 남던 32px 공간을 좌우 16px씩 균등 분배
+- 카드 크기, 카드 사이 8px 간격, 기본 좌우 패딩 12px은 유지
+
+### AI 포지션 상태 창 내부 정렬
+
+- AI 진입 시 표시되는 `PositionStatusPanel`의 기본 100×100px 크기 문제 수정
+- 레버리지·마진 카드 내부 8% 안전영역으로 상태 패널 확장
+- 좌우·상하 패딩을 모두 14px로 통일하고 텍스트 묶음을 중앙 정렬
+- 긴 TARGET/LIQ 문장은 카드 폭 안에서 자동 축소하고 넘칠 경우 말줄임 처리
+- 현재 스타일러와 최초 UI 생성 빌더에 동일한 레이아웃 적용
 - `Assets/Scripts/UI/Chart/ChartUIController.cs`
 - `Assets/Scripts/UI/Chart/CandleItemUI.cs`
 
@@ -299,6 +364,66 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Img/Generated_image_1-removebg-preview.png`
 - `Assets/Scripts/AI/AIVisualController.cs`
 - `Assets/Editor/TradingViewUIBuilder.cs`
+
+---
+
+## 2026-07-15 — HP·Mental 전용 프레임 및 설정 버튼 복구
+
+- 공용 카드 이미지를 840×92 영역에 강제 확장하던 방식을 제거
+- 공용 카드와 동일한 남색·청회색 픽셀 테두리를 사용하는 HP·Mental 전용 가로 프레임 제작
+- 프레임 중앙에 HP/Mental 구분선, 우측에 독립 설정 버튼 칸 구성
+- 실제 표시 비율 840:92에 맞춰 모서리와 테두리가 찌그러지지 않도록 스프라이트 비율 보정
+- 설정 톱니를 폰트 글리프에서 독립 투명 픽셀 스프라이트로 교체
+- 설정 버튼의 기존 일시정지·게임 종료 연결은 그대로 유지
+
+관련 파일:
+
+- `Assets/Img/VitalsPanelFrameUnified.png`
+- `Assets/Img/UI/SettingsGearUnified.png`
+- `Assets/Editor/VitalsPanelStyler.cs`
+- `Assets/Editor/SettingsMenuInstaller.cs`
+
+### HP·Mental 내부 여백 보정
+
+- 제목, 하트·두뇌 아이콘, 게이지를 프레임 테두리에서 안쪽으로 이동
+- 게이지 배경과 실제 Fill 영역 높이를 줄여 상하 여백 확보
+- HP와 Mental에 동일한 내부 마진과 크기 규칙 적용
+- 전용 프레임과 설정 버튼 영역의 크기는 유지
+- 중앙 구분선을 기준으로 Mental 내부 요소를 우측으로 3% 이동
+- 외곽선→HP 시작 여백과 중앙선→Mental 시작 여백을 동일하게 맞춤
+- 양쪽 아이콘·게이지·수치 영역에 동일한 폭과 간격 적용
+
+### AI·USER 전환 버튼 차트 정렬
+
+- P&L 아래 8px 여백 조건 유지
+- 버튼 상단을 차트 상단보다 10px 아래로 이동
+- 차트 오른쪽 8px 간격을 유지해 차트 영역과 겹치지 않도록 정렬
+- 버튼의 2px 외곽선을 고려해 Rect 간격을 10px로 설정하고 실제 보이는 차트 여백은 8px로 통일
+
+---
+
+## 2026-07-15 — 비-TopBar UI 외곽선 3px 통일
+
+- TopBar를 제외한 게임 UI의 공통 외곽선 두께를 3px로 정의
+- 차트, LONG/SHORT/매도, 레버리지·마진 버튼에 동일한 두께 적용
+- AI/USER 전환 버튼과 설정 메뉴 내부 버튼에 동일한 두께 적용
+- 인벤토리 패널과 동적 아이템 슬롯에 동일한 두께 적용
+- 상점 모달, 상품 카드, 구매·닫기 버튼에 동일한 두께 적용
+- 액티브 스킬 버튼·상세 창·업그레이드 버튼에 동일한 두께 적용
+- 캐릭터 레벨·EXP HUD 외곽선에 동일한 두께 적용
+- 외곽선 색상은 각 기능의 기존 강조색을 유지하고 두께만 공통화
+
+관련 파일:
+
+- `Assets/Scripts/UI/UIStrokeStyle.cs`
+- `Assets/Scripts/UI/SettingsMenuController.cs`
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+- `Assets/Scripts/UI/TraderLevelUIController.cs`
+- `Assets/Scripts/Items/DynamicInventoryUI.cs`
+- `Assets/Scripts/Items/DynamicShopUI.cs`
+- `Assets/Editor/ChartReferenceStyler.cs`
+- `Assets/Editor/InventoryPixelUIInstaller.cs`
+- `Assets/Editor/BottomTradingReferenceStyler.cs`
 - `Assets/Scenes/GameScene.unity`
 
 ---
@@ -466,3 +591,31 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/UI/Skills/ChartStudyIcon.png`
 - `Assets/Resources/UI/Skills/CubePatienceIcon.png`
 - `Assets/Resources/UI/Skills/BookJudgmentIcon.png`
+
+---
+
+## 2026-07-15 — 상단 상태바 프레임·간격 통일
+
+- 날짜·시간, 자산, P&L, HP·Mental, 설정 영역의 배경을 `StatusCardFrame`으로 통일
+- 모든 상단 카드 높이를 92px로 맞추고 상단바 높이를 108px로 정리
+- 카드 사이 간격 8px, 상하 패딩 8px, 화면 좌우 패딩 12px로 통일
+- 좌측 날짜 카드에도 12px 화면 여백을 추가해 우측 설정 영역과 균형 조정
+- 1920px 기준 한 줄 안에 들어오도록 날짜 310px, 자산 300px, P&L 390px, 상태 영역 840px로 정돈
+- 설정 버튼의 별도 금속 프레임 이미지를 제거하고 공용 프레임 위에 톱니 레이어만 표시
+- UI 재생성 시에도 같은 규칙이 유지되도록 `TradingViewUIBuilder` 기본 배치값 동기화
+
+관련 파일:
+
+- `Assets/Editor/DayTimeCardStyler.cs`
+- `Assets/Editor/BalancePnLCardStyler.cs`
+- `Assets/Editor/VitalsPanelStyler.cs`
+- `Assets/Editor/SettingsMenuInstaller.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+### 액티브 스킬 버튼 우측 여백 정렬
+
+- 액티브 스킬 버튼 묶음의 화면 우측 여백을 `12px`로 조정했습니다.
+- 차트 UI의 좌측 외곽 여백 `12px`와 동일하게 맞춰 화면 좌우 균형을 통일했습니다.
+### 캐릭터 레벨 UI 선 두께 통일
+
+- 레벨 프레임 스프라이트 자체 테두리 위에 Unity `Outline`이 중복 적용되던 문제를 제거했습니다.
+- 프레임에 포함된 단일 테두리만 표시하여 차트, 인벤토리, 스킬 버튼과 비슷한 선 두께로 정리했습니다.

@@ -67,7 +67,7 @@ public class SettingsMenuController : MonoBehaviour
 
         Outline outline = go.AddComponent<Outline>();
         outline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
-        outline.effectDistance = new Vector2(2f, -2f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         Button btn = go.GetComponent<Button>();
         btn.targetGraphic = floatingModeImage;
@@ -125,17 +125,20 @@ public class SettingsMenuController : MonoBehaviour
         Vector3 pnlBottomLeft = parentCanvas.transform.InverseTransformPoint(pnlCorners[0]);
         Vector3 chartTopRight = parentCanvas.transform.InverseTransformPoint(chartCorners[2]);
 
-        const float gap = 8f;
+        const float edgeGap = 10f;
+        const float chartGap = 10f; // 2px Outline을 제외한 실제 보이는 간격은 상단 카드와 같은 8px
+        const float chartTopInset = 0f;
         const float buttonWidth = 92f;
         const float buttonHeight = 46f;
 
-        // 차트 오른쪽 + P&L 아래의 교차 영역에 배치하여 두 UI의 Rect를 침범하지 않습니다.
-        float x = chartTopRight.x + gap;
-        float y = pnlBottomLeft.y - gap;
+        // 차트 오른쪽 + P&L 아래의 교차 영역에 배치합니다.
+        // 세로 위치는 chartTopInset으로 직접 조정하고, 가로는 외곽선을 고려한 시각 간격을 유지합니다.
+        float x = chartTopRight.x + chartGap;
+        float y = Mathf.Min(pnlBottomLeft.y - edgeGap, chartTopRight.y - chartTopInset);
 
         Rect bounds = canvasRect.rect;
-        x = Mathf.Clamp(x, bounds.xMin + gap, bounds.xMax - buttonWidth - gap);
-        y = Mathf.Clamp(y, bounds.yMin + buttonHeight + gap, bounds.yMax - gap);
+        x = Mathf.Clamp(x, bounds.xMin + edgeGap, bounds.xMax - buttonWidth - edgeGap);
+        y = Mathf.Clamp(y, bounds.yMin + buttonHeight + edgeGap, bounds.yMax - edgeGap);
 
         myRect.anchorMin = myRect.anchorMax = new Vector2(0.5f, 0.5f);
         myRect.pivot = new Vector2(0f, 1f);
@@ -285,6 +288,11 @@ public class SettingsMenuController : MonoBehaviour
         GameObject go = CreateUIObject(objectName, parent, typeof(Button));
         Image image = go.GetComponent<Image>();
         image.color = color;
+
+        Outline outline = go.AddComponent<Outline>();
+        outline.effectColor = UIStrokeStyle.DefaultColor;
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
 
         Button button = go.GetComponent<Button>();
         button.targetGraphic = image;

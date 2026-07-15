@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: d61d40168709c4feba243312b8b97f2c
+guid: c9adf41d809e34f1e92d4b95f5f76727
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -5357306706633160993
-    second: StatusCardFrame_0
+      213: -2504818347430501276
+    second: VitalsPanelFrameUnified_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 512
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -139,13 +139,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: StatusCardFrame_0
+      name: VitalsPanelFrameUnified_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1773
-        height: 554
+        x: 11
+        y: 232
+        width: 2090
+        height: 309
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -154,8 +154,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: fd6005e3fe507a5b0800000000000000
-      internalID: -5357306706633160993
+      spriteID: 464268eebf81d3dd0800000000000000
+      internalID: -2504818347430501276
       vertices: []
       indices: 
       edges: []
@@ -174,7 +174,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      StatusCardFrame_0: -5357306706633160993
+      VitalsPanelFrameUnified_0: -2504818347430501276
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

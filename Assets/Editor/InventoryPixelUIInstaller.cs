@@ -13,7 +13,7 @@ public static class InventoryPixelUIInstaller
     private const string SlotFramePath = "Assets/Img/UI/InventorySlotFramePixel.png";
     private const string EnergyDataPath = "Assets/Data/Items/EnergyDrink.asset";
     private const string DessertDataPath = "Assets/Data/Items/Dessert.asset";
-    private const string AppliedKey = "FXOverdose_DynamicInventoryPixelUI_v1";
+    private const string AppliedKey = "FXOverdose_DynamicInventoryPixelUI_Stroke3_v2";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -70,7 +70,7 @@ public static class InventoryPixelUIInstaller
         Outline outline = panel.GetComponent<Outline>();
         if (outline == null) outline = Undo.AddComponent<Outline>(panel);
         outline.effectColor = new Color(0.22f, 0.29f, 0.40f, 1f);
-        outline.effectDistance = new Vector2(3f, -3f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         DynamicInventoryUI dynamicUI = panel.GetComponent<DynamicInventoryUI>();
         if (dynamicUI == null) dynamicUI = Undo.AddComponent<DynamicInventoryUI>(panel);

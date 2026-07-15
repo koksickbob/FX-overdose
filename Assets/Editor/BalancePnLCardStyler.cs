@@ -11,7 +11,7 @@ public static class BalancePnLCardStyler
 {
     private const string FramePath = "Assets/Img/StatusCardFrame.png";
     private const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
-    private const string AppliedKey = "FXOverdose_BalancePnLStyle_v3";
+    private const string AppliedKey = "FXOverdose_BalancePnL_CenteredTopBar_v6";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
@@ -69,21 +69,21 @@ public static class BalancePnLCardStyler
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = new Vector2(0f, 105f);
-        rect.offsetMin = new Vector2(0f, -105f);
+        rect.sizeDelta = new Vector2(0f, 108f);
+        rect.offsetMin = new Vector2(0f, -108f);
         rect.offsetMax = Vector2.zero;
 
         HorizontalLayoutGroup layout = topBar.GetComponent<HorizontalLayoutGroup>();
         if (layout != null)
         {
-            layout.padding = new RectOffset(0, 0, 0, 4);
+            layout.padding = new RectOffset(12, 12, 8, 8);
             layout.spacing = 8f;
-            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
-            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childAlignment = TextAnchor.MiddleCenter;
         }
 
         GameObject chart = Find("ChartMainPanel");
@@ -92,12 +92,14 @@ public static class BalancePnLCardStyler
             RectTransform chartRect = chart.GetComponent<RectTransform>();
             Undo.RecordObject(chartRect, "Keep Chart Below Top Bar");
             chartRect.anchorMax = new Vector2(chartRect.anchorMax.x, 0.90f);
+            chartRect.offsetMin = new Vector2(12f, chartRect.offsetMin.y);
+            chartRect.offsetMax = new Vector2(chartRect.offsetMax.x, -8f);
         }
     }
 
     private static void StyleBalance(GameObject card, TMP_FontAsset font, Sprite frame)
     {
-        StyleCard(card, frame, 310f);
+        StyleCard(card, frame, 300f);
 
         VerticalLayoutGroup layout = card.GetComponent<VerticalLayoutGroup>();
         if (layout == null) layout = Undo.AddComponent<VerticalLayoutGroup>(card);
@@ -117,10 +119,10 @@ public static class BalancePnLCardStyler
 
     private static void StylePnL(GameObject card, TMP_FontAsset font, Sprite frame)
     {
-        StyleCard(card, frame, 420f);
+        StyleCard(card, frame, 390f);
         LayoutElement pnlSize = GetOrAdd<LayoutElement>(card);
-        pnlSize.minHeight = 90f;
-        pnlSize.preferredHeight = 90f;
+        pnlSize.minHeight = 92f;
+        pnlSize.preferredHeight = 92f;
 
         HorizontalLayoutGroup layout = card.GetComponent<HorizontalLayoutGroup>();
         if (layout == null) layout = Undo.AddComponent<HorizontalLayoutGroup>(card);
@@ -168,7 +170,8 @@ public static class BalancePnLCardStyler
         LayoutElement size = GetOrAdd<LayoutElement>(card);
         size.minWidth = width;
         size.preferredWidth = width;
-        size.preferredHeight = 96f;
+        size.minHeight = 92f;
+        size.preferredHeight = 92f;
         size.flexibleWidth = 0f;
 
         Image image = GetOrAdd<Image>(card);

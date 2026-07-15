@@ -277,19 +277,21 @@ namespace FXOverdose.EditorTools
             panelRect.anchorMin = new Vector2(0f, 1f);
             panelRect.anchorMax = new Vector2(1f, 1f);
             panelRect.pivot = new Vector2(0.5f, 1f);
-            panelRect.offsetMin = new Vector2(12f, 0f);
-            panelRect.offsetMax = new Vector2(-12f, 0f);
-            panelRect.sizeDelta = new Vector2(0f, 80f);
+            panelRect.offsetMin = new Vector2(0f, -108f);
+            panelRect.offsetMax = Vector2.zero;
+            panelRect.sizeDelta = new Vector2(0f, 108f);
 
             Image panelBg = panelGO.AddComponent<Image>();
             panelBg.color = new Color(0.043f, 0.059f, 0.098f, 1f); // #0B0F19 Dark Background
 
             HorizontalLayoutGroup layout = panelGO.AddComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.spacing = 12f;
-            layout.padding = new RectOffset(14, 14, 8, 8);
+            layout.spacing = 8f;
+            layout.padding = new RectOffset(12, 12, 8, 8);
             layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = true;
+            layout.childForceExpandHeight = false;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
 
             TopStatusBarUIController controller = panelGO.AddComponent<TopStatusBarUIController>();
 
@@ -299,6 +301,7 @@ namespace FXOverdose.EditorTools
             dtCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f); // #131C31 Dark Blue Card
             LayoutElement dtElem = dayTimeCard.AddComponent<LayoutElement>();
             dtElem.preferredWidth = 310f;
+            dtElem.preferredHeight = 92f;
 
             HorizontalLayoutGroup dtLayout = dayTimeCard.AddComponent<HorizontalLayoutGroup>();
             dtLayout.childAlignment = TextAnchor.MiddleCenter;
@@ -327,7 +330,8 @@ namespace FXOverdose.EditorTools
             Image balCardBg = balanceCard.AddComponent<Image>();
             balCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f);
             LayoutElement balElem = balanceCard.AddComponent<LayoutElement>();
-            balElem.preferredWidth = 310f;
+            balElem.preferredWidth = 300f;
+            balElem.preferredHeight = 92f;
 
             VerticalLayoutGroup balLayout = balanceCard.AddComponent<VerticalLayoutGroup>();
             balLayout.childAlignment = TextAnchor.MiddleLeft;
@@ -341,7 +345,8 @@ namespace FXOverdose.EditorTools
             Image pnlCardBg = pnlCard.AddComponent<Image>();
             pnlCardBg.color = new Color(0.075f, 0.11f, 0.19f, 1f);
             LayoutElement pnlElem = pnlCard.AddComponent<LayoutElement>();
-            pnlElem.preferredWidth = 420f;
+            pnlElem.preferredWidth = 390f;
+            pnlElem.preferredHeight = 92f;
 
             HorizontalLayoutGroup pnlCardLayout = pnlCard.AddComponent<HorizontalLayoutGroup>();
             pnlCardLayout.childAlignment = TextAnchor.MiddleLeft;
@@ -387,9 +392,9 @@ namespace FXOverdose.EditorTools
             GameObject panelGO = CreateUIObject("ChartMainPanel", parent);
             RectTransform panelRect = panelGO.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0f, 0.31f);
-            panelRect.anchorMax = new Vector2(1f, 0.92f);
+            panelRect.anchorMax = new Vector2(1f, 0.90f);
             panelRect.offsetMin = new Vector2(12f, 8f);
-            panelRect.offsetMax = new Vector2(-12f, -6f);
+            panelRect.offsetMax = new Vector2(-12f, -8f);
 
             Image panelBg = panelGO.AddComponent<Image>();
             panelBg.color = new Color(0.055f, 0.082f, 0.14f, 1f); // #0E1524 Clean Chart Background
@@ -685,10 +690,21 @@ namespace FXOverdose.EditorTools
 
             // 포지션 진입 시 우측 오버레이 패널 및 청산 버튼
             GameObject statusOverlay = CreateUIObject("PositionStatusPanel", controlCard.transform);
+            RectTransform statusRect = statusOverlay.GetComponent<RectTransform>();
+            statusRect.anchorMin = new Vector2(0.08f, 0.08f);
+            statusRect.anchorMax = new Vector2(0.92f, 0.92f);
+            statusRect.offsetMin = Vector2.zero;
+            statusRect.offsetMax = Vector2.zero;
+            Image statusBackground = statusOverlay.GetComponent<Image>();
+            statusBackground.color = Color.clear;
             VerticalLayoutGroup statusLayout = statusOverlay.AddComponent<VerticalLayoutGroup>();
             statusLayout.childAlignment = TextAnchor.MiddleCenter;
             statusLayout.spacing = 6f;
-            statusLayout.padding = new RectOffset(10, 10, 10, 10);
+            statusLayout.padding = new RectOffset(14, 14, 14, 14);
+            statusLayout.childControlWidth = true;
+            statusLayout.childControlHeight = true;
+            statusLayout.childForceExpandWidth = true;
+            statusLayout.childForceExpandHeight = false;
             TMP_Text posType = CreateTMPText("PosType", statusOverlay.transform, "LONG 10x", 22, Color.green);
             posType.fontStyle = FontStyles.Bold; posType.alignment = TextAlignmentOptions.Center;
             TMP_Text posRoe = CreateTMPText("PosRoe", statusOverlay.transform, "+18.47%", 26, Color.green);
@@ -704,10 +720,10 @@ namespace FXOverdose.EditorTools
 
             Button btnClose = CreateButton("ClosePositionButton", panelGO.transform, "▼ 포지션 매도\n현재 포지션 정리", 260, 44, new Color(0.64f, 0.08f, 0.14f, 1f));
             RectTransform closeRect = btnClose.GetComponent<RectTransform>();
-            closeRect.anchorMin = new Vector2(0.015f, 0.06f);
-            closeRect.anchorMax = new Vector2(0.655f, 0.95f);
-            closeRect.offsetMin = new Vector2(5f, 5f);
-            closeRect.offsetMax = new Vector2(-5f, -5f);
+            closeRect.anchorMin = new Vector2(0f, 0.06f);
+            closeRect.anchorMax = new Vector2(0.66f, 0.95f);
+            closeRect.offsetMin = new Vector2(12f, 5f);
+            closeRect.offsetMax = new Vector2(-4f, -5f);
             LayoutElement closeLayout = btnClose.GetComponent<LayoutElement>();
             if (closeLayout == null) closeLayout = btnClose.gameObject.AddComponent<LayoutElement>();
             closeLayout.ignoreLayout = true;
@@ -773,8 +789,8 @@ namespace FXOverdose.EditorTools
             GameObject charGO = CreateUIObject("ProtagonistCharacterImage", canvas.transform);
             RectTransform charRect = charGO.GetComponent<RectTransform>();
             // 우측 캐릭터 영역의 왼쪽 아래에 배치합니다.
-            charRect.anchorMin = new Vector2(0.515f, 0.015f);
-            charRect.anchorMax = new Vector2(0.775f, 0.655f);
+            charRect.anchorMin = new Vector2(0.515f, 0.060f);
+            charRect.anchorMax = new Vector2(0.775f, 0.700f);
             charRect.offsetMin = Vector2.zero;
             charRect.offsetMax = Vector2.zero;
 
@@ -819,8 +835,9 @@ namespace FXOverdose.EditorTools
             GameObject balloonGO = CreateUIObject("DialogueBalloonPanel", canvas.transform);
             RectTransform balloonRect = balloonGO.GetComponent<RectTransform>();
             // 캐릭터 오른쪽에 꼬리가 캐릭터를 향하도록 가로형으로 배치합니다.
-            balloonRect.anchorMin = new Vector2(0.70f, 0.35f);
-            balloonRect.anchorMax = new Vector2(0.975f, 0.56f);
+            // 말풍선 높이는 유지하고 중심 Y가 전체 화면 중앙(0.5)에 오도록 배치합니다.
+            balloonRect.anchorMin = new Vector2(0.70f, 0.395f);
+            balloonRect.anchorMax = new Vector2(0.975f, 0.605f);
             balloonRect.offsetMin = Vector2.zero;
             balloonRect.offsetMax = Vector2.zero;
 

@@ -11,8 +11,8 @@ public static class DayTimeCardStyler
 {
     private const string SourceFontPath = "Assets/Fonts/PF스타더스트 3.0 Bold.ttf";
     private const string FontAssetPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
-    private const string FrameSpritePath = "Assets/Img/DayTimeCardFrame.png";
-    private const string AppliedKey = "FXOverdose_DayTimeCard_PFStardust_v4";
+    private const string FrameSpritePath = "Assets/Img/StatusCardFrame.png";
+    private const string AppliedKey = "FXOverdose_DayTimeCard_CenteredTopBar_v6";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
@@ -70,7 +70,8 @@ public static class DayTimeCardStyler
         if (cardSize == null) cardSize = Undo.AddComponent<LayoutElement>(card);
         cardSize.preferredWidth = 310f;
         cardSize.minWidth = 310f;
-        cardSize.preferredHeight = 96f;
+        cardSize.minHeight = 92f;
+        cardSize.preferredHeight = 92f;
 
         Image background = card.GetComponent<Image>();
         if (background == null) background = Undo.AddComponent<Image>(card);
@@ -97,7 +98,7 @@ public static class DayTimeCardStyler
         ConfigureText(time, fontAsset, 29f, 98f, Color.white);
         time.transform.SetSiblingIndex(2);
 
-        // 상단 상태바의 첫 카드가 화면 좌측 상단 모서리에서 시작하도록 여백을 제거합니다.
+        // 좌우 화면 여백과 카드의 상하 정렬을 다른 상단 카드와 동일하게 맞춥니다.
         if (card.transform.parent is RectTransform topBarRect)
         {
             Undo.RecordObject(topBarRect, "Pin Top Bar To Upper Left");
@@ -105,13 +106,18 @@ public static class DayTimeCardStyler
             topBarRect.anchorMax = new Vector2(1f, 1f);
             topBarRect.pivot = new Vector2(0.5f, 1f);
             topBarRect.anchoredPosition = Vector2.zero;
-            topBarRect.sizeDelta = new Vector2(0f, 105f);
+            topBarRect.sizeDelta = new Vector2(0f, 108f);
 
             HorizontalLayoutGroup topLayout = topBarRect.GetComponent<HorizontalLayoutGroup>();
             if (topLayout != null)
             {
-                topLayout.padding = new RectOffset(0, 0, 0, 4);
-                topLayout.childAlignment = TextAnchor.UpperLeft;
+                topLayout.padding = new RectOffset(12, 12, 8, 8);
+                topLayout.spacing = 8f;
+                topLayout.childAlignment = TextAnchor.MiddleCenter;
+                topLayout.childControlWidth = true;
+                topLayout.childControlHeight = true;
+                topLayout.childForceExpandWidth = false;
+                topLayout.childForceExpandHeight = false;
             }
         }
 

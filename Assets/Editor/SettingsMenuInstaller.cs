@@ -9,8 +9,8 @@ using UnityEngine.UI;
 /// <summary>기존 우측 상단 SettingsIcon 자리에 픽셀 설정 버튼을 설치합니다.</summary>
 public static class SettingsMenuInstaller
 {
-    private const string SpritePath = "Assets/Img/UI/SettingsGearPixel.png";
-    private const string AppliedKey = "FXOverdose_SettingsMenu_v1";
+    private const string SpritePath = "Assets/Img/UI/SettingsGearUnified.png";
+    private const string AppliedKey = "FXOverdose_SettingsMenu_GearSprite_v3";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -70,8 +70,8 @@ public static class SettingsMenuInstaller
         RectTransform visualRect = visualObject.GetComponent<RectTransform>();
         visualRect.anchorMin = Vector2.zero;
         visualRect.anchorMax = Vector2.one;
-        visualRect.offsetMin = Vector2.zero;
-        visualRect.offsetMax = Vector2.zero;
+        visualRect.offsetMin = new Vector2(12f, 12f);
+        visualRect.offsetMax = new Vector2(-12f, -12f);
 
         Image image = visualObject.GetComponent<Image>();
         if (image == null) image = Undo.AddComponent<Image>(visualObject);
@@ -84,6 +84,12 @@ public static class SettingsMenuInstaller
         image.color = Color.white;
         image.preserveAspect = true;
         image.raycastTarget = true;
+
+        // 이전 버전의 폰트 기반 톱니는 글리프 미지원 시 사라질 수 있으므로
+        // 전용 투명 스프라이트만 표시합니다.
+        Transform glyphTransform = settingsObject.transform.Find("SettingsGearGlyph");
+        if (glyphTransform != null) glyphTransform.gameObject.SetActive(false);
+        visualObject.transform.SetAsLastSibling();
 
         Button button = settingsObject.GetComponent<Button>();
         if (button == null) button = Undo.AddComponent<Button>(settingsObject);
@@ -134,7 +140,7 @@ public static class SettingsMenuInstaller
         importer.filterMode = FilterMode.Point;
         importer.textureCompression = TextureImporterCompression.Uncompressed;
         importer.mipmapEnabled = false;
-        importer.alphaIsTransparency = false;
+        importer.alphaIsTransparency = true;
         importer.SaveAndReimport();
     }
 

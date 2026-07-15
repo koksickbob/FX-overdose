@@ -9,7 +9,7 @@ using UnityEngine.UI;
 public static class ShopPixelButtonStyler
 {
     private const string SpritePath = "Assets/Img/UI/ShopButtonPixel.png";
-    private const string AppliedKey = "FXOverdose_ShopPixelButton_v1";
+    private const string AppliedKey = "FXOverdose_ShopPixelButton_Proportional_v4";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -59,6 +59,7 @@ public static class ShopPixelButtonStyler
         if (sprite == null || buttonObject == null || inventoryObject == null) return;
 
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        // 3:1 비율을 유지하면서 직전 420×140 크기에서 가로·세로를 절반으로 축소합니다.
         rect.sizeDelta = new Vector2(210f, 70f);
         Image image = buttonObject.GetComponent<Image>();
         image.sprite = sprite;

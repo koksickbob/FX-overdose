@@ -69,7 +69,7 @@ public class DynamicShopUI : MonoBehaviour
         modalImage.color = new Color(0.018f, 0.043f, 0.078f, 0.995f);
         Outline modalOutline = GetOrAdd<Outline>(modal.gameObject);
         modalOutline.effectColor = new Color(0.62f, 0.49f, 0.78f, 1f);
-        modalOutline.effectDistance = new Vector2(4f, -4f);
+        modalOutline.effectDistance = UIStrokeStyle.EffectDistance;
 
         BuildHeader();
         BuildFooter();
@@ -97,6 +97,10 @@ public class DynamicShopUI : MonoBehaviour
             SetRect(close.GetComponent<RectTransform>(), new Vector2(0.90f, 0.10f), new Vector2(0.99f, 0.90f), Vector2.zero, Vector2.zero);
             Image image = close.GetComponent<Image>();
             image.color = new Color(0.16f, 0.13f, 0.25f, 1f);
+            Outline closeOutline = GetOrAdd<Outline>(close.gameObject);
+            closeOutline.effectColor = UIStrokeStyle.DefaultColor;
+            closeOutline.effectDistance = UIStrokeStyle.EffectDistance;
+            closeOutline.useGraphicAlpha = true;
             TMP_Text label = close.GetComponentInChildren<TMP_Text>(true);
             if (label != null) { label.text = "X"; ApplyTextStyle(label, 25f, TextAlignmentOptions.Center); }
         }
@@ -138,11 +142,16 @@ public class DynamicShopUI : MonoBehaviour
 
     private GameObject CreateProductCard(ItemData item)
     {
-        GameObject card = new($"ShopCard_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        GameObject card = new($"ShopCard_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
         card.transform.SetParent(content, false);
         Image frame = card.GetComponent<Image>();
         frame.sprite = cardFrameSprite;
         frame.type = cardFrameSprite != null ? Image.Type.Sliced : Image.Type.Simple;
+
+        Outline cardOutline = card.GetComponent<Outline>();
+        cardOutline.effectColor = UIStrokeStyle.DefaultColor;
+        cardOutline.effectDistance = UIStrokeStyle.EffectDistance;
+        cardOutline.useGraphicAlpha = true;
 
         bool isActive = item.IsActiveItem;
         frame.color = isActive ? new Color(1f, 0.88f, 0.5f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.62f, 0.91f, 1f, 1f) : new Color(1f, 0.72f, 0.98f, 1f));
@@ -182,11 +191,15 @@ public class DynamicShopUI : MonoBehaviour
         TMP_Text owned = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
         SetRect(owned.rectTransform, new Vector2(0.72f, 0.31f), new Vector2(0.96f, 0.54f), Vector2.zero, Vector2.zero);
 
-        GameObject buyObject = new("BuyButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(ShopItemButton));
+        GameObject buyObject = new("BuyButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline), typeof(ShopItemButton));
         buyObject.transform.SetParent(card.transform, false);
         SetRect(buyObject.GetComponent<RectTransform>(), new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.29f), Vector2.zero, Vector2.zero);
         Image buyImage = buyObject.GetComponent<Image>();
         buyImage.color = item.Type == ItemData.EffectType.Health ? new Color(0.06f, 0.65f, 0.84f, 1f) : new Color(0.68f, 0.28f, 0.75f, 1f);
+        Outline buyOutline = buyObject.GetComponent<Outline>();
+        buyOutline.effectColor = UIStrokeStyle.DefaultColor;
+        buyOutline.effectDistance = UIStrokeStyle.EffectDistance;
+        buyOutline.useGraphicAlpha = true;
         Button buy = buyObject.GetComponent<Button>();
         buy.targetGraphic = buyImage;
         TMP_Text buyLabel = CreateText(buyObject.transform, "Label", 22f, TextAlignmentOptions.Center);

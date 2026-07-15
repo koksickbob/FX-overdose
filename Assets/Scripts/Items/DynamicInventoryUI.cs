@@ -107,13 +107,18 @@ public class DynamicInventoryUI : MonoBehaviour
 
     private GameObject CreateSlot(ItemData item)
     {
-        GameObject slot = new($"DynamicSlot_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InventoryItemButton));
+        GameObject slot = new($"DynamicSlot_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline), typeof(InventoryItemButton));
         slot.transform.SetParent(transform, false);
 
         Image frame = slot.GetComponent<Image>();
         frame.sprite = slotFrameSprite;
         frame.type = Image.Type.Sliced;
         frame.color = Color.white;
+
+        Outline outline = slot.GetComponent<Outline>();
+        outline.effectColor = UIStrokeStyle.DefaultColor;
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
 
         Button button = slot.GetComponent<Button>();
         button.targetGraphic = frame;

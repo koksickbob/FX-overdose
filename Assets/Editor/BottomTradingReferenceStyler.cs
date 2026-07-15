@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// <summary>하단 주문부를 LONG / SHORT / LEVERAGE 3카드 레이아웃으로 정리합니다.</summary>
 public static class BottomTradingReferenceStyler
 {
-    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_v4";
+    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_PositionStatus_v10";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -52,22 +52,74 @@ public static class BottomTradingReferenceStyler
         RemoveLayouts(panel);
         SetRect(panel.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.30f), Vector2.zero, Vector2.zero);
         Image panelImage = GetOrAdd<Image>(panel);
-        panelImage.color = new Color(0.018f, 0.035f, 0.060f, 1f);
+        panelImage.color = new Color(0.018f, 0.035f, 0.060f, 0f);
 
-        StyleTradeCard(Find("LongButtonCard"), new Vector2(0.015f, 0.06f), new Vector2(0.325f, 0.95f), true);
-        StyleTradeCard(Find("ShortButtonCard"), new Vector2(0.345f, 0.06f), new Vector2(0.655f, 0.95f), false);
+        StyleTradeCard(Find("LongButtonCard"), new Vector2(0f, 0.06f), new Vector2(0.33f, 0.95f), true);
+        StyleTradeCard(Find("ShortButtonCard"), new Vector2(0.33f, 0.06f), new Vector2(0.66f, 0.95f), false);
         StyleLeverageCard(Find("ControlBoxCard"));
+        StylePositionStatusPanel();
         StyleSellButton(panel);
+        StyleAllButtons(panel);
 
         GameObject chart = Find("ChartMainPanel");
         if (chart != null)
-            SetRect(chart.GetComponent<RectTransform>(), new Vector2(0f, 0.30f), new Vector2(1f, 0.92f), new Vector2(5f, 5f), new Vector2(-5f, -5f));
+            SetRect(chart.GetComponent<RectTransform>(), new Vector2(0f, 0.30f), new Vector2(1f, 0.90f), new Vector2(12f, 5f), new Vector2(-6f, -8f));
 
         if (!EditorApplication.isPlaying)
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
 
         if (showResult)
             EditorUtility.DisplayDialog("주문 UI 적용 완료", "LONG / SHORT / LEVERAGE 카드 비율을 적용했습니다.", "확인");
+    }
+
+    private static void StylePositionStatusPanel()
+    {
+        GameObject status = Find("PositionStatusPanel");
+        if (status == null) return;
+
+        // 레버리지 카드 내부에 동일한 상하 여백을 두고 상태 텍스트 전체를 중앙 정렬합니다.
+        SetRect(status.GetComponent<RectTransform>(), new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f), Vector2.zero, Vector2.zero);
+
+        Image background = GetOrAdd<Image>(status);
+        background.color = Color.clear;
+        background.raycastTarget = false;
+
+        VerticalLayoutGroup layout = GetOrAdd<VerticalLayoutGroup>(status);
+        layout.padding = new RectOffset(14, 14, 14, 14);
+        layout.spacing = 6f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        foreach (TMP_Text text in status.GetComponentsInChildren<TMP_Text>(true))
+        {
+            text.font = PFStardustGlobalFontApplicator.GetFont() ?? TMP_Settings.defaultFontAsset;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 9f;
+            text.fontSizeMax = Mathf.Max(14f, text.fontSize);
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.alignment = TextAlignmentOptions.Center;
+            text.margin = Vector4.zero;
+            text.raycastTarget = false;
+        }
+    }
+
+    private static void StyleAllButtons(GameObject panel)
+    {
+        foreach (Button button in panel.GetComponentsInChildren<Button>(true))
+        {
+            Outline outline = button.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = GetOrAdd<Outline>(button.gameObject);
+                outline.effectColor = UIStrokeStyle.DefaultColor;
+                outline.useGraphicAlpha = true;
+            }
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+        }
     }
 
     private static void StyleSellButton(GameObject panel)
@@ -80,16 +132,16 @@ public static class BottomTradingReferenceStyler
         RemoveLayouts(sellObject);
         SetRect(
             sellObject.GetComponent<RectTransform>(),
-            new Vector2(0.015f, 0.06f),
-            new Vector2(0.655f, 0.95f),
-            new Vector2(5f, 5f),
-            new Vector2(-5f, -5f));
+            new Vector2(0f, 0.06f),
+            new Vector2(0.66f, 0.95f),
+            new Vector2(12f, 5f),
+            new Vector2(-4f, -5f));
 
         Image image = GetOrAdd<Image>(sellObject);
         image.color = new Color(0.64f, 0.08f, 0.14f, 1f);
         Outline outline = GetOrAdd<Outline>(sellObject);
         outline.effectColor = new Color(1f, 0.34f, 0.40f, 1f);
-        outline.effectDistance = new Vector2(4f, -4f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         Button button = GetOrAdd<Button>(sellObject);
         button.targetGraphic = image;
@@ -111,7 +163,8 @@ public static class BottomTradingReferenceStyler
     {
         if (card == null) return;
         RemoveLayouts(card);
-        SetRect(card.GetComponent<RectTransform>(), min, max, new Vector2(5f, 5f), new Vector2(-5f, -5f));
+        Vector2 offsetMin = new(isLong ? 12f : 4f, 5f);
+        SetRect(card.GetComponent<RectTransform>(), min, max, offsetMin, new Vector2(-4f, -5f));
 
         Color baseColor = isLong ? new Color(0.10f, 0.54f, 0.23f, 1f) : new Color(0.58f, 0.13f, 0.20f, 1f);
         Color borderColor = isLong ? new Color(0.45f, 1f, 0.39f, 1f) : new Color(1f, 0.35f, 0.42f, 1f);
@@ -119,7 +172,7 @@ public static class BottomTradingReferenceStyler
         image.color = baseColor;
         Outline outline = GetOrAdd<Outline>(card);
         outline.effectColor = borderColor;
-        outline.effectDistance = new Vector2(4f, -4f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         TMP_Text title = Find(isLong ? "LongTitle" : "ShortTitle")?.GetComponent<TMP_Text>();
         if (title != null)
@@ -138,7 +191,7 @@ public static class BottomTradingReferenceStyler
             pillImage.color = isLong ? new Color(0.07f, 0.38f, 0.17f, 0.72f) : new Color(0.42f, 0.08f, 0.14f, 0.72f);
             Outline pillOutline = GetOrAdd<Outline>(pill);
             pillOutline.effectColor = isLong ? new Color(0.35f, 0.80f, 0.31f, 0.75f) : new Color(0.84f, 0.25f, 0.31f, 0.75f);
-            pillOutline.effectDistance = new Vector2(2f, -2f);
+            pillOutline.effectDistance = UIStrokeStyle.EffectDistance;
         }
         if (subtitle != null)
         {
@@ -152,18 +205,19 @@ public static class BottomTradingReferenceStyler
     {
         if (card == null) return;
         RemoveLayouts(card);
-        SetRect(card.GetComponent<RectTransform>(), new Vector2(0.675f, 0.06f), new Vector2(0.985f, 0.95f), new Vector2(5f, 5f), new Vector2(-5f, -5f));
+        // 차트의 우측 offsetMax.x(-6px)와 동일하게 맞춰 수직 우측선이 이어지도록 합니다.
+        SetRect(card.GetComponent<RectTransform>(), new Vector2(0.66f, 0.06f), new Vector2(1f, 0.95f), new Vector2(4f, 5f), new Vector2(-6f, -5f));
         Image image = GetOrAdd<Image>(card);
         image.color = new Color(0.035f, 0.060f, 0.105f, 1f);
         Outline outline = GetOrAdd<Outline>(card);
         outline.effectColor = new Color(0.25f, 0.31f, 0.40f, 1f);
-        outline.effectDistance = new Vector2(3f, -3f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         GameObject tabs = Find("TabsBar");
         if (tabs != null)
         {
             RemoveLayouts(tabs);
-            SetRect(tabs.GetComponent<RectTransform>(), new Vector2(0.05f, 0.77f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero);
+            SetRect(tabs.GetComponent<RectTransform>(), new Vector2(0.05f, 0.76f), new Vector2(0.95f, 0.94f), Vector2.zero, Vector2.zero);
         }
         GameObject leverageTab = Find("BtnTabLeverageMode");
         if (leverageTab != null)
@@ -186,7 +240,7 @@ public static class BottomTradingReferenceStyler
         if (container != null)
         {
             RemoveLayouts(container);
-            SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.78f), Vector2.zero, Vector2.zero);
+            SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.715f), Vector2.zero, Vector2.zero);
         }
 
         GameObject box = Find("LeverageBox");
@@ -237,7 +291,7 @@ public static class BottomTradingReferenceStyler
         if (container != null)
         {
             RemoveLayouts(container);
-            SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.78f), Vector2.zero, Vector2.zero);
+            SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.715f), Vector2.zero, Vector2.zero);
         }
 
         GameObject box = Find("MarginRatioBox");

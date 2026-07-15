@@ -19,3 +19,6 @@ MonoBehaviour:
   effectType: 0
   effectAmount: 30
   price: 500
+  isActiveItem: 0
+  maxLevel: 1
+  priceMultiplierPerLevel: 1.5

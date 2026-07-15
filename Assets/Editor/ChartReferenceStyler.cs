@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public static class ChartReferenceStyler
 {
     // v7: 예전 외부 가격축 여백을 제거해 캔들을 내부 가격축 바로 옆까지 확장합니다.
-    private const string AppliedKey = "FXOverdose_ChartReferenceStyle_v7";
+    private const string AppliedKey = "FXOverdose_ChartReferenceStyle_TopGap_v9";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
@@ -57,11 +57,12 @@ public static class ChartReferenceStyler
         panelImage.color = new Color(0.015f, 0.045f, 0.075f, 1f);
         Outline outline = GetOrAdd<Outline>(panel);
         outline.effectColor = new Color(0.28f, 0.34f, 0.43f, 1f);
-        outline.effectDistance = new Vector2(3f, -3f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.offsetMin = new Vector2(6f, 6f);
-        panelRect.offsetMax = new Vector2(-6f, -4f);
+        panelRect.anchorMax = new Vector2(1f, 0.90f);
+        panelRect.offsetMin = new Vector2(12f, 6f);
+        panelRect.offsetMax = new Vector2(-6f, -8f);
 
         StyleHeader(panel.transform);
         StyleChartArea(panel.transform);

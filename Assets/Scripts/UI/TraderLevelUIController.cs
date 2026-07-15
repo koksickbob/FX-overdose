@@ -58,6 +58,8 @@ public sealed class TraderLevelUIController : MonoBehaviour
         Transform old = transform.Find("CharacterLevelExpHUD");
         if (old != null) Destroy(old.gameObject);
 
+        // 프레임 스프라이트에 공통 UI와 같은 두께의 테두리가 이미 포함되어 있습니다.
+        // Unity Outline을 추가로 겹치면 이 UI만 선이 두 배로 두꺼워 보이므로 사용하지 않습니다.
         GameObject hud = new("CharacterLevelExpHUD", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         hud.transform.SetParent(transform, false);
 

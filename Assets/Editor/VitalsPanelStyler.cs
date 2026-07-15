@@ -9,11 +9,11 @@ using UnityEngine.UI;
 /// <summary>기존 HP/Mental 슬라이더를 픽셀 상태 패널 안으로 옮기고 연결을 유지합니다.</summary>
 public static class VitalsPanelStyler
 {
-    private const string FramePath = "Assets/Img/VitalsPanelFrame.png";
+    private const string FramePath = "Assets/Img/VitalsPanelFrameUnified.png";
     private const string HeartPath = "Assets/Img/HealthHeartIcon.png";
     private const string BrainPath = "Assets/Img/MentalBrainIcon.png";
     private const string FontPath = "Assets/Fonts/PFStardustBold Dynamic SDF.asset";
-    private const string AppliedKey = "FXOverdose_VitalsPanelStyle_v9_FinalFix";
+    private const string AppliedKey = "FXOverdose_VitalsPanel_CenteredTopBar_v14";
 
     [InitializeOnLoadMethod]
     private static void ApplyOnceAfterCompile()
@@ -85,19 +85,20 @@ public static class VitalsPanelStyler
             topLayout.childControlHeight = true;
             topLayout.childForceExpandWidth = false;
             topLayout.childForceExpandHeight = false;
-            topLayout.childAlignment = TextAnchor.MiddleLeft;
+            topLayout.childAlignment = TextAnchor.MiddleCenter;
         }
 
         LayoutElement panelSize = GetOrAdd<LayoutElement>(panel);
         // 1920 화면에서 HP와 MENTAL 게이지가 답답하지 않도록 상단바의 약 44%를 사용합니다.
         panelSize.minWidth = 840f;
         panelSize.preferredWidth = 840f;
-        panelSize.preferredHeight = 96f;
+        panelSize.minHeight = 92f;
+        panelSize.preferredHeight = 92f;
         panelSize.flexibleWidth = 0f;
 
         RectTransform panelRect = panel.GetComponent<RectTransform>();
         Undo.RecordObject(panelRect, "Set Vitals Panel Fallback Size");
-        panelRect.sizeDelta = new Vector2(840f, 96f);
+        panelRect.sizeDelta = new Vector2(840f, 92f);
 
         Image panelImage = GetOrAdd<Image>(panel);
         panelImage.sprite = frame;
@@ -107,21 +108,21 @@ public static class VitalsPanelStyler
 
         RemoveLayoutGroups(panel);
         BuildLabels(panel.transform, font);
-        BuildIcon(panel.transform, "HealthHeartIcon", heart, new Vector2(0.035f, 0.12f), new Vector2(0.095f, 0.58f));
-        BuildIcon(panel.transform, "MentalBrainIcon", brain, new Vector2(0.455f, 0.12f), new Vector2(0.515f, 0.58f));
+        BuildIcon(panel.transform, "HealthHeartIcon", heart, new Vector2(0.045f, 0.19f), new Vector2(0.093f, 0.54f));
+        BuildIcon(panel.transform, "MentalBrainIcon", brain, new Vector2(0.500f, 0.19f), new Vector2(0.548f, 0.54f));
 
-        BuildBarBackground(panel.transform, "HealthBarBackground", new Vector2(0.10f, 0.14f), new Vector2(0.38f, 0.53f));
-        BuildBarBackground(panel.transform, "MentalBarBackground", new Vector2(0.52f, 0.14f), new Vector2(0.80f, 0.53f));
+        BuildBarBackground(panel.transform, "HealthBarBackground", new Vector2(0.105f, 0.20f), new Vector2(0.375f, 0.51f));
+        BuildBarBackground(panel.transform, "MentalBarBackground", new Vector2(0.560f, 0.20f), new Vector2(0.830f, 0.51f));
 
-        MoveAndStyleSlider(hp, panel.transform, new Vector2(0.105f, 0.18f), new Vector2(0.375f, 0.49f), new Color(1f, 0.27f, 0.43f, 1f));
-        MoveAndStyleSlider(mental, panel.transform, new Vector2(0.525f, 0.18f), new Vector2(0.795f, 0.49f), new Color(0.62f, 0.30f, 0.88f, 1f));
+        MoveAndStyleSlider(hp, panel.transform, new Vector2(0.110f, 0.235f), new Vector2(0.370f, 0.475f), new Color(1f, 0.27f, 0.43f, 1f));
+        MoveAndStyleSlider(mental, panel.transform, new Vector2(0.565f, 0.235f), new Vector2(0.825f, 0.475f), new Color(0.62f, 0.30f, 0.88f, 1f));
 
         TMP_Text hpValueText = BuildText(panel.transform, "HealthValue", font, "100/100", 22f, new Color(0.9f, 0.9f, 0.95f, 1f),
-            new Vector2(0.20f, 0.56f), new Vector2(0.38f, 0.91f));
+            new Vector2(0.20f, 0.56f), new Vector2(0.375f, 0.84f));
         hpValueText.alignment = TextAlignmentOptions.MidlineRight;
 
         TMP_Text mentalValueText = BuildText(panel.transform, "MentalValue", font, "100/100", 22f, new Color(0.9f, 0.9f, 0.95f, 1f),
-            new Vector2(0.62f, 0.56f), new Vector2(0.80f, 0.91f));
+            new Vector2(0.655f, 0.56f), new Vector2(0.830f, 0.84f));
         mentalValueText.alignment = TextAlignmentOptions.MidlineRight;
 
         TMP_Text gear = BuildText(panel.transform, "SettingsIcon", font, "⚙", 39f, new Color(0.80f, 0.83f, 0.88f, 1f),
@@ -151,9 +152,9 @@ public static class VitalsPanelStyler
     private static void BuildLabels(Transform panel, TMP_FontAsset font)
     {
         BuildText(panel, "HPTitle", font, "HP", 25f, Color.white,
-            new Vector2(0.035f, 0.56f), new Vector2(0.45f, 0.91f)).alignment = TextAlignmentOptions.MidlineLeft;
+            new Vector2(0.045f, 0.56f), new Vector2(0.43f, 0.84f)).alignment = TextAlignmentOptions.MidlineLeft;
         BuildText(panel, "MentalTitle", font, "MENTAL", 25f, Color.white,
-            new Vector2(0.455f, 0.56f), new Vector2(0.80f, 0.91f)).alignment = TextAlignmentOptions.MidlineLeft;
+            new Vector2(0.500f, 0.56f), new Vector2(0.885f, 0.84f)).alignment = TextAlignmentOptions.MidlineLeft;
     }
 
     private static void MoveAndStyleSlider(Slider slider, Transform parent, Vector2 min, Vector2 max, Color fillColor)

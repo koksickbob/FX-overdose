@@ -101,7 +101,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
         Outline outline = go.GetComponent<Outline>();
         outline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
-        outline.effectDistance = new Vector2(2f, -2f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
 
         Image icon = CreateImage(go.transform, "Icon");
         icon.sprite = Resources.Load<Sprite>($"UI/Skills/{GetIconName(type)}");
@@ -137,7 +137,8 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         settingsRect.GetWorldCorners(corners);
         Vector3 settingsBottomRight = canvas.transform.InverseTransformPoint(corners[3]);
 
-        const float rightMargin = 8f;
+        // 차트 좌측 외곽 여백(ChartReferenceStyler의 12px)과 동일하게 맞춥니다.
+        const float rightMargin = 12f;
         const float settingsGap = 24f;
         Rect bounds = canvasRect.rect;
         // 화면 우측에 딱 붙이고, 첫 스킬 버튼은 설정 버튼 아래에서 별도 여백을 둡니다.
@@ -167,7 +168,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         panel.GetComponent<Image>().color = new Color32(15, 23, 42, 252); // #0F172A
         Outline panelOutline = panel.AddComponent<Outline>();
         panelOutline.effectColor = new Color32(6, 182, 212, 255);
-        panelOutline.effectDistance = new Vector2(3f, -3f);
+        panelOutline.effectDistance = UIStrokeStyle.EffectDistance;
 
         infoIcon = CreateImage(panel.transform, "SkillIcon");
         infoIcon.preserveAspect = true;
@@ -315,9 +316,13 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
     private static Button CreateButton(Transform parent, string name, string label)
     {
-        GameObject go = CreateUIObject(name, parent, typeof(Button));
+        GameObject go = CreateUIObject(name, parent, typeof(Button), typeof(Outline));
         Image image = go.GetComponent<Image>();
         image.color = new Color32(20, 29, 51, 255);
+        Outline outline = go.GetComponent<Outline>();
+        outline.effectColor = UIStrokeStyle.DefaultColor;
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
         Button button = go.GetComponent<Button>();
         button.targetGraphic = image;
         TMP_Text text = CreateText(go.transform, "Label", label, 18f, TextAlignmentOptions.Center);
