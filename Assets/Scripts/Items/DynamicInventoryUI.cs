@@ -219,9 +219,7 @@ public class DynamicInventoryUI : MonoBehaviour
         TMP_Text text = go.GetComponent<TMP_Text>();
         text.font = font != null ? font : TMP_Settings.defaultFontAsset;
         text.fontSize = size;
-        text.enableAutoSizing = true;
-        text.fontSizeMin = Mathf.Max(12f, size - 8f);
-        text.fontSizeMax = size;
+        text.enableAutoSizing = false;
         text.overflowMode = TextOverflowModes.Overflow;
         text.color = Color.white;
         text.alignment = alignment;

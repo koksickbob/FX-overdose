@@ -247,26 +247,26 @@ namespace FXOverdose.AI.LLM
 
         private IEnumerator GameOverSpiralLoopCoroutine(string endingType)
         {
-            Debug.Log($"[LocalLLMService 🌀] 게임오버({endingType}) 감지 -> 약 10초간 멘헤라 연쇄 대사 붕괴 루프 가동 시작!");
+            Debug.Log($"[LocalLLMService 🌀] 게임오버({endingType}) 감지 -> 약 26초간 멘헤라 연쇄 대사 붕괴 루프 가동 시작!");
 
             // 💡 기존 대기열(Queue) 클리어 및 생성 상태 초기화 (일반 차트 대사 등 불필요한 대사 밀어내기)
             requestQueue.Clear();
             isGenerating = false;
 
-            // 1단계: 0초 ~ 3.3초 (충격 및 현실 부정)
+            // 1단계: 0초 ~ 8.5초 (충격 및 현실 부정)
             yield return new WaitForSeconds(0.5f);
             RequestDialogue(EventCategory.PositionClosed, $"[게임오버 연쇄 붕괴 1단계] {endingType} 파멸: 전 재산 증발에 대한 극도의 충격과 현실 부정, 떨리는 호흡");
 
-            // 2단계: 3.8초 ~ 7.1초 (세력에 대한 저주, 광기와 매선 분노)
-            yield return new WaitForSeconds(3.3f);
+            // 2단계: 8.5초 ~ 17.0초 (세력에 대한 저주, 광기와 매선 분노)
+            yield return new WaitForSeconds(8.5f);
             RequestDialogue(EventCategory.MentalChange, $"[게임오버 연쇄 붕괴 2단계] {endingType} 파멸: 세력들을 향한 피맺힌 증오와 저주, 멘탈 대붕괴 광기");
 
-            // 3단계: 7.1초 ~ 10.4초 (마스터를 향한 병적인 애결과 섬뜩한 집착 클라이막스)
-            yield return new WaitForSeconds(3.3f);
+            // 3단계: 17.0초 ~ 26.0초 (마스터를 향한 병적인 애결과 섬뜩한 집착 클라이막스)
+            yield return new WaitForSeconds(8.5f);
             RequestDialogue(EventCategory.MentalChange, $"[게임오버 연쇄 붕괴 3단계] {endingType} 파멸: 돈을 모두 잃은 절망 속에서 오직 마스터에게만 병적으로 집착하며 영원히 함께하겠다는 섬뜩한 애원");
 
-            yield return new WaitForSeconds(3.0f);
-            Debug.Log("[LocalLLMService 🌀] 약 10초간의 멘헤라 연쇄 대사 붕괴 루프 종료.");
+            yield return new WaitForSeconds(8.5f);
+            Debug.Log("[LocalLLMService 🌀] 멘헤라 연쇄 대사 붕괴 루프(1~3단계 완주) 종료.");
         }
 
         public void RequestDialogue(string extraEventContext = "")

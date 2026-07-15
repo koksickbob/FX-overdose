@@ -629,9 +629,6 @@ namespace FXOverdose.Trading
 
             leverage = Mathf.Clamp(leverage, 1, 125);
 
-            // 증거금 차감
-            gameManager.ChangeBalance(-margin);
-
             currentPosition = type;
             currentOwner = OwnerType.AI;
             entryPrice = marketEngine.CurrentPrice;
@@ -640,6 +637,9 @@ namespace FXOverdose.Trading
             targetPrice = aiTargetPrice;
             stopLossPrice = aiStopLossPrice;
             lastReportedROE = 0f;
+
+            // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감해야 CheckEnding() 시 TotalEquity에 증거금이 정상 합산됩니다.
+            gameManager.ChangeBalance(-margin);
 
             // 유지 증거금률 0.5% 반영한 청산가 연산
             float maintenanceMarginRate = 0.005f;
@@ -700,7 +700,6 @@ namespace FXOverdose.Trading
             }
 
             leverage = Mathf.Clamp(leverage, 1, 125);
-            gameManager.ChangeBalance(-margin);
 
             currentPosition = type;
             currentOwner = OwnerType.Player;
@@ -710,6 +709,9 @@ namespace FXOverdose.Trading
             targetPrice = 0f; // 플레이어 직접 판단 익절
             stopLossPrice = 0f; // 플레이어 직접 판단 손절
             lastReportedROE = 0f;
+
+            // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감합니다.
+            gameManager.ChangeBalance(-margin);
 
             float maintenanceMarginRate = 0.005f;
             if (type == PositionType.Long)
