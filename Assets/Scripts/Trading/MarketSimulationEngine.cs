@@ -42,9 +42,17 @@ namespace FXOverdose.Trading
 
         public SignalPhase CurrentSignalPhase => currentSignalPhase;
         public MarketSignal ActiveSignal => activeSignal;
+        public bool IsMarketOpen { get; private set; } = false;
 
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
+
+        public void OpenMarketAfterLoading()
+        {
+            IsMarketOpen = true;
+            minutesUntilNextSignal = 3; // 개장 후 3분(3초) 뒤 첫 거래 신호 발생
+            Debug.Log("[MarketSimulationEngine] 📈 로딩 및 AI 개장 대사 출력 완료 -> 시장 개장! 주가 차트 시뮬레이션 및 AI 실시간 매매가 시작됩니다.");
+        }
 
         // 테스트 및 디버그용 수동 신호 발행 Helper
         public void TriggerSignalForTest(MarketSignal signal)
@@ -138,6 +146,7 @@ namespace FXOverdose.Trading
         public void ResetEngine(float startPrice)
         {
             EnsureCandleHistoriesInitialized();
+            IsMarketOpen = false;
             currentPrice = startPrice;
             ouCenterPrice = startPrice;
             current24hHigh = startPrice;
@@ -165,7 +174,7 @@ namespace FXOverdose.Trading
 
         private void Update()
         {
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || !IsMarketOpen)
             {
                 return;
             }
@@ -576,6 +585,22 @@ namespace FXOverdose.Trading
                         Debug.Log($"[MarketEngine] 🛑 [확정 주가 제어 종료 -> 쿨다운 돌입] ({signalPhaseTimerMinutes}분 유지)");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
+                    else
+                    {
+                        // 💡 [무포지션 장기 대기 방지 고속화] 만약 현재 AI가 포지션을 잡지 않은 상태(관망 또는 진입 실패)라면,
+                        // 10초(10분) 동안만 FOMO 기믹 판정을 위해 주가를 이동시키고, 그 이후에는 남은 오버라이드 및 쿨다운 시간을 모두 생략하여 즉각 다음 매매 기회를 제공!
+                        var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+                        if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
+                        {
+                            if (activeSignal.DurationMinutes > 0 && activeSignal.DurationMinutes - signalPhaseTimerMinutes >= 10)
+                            {
+                                Debug.Log("[MarketEngine] ⏩ AI 무포지션 상태 10초 경과 감지 -> 장기 관망 방지를 위해 확정 구간 및 쿨다운을 생략하고 즉각 신규 신호 주기를 시작합니다.");
+                                currentSignalPhase = SignalPhase.None;
+                                minutesUntilNextSignal = UnityEngine.Random.Range(3, 6);
+                                OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+                            }
+                        }
+                    }
                     break;
 
                 case SignalPhase.Cooldown:
@@ -584,6 +609,15 @@ namespace FXOverdose.Trading
                     {
                         currentSignalPhase = SignalPhase.None;
                         minutesUntilNextSignal = UnityEngine.Random.Range(5, 11); // 쿨다운 종료 후 5~10초 내 신속 재진입
+                    }
+                    else
+                    {
+                        // 💡 쿨다운 중 무포지션 상태라면 3초 이내로 신속히 재진입 준비
+                        var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+                        if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
+                        {
+                            if (signalPhaseTimerMinutes > 3) signalPhaseTimerMinutes = 3;
+                        }
                     }
                     break;
             }

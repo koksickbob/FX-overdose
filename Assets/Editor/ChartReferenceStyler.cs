@@ -66,7 +66,8 @@ public static class ChartReferenceStyler
         StyleHeader(panel.transform);
         StyleChartArea(panel.transform);
         StyleAxes(panel.transform);
-        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        if (!EditorApplication.isPlaying)
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
 
         if (showResult)
         {

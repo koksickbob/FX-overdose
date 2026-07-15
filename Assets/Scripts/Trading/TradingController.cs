@@ -43,6 +43,7 @@ namespace FXOverdose.Trading
         public event Action OnPositionChanged;
         public event Action OnPositionLiquidated;
         public event Action<float, float> OnPositionClosed; // (최종 회수금, PnL)
+        public event Action<PositionType, float, int> OnPositionOpened; // (포지션방향, 증거금, 레버리지)
 
         // 테스트 및 디버그용 포지션 청산 시뮬레이션 Helper
         public void SimulateCloseForTest(bool isProfit, float pnl)
@@ -65,7 +66,7 @@ namespace FXOverdose.Trading
         {
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
+            traderStatus = TraderStatus.CanonicalInstance;
 
             if (marketEngine != null)
             {
@@ -79,6 +80,16 @@ namespace FXOverdose.Trading
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
             }
+        }
+
+        private FXOverdose.AI.LLM.LocalLLMService llmService;
+        private float lastReportedROE = 0f;
+        private float lastROEDialogueTime = 0f;
+
+        private void TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory cat, string ctx)
+        {
+            if (llmService == null) llmService = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            llmService?.RequestDialogue(cat, ctx);
         }
 
         private void HandlePriceUpdated(float price)
@@ -112,11 +123,33 @@ namespace FXOverdose.Trading
                     return;
                 }
             }
+
+            // 4. 실시간 ROE 변동 구간 돌파 독백 트리거 (+15%, -15%, +30%, -30% 등)
+            float roe = CalculateROEPercentage();
+            if (Time.time - lastROEDialogueTime >= 12f)
+            {
+                if ((roe >= 15f && lastReportedROE < 15f) || (roe >= 30f && lastReportedROE < 30f))
+                {
+                    lastReportedROE = roe;
+                    lastROEDialogueTime = Time.time;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE +{roe:0.0}% 수익권 질주 중!");
+                }
+                else if ((roe <= -15f && lastReportedROE > -15f) || (roe <= -30f && lastReportedROE > -30f))
+                {
+                    lastReportedROE = roe;
+                    lastROEDialogueTime = Time.time;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE {roe:0.0}% 손절권 급락 중!");
+                }
+            }
         }
 
         // 포지션 진입 (AI가 방향, 레버리지, 목표가 TargetPrice를 독자적으로 결정하여 호출)
         public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f)
         {
+            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
+
             if (gameManager == null || marketEngine == null || type == PositionType.None)
             {
                 return false;
@@ -124,14 +157,20 @@ namespace FXOverdose.Trading
 
             if (currentPosition != PositionType.None)
             {
-                Debug.LogWarning("[TradingController] 이미 포지션을 보유 중입니다. 먼저 포지션을 종료하세요.");
-                return false;
+                Debug.LogWarning($"[TradingController] 🔄 기존 {currentPosition} 포지션 보유 중 새로운 {type} 포지션 진입 요청 감지 -> 기존 포지션을 정리하고 스위칭합니다.");
+                ClosePosition();
             }
 
-            if (gameManager.CurrentBalance < margin || margin <= 0f)
+            if (margin <= 0f || gameManager.CurrentBalance <= 1f)
             {
                 Debug.LogWarning("[TradingController] 증거금이 부족합니다.");
                 return false;
+            }
+
+            // 💡 [진입 성공률 보장 안전망] 계산된 증거금이 현재 잔고보다 크더라도 잔고의 95%로 자동 조정하여 진입 실패(포지션 미개설 현상) 방지
+            if (margin > gameManager.CurrentBalance)
+            {
+                margin = gameManager.CurrentBalance * 0.95f;
             }
 
             leverage = Mathf.Clamp(leverage, 1, 125);
@@ -145,6 +184,7 @@ namespace FXOverdose.Trading
             currentLeverage = leverage;
             targetPrice = aiTargetPrice;
             stopLossPrice = aiStopLossPrice;
+            lastReportedROE = 0f;
 
             // 유지 증거금률 0.5% 반영한 청산가 연산
             float maintenanceMarginRate = 0.005f;
@@ -159,6 +199,7 @@ namespace FXOverdose.Trading
 
             Debug.Log($"[TradingController 🤖] AI {type} 포지션 개시! 진입가: ${entryPrice:N1}, 증거금: ${margin:N0}, 레버리지: {leverage}x, 목표가(Target Price): ${(targetPrice > 0 ? targetPrice.ToString("N1") : "무제한")}, 청산가: ${liquidationPrice:N1}");
             OnPositionChanged?.Invoke();
+            OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
             return true;
         }
 
@@ -203,6 +244,7 @@ namespace FXOverdose.Trading
             currentPosition = PositionType.None;
             targetPrice = 0f;
             stopLossPrice = 0f;
+            lastReportedROE = 0f;
             OnPositionChanged?.Invoke();
         }
 
@@ -280,12 +322,41 @@ namespace FXOverdose.Trading
 
             Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] AI 트레이더가 통제를 벗어나 고레버리지 뇌동매매를 강행합니다!");
 
+            // 만약 기존 포지션이 수익(익절) 중이라면 통제 불능 상태에서는 이를 바로 청산하고 손실 나는 방향으로 스위칭
+            if (currentPosition != PositionType.None && CalculateUnrealizedPnL() > 0f)
+            {
+                Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] 수익 중인 포지션을 뒤엎고 반대 방향 고레버리지 뇌동매매로 전환합니다!");
+                ClosePosition();
+            }
+
             // 기존 포지션이 없다면 남은 자산의 50% 이상을 고레버리지(100배~125배)로 진입
             if (currentPosition == PositionType.None)
             {
                 float forcedMargin = gameManager.CurrentBalance * UnityEngine.Random.Range(0.5f, 0.8f);
                 int forcedLeverage = UnityEngine.Random.Range(100, 126);
-                PositionType forcedDirection = UnityEngine.Random.value > 0.5f ? PositionType.Long : PositionType.Short;
+
+                // [기획서 4.5장 부합] Overdose 시 "손실이 큰 방향으로 고레버리지 진입 강제 실행"
+                PositionType forcedDirection = PositionType.Long;
+                if (marketEngine.CurrentSignalPhase != SignalPhase.None && Mathf.Abs(marketEngine.ActiveSignal.TargetPercentageDelta) > 0.01f)
+                {
+                    // 현재 차트 신호가 상승(TargetPercentageDelta > 0)이면 반대인 Short(숏) 진입, 하락이면 Long(롱) 진입하여 강제 손실 및 청산 유도
+                    forcedDirection = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? PositionType.Short : PositionType.Long;
+                }
+                else if (marketEngine.CurrentRegime == MarketSimulationEngine.MarketRegime.Bull)
+                {
+                    forcedDirection = PositionType.Short;
+                }
+                else if (marketEngine.CurrentRegime == MarketSimulationEngine.MarketRegime.Bear)
+                {
+                    forcedDirection = PositionType.Long;
+                }
+                else
+                {
+                    // 횡보장 등에서는 최근 일일 고점 부근이면 고점 매수(Long) 물림, 저점 부근이면 저점 매도(Short) 물림
+                    forcedDirection = marketEngine.CurrentPrice > (marketEngine.Current24hHigh + marketEngine.Current24hLow) * 0.5f 
+                        ? PositionType.Long : PositionType.Short;
+                }
+
                 float currentP = marketEngine.CurrentPrice;
                 // 뇌동매매는 목표가를 +50% 등 터무니없이 높게, 손절선은 0(없음)으로 설정
                 float aiTarget = forcedDirection == PositionType.Long ? currentP * 1.5f : currentP * 0.5f;
@@ -308,6 +379,7 @@ namespace FXOverdose.Trading
                     if (targetPrice > 0f) targetPrice = currentPosition == PositionType.Long ? targetPrice * 1.2f : targetPrice * 0.8f;
                     Debug.LogWarning($"[TradingController] 🩸 [Overdose 폭주] 남은 자금 {addMargin:N0}원 전부 물타기 및 레버리지 125배 상향! (목표가 연장: ${targetPrice:N1})");
                     OnPositionChanged?.Invoke();
+                    OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
                 }
             }
         }
@@ -324,9 +396,13 @@ namespace FXOverdose.Trading
             if (currentPosition != PositionType.None && currentPosition != posType)
             {
                 ClosePosition();
+                if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
+                {
+                    return;
+                }
             }
 
-            if (currentPosition == PositionType.None && gameManager != null && marketEngine != null)
+            if (currentPosition == PositionType.None && gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing && marketEngine != null)
             {
                 float forcedMargin = Mathf.Max(10f, gameManager.CurrentBalance * 0.4f);
                 if (forcedMargin <= gameManager.CurrentBalance)
