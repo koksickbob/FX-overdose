@@ -271,6 +271,7 @@ namespace FXOverdose.Editor
             public GameObject RootGO;
             public GameManager GM;
             public TraderStatus Status;
+            public TraderLevelSystem LevelSystem;
             public TradingController TradingController;
             public MarketSimulationEngine MarketEngine;
             public AITradingBrain Brain;
@@ -283,6 +284,7 @@ namespace FXOverdose.Editor
 
             env.GM = env.RootGO.AddComponent<GameManager>();
             env.Status = env.RootGO.AddComponent<TraderStatus>();
+            env.LevelSystem = env.RootGO.AddComponent<TraderLevelSystem>();
             env.TradingController = env.RootGO.AddComponent<TradingController>();
             env.MarketEngine = env.RootGO.AddComponent<MarketSimulationEngine>();
             env.Brain = env.RootGO.AddComponent<AITradingBrain>();
@@ -290,6 +292,7 @@ namespace FXOverdose.Editor
             // 💡 [EditMode 테스트 보완] Unity EditMode에서는 AddComponent 시 Awake()/Start() 호출 시점이 불안정하므로, Reflection을 통해 명시적 순차 실행하여 딕셔너리 초기화 및 참조/이벤트 구독을 완벽 연결!
             InvokeAwakeMethod(env.GM);
             InvokeAwakeMethod(env.Status);
+            InvokeAwakeMethod(env.LevelSystem);
             InvokeAwakeMethod(env.MarketEngine);
             InvokeAwakeMethod(env.TradingController);
             InvokeAwakeMethod(env.Brain);
@@ -297,6 +300,8 @@ namespace FXOverdose.Editor
             // 💡 [EditMode 참조 확실화 (Start 이전 주입)] 
             // InvokeStartMethod를 호출하기 *전에* 각 컴포넌트의 Private 참조 필드(marketEngine, tradingController 등)에 인스턴스를 주입해야 Start() 내부의 OnMarketSignalGenerated += HandleMarketSignalGenerated 및 OnPriceUpdated += HandlePriceUpdated 이벤트 구독이 정상적으로 체결됩니다!
             SetPrivateField(env.Status, "gameManager", env.GM);
+            SetPrivateField(env.LevelSystem, "gameManager", env.GM);
+            SetPrivateField(env.LevelSystem, "traderStatus", env.Status);
             SetPrivateField(env.MarketEngine, "gameManager", env.GM);
             SetPrivateField(env.TradingController, "gameManager", env.GM);
             SetPrivateField(env.TradingController, "marketEngine", env.MarketEngine);
@@ -308,6 +313,7 @@ namespace FXOverdose.Editor
 
             InvokeStartMethod(env.GM);
             InvokeStartMethod(env.Status);
+            InvokeStartMethod(env.LevelSystem);
             InvokeStartMethod(env.MarketEngine);
             InvokeStartMethod(env.TradingController);
             InvokeStartMethod(env.Brain);

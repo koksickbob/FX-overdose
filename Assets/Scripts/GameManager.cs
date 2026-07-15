@@ -94,6 +94,7 @@ public class GameManager : MonoBehaviour
 
         // 돌발 선택 이벤트 컨트롤러(ChoiceEventController) 자동 부착 및 초기화
         InitializeChoiceEventController();
+        InitializeTraderLevelSystem();
 
         // 액티브 아이템 효과 및 업그레이드 초기화
         ActiveItemEffectManager.Instance?.ResetAll();
@@ -112,7 +113,7 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.Loading)
         {
             currentState = GameState.Playing;
-            Debug.Log("[GameManager] 🟢 LLM 예열 및 개장 대사 출력 완료 -> 게임 상태가 Playing으로 전환되어 시간이 흐르기 시작합니다.");
+            Debug.Log("[GameManager] LLM 및 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
         }
     }
 
@@ -135,6 +136,16 @@ public class GameManager : MonoBehaviour
         var status = TraderStatus.CanonicalInstance;
 
         choiceEventCtrl.Initialize(this, marketEngine, tradingCtrl, status);
+    }
+
+    private void InitializeTraderLevelSystem()
+    {
+        var levelSystem = GetComponent<FXOverdose.Trading.TraderLevelSystem>();
+        if (levelSystem == null)
+        {
+            levelSystem = gameObject.AddComponent<FXOverdose.Trading.TraderLevelSystem>();
+            Debug.Log("[GameManager] 💡 TraderLevelSystem 컴포넌트 자동 부착 완료");
+        }
     }
 
     // 실제 시간을 게임 시간으로 변환

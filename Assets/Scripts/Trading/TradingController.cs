@@ -805,15 +805,30 @@ namespace FXOverdose.Trading
             else
             {
                 // 이미 포지션이 있을 경우 물타기 (남은 현금 탈탈 털어 증거금 추가 및 레버리지 급등)
-                float addMargin = gameManager.CurrentBalance * 0.9f;
-                if (addMargin > 10f)
+                var levelSystem = TraderLevelSystem.Instance;
+                int targetLeverage = 125;
+                if (levelSystem != null)
+                {
+                    int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                    if (targetLeverage > maxAllowedLev) targetLeverage = maxAllowedLev;
+                }
+
+                float maxTotalMargin = gameManager.CurrentBalance + marginAmount;
+                if (levelSystem != null)
+                {
+                    float maxRatio = levelSystem.GetMaxAllowedMarginRatio();
+                    maxTotalMargin = (gameManager.CurrentBalance + marginAmount) * maxRatio;
+                }
+
+                float addMargin = Mathf.Min(gameManager.CurrentBalance * 0.9f, maxTotalMargin - marginAmount);
+                if (addMargin > 10f && gameManager.CurrentBalance >= addMargin)
                 {
                     gameManager.ChangeBalance(-addMargin);
                     marginAmount += addMargin;
-                    currentLeverage = 125; // 최대 레버리지로 상향
+                    currentLeverage = targetLeverage; // 레버리지 상향
                     // 목표가도 더 무리하게 연장
                     if (targetPrice > 0f) targetPrice = currentPosition == PositionType.Long ? targetPrice * 1.2f : targetPrice * 0.8f;
-                    Debug.LogWarning($"[TradingController] 🩸 [Overdose 폭주] 남은 자금 {addMargin:N0}원 전부 물타기 및 레버리지 125배 상향! (목표가 연장: ${targetPrice:N1})");
+                    Debug.LogWarning($"[TradingController] 🩸 [Overdose 폭주] 자금 {addMargin:N0}원 추가 물타기 및 레버리지 {currentLeverage}배 상향! (목표가 연장: ${targetPrice:N1})");
                     OnPositionChanged?.Invoke();
                     OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
                 }

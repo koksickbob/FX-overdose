@@ -738,7 +738,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   currentState: 0
   currentEnding: 0
-  startingBalance: 10000
+  startingBalance: 2500
   targetBalance: 100000
   currentBalance: 0
   currentDay: 1

@@ -17,7 +17,32 @@ namespace FXOverdose.Trading
     /// </summary>
     public class TraderLevelSystem : MonoBehaviour
     {
-        public static TraderLevelSystem Instance { get; private set; }
+        private static TraderLevelSystem _instance;
+        public static TraderLevelSystem Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = FindAnyObjectByType<TraderLevelSystem>();
+                    if (_instance == null)
+                    {
+                        var gm = FindAnyObjectByType<GameManager>();
+                        if (gm != null)
+                        {
+                            _instance = gm.gameObject.AddComponent<TraderLevelSystem>();
+                        }
+                        else
+                        {
+                            var go = new GameObject("TraderLevelSystem");
+                            _instance = go.AddComponent<TraderLevelSystem>();
+                        }
+                    }
+                }
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         [Header("시스템 참조")]
         [SerializeField] private GameManager gameManager;
@@ -46,11 +71,11 @@ namespace FXOverdose.Trading
 
         private void Awake()
         {
-            if (Instance == null)
+            if (_instance == null)
             {
-                Instance = this;
+                _instance = this;
             }
-            else if (Instance != this)
+            else if (_instance != this)
             {
                 Destroy(gameObject);
                 return;
