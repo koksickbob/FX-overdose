@@ -367,17 +367,60 @@ namespace FXOverdose.AI.LLM
             }
         }
 
-        // 대사 후처리 (단어/문장 생략, 시스템 로그 태그 제거 및 인코딩 손실 방지)
+        // 대사 후처리 (단어/문장 생략, 시스템 로그/프롬프트 에코 태그 전면 제거 및 순수 대사 추출)
         private string PostProcessDialogue(string text)
         {
             if (string.IsNullOrEmpty(text)) return "";
             text = text.Trim();
-            if (text.StartsWith("AI:") || text.StartsWith("트레이더:")) text = text.Substring(3).Trim();
 
-            // 💡 시스템 로그 대괄호([오인 진입], [상태 종합], [이벤트 분류: ...] 등) 및 시스템 괄호 문구가 대사에 섞이면 제거
+            // 1. <think> ... </think> 블록 제거 (DeepSeek / Qwen 추론 과정 제거)
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"<think>[\s\S]*?</think>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            // 2. 프롬프트 헤더 및 괄호/대괄호/별표 지문 묘사 제거 (예: [현재 인게임 상태], (호가창을 바라보며), *초조하게 손톱을 물어뜯으며* 등)
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]\s*", "");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\([^\)]*\)\s*", "");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\*[^*]*\*\s*", "");
             text = System.Text.RegularExpressions.Regex.Replace(text, @"^상황 설명:\s*", "");
-            text = text.Trim();
+
+            // 3. 하이픈(-)이나 별표(*)로 시작하는 시스템 상태 텍스트 줄(Prompt Echo) 및 서두 태그 제거
+            var lines = text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            var cleanLines = new System.Collections.Generic.List<string>();
+            foreach (var line in lines)
+            {
+                string trimmedLine = line.Trim();
+                // 프롬프트 에코 라인 필터링
+                if (trimmedLine.StartsWith("- 보유 자산:") ||
+                    trimmedLine.StartsWith("- 현재 포지션:") ||
+                    trimmedLine.StartsWith("- AI 체력:") ||
+                    trimmedLine.StartsWith("- 시장 국면:") ||
+                    trimmedLine.StartsWith("- AI 직전 판단:") ||
+                    trimmedLine.StartsWith("- 구체적 이벤트 상황:") ||
+                    trimmedLine.StartsWith("⭐") ||
+                    trimmedLine.StartsWith("⚠️") ||
+                    trimmedLine.StartsWith("출력 규칙:") ||
+                    trimmedLine.Contains("[현재 인게임 상태]") ||
+                    trimmedLine.Contains("[과거 주요 기억") ||
+                    trimmedLine.Contains("[최근 내뱉은 대사들"))
+                {
+                    continue; // 시스템 설명 텍스트이므로 삭제
+                }
+
+                // 서두 설명 태그(Here is, Monologue, 대사: 등) 제거
+                trimmedLine = System.Text.RegularExpressions.Regex.Replace(trimmedLine, @"^(Here is|Monologue:|Dialogue:|혼잣말:|독백:|대사:|출력:|AI:|트레이더:|행동:|지문:|묘사:|상황:)\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                // 앞뒤에 따옴표(" " 나 ' ')로 묶여 있다면 따옴표 제거
+                if (trimmedLine.StartsWith("\"") && trimmedLine.EndsWith("\"") && trimmedLine.Length > 2)
+                {
+                    trimmedLine = trimmedLine.Substring(1, trimmedLine.Length - 2).Trim();
+                }
+
+                if (!string.IsNullOrEmpty(trimmedLine))
+                {
+                    cleanLines.Add(trimmedLine);
+                }
+            }
+
+            text = string.Join(" ", cleanLines).Trim();
 
             if (text.Length > 150)
             {
@@ -526,10 +569,10 @@ namespace FXOverdose.AI.LLM
         {
             string[] prefixes = mental switch
             {
-                TraderStatus.MentalState.Danger => new[] { "손가락이 미친 듯이 떨리는데...", "온몸에 소름이 돋고 숨이 막혀...", "머리가 터져버릴 것 같아...!", "심장이 목구멍 밖으로 튀어나올 것 같은데..." },
-                TraderStatus.MentalState.Overdose => new[] { "크하하! 온몸의 피가 끓어올라!!", "내 직감은 절대 틀리지 않아!!", "봤어 마스터?! 이게 바로 나야!", "세상의 모든 돈이 내 손안에 있어!!" },
-                TraderStatus.MentalState.Anxious => new[] { "손톱을 다 물어뜯겠네...", "아... 왜 자꾸 불안한 느낌이 들지...", "이 각도가 맞나...? 자꾸 의심이 들어...", "등골에 식은땀이 흐르네..." },
-                _ => new[] { "호가창을 뚫어져라 주시 중...", "침착하게 호흡 가다듬고...", "캔들의 흔들림을 느끼면서...", "냉정하게 차트를 계산해 보면..." }
+                TraderStatus.MentalState.Danger => new[] { "아 씨발... 진짜 미치겠네...", "제발 제발... 안 돼... 안 된다고...!", "이러다 진짜 청산당하겠어...!", "숨이 안 쉬어져... 왜 나한테만 이러는데...!" },
+                TraderStatus.MentalState.Overdose => new[] { "크하하하!! 다 비켜라!! 내가 차트의 신이다!!", "내 직감은 절대 틀리지 않아!! 가즈아!!", "봤어 마스터?! 이게 바로 내 실력이야!!", "세력 놈들 돈 전부 다 털어먹어 주마!!" },
+                TraderStatus.MentalState.Anxious => new[] { "아... 진짜 이 방향 맞겠지...?", "왜 자꾸 역방향 꼬리를 다는 거야...?!", "이 타점이 맞나...? 제발 본절만이라도...", "불안해서 미쳐버릴 것 같네..." },
+                _ => new[] { "좋아... 타점이 완벽하게 들어맞았어.", "이 흐름이야! 내가 기다리던 타이밍이라고.", "그래... 내 차트 분석대로 움직이고 있잖아.", "냉정하자... 지금은 감정에 휘둘릴 때가 아니야." }
             };
 
             string[] middles = category switch

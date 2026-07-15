@@ -168,10 +168,12 @@ namespace FXOverdose.Trading
             }
             liveAggregatedCandles.Clear();
 
-            // 게임 시작 전 과거 150분(2시간 반) 데이터 Pre-warm 생성
-            PrewarmHistoricalCandles(150);
+            // 게임 시작 전 과거 150분(2시간 반) 데이터 Pre-warm 생성 및 최종 시뮬레이션 마감 종가를 현재 주가로 동기화
+            float prewarmedEndPrice = PrewarmHistoricalCandles(150);
+            currentPrice = prewarmedEndPrice;
+            ouCenterPrice = prewarmedEndPrice;
 
-            // 첫 실시간 1분봉 열기
+            // 첫 실시간 1분봉 열기 (과거 캔들의 마지막 종가와 정확히 맞닿아 갭 없이 연결)
             StartNewLiveCandle(currentPrice);
         }
 
@@ -473,8 +475,8 @@ namespace FXOverdose.Trading
             return liveM1Candle;
         }
 
-        // 게임 시작 시 초기 과거 데이터(Pre-warm) 생성
-        private void PrewarmHistoricalCandles(int minutesCount)
+        // 게임 시작 시 초기 과거 데이터(Pre-warm) 생성 및 최종 종가 반환
+        private float PrewarmHistoricalCandles(int minutesCount)
         {
             float tempPrice = initialPrice;
             long startTimestamp = -minutesCount;
@@ -551,6 +553,8 @@ namespace FXOverdose.Trading
                     }
                 }
             }
+
+            return tempPrice;
         }
 
         // Phase 3: 차트 신호 및 3단계 주가 제어 타임라인 업데이트 (1분마다 호출)
