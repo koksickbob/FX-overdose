@@ -92,6 +92,8 @@ namespace FXOverdose.Trading
         private FXOverdose.AI.LLM.LocalLLMService llmService;
         private float lastReportedROE = 0f;
         private float lastROEDialogueTime = 0f;
+        private float eventPositionOpenedTime = -1f;
+        private float eventProtectionEndTime = -1f;
 
         private void TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory cat, string ctx)
         {
@@ -139,13 +141,19 @@ namespace FXOverdose.Trading
                 {
                     lastReportedROE = roe;
                     lastROEDialogueTime = Time.time;
-                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE +{roe:0.0}% 수익권 질주 중!");
+                    string directionHint = currentPosition == PositionType.Short
+                        ? "Short(공매도 하락 배팅) 중이므로 주가가 폭락해서 바닥으로 내려가고 있어 수익이 나고 있는 기분 좋은 상황입니다! (더 내려가라고 소리치세요)"
+                        : "Long(상승 배팅) 중이므로 주가가 치솟아 고점을 뚫고 올라가서 수익이 나고 있는 상황입니다! (더 올라가라고 소리치세요)";
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE +{roe:0.0}% 수익권 질주 중! {directionHint}");
                 }
                 else if ((roe <= -15f && lastReportedROE > -15f) || (roe <= -30f && lastReportedROE > -30f))
                 {
                     lastReportedROE = roe;
                     lastROEDialogueTime = Time.time;
-                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE {roe:0.0}% 손절권 급락 중!");
+                    string directionHint = currentPosition == PositionType.Short
+                        ? "Short(공매도 하락 배팅) 중인데 주가가 반대로 솟구쳐올라 고점을 부수며 손실이 커지고 있는 위기 상황입니다! (제발 폭락하라고 비세요)"
+                        : "Long(상승 배팅) 중인데 주가가 바닥으로 떨어지며 손실이 커지고 있는 위기 상황입니다! (제발 반등하라고 비세요)";
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE {roe:0.0}% 손절권 급락 중! {directionHint}");
                 }
             }
         }
@@ -205,6 +213,7 @@ namespace FXOverdose.Trading
             }
 
             Debug.Log($"[TradingController 🤖] AI {type} 포지션 개시! 진입가: ${entryPrice:N1}, 증거금: ${margin:N0}, 레버리지: {leverage}x, 목표가(Target Price): ${(targetPrice > 0 ? targetPrice.ToString("N1") : "무제한")}, 청산가: ${liquidationPrice:N1}");
+            eventPositionOpenedTime = Time.time;
             OnPositionChanged?.Invoke();
             OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
             return true;
@@ -296,6 +305,12 @@ namespace FXOverdose.Trading
         // 강제 청산(Liquidation) 판정
         private void CheckLiquidation(float currentPrice)
         {
+            // ⭐ [이벤트 포지션 초반 휩소 보호] 이벤트 등으로 포지션을 개설한 직후 3초 이내에는 순간적인 꼬리 스파이크 노이즈 1틱에 의한 억울한 즉사 청산을 방어!
+            if (Time.time < eventPositionOpenedTime + 3.0f)
+            {
+                return;
+            }
+
             bool isLiquidated = false;
             if (currentPosition == PositionType.Long && currentPrice <= liquidationPrice)
             {
@@ -340,6 +355,13 @@ namespace FXOverdose.Trading
         public void TriggerOverdoseTrade()
         {
             if (gameManager == null || marketEngine == null) return;
+
+            // ⭐ [이벤트 포지션 쉴드] 돌발 이벤트 등으로 전략적 포지션을 개설한 직후(최대 30초)에는 AI가 뇌동매매로 해당 포지션을 바로 뒤엎거나 엉뚱한 물타기를 강행하지 못하도록 차단!
+            if (Time.time < eventProtectionEndTime)
+            {
+                Debug.Log("[TradingController] 🛡️ 이벤트 선택지 포지션 쉴드 활성화 중 -> AI Overdose 뇌동매매 개입을 임시 차단하여 이벤트 의도를 존중합니다.");
+                return;
+            }
 
             Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] AI 트레이더가 통제를 벗어나 고레버리지 뇌동매매를 강행합니다!");
 
@@ -414,8 +436,10 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            if (currentPosition != PositionType.None && currentPosition != posType)
+            // ⭐ 이벤트 선택 우선: 기존 포지션이 존재하면(방향이 같든 다르든) 무조건 먼저 정산/청산하여 이벤트 포지션을 개설합니다!
+            if (currentPosition != PositionType.None)
             {
+                Debug.Log($"[TradingController] ⚡ 돌발 이벤트 선택지({posType} {leverage}배) 우선 적용을 위해 기존 {currentPosition} 포지션을 정산합니다.");
                 ClosePosition();
                 if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
                 {
@@ -423,7 +447,8 @@ namespace FXOverdose.Trading
                 }
             }
 
-            if (currentPosition == PositionType.None && gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing && marketEngine != null)
+            // 이벤트가 요구하는 새로운 포지션 및 레버리지로 즉시 강제 진입
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing && marketEngine != null)
             {
                 float forcedMargin = Mathf.Max(10f, gameManager.CurrentBalance * 0.4f);
                 if (forcedMargin <= gameManager.CurrentBalance)
@@ -432,7 +457,8 @@ namespace FXOverdose.Trading
                     float aiTarget = posType == PositionType.Long ? currentP * 1.15f : currentP * 0.85f;
                     float aiStop = posType == PositionType.Long ? currentP * 0.95f : currentP * 1.05f;
                     OpenPosition(posType, forcedMargin, Mathf.Clamp(leverage, 1, 125), aiTarget, aiStop);
-                    Debug.Log($"[TradingController] ⚡ ExecuteEmergencyTrade 실행: {posType} / 레버리지 {leverage}배");
+                    eventProtectionEndTime = Time.time + 30.0f; // 실시간 30초 쉴드 가동
+                    Debug.Log($"[TradingController] ⚡ ExecuteEmergencyTrade (돌발 이벤트 강제 진입) 완료: {posType} / 증거금 ${forcedMargin:N0} / 레버리지 {leverage}배 (30초 이벤트 쉴드 가동)");
                 }
             }
         }

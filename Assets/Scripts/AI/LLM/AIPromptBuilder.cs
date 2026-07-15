@@ -1,5 +1,6 @@
 using UnityEngine;
 using FXOverdose.Trading;
+using FXOverdose.AI;
 
 namespace FXOverdose.AI.LLM
 {
@@ -55,10 +56,21 @@ namespace FXOverdose.AI.LLM
             TraderStatus.MentalState mentalState = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
             
             string posText = "포지션 없음 (관망 중)";
+            string positionDirectionHint = "현재 포지션이 없으므로 차트 방향을 지켜보며 진입 타점을 노리고 있습니다.";
             float roe = 0f;
             if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
             {
-                posText = $"{tradingController.CurrentPosition} ({tradingController.CurrentLeverage}x)";
+                if (tradingController.CurrentPosition == TradingController.PositionType.Long)
+                {
+                    posText = $"Long (상승 배팅, {tradingController.CurrentLeverage}x)";
+                    positionDirectionHint = "⭐ [현재 Long 포지션]: 차트 가격이 '올라가고 고점을 뚫어야' 수익이 납니다. 상승을 간절히 원하거나 폭등에 환호하는 대사를 하세요.";
+                }
+                else if (tradingController.CurrentPosition == TradingController.PositionType.Short)
+                {
+                    posText = $"Short (공매도 하락 배팅, {tradingController.CurrentLeverage}x)";
+                    positionDirectionHint = "⭐ [현재 Short 포지션]: 차트 가격이 '폭락하고 저점을 부수며 내려가야' 수익이 납니다! 절대 고점 돌파나 상승을 응원하지 말고, '더 폭락해라! 나락으로 꽂혀라! 저점을 뚫고 내려가라!'라고 저주하고 외치세요.";
+                }
+
                 if (tradingController.MarginAmount > 0f)
                 {
                     float currentPrice = marketEngine != null ? marketEngine.CurrentPrice : tradingController.EntryPrice;
@@ -69,25 +81,49 @@ namespace FXOverdose.AI.LLM
                 }
             }
 
-            string marketRegime = marketEngine != null ? marketEngine.CurrentRegime.ToString() : "Sideways";
+            string regimeRaw = marketEngine != null ? marketEngine.CurrentRegime.ToString() : "Sideways";
+            string marketRegime = regimeRaw switch
+            {
+                "Bull" => "Bull (강한 상승 추세 / 가격이 치솟는 중)",
+                "Bear" => "Bear (강한 하락/폭락 추세 / 가격이 내리꽂는 중)",
+                "HighVolatility" => "High Volatility (극심한 휩소 위아래 고변동성 장세)",
+                _ => "Sideways (답답한 박스권 횡보 장세)"
+            };
+
             string lastDecision = aiBrain != null && !string.IsNullOrEmpty(aiBrain.LastDecisionLog) ? aiBrain.LastDecisionLog : "차트 분석 중...";
 
             // 4단계 수익률 & 멘탈 상태별 감정 톤 지시어(Tone Directive)
             string toneDirective = GetEmotionalToneDirective(roe, mentalState);
             string categoryDirective = GetCategoryDirective(category);
 
+            string memoryContext = "";
+            string shortTermContext = "없음";
+            if (TraderMemoryManager.Instance != null)
+            {
+                memoryContext = TraderMemoryManager.Instance.GetFormattedMemoryContextForPrompt();
+                shortTermContext = TraderMemoryManager.Instance.GetShortTermDialoguesText();
+            }
+
             string contextInfo = 
                 $"[현재 인게임 상태]\n" +
                 $"- 보유 자산: ${balance:N2}\n" +
                 $"- 현재 포지션: {posText} (ROE: {roe:+0.0;-0.0;0.0}%)\n" +
+                $"- {positionDirectionHint}\n" +
                 $"- AI 체력: {healthRatio*100:0}%, 멘탈 상태: {mentalState}\n" +
                 $"- 시장 국면: {marketRegime}\n" +
                 $"- AI 직전 판단: {lastDecision}\n" +
                 (!string.IsNullOrEmpty(extraEventContext) ? $"- 구체적 이벤트 상황: {extraEventContext}\n" : "");
 
-            string finalPrompt = $"{systemPersona}\n\n{contextInfo}\n{categoryDirective}\n{toneDirective}\n\n" +
-                "⚠️ [대사 규칙] 대사 속에 '체력 40%'나 '멘탈 Anxious' 같이 시스템 수치나 상태명을 직접 언급하지 마라! " +
-                "수치 설명 대신, 피로로 인해 눈꺼풀이 무겁다거나 심장이 미친 듯이 뛰고 손가락이 떨리는 등 신체적 감각과 감정 상태(기분)로만 표현해.\n" +
+            string memorySection = 
+                $"\n[과거 주요 기억 및 각인된 트라우마 (요약)]\n{memoryContext}\n" +
+                $"\n[최근 내뱉은 대사들 (중복 절대 금지)]\n{shortTermContext}\n";
+
+            string finalPrompt = $"{systemPersona}\n\n{contextInfo}{memorySection}\n{categoryDirective}\n{toneDirective}\n\n" +
+                "⚠️ [대사 논리 및 다양성 규칙 (매우 중요)]\n" +
+                "1. 네가 배팅한 포지션 방향(Long/Short)과 현재 시장 국면(상승/하락)을 완벽히 이해하고 대사를 뱉어라! Short 쳐놓고 '고점을 뚫어라', '올라가라'라고 말하는 바보 같은 실수를 절대 하지 마라.\n" +
+                "2. 대사 속에 '체력 40%'나 '멘탈 Anxious', 'ROE 10%' 같이 시스템 수치나 상태명을 직접 언급하지 마라! 신체적 감각과 감정 상태(기분)로만 자연스럽게 표현해.\n" +
+                "3. ⭐ [중복 회피 규칙]: 위의 [최근 내뱉은 대사들] 목록에 있는 단어나 문장 구조와 겹치지 않게 완전히 다르고 창의적인 표현으로 뱉어라!\n" +
+                "4. ⭐ [과거 기억 회상 규칙]: 만약 [과거 주요 기억 및 각인된 트라우마]와 현재 상황이 깊게 연관된다면(예: 과거에 청산당했던 경험 등), 그 기억을 떠올리며 감정을 쏟아내라.\n" +
                 "위 상황과 감정 지시에 딱 맞춰서, 타인 없이 오직 홀로 읊조리는 1~2문장의 생동감 넘치는 반말 멘헤라 혼잣말 독백만을 작성해.";
             return finalPrompt;
         }
