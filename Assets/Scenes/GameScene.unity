@@ -784,6 +784,10 @@ MonoBehaviour:
   liquidationPrice: 0
   targetPrice: 0
   stopLossPrice: 0
+  isEventTradeActive: 0
+  currentEventHandlingMode: 0
+  eventTargetROELimit: 0
+  eventStopLossROELimit: 0
 --- !u!114 &33821698
 MonoBehaviour:
   m_ObjectHideFlags: 0

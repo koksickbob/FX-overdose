@@ -279,6 +279,19 @@ namespace FXOverdose.Trading
             OnPriceUpdated?.Invoke(currentPrice);
         }
 
+        // 스킬 공부 및 시간 패스 등으로 1분 단위 고속 경과 시 차트 캔들이 비거나 0-Volume 일직선으로 굳는 현상을 방지하기 위한 실시간 틱 시뮬레이션
+        public void SimulateFastForwardTicks(float dtMinutes = 1.0f)
+        {
+            float secondsPerMinute = gameManager != null ? gameManager.SecondsPerGameMinute : 5.0f;
+            int subTicks = 5; // 1분당 5번의 가상 틱 변동을 분할 적용하여 정교한 캔들 꼬리 및 몸통 생성
+            float subDeltaTime = (secondsPerMinute * dtMinutes) / subTicks;
+
+            for (int i = 0; i < subTicks; i++)
+            {
+                SimulateTickMovement(subDeltaTime);
+            }
+        }
+
         // 매 프레임 실시간 틱 가격을 Live 캔들에 반영
         private void UpdateLiveCandlesWithTick(float price, float volume)
         {
@@ -312,6 +325,15 @@ namespace FXOverdose.Trading
         public void OnGameMinuteAdvanced()
         {
             currentTotalMinutes++;
+
+            // 💡 [시간 고속 경과 및 스킬 공부 시 차트 캔들 비어버림 방지]
+            // Update() 프레임이 돌지 않고 동기식으로 시간이 패스될 경우(또는 GameManager 고속 진행 중),
+            // 해당 1분봉이 거래량 0과 일직선(open == high == low == close)으로 비어버리는 것을 감지하여 가상 틱 시뮬레이션을 선제 주입합니다!
+            if ((gameManager != null && gameManager.IsFastForwardingTime) || 
+                (liveM1Candle != null && liveM1Candle.volume <= 0.0001f && Mathf.Approximately(liveM1Candle.high, liveM1Candle.low)))
+            {
+                SimulateFastForwardTicks(1.0f);
+            }
 
             // 1. 유동성 사냥(Liquidity Sweep) 위꼬리/아래꼬리 스파이크 체크
             CheckLiquidationSweep();
