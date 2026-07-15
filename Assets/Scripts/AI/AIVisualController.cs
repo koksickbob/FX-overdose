@@ -49,8 +49,8 @@ namespace FXOverdose.AI
         [SerializeField] private GameObject dialogueBalloonPanel;
         [SerializeField] private TextMeshProUGUI dialogueText;
         [SerializeField] private TMP_FontAsset dialogueFont;
-        [SerializeField, Min(8f)] private float dialogueFontSizeMin = 14f;
-        [SerializeField, Min(8f)] private float dialogueFontSizeMax = 22f;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMin = 19f;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMax = 27f;
         [SerializeField] private float typewriterCharDelay = 0.02f;
 #pragma warning disable 0414
         [SerializeField] private float balloonDisplayDuration = 4.0f; // 기존 6.0초에서 빠른 8분 인게임 속도에 맞춰 4.0초로 단축
@@ -98,6 +98,10 @@ namespace FXOverdose.AI
         {
             if (dialogueText == null) return;
 
+            // 씬 또는 기존 프리팹에 14 / 22 구버전 값이 남아있는 경우 5포인트 올린 크기(19 / 27)로 자동 보정
+            if (dialogueFontSizeMin <= 14f) dialogueFontSizeMin = 19f;
+            if (dialogueFontSizeMax <= 22f) dialogueFontSizeMax = 27f;
+
             TMP_FontAsset targetFont = dialogueFont != null
                 ? dialogueFont
                 : TMP_Settings.defaultFontAsset;
@@ -111,13 +115,14 @@ namespace FXOverdose.AI
                 }
             }
 
+            // 말풍선의 크기에 맞게 유동적으로 글자 크기가 바뀌도록 AutoSizing 활성화 및 최소/최대 설정
             dialogueText.enableAutoSizing = true;
             dialogueText.fontSizeMin = dialogueFontSizeMin;
             dialogueText.fontSizeMax = Mathf.Max(dialogueFontSizeMin, dialogueFontSizeMax);
             dialogueText.fontStyle = FontStyles.Normal;
             dialogueText.alignment = TextAlignmentOptions.TopLeft;
             dialogueText.textWrappingMode = TextWrappingModes.Normal;
-            dialogueText.overflowMode = TextOverflowModes.Truncate;
+            dialogueText.overflowMode = TextOverflowModes.Ellipsis;
             dialogueText.margin = new Vector4(6f, 5f, 6f, 5f);
         }
 

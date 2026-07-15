@@ -78,6 +78,11 @@ namespace FXOverdose.AI
 
             if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) return;
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
+            if (tradingController != null && tradingController.IsEventProtected)
+            {
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: 신규 시그널 수신을 보류하고 이벤트 선택지를 우선시합니다.");
+                return;
+            }
 
             currentActiveSignal = signal;
             isProcessingSignal = true;
@@ -88,6 +93,11 @@ namespace FXOverdose.AI
 
         private void HandleSignalPhaseChanged(SignalPhase phase, MarketSignal signal)
         {
+            if (tradingController != null && tradingController.IsEventProtected)
+            {
+                return;
+            }
+
             if (phase == SignalPhase.GuaranteedOverride && isProcessingSignal)
             {
                 Debug.Log($"[AITradingBrain] ⚡ 확정적 주가 제어 2단계 작동: 진입 포지션 관리 중");
@@ -127,6 +137,12 @@ namespace FXOverdose.AI
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
 
             if (traderStatus == null || tradingController == null || gameManager == null) return;
+            if (tradingController.IsEventProtected)
+            {
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: AI 자동매매 판단을 보류하고 이벤트 선택 포지션을 유지합니다.");
+                OnSignalEvaluationCompleted?.Invoke(signal, false);
+                return;
+            }
 
             float healthRatio = traderStatus.HealthRatio;
             TraderStatus.MentalState mentalState = traderStatus.CurrentMentalState;
@@ -173,6 +189,15 @@ namespace FXOverdose.AI
 
                     float margin = availableBalance * 0.8f; // 풀시드 80% 물림
                     int leverage = Mathf.Min(50, defaultLeverage * 3);
+                    var levelSystem = TraderLevelSystem.Instance;
+                    if (levelSystem != null)
+                    {
+                        int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                        if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                        float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
+                        if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
+                    }
                     float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
                     // 오인 진입 시 대박(+15%)을 꿈꾸며 목표가 설정
                     float aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.15f : startPrice * 0.85f;
@@ -182,7 +207,8 @@ namespace FXOverdose.AI
 
                     if (opened)
                     {
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] {trapPos} 시드 80% ({leverage}배, 목표가 ${aiTarget:N0})", -0.15f);
+                        float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] {trapPos} 시드 {actualRatio*100:0}% ({leverage}배, 목표가 ${aiTarget:N0})", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -215,6 +241,15 @@ namespace FXOverdose.AI
 
                     float margin = availableBalance * 0.25f; // 가볍게 25% 진입
                     int leverage = defaultLeverage;
+                    var levelSystem = TraderLevelSystem.Instance;
+                    if (levelSystem != null)
+                    {
+                        int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                        if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                        float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
+                        if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
+                    }
                     float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
                     float aiTarget = weakPos == TradingController.PositionType.Long ? startPrice * 1.03f : startPrice * 0.97f;
                     float aiStopLoss = weakPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
@@ -222,7 +257,8 @@ namespace FXOverdose.AI
                     bool opened = tradingController.OpenPosition(weakPos, margin, leverage, aiTarget, aiStopLoss);
                     if (opened)
                     {
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] {weakPos} 가볍게 {leverage}배 진입 (목표가 ${aiTarget:N0})", -0.02f);
+                        float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] {weakPos} 가볍게 {leverage}배 ({actualRatio*100:0}%) 진입 (목표가 ${aiTarget:N0})", -0.02f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -287,6 +323,15 @@ namespace FXOverdose.AI
 
                         float margin = availableBalance * tradeMarginRatio;
                         int leverage = defaultLeverage * 2;
+                        var levelSystem = TraderLevelSystem.Instance;
+                        if (levelSystem != null)
+                        {
+                            int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                            if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                            float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
+                            if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
+                        }
                         float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
                         float aiTarget = counterPos == TradingController.PositionType.Long ? startPrice * 1.05f : startPrice * 0.95f;
                         float aiStopLoss = counterPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
@@ -294,7 +339,8 @@ namespace FXOverdose.AI
                         bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss);
                         if (opened)
                         {
-                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 세력 함정 간파 후 역매매 {counterPos} {leverage}배 진입 (목표가 ${aiTarget:N0})", 0.15f);
+                            float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
+                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 세력 함정 간파 후 역매매 {counterPos} {leverage}배 ({actualRatio*100:0}%) 진입 (목표가 ${aiTarget:N0})", 0.15f);
                             OnSignalEvaluationCompleted?.Invoke(signal, true);
                         }
                         else
@@ -335,6 +381,14 @@ namespace FXOverdose.AI
                 }
             }
 
+            if (levelSystem != null)
+            {
+                int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
+                if (leverage > maxAllowedLev) leverage = maxAllowedLev;
+
+                float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
+                if (ratio > maxAllowedRatio) ratio = maxAllowedRatio;
+            }
             float margin = balance * Mathf.Clamp01(ratio);
             float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
 
@@ -368,7 +422,8 @@ namespace FXOverdose.AI
 
             if (opened)
             {
-                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] {posType} 시드 {ratio*100:0}% ({leverage}배, 목표가 ${aiTarget:N0})", 0.1f);
+                float actualRatio = balance > 0f ? margin / balance : ratio;
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] {posType} 시드 {actualRatio*100:0}% ({leverage}배, 목표가 ${aiTarget:N0})", 0.1f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
@@ -392,7 +447,9 @@ namespace FXOverdose.AI
             bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f);
             if (opened)
             {
-                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[OVERDOSE 뇌동매매] {crazyPos} 125배 풀레버리지 올인 (목표가 ${aiTarget:N0})", -0.3f);
+                int actualLev = tradingController != null ? tradingController.CurrentLeverage : leverage;
+                float actualRatio = (balance > 0f && tradingController != null) ? tradingController.MarginAmount / balance : 0.95f;
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[OVERDOSE 뇌동매매] {crazyPos} {actualLev}배 ({actualRatio*100:0}%) 올인 (목표가 ${aiTarget:N0})", -0.3f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
@@ -421,9 +478,13 @@ namespace FXOverdose.AI
                     TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[대형 손실] 손절 충격 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.2f);
                 }
             }
-            else
+            else if (pnl > 0f)
             {
                 TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[익절 성공] 수익 달성 (ROE {roe:+0.0}%, PnL +${pnl:N0})", 0.15f);
+            }
+            else
+            {
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionClosed, $"[본전 종료] 수익 없음 (ROE {roe:0.0}%, PnL ${pnl:N0})", 0.0f);
             }
         }
 

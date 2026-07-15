@@ -26,6 +26,7 @@ namespace FXOverdose.Events
 
         private Action<int> currentCallback;
         private ChoiceEventSO currentEvent;
+        private ScrollRect scrollRect;
 
         private void Awake()
         {
@@ -65,7 +66,7 @@ namespace FXOverdose.Events
                 if (optionTexts != null && i < optionTexts.Length && optionTexts[i] != null && i < eventData.Options.Length && eventData.Options[i] != null)
                 {
                     string prefix = i == 0 ? "A. [안전] " : (i == 1 ? "B. [공격] " : "C. [특수/직접] ");
-                    optionTexts[i].text = $"{prefix}{eventData.Options[i].OptionTitle}\n<size=80%><color=#CBD5E1>{eventData.Options[i].Description}</color></size>";
+                    optionTexts[i].text = $"{prefix}{eventData.Options[i].OptionTitle}\n<size=88%><color=#CBD5E1>{eventData.Options[i].Description}</color></size>";
                 }
             }
 
@@ -74,6 +75,13 @@ namespace FXOverdose.Events
                 popupPanel.SetActive(true);
                 popupPanel.transform.SetAsLastSibling();
                 EnsureOverlayPriority();
+
+                if (scrollRect == null) scrollRect = popupPanel.GetComponentInChildren<ScrollRect>();
+                if (scrollRect != null)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    scrollRect.verticalNormalizedPosition = 1f;
+                }
             }
         }
 
@@ -109,7 +117,15 @@ namespace FXOverdose.Events
 
         private void EnsureUIBuilt()
         {
-            if (popupPanel != null) return;
+            if (popupPanel != null)
+            {
+                if (scrollRect != null || popupPanel.GetComponentInChildren<ScrollRect>() != null)
+                {
+                    return;
+                }
+                Destroy(popupPanel);
+                popupPanel = null;
+            }
 
             // Canvas 찾기 또는 생성
             Canvas canvas = GetComponentInParent<Canvas>();
@@ -130,46 +146,152 @@ namespace FXOverdose.Events
             panelGo.GetComponent<Image>().color = new Color(0, 0, 0, 0.75f);
             popupPanel = panelGo;
 
-            // 중앙 모달 창
+            // 중앙 모달 창 (크기 740 x 640으로 넉넉하게 확장)
             GameObject modalGo = new GameObject("ModalBox", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             modalGo.transform.SetParent(panelGo.transform, false);
             RectTransform modalRect = modalGo.GetComponent<RectTransform>();
             modalRect.anchorMin = new Vector2(0.5f, 0.5f);
             modalRect.anchorMax = new Vector2(0.5f, 0.5f);
-            modalRect.sizeDelta = new Vector2(720, 600);
+            modalRect.sizeDelta = new Vector2(740, 640);
             Image modalImg = modalGo.GetComponent<Image>();
             modalImg.color = colorBG;
 
-            // 외곽선 및 헤더 텍스트 생성
-            scenarioTitleText = CreateLabel(modalGo.transform, "Title", 34, new Vector2(20, -20), new Vector2(-20, -80), TextAlignmentOptions.TopLeft, Color.white);
-            scenarioDescText = CreateLabel(modalGo.transform, "Desc", 20, new Vector2(20, -90), new Vector2(-20, -220), TextAlignmentOptions.TopLeft, new Color(0.89f, 0.92f, 0.96f));
-            aiMonologueText = CreateLabel(modalGo.transform, "AIMonologue", 18, new Vector2(25, -230), new Vector2(-25, -340), TextAlignmentOptions.TopLeft, new Color(0.80f, 0.95f, 1f));
+            // 외곽선 및 헤더 상단 고정 텍스트 (기존 34 -> 39 (+5포인트))
+            scenarioTitleText = CreateLabel(modalGo.transform, "Title", 39, new Vector2(24, -16), new Vector2(-24, -76), TextAlignmentOptions.TopLeft, Color.white);
 
             // 토스트 경고
-            toastText = CreateLabel(modalGo.transform, "Toast", 20, new Vector2(20, -560), new Vector2(-20, -590), TextAlignmentOptions.Center, new Color(1f, 0.3f, 0.3f));
+            toastText = CreateLabel(modalGo.transform, "Toast", 25, new Vector2(24, -580), new Vector2(-24, -616), TextAlignmentOptions.Center, new Color(1f, 0.3f, 0.3f));
             toastText.gameObject.SetActive(false);
 
-            // 3개 선택지 버튼 컨테이너
-            float btnY = -360f;
+            // =========================================================================
+            // 하단 스크롤 영역 (ScrollRect) 구축 - 타이틀 하단부터 모달창 하단까지
+            // =========================================================================
+            GameObject scrollAreaGo = new GameObject("ScrollArea", typeof(RectTransform));
+            scrollAreaGo.transform.SetParent(modalGo.transform, false);
+            RectTransform scrollAreaRect = scrollAreaGo.GetComponent<RectTransform>();
+            scrollAreaRect.anchorMin = new Vector2(0f, 0f);
+            scrollAreaRect.anchorMax = new Vector2(1f, 1f);
+            scrollAreaRect.offsetMin = new Vector2(20f, 20f);
+            scrollAreaRect.offsetMax = new Vector2(-20f, -86f);
+
+            scrollRect = scrollAreaGo.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.scrollSensitivity = 35f;
+            scrollRect.movementType = ScrollRect.MovementType.Elastic;
+
+            // Viewport
+            GameObject viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
+            viewportGo.transform.SetParent(scrollAreaGo.transform, false);
+            RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = new Vector2(-16f, 0f); // 우측 스크롤바 여백
+            Image viewportImg = viewportGo.GetComponent<Image>();
+            viewportImg.color = Color.white;
+            viewportImg.raycastTarget = true;
+            Mask viewportMask = viewportGo.GetComponent<Mask>();
+            viewportMask.showMaskGraphic = false;
+
+            // Content
+            GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            RectTransform contentRect = contentGo.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(0f, 0f);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            VerticalLayoutGroup vLayout = contentGo.GetComponent<VerticalLayoutGroup>();
+            vLayout.childAlignment = TextAnchor.UpperLeft;
+            vLayout.spacing = 18f;
+            vLayout.padding = new RectOffset(8, 12, 10, 24);
+            vLayout.childForceExpandWidth = true;
+            vLayout.childForceExpandHeight = false;
+            vLayout.childControlWidth = true;
+            vLayout.childControlHeight = true;
+
+            ContentSizeFitter contentFitter = contentGo.GetComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // Scrollbar (우측 배치)
+            GameObject scrollbarGo = new GameObject("Scrollbar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Scrollbar));
+            scrollbarGo.transform.SetParent(scrollAreaGo.transform, false);
+            RectTransform scrollbarRect = scrollbarGo.GetComponent<RectTransform>();
+            scrollbarRect.anchorMin = new Vector2(1f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 1f);
+            scrollbarRect.pivot = new Vector2(1f, 0.5f);
+            scrollbarRect.sizeDelta = new Vector2(12f, 0f);
+            scrollbarRect.anchoredPosition = Vector2.zero;
+            Image scrollbarBg = scrollbarGo.GetComponent<Image>();
+            scrollbarBg.color = new Color(0.12f, 0.16f, 0.25f, 0.8f);
+
+            GameObject slidingAreaGo = new GameObject("SlidingArea", typeof(RectTransform));
+            slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
+            RectTransform slidingRect = slidingAreaGo.GetComponent<RectTransform>();
+            slidingRect.anchorMin = Vector2.zero;
+            slidingRect.anchorMax = Vector2.one;
+            slidingRect.offsetMin = slidingRect.offsetMax = Vector2.zero;
+
+            GameObject handleGo = new GameObject("Handle", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            handleGo.transform.SetParent(slidingAreaGo.transform, false);
+            RectTransform handleRect = handleGo.GetComponent<RectTransform>();
+            handleRect.sizeDelta = new Vector2(10f, 0f);
+            Image handleImg = handleGo.GetComponent<Image>();
+            handleImg.color = new Color(0.28f, 0.38f, 0.55f, 1f);
+
+            Scrollbar scrollbar = scrollbarGo.GetComponent<Scrollbar>();
+            scrollbar.handleRect = handleRect;
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+            scrollRect.viewport = viewportRect;
+            scrollRect.content = contentRect;
+            scrollRect.verticalScrollbar = scrollbar;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+            scrollRect.verticalScrollbarSpacing = 4f;
+
+            // =========================================================================
+            // Content 내부에 스크롤되는 대사 및 이벤트 내용, 선택지 버튼 배치
+            // =========================================================================
+            // 시나리오 설명 (기존 20 -> 25 (+5포인트))
+            scenarioDescText = CreateScrollableLabel(contentGo.transform, "Desc", 25, TextAlignmentOptions.TopLeft, new Color(0.89f, 0.92f, 0.96f));
+
+            // AI 트레이더 독백 (기존 18 -> 23 (+5포인트))
+            aiMonologueText = CreateScrollableLabel(contentGo.transform, "AIMonologue", 23, TextAlignmentOptions.TopLeft, new Color(0.80f, 0.95f, 1f));
+
+            // 3개 선택지 버튼 (Content 내부에 순차 배치)
             for (int i = 0; i < 3; i++)
             {
-                GameObject btnGo = new GameObject($"OptionButton_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-                btnGo.transform.SetParent(modalGo.transform, false);
-                RectTransform btnRect = btnGo.GetComponent<RectTransform>();
-                btnRect.anchorMin = new Vector2(0f, 1f);
-                btnRect.anchorMax = new Vector2(1f, 1f);
-                btnRect.anchoredPosition = new Vector2(0, btnY);
-                btnRect.sizeDelta = new Vector2(-40, 56);
+                GameObject btnGo = new GameObject($"OptionButton_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
+                btnGo.transform.SetParent(contentGo.transform, false);
 
                 Image btnImg = btnGo.GetComponent<Image>();
                 btnImg.color = i == 0 ? new Color(colorSafe.r, colorSafe.g, colorSafe.b, 0.25f) :
                                (i == 1 ? new Color(colorAggressive.r, colorAggressive.g, colorAggressive.b, 0.25f) :
                                          new Color(colorSpecial.r, colorSpecial.g, colorSpecial.b, 0.25f));
 
-                optionButtons[i] = btnGo.GetComponent<Button>();
-                optionTexts[i] = CreateLabel(btnGo.transform, "Text", 16, new Vector2(12, -4), new Vector2(-12, -52), TextAlignmentOptions.Center, Color.white);
+                VerticalLayoutGroup btnLayout = btnGo.GetComponent<VerticalLayoutGroup>();
+                btnLayout.childAlignment = TextAnchor.MiddleLeft;
+                btnLayout.padding = new RectOffset(16, 16, 14, 14);
+                btnLayout.spacing = 4f;
+                btnLayout.childForceExpandWidth = true;
+                btnLayout.childForceExpandHeight = false;
+                btnLayout.childControlWidth = true;
+                btnLayout.childControlHeight = true;
 
-                btnY -= 64f;
+                ContentSizeFitter btnFitter = btnGo.GetComponent<ContentSizeFitter>();
+                btnFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                btnFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+                LayoutElement btnElem = btnGo.GetComponent<LayoutElement>();
+                btnElem.minHeight = 78f;
+
+                optionButtons[i] = btnGo.GetComponent<Button>();
+                // 선택지 텍스트 (기존 16 -> 21 (+5포인트))
+                optionTexts[i] = CreateScrollableLabel(btnGo.transform, "Text", 21, TextAlignmentOptions.Left, Color.white);
             }
 
             EnsureOverlayPriority();
@@ -206,6 +328,24 @@ namespace FXOverdose.Events
             text.alignment = align;
             text.color = textColor;
             text.textWrappingMode = TextWrappingModes.Normal;
+            return text;
+        }
+
+        private TMP_Text CreateScrollableLabel(Transform parent, string name, int fontSize, TextAlignmentOptions align, Color textColor)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(ContentSizeFitter));
+            go.transform.SetParent(parent, false);
+
+            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+            text.fontSize = fontSize;
+            text.alignment = align;
+            text.color = textColor;
+            text.textWrappingMode = TextWrappingModes.Normal;
+
+            ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
             return text;
         }
     }

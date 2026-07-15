@@ -852,9 +852,9 @@ namespace FXOverdose.EditorTools
                 if (TMPro.TMP_Settings.defaultFontAsset.material != null) dialogueText.fontSharedMaterial = TMPro.TMP_Settings.defaultFontAsset.material;
             }
             dialogueText.enableAutoSizing = true;
-            dialogueText.fontSizeMin = 14;
-            dialogueText.fontSizeMax = 22;
-            dialogueText.overflowMode = TMPro.TextOverflowModes.Truncate;
+            dialogueText.fontSizeMin = 19;
+            dialogueText.fontSizeMax = 27;
+            dialogueText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
             dialogueText.color = Color.white;
             dialogueText.fontStyle = FontStyles.Normal;
             dialogueText.alignment = TextAlignmentOptions.TopLeft;
@@ -873,6 +873,8 @@ namespace FXOverdose.EditorTools
                 SetField(visualController, "aiBrain", aiBrain);
                 SetField(visualController, "dialogueBalloonPanel", balloonGO);
                 SetField(visualController, "dialogueText", dialogueText);
+                SetField(visualController, "dialogueFontSizeMin", 19f);
+                SetField(visualController, "dialogueFontSizeMax", 27f);
                 SetField(visualController, "balloonDisplayDuration", 8.0f);
             }
 

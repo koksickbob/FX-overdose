@@ -293,7 +293,7 @@ namespace FXOverdose.Events
                 }
                 else if (option.ForceLeverage > 0 || option.ForcePosition != TradingController.PositionType.None)
                 {
-                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10);
+                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, option.OverrideDurationSeconds, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit);
                 }
             }
 
@@ -316,9 +316,17 @@ namespace FXOverdose.Events
                 ? TradingController.PositionType.Long 
                 : TradingController.PositionType.Short;
 
+            bool isSuccess = UnityEngine.Random.value <= option.OverrideSignalProbTrue;
+
+            TradingController.EventPositionHandlingMode handlingMode = option.PositionHandlingMode;
+            if (handlingMode == TradingController.EventPositionHandlingMode.StandardAuto)
+            {
+                handlingMode = isSuccess ? TradingController.EventPositionHandlingMode.GreedyHold : TradingController.EventPositionHandlingMode.HoldToMitigateLoss;
+            }
+
             if (tradingController != null)
             {
-                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100);
+                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, option.OverrideDurationSeconds, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit);
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 트랩/빔 처리 중단
@@ -327,21 +335,20 @@ namespace FXOverdose.Events
                 return;
             }
 
-            bool isSuccess = UnityEngine.Random.value <= option.OverrideSignalProbTrue;
             if (marketEngine != null)
             {
                 if (isSuccess)
                 {
                     float targetBeam = playerChosenPos == TradingController.PositionType.Long ? Mathf.Abs(option.OverrideBeamPercent) : -Mathf.Abs(option.OverrideBeamPercent);
                     marketEngine.OverrideMarketTrend(targetBeam, option.OverrideDurationSeconds, false);
-                    Debug.Log($"[ChoiceEventController] ⚡ 플레이어 직접 선택({playerChosenPos}) 익절 빔 성공! ({targetBeam:F2}%)");
+                    Debug.Log($"[ChoiceEventController] ⚡ 플레이어 직접 선택({playerChosenPos}) 익절 빔 성공! ({targetBeam:F2}%, 모드: {handlingMode})");
                 }
                 else
                 {
                     float trapBeam = playerChosenPos == TradingController.PositionType.Long ? -Mathf.Abs(option.OverrideBeamPercent) * 0.7f : Mathf.Abs(option.OverrideBeamPercent) * 0.7f;
                     marketEngine.OverrideMarketTrend(trapBeam, option.OverrideDurationSeconds, true);
                     if (traderStatus != null) traderStatus.ModifyMentalState(-20f);
-                    Debug.LogWarning($"[ChoiceEventController] ⚠️ 플레이어 직접 선택({playerChosenPos}) 트랩 발동! ({trapBeam:F2}%) 및 멘탈 페널티");
+                    Debug.LogWarning($"[ChoiceEventController] ⚠️ 플레이어 직접 선택({playerChosenPos}) 트랩 발동! ({trapBeam:F2}%, 모드: {handlingMode}) 및 멘탈 페널티");
                 }
             }
         }
