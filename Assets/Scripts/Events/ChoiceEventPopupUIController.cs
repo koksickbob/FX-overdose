@@ -7,6 +7,8 @@ namespace FXOverdose.Events
 {
     public class ChoiceEventPopupUIController : MonoBehaviour
     {
+        private const int EventPopupSortingOrder = 150;
+
         [Header("UI 연결 슬롯 (미연결 시 런타임 자동 생성)")]
         [SerializeField] private GameObject popupPanel;
         [SerializeField] private TMP_Text scenarioTitleText;
@@ -28,6 +30,7 @@ namespace FXOverdose.Events
         private void Awake()
         {
             EnsureUIBuilt();
+            EnsureOverlayPriority();
             if (popupPanel != null)
             {
                 popupPanel.SetActive(false);
@@ -39,6 +42,7 @@ namespace FXOverdose.Events
             if (eventData == null) return;
 
             EnsureUIBuilt();
+            EnsureOverlayPriority();
 
             currentEvent = eventData;
             currentCallback = onOptionSelected;
@@ -69,6 +73,7 @@ namespace FXOverdose.Events
             {
                 popupPanel.SetActive(true);
                 popupPanel.transform.SetAsLastSibling();
+                EnsureOverlayPriority();
             }
         }
 
@@ -165,6 +170,24 @@ namespace FXOverdose.Events
                 optionTexts[i] = CreateLabel(btnGo.transform, "Text", 16, new Vector2(12, -4), new Vector2(-12, -52), TextAlignmentOptions.Center, Color.white);
 
                 btnY -= 64f;
+            }
+
+            EnsureOverlayPriority();
+        }
+
+        // 차트(5), HUD(20), 상점(100)보다 위에서 렌더링하고 설정창(200)은 최상단으로 유지합니다.
+        private void EnsureOverlayPriority()
+        {
+            if (popupPanel == null) return;
+
+            Canvas popupCanvas = popupPanel.GetComponent<Canvas>();
+            if (popupCanvas == null) popupCanvas = popupPanel.AddComponent<Canvas>();
+            popupCanvas.overrideSorting = true;
+            popupCanvas.sortingOrder = EventPopupSortingOrder;
+
+            if (popupPanel.GetComponent<GraphicRaycaster>() == null)
+            {
+                popupPanel.AddComponent<GraphicRaycaster>();
             }
         }
 

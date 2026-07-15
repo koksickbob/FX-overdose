@@ -269,6 +269,37 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 관련 파일:
 
 - `Assets/Scripts/Items/DynamicShopUI.cs`
+
+---
+
+## 2026-07-15 — 돌발 선택 이벤트 UI 표시 순서 수정
+
+- 런타임 생성 돌발 이벤트 팝업에 전용 Canvas 추가
+- 팝업 `sortingOrder`를 150으로 설정해 차트·HUD·상점보다 위에 표시
+- 설정 메뉴는 기존 200을 유지해 최상단 계층 보존
+- GraphicRaycaster를 보장해 이벤트 선택 버튼 입력이 다른 UI에 막히지 않도록 수정
+- 수동 연결된 이벤트 패널에도 같은 정렬 설정을 자동 적용
+
+관련 파일:
+
+- `Assets/Scripts/Events/ChoiceEventPopupUIController.cs`
+
+---
+
+## 2026-07-15 — 말풍선 화살표 제거 및 대사 가독성 개선
+
+- 말풍선 오른쪽 아래의 삼각형 진행 화살표 제거
+- PF Stardust 대사 자동 크기를 14~22로 확대
+- 대사를 좌측 상단 정렬로 변경해 아래 방향으로 자연스럽게 줄바꿈
+- 긴 문장은 자동 축소하고 최소 크기에서도 말풍선 영역 밖으로 나오지 않도록 Truncate 유지
+- 현재 GameScene과 런타임 스타일, UI 재생성 도구에 동일 설정 적용
+
+관련 파일:
+
+- `Assets/Img/Generated_image_1-removebg-preview.png`
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Scenes/GameScene.unity`
 - `Assets/Scripts/Items/ShopManager.cs`
 - `Assets/Scripts/Items/ShopItemButton.cs`
 - `Assets/Editor/DynamicShopUIInstaller.cs`
@@ -287,6 +318,27 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/AI/AIVisualController.cs`
 - `Assets/Editor/TradingViewUIBuilder.cs`
+
+---
+
+## 2026-07-15 — 영양제·진정제 아이템 확장
+
+- 기획서의 체력 관리 아이템 `Supplement` 추가: HP +50, 가격 $1,100
+- 기획서의 멘탈 관리 아이템 `Sedative` 추가: Mental +40, 가격 $1,300
+- 기존 아이템 스타일에 맞춘 256×256 투명 픽셀 스프라이트 제작
+- 시작 인벤토리에 영양제와 진정제 각각 1개 추가
+- 상점 Catalog Items에 두 아이템을 중복 없이 자동 추가
+- 상품 4개가 2열×2행으로 표시되도록 상점 카드 레이아웃 조정
+- 인벤토리는 기존 동적 슬롯 시스템을 사용해 4개 아이템에 맞춰 자동 확장
+
+관련 파일:
+
+- `Assets/Img/Items/SupplementPixel.png`
+- `Assets/Img/Items/SedativePixel.png`
+- `Assets/Data/Items/Supplement.asset`
+- `Assets/Data/Items/Sedative.asset`
+- `Assets/Editor/CareItemExpansionInstaller.cs`
+- `Assets/Scripts/Items/DynamicShopUI.cs`
 - `Assets/Scenes/GameScene.unity`
 
 ---

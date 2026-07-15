@@ -10,7 +10,7 @@ public class DynamicShopUI : MonoBehaviour
     [SerializeField] private ShopManager shopManager;
     [SerializeField] private Sprite cardFrameSprite;
     [SerializeField] private TMP_FontAsset font;
-    [SerializeField, Min(1)] private int maxColumns = 3;
+    [SerializeField, Min(1)] private int maxColumns = 2;
 
     private RectTransform modal;
     private RectTransform content;

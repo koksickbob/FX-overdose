@@ -49,8 +49,8 @@ namespace FXOverdose.AI
         [SerializeField] private GameObject dialogueBalloonPanel;
         [SerializeField] private TextMeshProUGUI dialogueText;
         [SerializeField] private TMP_FontAsset dialogueFont;
-        [SerializeField, Min(8f)] private float dialogueFontSizeMin = 11f;
-        [SerializeField, Min(8f)] private float dialogueFontSizeMax = 17f;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMin = 14f;
+        [SerializeField, Min(8f)] private float dialogueFontSizeMax = 22f;
         [SerializeField] private float typewriterCharDelay = 0.02f;
 #pragma warning disable 0414
         [SerializeField] private float balloonDisplayDuration = 4.0f; // 기존 6.0초에서 빠른 8분 인게임 속도에 맞춰 4.0초로 단축
@@ -116,10 +116,10 @@ namespace FXOverdose.AI
             dialogueText.fontSizeMin = dialogueFontSizeMin;
             dialogueText.fontSizeMax = Mathf.Max(dialogueFontSizeMin, dialogueFontSizeMax);
             dialogueText.fontStyle = FontStyles.Normal;
-            dialogueText.alignment = TextAlignmentOptions.MidlineLeft;
+            dialogueText.alignment = TextAlignmentOptions.TopLeft;
             dialogueText.textWrappingMode = TextWrappingModes.Normal;
             dialogueText.overflowMode = TextOverflowModes.Truncate;
-            dialogueText.margin = new Vector4(8f, 5f, 8f, 5f);
+            dialogueText.margin = new Vector4(6f, 5f, 6f, 5f);
         }
 
         private void OnDestroy()
