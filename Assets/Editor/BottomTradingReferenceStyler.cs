@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// <summary>하단 주문부를 LONG / SHORT / LEVERAGE 3카드 레이아웃으로 정리합니다.</summary>
 public static class BottomTradingReferenceStyler
 {
-    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_v3";
+    private const string AppliedKey = "FXOverdose_BottomTradingReferenceStyle_v4";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -57,6 +57,7 @@ public static class BottomTradingReferenceStyler
         StyleTradeCard(Find("LongButtonCard"), new Vector2(0.015f, 0.06f), new Vector2(0.325f, 0.95f), true);
         StyleTradeCard(Find("ShortButtonCard"), new Vector2(0.345f, 0.06f), new Vector2(0.655f, 0.95f), false);
         StyleLeverageCard(Find("ControlBoxCard"));
+        StyleSellButton(panel);
 
         GameObject chart = Find("ChartMainPanel");
         if (chart != null)
@@ -67,6 +68,43 @@ public static class BottomTradingReferenceStyler
 
         if (showResult)
             EditorUtility.DisplayDialog("주문 UI 적용 완료", "LONG / SHORT / LEVERAGE 카드 비율을 적용했습니다.", "확인");
+    }
+
+    private static void StyleSellButton(GameObject panel)
+    {
+        GameObject sellObject = Find("ClosePositionButton");
+        if (panel == null || sellObject == null) return;
+
+        sellObject.transform.SetParent(panel.transform, false);
+        sellObject.transform.SetAsLastSibling();
+        RemoveLayouts(sellObject);
+        SetRect(
+            sellObject.GetComponent<RectTransform>(),
+            new Vector2(0.015f, 0.06f),
+            new Vector2(0.655f, 0.95f),
+            new Vector2(5f, 5f),
+            new Vector2(-5f, -5f));
+
+        Image image = GetOrAdd<Image>(sellObject);
+        image.color = new Color(0.64f, 0.08f, 0.14f, 1f);
+        Outline outline = GetOrAdd<Outline>(sellObject);
+        outline.effectColor = new Color(1f, 0.34f, 0.40f, 1f);
+        outline.effectDistance = new Vector2(4f, -4f);
+
+        Button button = GetOrAdd<Button>(sellObject);
+        button.targetGraphic = image;
+
+        TMP_Text label = sellObject.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.text = "▼ 포지션 매도\n<size=55%>현재 포지션 정리</size>";
+            SetRect(label.rectTransform, new Vector2(0.06f, 0.08f), new Vector2(0.94f, 0.92f), Vector2.zero, Vector2.zero);
+            StyleText(label, 42f, Color.white);
+            label.textWrappingMode = TextWrappingModes.Normal;
+            label.raycastTarget = false;
+        }
+
+        if (!EditorApplication.isPlaying) sellObject.SetActive(false);
     }
 
     private static void StyleTradeCard(GameObject card, Vector2 min, Vector2 max, bool isLong)

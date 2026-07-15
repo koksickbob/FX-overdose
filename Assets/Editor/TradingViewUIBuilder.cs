@@ -702,7 +702,17 @@ namespace FXOverdose.EditorTools
             TMP_Text posLiq = CreateTMPText("PosLiq", statusOverlay.transform, "LIQ: $61,200", 14, new Color(0.937f, 0.267f, 0.267f, 1f));
             posLiq.alignment = TextAlignmentOptions.Center;
 
-            Button btnClose = CreateButton("ClosePositionButton", statusOverlay.transform, "🔒 AI 자동 청산 시스템 (Player Locked)", 260, 44, new Color(0.18f, 0.23f, 0.33f, 1f));
+            Button btnClose = CreateButton("ClosePositionButton", panelGO.transform, "▼ 포지션 매도\n현재 포지션 정리", 260, 44, new Color(0.64f, 0.08f, 0.14f, 1f));
+            RectTransform closeRect = btnClose.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(0.015f, 0.06f);
+            closeRect.anchorMax = new Vector2(0.655f, 0.95f);
+            closeRect.offsetMin = new Vector2(5f, 5f);
+            closeRect.offsetMax = new Vector2(-5f, -5f);
+            LayoutElement closeLayout = btnClose.GetComponent<LayoutElement>();
+            if (closeLayout == null) closeLayout = btnClose.gameObject.AddComponent<LayoutElement>();
+            closeLayout.ignoreLayout = true;
+            btnClose.transform.SetAsLastSibling();
+            btnClose.gameObject.SetActive(false);
             statusOverlay.SetActive(false);
 
             // TradingPanelUIController 슬롯 연결

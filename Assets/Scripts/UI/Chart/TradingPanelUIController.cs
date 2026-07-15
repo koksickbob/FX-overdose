@@ -279,19 +279,17 @@ namespace FXOverdose.UI.Chart
             }
         }
 
-        // 플레이어 직접 매수/매도/청산 진행
+        // 플레이어 직접 포지션 진입. 보유 중인 포지션은 전용 매도 버튼으로만 정리합니다.
         private void OnLongButtonClicked()
         {
             if (tradingController == null) return;
             if (tradingController.CurrentPosition != TradingController.PositionType.None)
             {
-                Debug.Log("[TradingPanelUIController] 플레이어가 LONG 버튼을 다시 눌러 포지션을 직접 종료(청산)합니다.");
-                tradingController.ClosePosition();
+                Debug.Log("[TradingPanelUIController] 포지션 보유 중에는 LONG 재클릭을 무시합니다. 포지션 매도 버튼을 사용하세요.");
+                return;
             }
-            else
-            {
-                tradingController.OpenPlayerPosition(TradingController.PositionType.Long, selectedMarginPercentage, currentSelectedLeverage);
-            }
+
+            tradingController.OpenPlayerPosition(TradingController.PositionType.Long, selectedMarginPercentage, currentSelectedLeverage);
         }
 
         private void OnShortButtonClicked()
@@ -299,13 +297,11 @@ namespace FXOverdose.UI.Chart
             if (tradingController == null) return;
             if (tradingController.CurrentPosition != TradingController.PositionType.None)
             {
-                Debug.Log("[TradingPanelUIController] 플레이어가 SHORT 버튼을 다시 눌러 포지션을 직접 종료(청산)합니다.");
-                tradingController.ClosePosition();
+                Debug.Log("[TradingPanelUIController] 포지션 보유 중에는 SHORT 재클릭을 무시합니다. 포지션 매도 버튼을 사용하세요.");
+                return;
             }
-            else
-            {
-                tradingController.OpenPlayerPosition(TradingController.PositionType.Short, selectedMarginPercentage, currentSelectedLeverage);
-            }
+
+            tradingController.OpenPlayerPosition(TradingController.PositionType.Short, selectedMarginPercentage, currentSelectedLeverage);
         }
 
         private void OnCloseButtonClicked()
@@ -323,26 +319,30 @@ namespace FXOverdose.UI.Chart
 
             bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
             bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
+            bool showPlayerSellButton = hasPosition
+                && isManualMode
+                && tradingController.CurrentOwner == TradingController.OwnerType.Player;
 
-            // 플레이어 매수/매도 버튼은 수동 매매 모드일 때 활성화 (포지션 보유 중일 때는 클릭 시 청산 Toggle 동작)
-            if (longButton != null) longButton.interactable = isManualMode;
-            if (shortButton != null) shortButton.interactable = isManualMode;
+            // 진입 버튼은 포지션이 없을 때만 동작하고, 보유 중에는 전용 매도 버튼이 위를 덮습니다.
+            if (longButton != null) longButton.interactable = isManualMode && !hasPosition;
+            if (shortButton != null) shortButton.interactable = isManualMode && !hasPosition;
             if (closePositionButton != null)
             {
-                closePositionButton.gameObject.SetActive(hasPosition);
-                closePositionButton.interactable = hasPosition;
+                closePositionButton.gameObject.SetActive(showPlayerSellButton);
+                closePositionButton.interactable = showPlayerSellButton;
+                if (showPlayerSellButton) closePositionButton.transform.SetAsLastSibling();
             }
 
             if (longSubtitleText != null)
             {
-                longSubtitleText.text = hasPosition 
-                    ? (isManualMode ? "클릭 시 LONG 청산" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AI)" : "대기중")) 
+                longSubtitleText.text = hasPosition
+                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AI)" : "대기중"))
                     : (isManualMode ? "LONG 수동 매수" : "AI 자동 매수 대기");
             }
             if (shortSubtitleText != null)
             {
-                shortSubtitleText.text = hasPosition 
-                    ? (isManualMode ? "클릭 시 SHORT 청산" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AI)" : "대기중")) 
+                shortSubtitleText.text = hasPosition
+                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AI)" : "대기중"))
                     : (isManualMode ? "SHORT 수동 매도" : "AI 자동 매도 대기");
             }
 

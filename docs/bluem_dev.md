@@ -300,6 +300,24 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/AI/AIVisualController.cs`
 - `Assets/Editor/TradingViewUIBuilder.cs`
 - `Assets/Scenes/GameScene.unity`
+
+---
+
+## 2026-07-15 — 플레이어 포지션 전용 매도 버튼
+
+- LONG/SHORT 버튼 재클릭으로 포지션이 종료되던 토글 동작 제거
+- 플레이어 수동 포지션 보유 시에만 `포지션 매도` 버튼 표시
+- 매도 버튼을 LONG과 SHORT 두 카드의 합친 영역 크기로 배치
+- 매도 버튼이 두 진입 버튼 위를 덮고 클릭 입력을 우선하도록 계층 조정
+- 매도 버튼 클릭 시 현재 플레이어 포지션 전량 정리
+- AI 보유 포지션에는 플레이어 매도 버튼이 표시되지 않도록 소유자 검사 추가
+
+관련 파일:
+
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Editor/BottomTradingReferenceStyler.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Scenes/GameScene.unity`
 - `Assets/Scripts/Items/ShopManager.cs`
 - `Assets/Scripts/Items/ShopItemButton.cs`
 - `Assets/Editor/DynamicShopUIInstaller.cs`

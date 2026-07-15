@@ -772,10 +772,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa0f052064bc9454fbc97fc3e9644de4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Trading.TradingController
+  activeTradingMode: 0
   gameManager: {fileID: 33821695}
   marketEngine: {fileID: 33821699}
   traderStatus: {fileID: 33821698}
   currentPosition: 0
+  currentOwner: 0
   entryPrice: 0
   marginAmount: 0
   currentLeverage: 10
@@ -843,6 +845,7 @@ MonoBehaviour:
     SignalStartPrice: 0
   signalPhaseTimerMinutes: 0
   minutesUntilNextSignal: 45
+  isExternalEventOverride: 0
 --- !u!114 &33821700
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2634,6 +2637,7 @@ RectTransform:
   - {fileID: 930192669}
   - {fileID: 995813290}
   - {fileID: 1133091122}
+  - {fileID: 1058740959}
   m_Father: {fileID: 46816042}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -12162,13 +12166,14 @@ GameObject:
   - component: {fileID: 1058740962}
   - component: {fileID: 1058740961}
   - component: {fileID: 1058740960}
+  - component: {fileID: 1058740963}
   m_Layer: 0
   m_Name: ClosePositionButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1058740959
 RectTransform:
   m_ObjectHideFlags: 0
@@ -12182,12 +12187,12 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2057785499}
-  m_Father: {fileID: 1656529991}
+  m_Father: {fileID: 317263479}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0.015, y: 0.06}
+  m_AnchorMax: {x: 0.655, y: 0.95}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 260, y: 44}
+  m_SizeDelta: {x: -10, y: -10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1058740960
 MonoBehaviour:
@@ -12246,7 +12251,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.33, a: 1}
+  m_Color: {r: 0.64, g: 0.08, b: 0.14, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -12271,6 +12276,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1058740958}
   m_CullTransparentMesh: 1
+--- !u!114 &1058740963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058740958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 1, g: 0.34, b: 0.4, a: 1}
+  m_EffectDistance: {x: 4, y: -4}
+  m_UseGraphicAlpha: 1
 --- !u!1 &1060261791
 GameObject:
   m_ObjectHideFlags: 0
@@ -18444,7 +18464,6 @@ RectTransform:
   - {fileID: 19575511}
   - {fileID: 1103698422}
   - {fileID: 427302744}
-  - {fileID: 1058740959}
   m_Father: {fileID: 1133091122}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -23134,8 +23153,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1058740959}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMin: {x: 0.06, y: 0.08}
+  m_AnchorMax: {x: 0.94, y: 0.92}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -23153,13 +23172,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\U0001F512 AI \uC790\uB3D9 \uCCAD\uC0B0 \uC2DC\uC2A4\uD15C (Player Locked)"
+  m_text: "\u25BC \uD3EC\uC9C0\uC158 \uB9E4\uB3C4\n<size=55%>\uD604\uC7AC \uD3EC\uC9C0\uC158
+    \uC815\uB9AC</size>"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
   m_sharedMaterial: {fileID: 7033755728252752506, guid: d1468a85461624a529d0385449060eb0, type: 2}
@@ -23186,12 +23206,12 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 16
-  m_fontSizeBase: 16
+  m_fontSize: 42
+  m_fontSizeBase: 42
   m_fontWeight: 400
-  m_enableAutoSizing: 0
-  m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 34
+  m_fontSizeMax: 42
   m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
