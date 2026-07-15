@@ -226,8 +226,8 @@ public class GameManager : MonoBehaviour
     // 자산을 증가하거나 감소시키는 함수
     public void ChangeBalance(float amount)
     {
-        // 게임 진행 중에만 자산 변경 가능
-        if (currentState != GameState.Playing)
+        // 게임 진행 중이거나 일시정지(이벤트/상점 팝업 등) 상태일 때 자산 변경 가능
+        if (currentState != GameState.Playing && currentState != GameState.Paused)
         {
             return;
         }

@@ -42,9 +42,9 @@ namespace FXOverdose.Events
         {
             if (lastTriggerDay != -1 && gameManager != null) return;
 
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
-            if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
-            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             traderStatus = TraderStatus.CanonicalInstance;
 
             Initialize(gameManager, marketEngine, tradingController, traderStatus);
@@ -102,7 +102,7 @@ namespace FXOverdose.Events
 
         private void OnGameMinuteAdvanced()
         {
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
             {
                 return;
             }
@@ -284,7 +284,11 @@ namespace FXOverdose.Events
                 return;
             }
 
+            // 확률적 성공 여부 판정 (기본값 0이면 100% 확정 신호, 0~1 사이면 확률 판정)
+            bool isOptionSuccess = option.OverrideSignalProbTrue <= 0f || option.OverrideSignalProbTrue >= 1f || (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
+
             // 매매 제어
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             if (tradingController != null)
             {
                 if (option.ForcePosition == TradingController.PositionType.None && option.OptionType == ChoiceOptionType.Safe)
@@ -293,20 +297,22 @@ namespace FXOverdose.Events
                 }
                 else if (option.ForceLeverage > 0 || option.ForcePosition != TradingController.PositionType.None)
                 {
-                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, option.OverrideDurationSeconds, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit);
+                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, option.OverrideDurationSeconds, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
                 }
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 빔 주입 중단
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
             {
                 return;
             }
 
             // 차트 강제 빔 오버라이드
+            if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (marketEngine != null && Mathf.Abs(option.OverrideBeamPercent) > 0.001f)
             {
-                marketEngine.OverrideMarketTrend(option.OverrideBeamPercent, option.OverrideDurationSeconds, false);
+                marketEngine.OverrideMarketTrend(option.OverrideBeamPercent, option.OverrideDurationSeconds, !isOptionSuccess);
             }
         }
 
@@ -324,12 +330,14 @@ namespace FXOverdose.Events
                 handlingMode = isSuccess ? TradingController.EventPositionHandlingMode.GreedyHold : TradingController.EventPositionHandlingMode.HoldToMitigateLoss;
             }
 
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             if (tradingController != null)
             {
-                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, option.OverrideDurationSeconds, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit);
+                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, option.OverrideDurationSeconds, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isSuccess);
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 트랩/빔 처리 중단
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
             {
                 return;
