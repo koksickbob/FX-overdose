@@ -121,7 +121,7 @@ namespace FXOverdose.AI
         private void Update()
         {
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
             {
                 return;
             }
@@ -369,7 +369,7 @@ namespace FXOverdose.AI
         public void OnGameMinuteAdvanced()
         {
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
             {
                 return;
             }

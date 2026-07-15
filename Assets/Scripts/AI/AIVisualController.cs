@@ -211,7 +211,11 @@ namespace FXOverdose.AI
         private void HandleLLMDialogueGeneratedWithCategory(EventCategory category, string dialogue)
         {
             DialoguePriority priority = DialoguePriority.Normal;
-            if (traderStatus != null && (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose || traderStatus.HealthRatio <= 0.05f))
+            if (category == EventCategory.SkillUpgraded)
+            {
+                priority = DialoguePriority.High;
+            }
+            else if (traderStatus != null && (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose || traderStatus.HealthRatio <= 0.05f))
             {
                 priority = DialoguePriority.High;
             }
@@ -350,6 +354,17 @@ namespace FXOverdose.AI
             if (dialogueBalloonPanel != null) dialogueBalloonPanel.SetActive(false);
         }
 
+        public void ClearQueueExceptSkillUpgraded()
+        {
+            var filteredQueue = new Queue<DialogueRequest>();
+            while (dialogueQueue.Count > 0)
+            {
+                var req = dialogueQueue.Dequeue();
+                if (req.Category == EventCategory.SkillUpgraded) filteredQueue.Enqueue(req);
+            }
+            while (filteredQueue.Count > 0) dialogueQueue.Enqueue(filteredQueue.Dequeue());
+        }
+
         private float GetCategoryCooldown(EventCategory category)
         {
             return category switch
@@ -361,6 +376,7 @@ namespace FXOverdose.AI
                 EventCategory.ItemUsed => 3.0f,
                 EventCategory.PositionOpened => 3.0f,
                 EventCategory.PositionClosed => 3.0f,
+                EventCategory.SkillUpgraded => 2.0f,
                 _ => 4.0f
             };
         }

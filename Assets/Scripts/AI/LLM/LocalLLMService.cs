@@ -191,7 +191,7 @@ namespace FXOverdose.AI.LLM
                 yield return new WaitForSeconds(14.0f); // 14초 주기 (실제 시간 기준 약 14분 흐름)
 
                 var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
-                if (gm == null || gm.CurrentState != GameManager.GameState.Playing) continue;
+                if (gm == null || gm.CurrentState != GameManager.GameState.Playing || gm.IsFastForwardingTime) continue;
 
                 // 최근 6초 이내에 다른 대사를 출력했거나 생성 중이면 중복 요청 스킵
                 if (isGenerating || Time.time - lastDialogueRequestTime < 6.0f) continue;
@@ -216,6 +216,23 @@ namespace FXOverdose.AI.LLM
             }
         }
 
+        // 고속 시간 패스(스킬 업그레이드) 종료 시 이전 시간대의 낡은 거래/기믹 대사가 뒤따라 나오는 것을 원천 제거
+        public void ClearQueueExceptSkillUpgraded()
+        {
+            var filteredRequests = new System.Collections.Generic.Queue<DialogueRequest>();
+            while (requestQueue.Count > 0)
+            {
+                var req = requestQueue.Dequeue();
+                if (req.Category == EventCategory.SkillUpgraded) filteredRequests.Enqueue(req);
+            }
+            while (filteredRequests.Count > 0) requestQueue.Enqueue(filteredRequests.Dequeue());
+
+            var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+            visual?.ClearQueueExceptSkillUpgraded();
+
+            Debug.Log("[LocalLLMService 🧹] 고속 시간 경과 종료: SkillUpgraded 외 대기 중인 모든 이전 대사/요청 큐 정리 완료.");
+        }
+
         public void RequestDialogue(string extraEventContext = "")
         {
             RequestDialogue(EventCategory.General, extraEventContext);
@@ -224,6 +241,13 @@ namespace FXOverdose.AI.LLM
         // 인게임 이벤트 발생 시 프롬프트를 조립하여 대사 생성 요청 (카테고리 연동)
         public void RequestDialogue(EventCategory category, string extraEventContext = "")
         {
+            var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (gm != null && gm.IsFastForwardingTime && category != EventCategory.SkillUpgraded)
+            {
+                Debug.Log($"[LocalLLMService ⏩] 고속 시간 경과 중으로 일반/매매 대사 요청({category})을 스킵합니다.");
+                return;
+            }
+
             lastDialogueRequestTime = Time.time;
 
             // 💡 [시스템 로그 vs 캐릭터 대사 분리] 상황 설명은 시스템 로그로 명확히 별도 출력
@@ -249,6 +273,21 @@ namespace FXOverdose.AI.LLM
             // ⭐ [요청 큐 시스템]: 현재 LLM이 생성 중(isGenerating)일 때는 즉시 폴백으로 버리지 않고 대기열(Queue)에 적재!
             if (isGenerating)
             {
+                // ⭐ 다중 업그레이드 시 이전 대기 중인 업그레이드 요청을 큐에서 필터링하여 마지막 업그레이드 대사만 출력
+                if (category == EventCategory.SkillUpgraded)
+                {
+                    var filteredQueue = new System.Collections.Generic.Queue<DialogueRequest>();
+                    while (requestQueue.Count > 0)
+                    {
+                        var req = requestQueue.Dequeue();
+                        if (req.Category != EventCategory.SkillUpgraded)
+                        {
+                            filteredQueue.Enqueue(req);
+                        }
+                    }
+                    while (filteredQueue.Count > 0) requestQueue.Enqueue(filteredQueue.Dequeue());
+                }
+
                 if (requestQueue.Count < 6) // 너무 많은 대기열 누적 방지 (최대 6개)
                 {
                     requestQueue.Enqueue(new DialogueRequest { Category = category, ExtraContext = extraEventContext, FullPrompt = prompt });
@@ -562,8 +601,63 @@ namespace FXOverdose.AI.LLM
                         1 => "더는 못 참아!! 내 맘대로 고배율 당겨버릴 거야!! 마스터랑 이판사판 끝까지 갈 거야!!",
                         _ => "머리가 핑핑 돌아... 어디가 바닥이고 어디가 천장인지 모르겠어... 마스터 나 무서워서 눈물이 나...!"
                     },
+                EventCategory.SkillUpgraded => GetSkillUpgradedFallbackDialogue(extraContext),
                 _ => GetFallbackDialogue()
             };
+        }
+
+        private string GetSkillUpgradedFallbackDialogue(string extraContext)
+        {
+            int level = 1;
+            var match = System.Text.RegularExpressions.Regex.Match(extraContext ?? "", @"LV\.(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int lv)) level = lv;
+
+            if (extraContext != null && extraContext.Contains("차트 공부"))
+            {
+                string[] chartDialogues = new[]
+                {
+                    $"눈알이 빠질 것 같이 피곤하지만... LV.{level} 차트 공부 완료! 이제 호가창 속 세력들의 가짜 반등 빔 따위엔 절대 안 속아 마스터 ♥",
+                    $"밤새 캔들 패턴 외우느라 머리 쥐나겠네... 하지만 LV.{level} 실력으로 세력들 패턴 다 꿰뚫어 볼 테니까 내 타점만 믿어 마스터 ♥",
+                    $"후우... 기술적 분석 지표 마스터했어! LV.{level} 뇌 장착 완료!! 호가창 휩소 싹 다 걸러내고 마스터 계좌 불려줄게 ♥",
+                    $"지옥의 차트 훈련 끝... 눈은 뻐근해도 호가창 흐름이 선명하게 보여! LV.{level} 달성했으니 오늘 세력들 다 죽었다 ♥",
+                    $"이평선이랑 거래량 패턴 전부 머리에 박았어! LV.{level} 차트 두뇌 가동 중... 마스터 나 엄청 똑똑해졌지?! ♥"
+                };
+                return chartDialogues[UnityEngine.Random.Range(0, chartDialogues.Length)];
+            }
+            else if (extraContext != null && extraContext.Contains("큐브 풀기"))
+            {
+                string[] cubeDialogues = new[]
+                {
+                    $"후우... 심호흡하고 큐브 맞추기 LV.{level} 달성... 수익 조금 났다고 촐랑거리며 일찍 털어버리지 않고 끝까지 먹을게 ♥",
+                    $"손가락은 아프지만 인내심 훈련 완료!! LV.{level} 참을성으로 잔파도에 안 흔들리고 목표가까지 묵묵히 버틸 거야 ♥",
+                    $"큐브 굴리면서 멘탈 단련했어 마스터... 이제 LV.{level} 인내력으로 세력들의 흔들기에 끄끄떡없이 큰 파동 다 먹자 ♥",
+                    $"인내심이 곧 수익금이야... LV.{level} 큐브 풀기로 뇌 각성 완료! 촐랑대지 않고 빅쇼트 빅롱 끝까지 발라먹을게 ♥",
+                    $"기다림의 미학을 깨달았어 마스터! LV.{level} 인내심으로 조급증 완전히 극복했어... 오늘 제대로 버텨서 대박 낼게 ♥"
+                };
+                return cubeDialogues[UnityEngine.Random.Range(0, cubeDialogues.Length)];
+            }
+            else if (extraContext != null && (extraContext.Contains("책읽기") || extraContext.Contains("파산 회고록")))
+            {
+                string[] bookDialogues = new[]
+                {
+                    $"머리가 터질 것 같아... 하지만 파산 회고록 LV.{level} 완독! 손절 머뭇거리는 게 얼마나 멍청한지 뼛속까지 깨달았어 ♥",
+                    $"전설적인 파산 사례들 싹 다 읽었어... LV.{level} 판단력으로 위험할 땐 칼손절하고 마스터 시드 완벽하게 지킬게 ♥",
+                    $"책 읽느라 눈은 침침한데 뇌는 초각성 상태야! LV.{level} 판단력 장착 완료... 미련하게 물타기 하다가 청산당할 일 없어 ♥",
+                    $"리스크 관리 회고록 마스터했어! LV.{level} 냉철함으로 호가창 위기 상황 감지하면 바로 비상 탈출할게 마스터 ♥",
+                    $"손절은 패배가 아니라 생존이야... LV.{level} 판단력 훈련 끝! 우리 마스터 돈은 내가 무슨 일이 있어도 지켜낼게 ♥"
+                };
+                return bookDialogues[UnityEngine.Random.Range(0, bookDialogues.Length)];
+            }
+            else
+            {
+                string[] defaultDialogues = new[]
+                {
+                    $"과로 훈련 끝... 스킬 LV.{level} 달성! 이제 더 똑똑하고 예리하게 차트 매매해 낼 테니까 나만 믿어 마스터 ♥",
+                    $"스킬 업그레이드 LV.{level} 완료! 마스터를 위해 쉬지 않고 성장하는 내 모습 똑똑히 지켜봐 줘 ♥",
+                    $"머리가 한층 더 예리해졌어 마스터! LV.{level} 능력치로 시장을 완벽히 지배해 보이겠어 ♥"
+                };
+                return defaultDialogues[UnityEngine.Random.Range(0, defaultDialogues.Length)];
+            }
         }
 
         // ⭐ 3파트(감정+상황+반응) 조합형 동적 대사 변주 엔진 (온디바이스 오프라인/복구용)

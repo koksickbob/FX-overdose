@@ -392,7 +392,7 @@ public static class ActiveSkillHUDBootstrap
     private static void Install()
     {
         if (SceneManager.GetActiveScene().name != "GameScene") return;
-        Canvas[] canvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Canvas[] canvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include);
         Canvas target = null;
         foreach (Canvas canvas in canvases)
         {

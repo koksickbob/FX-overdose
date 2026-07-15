@@ -5,6 +5,8 @@ public class GameManager : MonoBehaviour
 {
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
+    // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
+    public event Action OnFastForwardEnded;
     //게임 진행 상태
     public enum GameState
     {
@@ -43,6 +45,10 @@ public class GameManager : MonoBehaviour
 
     // 실제로 흐른 시간을 누적하는 변수
     private float timeAccumulator;
+
+    // 💡 고속 시간 진행 상태 및 남은 분 보존 변수 (스킬 업그레이드 중 이벤트 발생 시 스킵 방지)
+    public bool IsFastForwardingTime { get; private set; } = false;
+    private int remainingFastForwardMinutes = 0;
 
     // 다른 스크립트에서 현재 값을 읽을 수 있도록 공개
     // 값 변경은 할 수 없음
@@ -193,17 +199,35 @@ public class GameManager : MonoBehaviour
     // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출
     public void AdvanceGameMinutes(int minutes)
     {
-        for (int i = 0; i < minutes; i++)
+        if (minutes <= 0) return;
+        IsFastForwardingTime = true;
+        remainingFastForwardMinutes += minutes;
+
+        while (remainingFastForwardMinutes > 0)
         {
+            if (currentState != GameState.Playing)
+            {
+                // 돌발 이벤트 팝업 등으로 게임이 일시정지(Paused)되었으면 즉시 루프를 중단하여 남은 시간을 보존 (이벤트 스킵 방지)
+                Debug.Log($"[GameManager] ⏸️ 고속 시간 진행 중 일시정지 감지! (남은 고속 진행 시간: {remainingFastForwardMinutes}분 보존 및 대기)");
+                break;
+            }
+            remainingFastForwardMinutes--;
             AdvanceOneMinute();
         }
+
+        if (remainingFastForwardMinutes <= 0)
+        {
+            IsFastForwardingTime = false;
+        }
+
+        OnFastForwardEnded?.Invoke();
     }
 
     // 자산을 증가하거나 감소시키는 함수
     public void ChangeBalance(float amount)
     {
-        // 게임 진행 중에만 자산 변경 가능
-        if (currentState != GameState.Playing)
+        // 게임 진행 중이거나 일시정지(이벤트/상점 팝업 등) 상태일 때 자산 변경 가능
+        if (currentState != GameState.Playing && currentState != GameState.Paused)
         {
             return;
         }
@@ -303,6 +327,14 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.Paused)
         {
             currentState = GameState.Playing;
+
+            if (remainingFastForwardMinutes > 0)
+            {
+                Debug.Log($"[GameManager] ▶️ 게임 재개 -> 보존된 남은 고속 경과 시간({remainingFastForwardMinutes}분) 이어서 진행");
+                int resumeMinutes = remainingFastForwardMinutes;
+                remainingFastForwardMinutes = 0;
+                AdvanceGameMinutes(resumeMinutes);
+            }
         }
     }
 }

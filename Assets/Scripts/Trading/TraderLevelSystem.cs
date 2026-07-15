@@ -396,18 +396,20 @@ namespace FXOverdose.Trading
 
             OnSkillLevelChanged?.Invoke(type, GetSkillLevel(type));
 
-            // 기믹 대사 트리거
-            var aiBrain = FindAnyObjectByType<FXOverdose.AI.AITradingBrain>();
-            if (aiBrain != null)
+            // LLM 기반 스킬 업그레이드 동적 반응 대사 트리거 (다중 업그레이드 시 마지막 업그레이드 기준 반영)
+            int currentLevel = GetSkillLevel(type);
+            string contextString = type switch
             {
-                string studyDialogue = type switch
-                {
-                    SkillType.ChartStudy => "눈알이 빠질 것 같이 피곤하지만... 이제 호가창 속 세력들의 가짜 반등 빔 따위엔 안 속아.",
-                    SkillType.CubePatience => "후우... 심호흡하고 큐브를 맞춘다... 수익 조금 났다고 촐랑거리며 일찍 털어버리지 않겠어.",
-                    SkillType.BookJudgment => "머리가 터질 것 같아... 하지만 전설적인 파산 회고록을 읽으니 손절을 머뭇거리는 게 얼마나 멍청한지 뼛속까지 깨달았어.",
-                    _ => "과로 학습 완료... 더 완벽하게 매매해내겠어."
-                };
-                // AITradingBrain 내 dialogue 출력
+                SkillType.ChartStudy => $"[스킬 업그레이드 완료: 차트 공부 LV.{currentLevel}] 눈알이 빠질 것 같이 피곤하지만 기술적 분석과 패턴 파악 능력이 크게 늘었다! 호가창 속 세력들의 가짜 반등 빔이나 휩소에 더 이상 안 속고 정확한 매매 타점을 잡을 수 있다는 자신감과 피로/희열을 나타내는 주인공 반응 대사.",
+                SkillType.CubePatience => $"[스킬 업그레이드 완료: 큐브 풀기 LV.{currentLevel}] 극심한 인내심 훈련(큐브 풀기)을 통해 뇌의 참을성이 증폭되었다! 수익이 조금 났다고 촐랑거리며 일찍 털어버리지 않고, 목표가까지 묵묵히 버텨서 큰 파동을 다 먹겠다는 인내와 각오를 보여주는 주인공 반응 대사.",
+                SkillType.BookJudgment => $"[스킬 업그레이드 완료: 책읽기(파산 회고록) LV.{currentLevel}] 머리가 터질 것 같이 두꺼운 전설적인 파산 회고록을 완독했다! 손절을 머뭇거리는 게 얼마나 멍청한지 뼛속까지 깨달았어. 미련하게 물타기 하다가 패가망신한 트레이더들의 사례를 뼈저리게 깨닫고, 칼손절과 냉철한 리스크 판단력으로 살아남겠다는 독기를 품은 주인공 반응 대사.",
+                _ => $"[스킬 업그레이드 완료 LV.{currentLevel}] 트레이딩 실력이 성장하여 더 똑똑해졌다!"
+            };
+
+            var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            if (llm != null)
+            {
+                llm.RequestDialogue(FXOverdose.AI.LLM.EventCategory.SkillUpgraded, contextString);
             }
 
             return true;

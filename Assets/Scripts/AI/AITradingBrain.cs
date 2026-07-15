@@ -77,10 +77,24 @@ namespace FXOverdose.AI
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
 
             if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) return;
+            if (gameManager != null && gameManager.IsFastForwardingTime)
+            {
+                Debug.Log("[AITradingBrain] ⏳ 스킬 업그레이드(고속 시간 경과) 중 -> 기획 의도에 따라 신규 거래를 차단하고 대기합니다.");
+                return;
+            }
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
+
+            // 💡 [이벤트 오버라이드 능동적 반응 처리]
             if (tradingController != null && tradingController.IsEventProtected)
             {
-                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: 신규 시그널 수신을 보류하고 이벤트 선택지를 우선시합니다.");
+                if (marketEngine != null && marketEngine.IsExternalEventOverride)
+                {
+                    currentActiveSignal = signal;
+                    isProcessingSignal = true;
+                    HandleEventSignalReaction(signal);
+                    return;
+                }
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: 신규 일반 시그널 수신을 보류하고 이벤트 선택지를 우선시합니다.");
                 return;
             }
 
@@ -91,10 +105,61 @@ namespace FXOverdose.AI
             EvaluateSignalAndReact(signal);
         }
 
+        // 💡 이벤트 시그널 골든타임(GraceWindow) 능동적 예고 및 기대/불안 대사 출력
+        private void HandleEventSignalReaction(MarketSignal signal)
+        {
+            var visual = UnityEngine.Object.FindAnyObjectByType<AIVisualController>();
+            if (visual == null || tradingController == null) return;
+
+            if (tradingController.IsEventPlayerChoice)
+            {
+                if (tradingController.IsEventTrueSignal)
+                {
+                    Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
+                    visual.DisplayDialogueBalloon("마스터...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 마스터 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                }
+                else
+                {
+                    Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
+                    visual.DisplayDialogueBalloon("마스터... 잠깐만! 방금 마스터가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                }
+            }
+            else
+            {
+                if (signal.IsTrueSignal)
+                {
+                    Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
+                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 마스터 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                }
+                else
+                {
+                    Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
+                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 마스터!!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                }
+            }
+        }
+
         private void HandleSignalPhaseChanged(SignalPhase phase, MarketSignal signal)
         {
+            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager != null && gameManager.IsFastForwardingTime)
+            {
+                return;
+            }
             if (tradingController != null && tradingController.IsEventProtected)
             {
+                if (marketEngine != null && marketEngine.IsExternalEventOverride)
+                {
+                    if (phase == SignalPhase.GuaranteedOverride)
+                    {
+                        Debug.Log($"[AITradingBrain] ⚡ 확정적 주가 제어(GuaranteedOverride) 본격 궤도 돌입: 차트 빔 발사 개시");
+                    }
+                    else if (phase == SignalPhase.Cooldown)
+                    {
+                        isProcessingSignal = false;
+                        Debug.Log($"[AITradingBrain] 🏁 이벤트 시그널 주가 오버라이드 궤도 종료 (Cooldown 돌입)");
+                    }
+                }
                 return;
             }
 

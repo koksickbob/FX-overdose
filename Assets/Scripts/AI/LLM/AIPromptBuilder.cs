@@ -14,7 +14,8 @@ namespace FXOverdose.AI.LLM
         PositionOpened = 5,
         PositionClosed = 6,
         ChartMovement = 7,
-        GimmickTriggered = 8
+        GimmickTriggered = 8,
+        SkillUpgraded = 9
     }
 
     public class AIPromptBuilder : MonoBehaviour
@@ -178,6 +179,7 @@ namespace FXOverdose.AI.LLM
                 EventCategory.PositionClosed => "[이벤트 분류: 포지션 종료/익절/손절] 포지션 청산 결과에 대해 극도의 환호나 처절한 분노/절망을 쏟아내는 혼잣말을 작성해라.",
                 EventCategory.ChartMovement => "[이벤트 분류: 실시간 차트 변동 중계] 포지션 유지 중 실시간으로 주가가 내 타점대로 오르거나 반대로 역행하는 상황에 대해 중계하며 일희일비하는 혼잣말을 작성해라.",
                 EventCategory.GimmickTriggered => "[이벤트 분류: 멘탈 소모 6대 기믹 발동] 멘탈 침식, 연속 손절, 수면 부족, 고배율 중독 금단현상, 횡보장 지루함, 드로다운 트라우마 등 기믹에 고통받거나 조르는 멘헤라 독백을 작성해라.",
+                EventCategory.SkillUpgraded => $"[이벤트 분류: 트레이딩 스킬 및 능력치 업그레이드 완료] 방금 오랜 시간 집중해서 훈련 및 공부를 마치고 스킬 레벨업을 달성했다! ({extraContext}) 마스터에게 자신의 성장한 실력과 똑똑해진 뇌를 자랑하며 칭찬을 갈구하거나, 피로 속에서도 자신감을 불태우는 생동감 넘치는 1~2문장의 반말 리액션 혼잣말을 작성해라.",
                 _ => "[이벤트 분류: 차트 관망 및 일반 분석] 현재 차트 흐름과 자신의 심리를 고백하는 혼잣말을 작성해라."
             };
         }

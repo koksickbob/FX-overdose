@@ -45,6 +45,7 @@ namespace FXOverdose.UI.TopBar
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced += HandleGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded += UpdateDayTimeUI;
             }
 
             // 초기 자산 기록
@@ -59,6 +60,7 @@ namespace FXOverdose.UI.TopBar
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced -= HandleGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded -= UpdateDayTimeUI;
             }
         }
 
@@ -80,9 +82,7 @@ namespace FXOverdose.UI.TopBar
 
         private void HandleGameMinuteAdvanced()
         {
-            UpdateDayTimeUI();
-
-            // 인게임 15분마다 과거 궤적 고정점 기록
+            // 인게임 15분마다 과거 궤적 고정점 기록 (스파크라인 궤적은 정확히 유지)
             if (gameManager != null && gameManager.CurrentMinute % 15 == 0 && gameManager.CurrentMinute != lastRecordedMinute)
             {
                 lastRecordedMinute = gameManager.CurrentMinute;
@@ -94,6 +94,9 @@ namespace FXOverdose.UI.TopBar
                     equityHistory.RemoveAt(0);
                 }
             }
+
+            if (gameManager != null && gameManager.IsFastForwardingTime) return;
+            UpdateDayTimeUI();
         }
 
         // 1. 날짜 및 시간 카드 업데이트

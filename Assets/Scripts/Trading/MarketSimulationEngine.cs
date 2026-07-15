@@ -45,6 +45,7 @@ namespace FXOverdose.Trading
         public MarketSignal ActiveSignal => activeSignal;
         public bool IsExternalEventOverride => isExternalEventOverride;
         public bool IsMarketOpen { get; private set; } = false;
+        public bool IsFastForwarding => gameManager != null && gameManager.IsFastForwardingTime;
 
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
@@ -132,6 +133,7 @@ namespace FXOverdose.Trading
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced += OnGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded += HandleFastForwardEnded;
             }
 
             ResetEngine(initialPrice);
@@ -142,6 +144,21 @@ namespace FXOverdose.Trading
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced -= OnGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded -= HandleFastForwardEnded;
+            }
+        }
+
+        private void HandleFastForwardEnded()
+        {
+            var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            if (llm != null) llm.ClearQueueExceptSkillUpgraded();
+
+            var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
+            {
+                currentSignalPhase = SignalPhase.None;
+                minutesUntilNextSignal = UnityEngine.Random.Range(3, 6);
+                Debug.Log($"[MarketEngine] 🚀 스킬 업그레이드(고속 시간 패스) 완료 -> 업그레이드된 새 스킬 능력치 반영을 위해 {minutesUntilNextSignal}분(초) 후 신규 거래 신호가 발행됩니다.");
             }
         }
 
@@ -248,18 +265,41 @@ namespace FXOverdose.Trading
             // 확정적 신호 구간(SignalPhase)에 따른 주가 오버라이드 제어
             if (currentSignalPhase == SignalPhase.GraceWindow)
             {
-                // 1단계 판단 여유 시간: 노이즈를 10% 수준으로 억제하고 횡보 유지 (골든타임 보장)
-                stochasticNoise *= 0.1f;
+                // 1단계 판단 여유 시간: 노이즈를 15% 수준으로 억제하고 횡보 유지 (골든타임 예고 방송 및 대기)
+                stochasticNoise *= 0.15f;
                 drift = 0f;
             }
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
                 // 2단계 확정적 주가 제어 구간: 위너 노이즈 억제 및 확정적 드리프트 주입
-                stochasticNoise *= 0.15f; // 잔파도 최소화
+                stochasticNoise *= 0.18f; // 잔파도 최소화하되 캔들 자연스러움 유지
 
-                // 목표 변동률(TargetPercentageDelta)을 남은 보장 시간 동안 분할 반영
-                float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
-                drift = targetDriftPerMinute;
+                if (isExternalEventOverride && !activeSignal.IsTrueSignal)
+                {
+                    // 💡 [악결과(Trap/실패) 휩소 꼬리 반등 궤적 생성]
+                    // 앞 70% 구간: 목표 변동률의 135%까지 강하게 몰아쳐 극도의 공포(-60%~-85% ROE) 유도
+                    // 뒤 30% 구간: 45% 강한 기술적 반등 꼬리(Whipsaw Recovery Bounce)를 발생시켜 버티기/물타기 극적 탈출 기회 제공
+                    float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
+                    float elapsedRatio = 1f - ((float)signalPhaseTimerMinutes / totalDuration);
+
+                    if (elapsedRatio < 0.7f)
+                    {
+                        float targetDriftPerMinute = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * 0.7f);
+                        drift = targetDriftPerMinute;
+                    }
+                    else
+                    {
+                        // 막바지 30% 구간: 반등 꼬리 드리프트
+                        float recoveryDriftPerMinute = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.3f);
+                        drift = recoveryDriftPerMinute;
+                    }
+                }
+                else
+                {
+                    // 정상 확정 구간: 목표 변동률을 남은 보장 시간 동안 분할 반영하여 부드러운 드리프트 생성
+                    float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
+                    drift = targetDriftPerMinute;
+                }
 
                 // OU 평균 회귀 항 무력화 (일방향 궤적 보장)
                 ouTerm = 0f;
@@ -277,6 +317,19 @@ namespace FXOverdose.Trading
 
             // 이벤트 알림
             OnPriceUpdated?.Invoke(currentPrice);
+        }
+
+        // 스킬 공부 및 시간 패스 등으로 1분 단위 고속 경과 시 차트 캔들이 비거나 0-Volume 일직선으로 굳는 현상을 방지하기 위한 실시간 틱 시뮬레이션
+        public void SimulateFastForwardTicks(float dtMinutes = 1.0f)
+        {
+            float secondsPerMinute = gameManager != null ? gameManager.SecondsPerGameMinute : 5.0f;
+            int subTicks = 5; // 1분당 5번의 가상 틱 변동을 분할 적용하여 정교한 캔들 꼬리 및 몸통 생성
+            float subDeltaTime = (secondsPerMinute * dtMinutes) / subTicks;
+
+            for (int i = 0; i < subTicks; i++)
+            {
+                SimulateTickMovement(subDeltaTime);
+            }
         }
 
         // 매 프레임 실시간 틱 가격을 Live 캔들에 반영
@@ -312,6 +365,15 @@ namespace FXOverdose.Trading
         public void OnGameMinuteAdvanced()
         {
             currentTotalMinutes++;
+
+            // 💡 [시간 고속 경과 및 스킬 공부 시 차트 캔들 비어버림 방지]
+            // Update() 프레임이 돌지 않고 동기식으로 시간이 패스될 경우(또는 GameManager 고속 진행 중),
+            // 해당 1분봉이 거래량 0과 일직선(open == high == low == close)으로 비어버리는 것을 감지하여 가상 틱 시뮬레이션을 선제 주입합니다!
+            if ((gameManager != null && gameManager.IsFastForwardingTime) ||
+                (liveM1Candle != null && liveM1Candle.volume <= 0.0001f && Mathf.Approximately(liveM1Candle.high, liveM1Candle.low)))
+            {
+                SimulateFastForwardTicks(1.0f);
+            }
 
             // 1. 유동성 사냥(Liquidity Sweep) 위꼬리/아래꼬리 스파이크 체크
             CheckLiquidationSweep();
@@ -443,18 +505,31 @@ namespace FXOverdose.Trading
             Debug.Log($"[MarketEngine] 외부 이벤트 충격 발생! 변화율: {percentageChange:F2}%, 현재가: {currentPrice:N1}");
         }
 
-        // 돌발 선택 이벤트 차트 빔 확정 주입 (OverrideMarketTrend)
+        // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)
         public void OverrideMarketTrend(float targetChangePercent, int durationSeconds, bool isWhipsaw = false)
         {
-            int durationMins = Mathf.Max(1, durationSeconds / 60);
-            TriggerMarketShock(targetChangePercent, isWhipsaw ? 5.0f : 2.5f, durationMins);
+            // 💡 [순간이동 제거] 1프레임 만에 주가를 순간 이동시키지 않고, 8~12캔들 동안 점진적 드리프트로 이동하도록 계산
+            int durationMins = Mathf.Max(8, Mathf.CeilToInt(durationSeconds / 2.5f));
+            InitiateEventSignalOverride(targetChangePercent, durationMins, isWhipsaw);
+        }
 
+        public void InitiateEventSignalOverride(float targetChangePercent, int durationMins, bool isWhipsaw = false)
+        {
             MarketSignalType sigType = isWhipsaw 
                 ? (targetChangePercent >= 0f ? MarketSignalType.BullTrap : MarketSignalType.BearTrap) 
                 : (targetChangePercent >= 0f ? MarketSignalType.BullishBreakout : MarketSignalType.BearishBreakout);
 
-            ForceInjectSignal(sigType, SignalStrength.Strong, !isWhipsaw, targetChangePercent, durationMins, 0);
-            Debug.Log($"[MarketEngine] ⚡ OverrideMarketTrend 실행! 목표 변동률: {targetChangePercent:F2}%, 휩소여부: {isWhipsaw}");
+            // 💡 1단계 골든타임(GraceWindow) 2분(실시간 10초) 설정으로 AI 예고 대사 및 판단 여유 보장
+            int graceMins = 2;
+            currentVolatility *= (isWhipsaw ? 3.0f : 1.8f);
+            minutesUntilNextRegimeChange = durationMins + graceMins;
+
+            if (targetChangePercent > 0f) currentRegime = MarketRegime.Bull;
+            else if (targetChangePercent < 0f) currentRegime = MarketRegime.Bear;
+            else currentRegime = MarketRegime.Squeeze;
+
+            ForceInjectSignal(sigType, SignalStrength.Strong, !isWhipsaw, targetChangePercent, durationMins, graceMins);
+            Debug.Log($"[MarketEngine] ⚡ InitiateEventSignalOverride 실행! 목표 변동률: {targetChangePercent:F2}%, 지속 캔들: {durationMins}분 (골든타임 {graceMins}분, 휩소: {isWhipsaw})");
         }
 
         // 타임프레임별 과거 캔들 리스트 조회
@@ -560,6 +635,8 @@ namespace FXOverdose.Trading
         // Phase 3: 차트 신호 및 3단계 주가 제어 타임라인 업데이트 (1분마다 호출)
         private void UpdateSignalSystem()
         {
+            if (IsFastForwarding) return;
+
             switch (currentSignalPhase)
             {
                 case SignalPhase.None:
