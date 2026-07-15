@@ -784,10 +784,14 @@ MonoBehaviour:
   liquidationPrice: 0
   targetPrice: 0
   stopLossPrice: 0
+  isOverdoseTradeActive: 0
+  overdoseProtectionEndTime: -1
   isEventTradeActive: 0
   currentEventHandlingMode: 0
   eventTargetROELimit: 0
   eventStopLossROELimit: 0
+  isEventPlayerChoice: 0
+  isEventTrueSignal: 1
 --- !u!114 &33821698
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -850,6 +854,9 @@ MonoBehaviour:
   signalPhaseTimerMinutes: 0
   minutesUntilNextSignal: 45
   isExternalEventOverride: 0
+  isOverdoseTrapOverride: 0
+  overdoseTrapPositionType: 0
+  overdoseTrapEndTime: -1
 --- !u!114 &33821700
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5732,8 +5739,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 7.3923573, y: 0}
-  m_SizeDelta: {x: -6.6999836, y: -24}
+  m_AnchoredPosition: {x: -4.5049696, y: 0}
+  m_SizeDelta: {x: -24, y: -24}
   m_Pivot: {x: 0.68770707, y: 0.5}
 --- !u!114 &566031829
 MonoBehaviour:
@@ -12141,8 +12148,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.3}
   m_AnchorMax: {x: 1, y: 0.9}
-  m_AnchoredPosition: {x: 3, y: -1.5}
-  m_SizeDelta: {x: -18, y: -13}
+  m_AnchoredPosition: {x: 3, y: -1}
+  m_SizeDelta: {x: -18, y: -14}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1049456917
 MonoBehaviour:
