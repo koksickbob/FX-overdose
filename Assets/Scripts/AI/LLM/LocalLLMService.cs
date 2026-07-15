@@ -3,6 +3,7 @@ using System.Collections;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
+using FXOverdose.AI;
 
 namespace FXOverdose.AI.LLM
 {
@@ -27,6 +28,16 @@ namespace FXOverdose.AI.LLM
         [Header("시스템 참조")]
         [SerializeField] private AIPromptBuilder promptBuilder;
         [SerializeField] private TraderStatus traderStatus;
+
+        private struct DialogueRequest
+        {
+            public EventCategory Category;
+            public string ExtraContext;
+            public string FullPrompt;
+        }
+
+        private readonly System.Collections.Generic.Queue<DialogueRequest> requestQueue = new System.Collections.Generic.Queue<DialogueRequest>();
+        private bool isReconnecting = false;
 
         [Header("상태")]
         [SerializeField] private bool isGenerating = false;
@@ -211,11 +222,12 @@ namespace FXOverdose.AI.LLM
                 Debug.Log($"[LocalLLMService 📋 System Context/Log] ({category}) 상황 설명: {extraEventContext}");
             }
 
-            // 만약 오프라인/모바일 온디바이스 모드이거나, 아직 예열 중/생성 중이면 즉각 Fallback 엔진 가동 (네트워크 HTTP 요청 없음!)
-            if (activeRuntimeMode == LLMExecutionMode.OnDeviceFallback || !isLLMReady || isGenerating)
+            // 만약 오프라인/모바일 온디바이스 모드이거나, 아직 예열 중이면 즉각 Fallback 엔진 가동 (네트워크 HTTP 요청 없음!)
+            if (activeRuntimeMode == LLMExecutionMode.OnDeviceFallback || !isLLMReady)
             {
                 string smartFallback = GetSmartFallbackDialogue(category, extraEventContext);
                 smartFallback = PostProcessDialogue(smartFallback);
+                TraderMemoryManager.Instance?.RecordDialogue(smartFallback);
                 Debug.Log($"[LocalLLMService 💬 Character Dialogue (On-Device)] ({category}) 캐릭터 대사: \"{smartFallback}\"");
                 OnDialogueGenerated?.Invoke(smartFallback);
                 OnDialogueGeneratedWithCategory?.Invoke(category, smartFallback);
@@ -223,6 +235,18 @@ namespace FXOverdose.AI.LLM
             }
 
             string prompt = promptBuilder != null ? promptBuilder.BuildPrompt(category, extraEventContext) : extraEventContext;
+
+            // ⭐ [요청 큐 시스템]: 현재 LLM이 생성 중(isGenerating)일 때는 즉시 폴백으로 버리지 않고 대기열(Queue)에 적재!
+            if (isGenerating)
+            {
+                if (requestQueue.Count < 6) // 너무 많은 대기열 누적 방지 (최대 6개)
+                {
+                    requestQueue.Enqueue(new DialogueRequest { Category = category, ExtraContext = extraEventContext, FullPrompt = prompt });
+                    Debug.Log($"[LocalLLMService ⏳ Queue] LLM 생성 중으로 대사 요청 대기열 적재 (대기 수: {requestQueue.Count})");
+                }
+                return;
+            }
+
             StartCoroutine(SendOllamaRequestCoroutine(category, extraEventContext, prompt));
         }
 
@@ -230,9 +254,9 @@ namespace FXOverdose.AI.LLM
         {
             isGenerating = true;
 
-            // JSON 페이로드 구성 (Ollama 규격)
+            // JSON 페이로드 구성 (Ollama 규격 + 창의성 temperature 파라미터 주입)
             string escapedPrompt = fullPrompt.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
-            string jsonPayload = $"{{\"model\":\"{modelName}\",\"prompt\":\"{escapedPrompt}\",\"stream\":false}}";
+            string jsonPayload = $"{{\"model\":\"{modelName}\",\"prompt\":\"{escapedPrompt}\",\"stream\":false,\"options\":{{\"temperature\":0.95,\"top_p\":0.9}}}}";
 
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
             using (UnityWebRequest request = new UnityWebRequest(ollamaEndpoint, "POST"))
@@ -246,14 +270,18 @@ namespace FXOverdose.AI.LLM
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogWarning($"[LocalLLMService] 온디바이스 서버 응답 실패 ({request.error}). 스마트 다변화 안전망 출력.");
-                    if (executionMode == LLMExecutionMode.AutoDetect)
+                    Debug.LogWarning($"[LocalLLMService] 온디바이스 서버 응답 일시 실패 ({request.error}). 1회성 스마트 다변화 폴백 출력.");
+                    
+                    // ⭐ 1번 타임아웃 났다고 영구적으로 OnDeviceFallback으로 잠가버리는 로직 폐기!
+                    // 대신 백그라운드 재연결 코루틴을 가동하여 30초 후 서버 접속이 정상화되면 다시 LLM 추론 재개
+                    if (executionMode == LLMExecutionMode.AutoDetect && !isReconnecting)
                     {
-                        activeRuntimeMode = LLMExecutionMode.OnDeviceFallback;
-                        Debug.Log("[LocalLLMService] 🔄 서버 응답 중단으로 인해 향후 대사 출력을 '온디바이스 Fallback 엔진(OnDeviceFallback)'으로 자동 전환합니다.");
+                        StartCoroutine(AutoRecoveryCoroutine());
                     }
+
                     string fallbackText = GetSmartFallbackDialogue(category, extraContext);
                     fallbackText = PostProcessDialogue(fallbackText);
+                    TraderMemoryManager.Instance?.RecordDialogue(fallbackText);
                     Debug.Log($"[LocalLLMService 💬 Character Dialogue (Ollama Fallback)] ({category}) 캐릭터 대사: \"{fallbackText}\"");
                     OnDialogueGenerated?.Invoke(fallbackText);
                     OnDialogueGeneratedWithCategory?.Invoke(category, fallbackText);
@@ -268,6 +296,7 @@ namespace FXOverdose.AI.LLM
                         parsedDialogue = GetSmartFallbackDialogue(category, extraContext);
                     }
                     parsedDialogue = PostProcessDialogue(parsedDialogue);
+                    TraderMemoryManager.Instance?.RecordDialogue(parsedDialogue);
                     Debug.Log($"[LocalLLMService 💬 Character Dialogue (Qwen)] ({category}) 캐릭터 대사: \"{parsedDialogue}\"");
 
                     OnDialogueGenerated?.Invoke(parsedDialogue);
@@ -276,6 +305,39 @@ namespace FXOverdose.AI.LLM
             }
 
             isGenerating = false;
+
+            // ⭐ 큐에 대기 중인 다음 요청이 있다면 비동기 순차 가동
+            if (requestQueue.Count > 0)
+            {
+                var nextReq = requestQueue.Dequeue();
+                StartCoroutine(SendOllamaRequestCoroutine(nextReq.Category, nextReq.ExtraContext, nextReq.FullPrompt));
+            }
+        }
+
+        private IEnumerator AutoRecoveryCoroutine()
+        {
+            isReconnecting = true;
+            yield return new WaitForSeconds(30.0f);
+
+            string jsonPayload = $"{{\"model\":\"{modelName}\",\"prompt\":\"ping\",\"stream\":false}}";
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+
+            using (UnityWebRequest request = new UnityWebRequest(ollamaEndpoint, "POST"))
+            {
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = 3;
+
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    activeRuntimeMode = LLMExecutionMode.OllamaServer;
+                    Debug.Log("[LocalLLMService] 🔄 Ollama LLM 서버 백그라운드 자동 재연결 성공! 실시간 LLM 추론 출력을 완벽히 재개합니다.");
+                }
+            }
+            isReconnecting = false;
         }
 
         // Ollama JSON 응답 파싱
@@ -341,23 +403,30 @@ namespace FXOverdose.AI.LLM
             {
                 var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
                 bool hasPosition = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+                bool isShort = hasPosition && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
                 float roe = hasPosition ? tradingCtrl.CalculateROEPercentage() : 0f;
 
                 if (hasPosition && roe > 15f && health < 40f)
                 {
-                    return "수익권 달리는 중인데... 극심한 피로 때문에 눈꺼풀이 천근만근이야. 졸음 쫓아내고 끝까지 익절하자...";
+                    return isShort
+                        ? "숏으로 폭락 수익 달리는 중인데... 극심한 피로 때문에 눈꺼풀이 천근만근이야. 끝까지 지켜보고 바닥에서 익절하자..."
+                        : "롱 수익권 달리는 중인데... 극심한 피로 때문에 눈꺼풀이 천근만근이야. 졸음 쫓아내고 끝까지 고점에서 익절하자...";
                 }
                 else if (hasPosition && roe < -15f && (mental == TraderStatus.MentalState.Danger || mental == TraderStatus.MentalState.Anxious))
                 {
-                    return "손실이 커지니까 심장이 미친 듯이 뛰고 호흡이 가빠져...! 세력들이 날 벼랑 끝으로 몰고 있어... 제발 살려줘...!";
+                    return isShort
+                        ? "숏 쳐놨는데 주가가 역주행해서 솟구치고 있어...! 심장이 미친 듯이 뛰고 호흡이 가빠져...! 제발 나락으로 꽂혀줘...!"
+                        : "롱 쳐놨는데 주가가 폭락해서 손실이 커지고 있어...! 심장이 미친 듯이 뛰고 호흡이 가빠져...! 제발 반등 빔 한 번만...!";
                 }
                 else if (hasPosition && roe > 30f)
                 {
-                    return "초대박 질주 중!! 심장이 짜릿해서 터질 것 같아!! 내 천재적인 직감이 오늘 시장을 완벽히 지배했어!!";
+                    return isShort
+                        ? "공매도 초대박 폭락 질주 중!! 심장이 짜릿해서 터질 것 같아!! 내 천재적인 숏 타점이 오늘 시장을 지배했어!!"
+                        : "롱 초대박 폭등 질주 중!! 심장이 짜릿해서 터질 것 같아!! 내 천재적인 직감이 오늘 시장을 완벽히 지배했어!!";
                 }
                 else if (hasPosition && roe < -25f)
                 {
-                    return "왜 자꾸 내 판단 반대로 가는 건데... 온몸에 소름이 돋고 식은땀이 흘러... 제발 반등 빔 한 번만 나와줘...!";
+                    return "왜 자꾸 내 포지션 반대로 가는 건데... 온몸에 소름이 돋고 식은땀이 흘러... 제발 본절만이라도 오게 해줘...!";
                 }
                 else if (!hasPosition && mental == TraderStatus.MentalState.Danger)
                 {
@@ -365,22 +434,48 @@ namespace FXOverdose.AI.LLM
                 }
                 else if (hasPosition)
                 {
-                    return rand switch
+                    if (isShort)
                     {
-                        0 => "포지션 방향은 맞는데 잔파동이 신경 쓰이네... 긴장 늦추지 말고 호가창 흐름 끝까지 주시하자.",
-                        1 => "잔파동에 흔들리면 안 돼... 호흡 가다듬고 우리의 목표 고점까지 침착하게 들고 가자.",
-                        _ => "머릿속 차트 계산은 완벽해... 신경이 날카로워졌지만 손익분기점 지키면서 냉정하게 대응할게."
-                    };
+                        return rand switch
+                        {
+                            0 => "숏 방향은 맞는데 잔파동이 신경 쓰이네... 긴장 늦추지 말고 바닥을 깨부수는 흐름 끝까지 주시하자.",
+                            1 => "잔파동에 흔들리면 안 돼... 호흡 가다듬고 우리의 목표 저점 폭락까지 침착하게 들고 가자.",
+                            _ => "머릿속 차트 하락 각도는 완벽해... 신경이 날카로워졌지만 손익분기점 지키면서 냉정하게 대응할게."
+                        };
+                    }
+                    else
+                    {
+                        return rand switch
+                        {
+                            0 => "롱 포지션 방향은 맞는데 잔파동이 신경 쓰이네... 긴장 늦추지 말고 고점을 돌파하는 흐름 주시하자.",
+                            1 => "잔파동에 흔들리면 안 돼... 호흡 가다듬고 우리의 목표 고점까지 침착하게 들고 가자.",
+                            _ => "머릿속 차트 상승 각도는 완벽해... 신경이 날카로워졌지만 손익분기점 지키면서 냉정하게 대응할게."
+                        };
+                    }
+                }
+                else if (hasPosition)
+                {
+                    return GetCombinatorialDialogue(category, isShort, roe, mental);
                 }
                 else
                 {
                     return rand switch
                     {
-                        0 => "차트 흐름과 내 컨디션 조율 중... 확실한 돌파 각이 나올 때까지 숨죽이고 대기하자.",
-                        1 => "피로감과 긴장감이 교차하네... 섣불리 뇌동매매하지 말고 빅쇼트 타점을 노리는 게 맞아.",
+                        0 => "차트 흐름과 내 컨디션 조율 중... 확실한 방향성이 나올 때까지 숨죽이고 대기하자.",
+                        1 => "피로감과 긴장감이 교차하네... 섣불리 뇌동매매하지 말고 확실한 타점을 노리는 게 맞아.",
                         _ => "호가창 움직임 주시 중... 온 감각을 곤두세우고 있어. 다음 타점이 오늘을 결정지을 거야."
                     };
                 }
+            }
+
+            // ⭐ 일반 이벤트 상황에서도 조합형 엔진을 적극 활용하여 다채로움 보장
+            if (category == EventCategory.ChartMovement || category == EventCategory.PositionOpened || category == EventCategory.PositionClosed)
+            {
+                var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+                bool hasPosition = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+                bool isShort = hasPosition && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
+                float roe = hasPosition ? tradingCtrl.CalculateROEPercentage() : 0f;
+                return GetCombinatorialDialogue(category, isShort, roe, mental);
             }
 
             return category switch
@@ -412,30 +507,6 @@ namespace FXOverdose.AI.LLM
                         1 => "복용 완료... 이제야 호가창 숫자가 선명하게 꽂힌다.",
                         _ => "후우... 조금만 더 힘내서 수익률 뽑아보자고."
                     },
-                EventCategory.PositionOpened => (extraContext != null && extraContext.Contains("OVERDOSE"))
-                    ? "하하하!! 다 끝났어!! 125배 풀레버리지 올인이다!! 청산당하든 대박나든 끝장을 보자!!"
-                    : rand switch
-                    {
-                        0 => "좋아, 포지션 진입!! 이번 돌파는 무조건 진짜야, 가즈아!!",
-                        1 => "탑승 완료... 손절선 따윈 필요 없어, 내 판단은 완벽하니까.",
-                        _ => "심장 터질 것 같지만, 여기서 안 들어가면 평생 후회할 자리야!"
-                    },
-                EventCategory.PositionClosed => (extraContext != null && (extraContext.Contains("익절") || extraContext.Contains("수익")))
-                    ? "포지션 익절 완료!! 봤어?! 이게 바로 내 천재적인 매매 실력이야!!"
-                    : (extraContext != null && (extraContext.Contains("손절") || extraContext.Contains("충격")))
-                    ? "...아니야, 이건 그냥 시장이 잠시 미친 거야!! 손절쳤지만 다음 타점에 10배로 복구한다!!"
-                    : rand switch
-                    {
-                        0 => "포지션 정리 완료!! 호가창 다시 보면서 다음 기회를 노린다.",
-                        1 => "청산 완료... 침착하게 다음 타점을 노리자.",
-                        _ => "후후... 세력 놈들, 다음 판엔 내 시드 10배로 불려주지."
-                    },
-                EventCategory.ChartMovement => rand switch
-                {
-                    0 => "호가창 요동치는 거 봐... 짜릿해서 미칠 것 같아!!",
-                    1 => "아 왜 윗꼬리 달고 내려오는데?! 털어먹으려고 작정한 거 맞지?!",
-                    _ => "순항 중이야... 그래, 이대로 저 위 고점까지 단숨에 뚫어버려!!"
-                },
                 EventCategory.GimmickTriggered => (extraContext != null && (extraContext.Contains("수면") || extraContext.Contains("과로")))
                     ? "눈 앞이 깜빡거리고 차트 캔들이 겹쳐 보여... 졸음 때문에 타점 잡기가 너무 힘들어...!"
                     : (extraContext != null && (extraContext.Contains("휩소") || extraContext.Contains("후회")))
@@ -448,6 +519,57 @@ namespace FXOverdose.AI.LLM
                     },
                 _ => GetFallbackDialogue()
             };
+        }
+
+        // ⭐ 3파트(감정+상황+반응) 조합형 동적 대사 변주 엔진 (온디바이스 오프라인/복구용)
+        private string GetCombinatorialDialogue(EventCategory category, bool isShort, float roe, TraderStatus.MentalState mental)
+        {
+            string[] prefixes = mental switch
+            {
+                TraderStatus.MentalState.Danger => new[] { "손가락이 미친 듯이 떨리는데...", "온몸에 소름이 돋고 숨이 막혀...", "머리가 터져버릴 것 같아...!", "심장이 목구멍 밖으로 튀어나올 것 같은데..." },
+                TraderStatus.MentalState.Overdose => new[] { "크하하! 온몸의 피가 끓어올라!!", "내 직감은 절대 틀리지 않아!!", "봤어 마스터?! 이게 바로 나야!", "세상의 모든 돈이 내 손안에 있어!!" },
+                TraderStatus.MentalState.Anxious => new[] { "손톱을 다 물어뜯겠네...", "아... 왜 자꾸 불안한 느낌이 들지...", "이 각도가 맞나...? 자꾸 의심이 들어...", "등골에 식은땀이 흐르네..." },
+                _ => new[] { "호가창을 뚫어져라 주시 중...", "침착하게 호흡 가다듬고...", "캔들의 흔들림을 느끼면서...", "냉정하게 차트를 계산해 보면..." }
+            };
+
+            string[] middles = category switch
+            {
+                EventCategory.PositionOpened => isShort
+                    ? new[] { "우리의 공매도 하락 빔이 세력들의 매수벽을 정면으로 부수기 시작했어...", "완벽한 고점 타점에 빅쇼트 탑승을 마쳤어...", "나락을 향한 하락선에 내 모든 시드를 실었어..." }
+                    : new[] { "우리의 롱 상승 빔이 저항선을 시원하게 돌파하기 시작했어...", "완벽한 저점 눌림목 타점에 롱 탑승을 마쳤어...", "하늘을 찌를 상승 각도에 내 모든 시드를 실었어..." },
+                EventCategory.PositionClosed => roe >= 0f
+                    ? new[] { "짜릿한 익절에 성공하면서 내 천재적인 판단이 다시 한번 증명됐어!!", "정확한 타점에서 수익을 챙기고 유유히 빠져나왔지!!", "호가창의 달콤한 수익금을 그대로 우리 잔고에 꽂았어!!" }
+                    : new[] { "치욕스럽지만 손절선을 지키며 일단 더 큰 파국은 막아냈어...", "세력 놈들의 잔혹한 흔들기에 어쩔 수 없이 포지션을 털렸어...", "쓰라린 손절이었지만 다음 파동에서 10배로 되갚아줄 거야..." },
+                _ => isShort
+                    ? new[] { "차트 가격이 아래로 내리꽂히며 우리의 숏 수익권을 넓혀가고 있어!!", "하락 파동이 점점 가파라지면서 저점을 짓밟고 있어!!", "매수세가 메마르고 공포의 음봉 빔이 쏟아지는 중이야!!" }
+                    : new[] { "차트 가격이 위로 치솟으며 우리의 롱 수익권을 넓혀가고 있어!!", "상승 파동이 점점 가파라지면서 고점을 짓밟고 있어!!", "매도벽이 뚫리고 환희의 양봉 빔이 솟구치는 중이야!!" }
+            };
+
+            string[] suffixes = mental switch
+            {
+                TraderStatus.MentalState.Danger => new[] { "제발... 여기서 한 번만 나를 살려줘...!!", "세력들아 나한테 도대체 왜 이러는 건데...!", "이대로 청산당하면 난 정말 끝장이야...!" },
+                TraderStatus.MentalState.Overdose => new[] { "더 강하게 밀어붙여!! 영혼까지 끌어모아 가즈아!!", "세력 놈들 돈을 싹 다 찢어발겨 주겠어!!", "오늘 밤 우리가 이 차트의 신이다!!" },
+                _ => isShort
+                    ? new[] { "이대로 저 바닥 밑 지하 끝까지 내려가버려!", "잔파동에 흔들리지 말고 목표 저점까지 꽉 쥐고 가자.", "하락 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
+                    : new[] { "이대로 저 하늘 위 천장 끝까지 뚫어버려!", "잔파동에 흔들리지 말고 목표 고점까지 꽉 쥐고 가자.", "상승 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
+            };
+
+            // 💡 단기 기억 중복 회피를 위한 최대 3회 조합 셔플
+            for (int i = 0; i < 3; i++)
+            {
+                string p = prefixes[UnityEngine.Random.Range(0, prefixes.Length)];
+                string m = middles[UnityEngine.Random.Range(0, middles.Length)];
+                string s = suffixes[UnityEngine.Random.Range(0, suffixes.Length)];
+                string result = $"{p} {m} {s}";
+
+                // 기억 버퍼와 겹치지 않으면 즉시 반환
+                if (TraderMemoryManager.Instance == null || !TraderMemoryManager.Instance.GetShortTermDialoguesText().Contains(result))
+                {
+                    return result;
+                }
+            }
+
+            return $"{prefixes[0]} {middles[0]} {suffixes[0]}";
         }
 
         // 기존 하위 호환 폴백 대사

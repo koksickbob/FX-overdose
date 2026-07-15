@@ -98,6 +98,9 @@ public class GameManager : MonoBehaviour
         // 액티브 아이템 효과 및 업그레이드 초기화
         ActiveItemEffectManager.Instance?.ResetAll();
 
+        // AI 장기/단기 기억 시스템 초기화
+        FXOverdose.AI.TraderMemoryManager.Instance?.ResetAll();
+
         Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입)");
     }
 
@@ -164,6 +167,9 @@ public class GameManager : MonoBehaviour
             currentDay++;
 
             Debug.Log($"{currentDay}일차 시작");
+
+            // ⭐ 자정 마감 기억 압축 및 저중요도 Pruning 실행
+            FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(currentDay);
         }
 
         // 1분 경과 이벤트 발행

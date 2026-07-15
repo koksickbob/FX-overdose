@@ -398,6 +398,17 @@ namespace FXOverdose.AI
                 traderStatus.ModifyMentalState(emotionDelta * 10f);
             }
 
+            // ⭐ 이벤트 중요도 점수 자동 산정 및 장기 기억 등록
+            int importanceScore = 3;
+            if (dialogue.Contains("강제청산")) importanceScore = 10;
+            else if (dialogue.Contains("OVERDOSE")) importanceScore = 9;
+            else if (dialogue.Contains("대형 손실") || dialogue.Contains("오인 진입") || dialogue.Contains("역매매")) importanceScore = 8;
+            else if (dialogue.Contains("익절 성공")) importanceScore = 7;
+            else if (dialogue.Contains("정상 진입") || Mathf.Abs(emotionDelta) >= 0.15f) importanceScore = 6;
+            else if (category != FXOverdose.AI.LLM.EventCategory.General) importanceScore = 4;
+
+            FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(category, dialogue, importanceScore);
+
             if (llmService == null) llmService = FXOverdose.AI.LLM.LocalLLMService.Instance;
             if (llmService != null)
             {
