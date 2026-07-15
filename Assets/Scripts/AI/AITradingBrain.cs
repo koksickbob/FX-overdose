@@ -142,8 +142,11 @@ namespace FXOverdose.AI
             // 💡 [매매 모드 분기] 플레이어 수동 매매 모드일 때는 AI가 자동으로 포지션을 개설하지 않고 시그널 브리핑만 제공
             if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
             {
-                string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파(Bullish)" : "하락 돌파(Bearish)";
-                TriggerDialogue($"[시그널 브리핑] {dirText} 신호 포착! 현재 수동 매매 모드이므로 AI 자동 진입은 생략합니다. 판단과 진입은 플레이어 직접 결정하세요.", 0.02f);
+                string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파" : "하락 돌파";
+                string briefingDialogue = signal.Type == MarketSignalType.BullishBreakout
+                    ? $"마스터...! 위쪽으로 거대한 {dirText} 신호 터지려고 해! 수동 조작 모드니까 마스터가 직접 롱(Long) 들어갈지 정해줘... 빨리 안 타면 기회 날아간단 말야...♥"
+                    : $"히익...! 마스터 아래쪽으로 무서운 {dirText} 폭락 신호 포착됐어! 지금 조종간 마스터한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
+                TriggerDialogue($"[시그널 브리핑] {briefingDialogue}", 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }

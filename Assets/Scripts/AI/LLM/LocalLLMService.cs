@@ -447,9 +447,21 @@ namespace FXOverdose.AI.LLM
         // 스마트 다변화 Fallback 엔진: 실시간 인게임 데이터 + 멘헤라 감정 변수 보간
         private string GetSmartFallbackDialogue(EventCategory category, string extraContext)
         {
-            if (!string.IsNullOrEmpty(extraContext) && (extraContext.StartsWith("[AI 차트 힌트]") || extraContext.StartsWith("[시그널 브리핑]") || extraContext.StartsWith("[플레이어 수동 조언]")))
+            if (!string.IsNullOrEmpty(extraContext))
             {
-                return extraContext.Replace("[AI 차트 힌트]", "").Replace("[시그널 브리핑]", "").Replace("[플레이어 수동 조언]", "").Trim();
+                if (extraContext.StartsWith("[플레이어 수동 조언]"))
+                {
+                    TraderStatus.MentalState curMental = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
+                    var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+                    bool hasPos = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+                    bool isShort = hasPos && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
+                    float curRoe = hasPos ? tradingCtrl.CalculateROEPercentage() : 0f;
+                    return GetCombinatorialDialogue(category, hasPos, isShort, curRoe, curMental);
+                }
+                if (extraContext.StartsWith("[AI 차트 힌트]") || extraContext.StartsWith("[시그널 브리핑]"))
+                {
+                    return extraContext.Replace("[AI 차트 힌트]", "").Replace("[시그널 브리핑]", "").Trim();
+                }
             }
 
             TraderStatus.MentalState mental = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;

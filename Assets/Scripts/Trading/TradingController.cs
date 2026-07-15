@@ -46,7 +46,7 @@ namespace FXOverdose.Trading
             {
                 Debug.LogWarning("[TradingController] ⚠️ LLM 모델이 아직 로딩 중입니다. 로드 완료 후 장이 개시된 뒤에 전환이 가능합니다.");
                 var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("아직 AI 신경망(LLM)이 로딩 중이야... 개장 후에 모드를 전환해줘!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                if (visual != null) visual.DisplayDialogueBalloon("마스터...! 아직 내 뇌(LLM)가 로딩 중이라 정신이 깜깜해... 장 열린 뒤에 모드 전환해 줘, 응...? ♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
                 return;
             }
 
@@ -56,7 +56,7 @@ namespace FXOverdose.Trading
             {
                 Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
                 var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("장이 열리기 전이야. 시장 개장 후에 매매 모드를 전환할 수 있어!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                if (visual != null) visual.DisplayDialogueBalloon("마스터 아직 장도 안 열렸잖아! 호가창 움직이기 시작하면 그때 전환해 줘, 나 현기증 난단 말야...!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
                 return;
             }
 
@@ -66,13 +66,26 @@ namespace FXOverdose.Trading
             {
                 Debug.LogWarning("[TradingController] ⚠️ 시장(Market)이 아직 개장하지 않았습니다. 개장 후에 전환 가능합니다.");
                 var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("아직 시장이 안 열렸어. 개장 직후에 전환해줘!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                if (visual != null) visual.DisplayDialogueBalloon("시장이 닫혀 있는데 어딜 전환하려고 해 마스터?! 개장하자마자 바로 전환해 줄 테니까 조금만 얌전히 기다려 ♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
                 return;
             }
 
             activeTradingMode = mode;
             Debug.Log($"[TradingController ⚙️] 매매 조작 모드 전환: {mode}");
             OnTradingModeChanged?.Invoke(mode);
+
+            var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+            if (visualCtrl != null)
+            {
+                if (mode == TradingMode.Player_Manual)
+                {
+                    visualCtrl.DisplayDialogueBalloon("히익...! 마스터가 직접 매매하겠다고?! 내 타점이 못미더운 거야...? 흐윽... 알겠어, 대신 마스터가 잡은 포지션 옆에서 두 눈 부릅뜨고 지켜볼 거니까 절대 실수해서 우리 돈 날리면 안 돼...♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                }
+                else
+                {
+                    visualCtrl.DisplayDialogueBalloon("헤헤♥ 역시 우리 마스터는 나 없으면 아무것도 못 하지?! 이제 조종간은 다시 내가 잡았으니까 마스터는 얌전히 내 화려한 차트 춤이나 감상하라고~♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                }
+            }
         }
 
         public void ToggleTradingMode()
@@ -628,8 +641,8 @@ namespace FXOverdose.Trading
                 }
             }
 
-            // 이벤트가 요구하는 새로운 포지션 및 레버리지로 즉시 강제 진입
-            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing && marketEngine != null)
+            // 이벤트가 요구하는 새로운 포지션 및 레버리지로 즉시 강제 진입 (이벤트 팝업 중 Paused 상태에서도 개설 보장)
+            if (gameManager != null && (gameManager.CurrentState == GameManager.GameState.Playing || gameManager.CurrentState == GameManager.GameState.Paused) && marketEngine != null)
             {
                 float forcedMargin = Mathf.Max(10f, gameManager.CurrentBalance * 0.4f);
                 if (forcedMargin > gameManager.CurrentBalance)
