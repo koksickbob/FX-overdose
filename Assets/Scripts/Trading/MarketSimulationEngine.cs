@@ -45,6 +45,7 @@ namespace FXOverdose.Trading
         public MarketSignal ActiveSignal => activeSignal;
         public bool IsExternalEventOverride => isExternalEventOverride;
         public bool IsMarketOpen { get; private set; } = false;
+        public bool IsFastForwarding => gameManager != null && gameManager.IsFastForwardingTime;
 
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
@@ -132,6 +133,7 @@ namespace FXOverdose.Trading
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced += OnGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded += HandleFastForwardEnded;
             }
 
             ResetEngine(initialPrice);
@@ -142,6 +144,18 @@ namespace FXOverdose.Trading
             if (gameManager != null)
             {
                 gameManager.OnGameMinuteAdvanced -= OnGameMinuteAdvanced;
+                gameManager.OnFastForwardEnded -= HandleFastForwardEnded;
+            }
+        }
+
+        private void HandleFastForwardEnded()
+        {
+            var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
+            {
+                currentSignalPhase = SignalPhase.None;
+                minutesUntilNextSignal = UnityEngine.Random.Range(3, 6);
+                Debug.Log($"[MarketEngine] 🚀 스킬 업그레이드(고속 시간 패스) 완료 -> 업그레이드된 새 스킬 능력치 반영을 위해 {minutesUntilNextSignal}분(초) 후 신규 거래 신호가 발행됩니다.");
             }
         }
 
@@ -582,6 +596,8 @@ namespace FXOverdose.Trading
         // Phase 3: 차트 신호 및 3단계 주가 제어 타임라인 업데이트 (1분마다 호출)
         private void UpdateSignalSystem()
         {
+            if (IsFastForwarding) return;
+
             switch (currentSignalPhase)
             {
                 case SignalPhase.None:

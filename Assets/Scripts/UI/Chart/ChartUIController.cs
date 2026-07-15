@@ -59,6 +59,7 @@ namespace FXOverdose.UI.Chart
 
         private float currentChartMinPrice;
         private float currentChartMaxPrice;
+        private GameManager gameManager;
 
         private void Start()
         {
@@ -66,11 +67,19 @@ namespace FXOverdose.UI.Chart
             {
                 marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             }
+            if (gameManager == null)
+            {
+                gameManager = FindAnyObjectByType<GameManager>();
+            }
 
             if (marketEngine != null)
             {
                 marketEngine.OnPriceUpdated += HandlePriceUpdated;
                 marketEngine.OnCandleClosed += HandleCandleClosed;
+            }
+            if (gameManager != null)
+            {
+                gameManager.OnFastForwardEnded += HandleFastForwardEnded;
             }
 
             CleanupOldScrollView();
@@ -84,6 +93,10 @@ namespace FXOverdose.UI.Chart
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
                 marketEngine.OnCandleClosed -= HandleCandleClosed;
+            }
+            if (gameManager != null)
+            {
+                gameManager.OnFastForwardEnded -= HandleFastForwardEnded;
             }
         }
 
@@ -139,6 +152,9 @@ namespace FXOverdose.UI.Chart
             UpdatePriceHeader(newPrice);
             UpdateCurrentPriceLine(newPrice);
 
+            // 💡 고속 시간 패스(AdvanceGameMinutes) 중에는 프레임당 수천 번의 UI 캔들 재배치를 생략하여 렉(Lag)을 원천 차단합니다!
+            if (marketEngine != null && marketEngine.IsFastForwarding) return;
+
             // 실시간 주가 변동에 따라 Live 캔들 화면 반영
             RefreshChartDisplay();
         }
@@ -147,8 +163,19 @@ namespace FXOverdose.UI.Chart
         {
             if (tf == currentSelectedTimeframe)
             {
+                if (marketEngine != null && marketEngine.IsFastForwarding) return;
                 RefreshChartDisplay();
             }
+        }
+
+        private void HandleFastForwardEnded()
+        {
+            if (marketEngine != null)
+            {
+                UpdatePriceHeader(marketEngine.CurrentPrice);
+                UpdateCurrentPriceLine(marketEngine.CurrentPrice);
+            }
+            RefreshChartDisplay();
         }
 
         // 상단 가격 헤더 (67,842.1 및 변동률) 업데이트

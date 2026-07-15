@@ -77,6 +77,11 @@ namespace FXOverdose.AI
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
 
             if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) return;
+            if (gameManager != null && gameManager.IsFastForwardingTime)
+            {
+                Debug.Log("[AITradingBrain] ⏳ 스킬 업그레이드(고속 시간 경과) 중 -> 기획 의도에 따라 신규 거래를 차단하고 대기합니다.");
+                return;
+            }
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
             if (tradingController != null && tradingController.IsEventProtected)
             {
@@ -93,6 +98,11 @@ namespace FXOverdose.AI
 
         private void HandleSignalPhaseChanged(SignalPhase phase, MarketSignal signal)
         {
+            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager != null && gameManager.IsFastForwardingTime)
+            {
+                return;
+            }
             if (tradingController != null && tradingController.IsEventProtected)
             {
                 return;

@@ -5,6 +5,8 @@ public class GameManager : MonoBehaviour
 {
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
+    // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
+    public event Action OnFastForwardEnded;
     //게임 진행 상태
     public enum GameState
     {
@@ -217,6 +219,8 @@ public class GameManager : MonoBehaviour
         {
             IsFastForwardingTime = false;
         }
+
+        OnFastForwardEnded?.Invoke();
     }
 
     // 자산을 증가하거나 감소시키는 함수
