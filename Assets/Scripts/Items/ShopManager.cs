@@ -96,7 +96,7 @@ public class ShopManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 자산이 충분하면 가격을 차감하고 아이템을 한 개 지급합니다.
+    /// 자산이 충분하면 가격을 차감하고 아이템을 지급 또는 업그레이드합니다.
     /// </summary>
     public bool BuyItem(ItemData item)
     {
@@ -111,20 +111,40 @@ public class ShopManager : MonoBehaviour
             return false;
         }
 
-        if (item.Price <= 0)
+        int priceToSpend = item.Price;
+        if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
+        {
+            if (ActiveItemEffectManager.Instance.IsMaxLevel(item))
+            {
+                Debug.Log($"[ShopManager] {item.ItemName}은(는) 이미 최대 구매 제한에 도달했습니다.");
+                return false;
+            }
+            priceToSpend = ActiveItemEffectManager.Instance.GetNextUpgradePrice(item);
+        }
+
+        if (priceToSpend <= 0)
         {
             Debug.LogWarning($"[ShopManager] {item.ItemName}의 가격이 올바르지 않습니다.", item);
             return false;
         }
 
-        if (!gameManager.TrySpendBalance(item.Price))
+        if (!gameManager.TrySpendBalance(priceToSpend))
         {
-            Debug.Log($"[ShopManager] 자산 부족: {item.ItemName} 구매 실패");
+            Debug.Log($"[ShopManager] 자산 부족: {item.ItemName} 구매 실패 (필요 자산: {priceToSpend:N0})");
             return false;
         }
 
-        inventory.AddItem(item);
-        Debug.Log($"[ShopManager] {item.ItemName} 구매 완료");
+        if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
+        {
+            ActiveItemEffectManager.Instance.UpgradeOrActivateItem(item);
+            Debug.Log($"[ShopManager] 액티브 아이템 {item.ItemName} 활성/업그레이드 완료");
+        }
+        else
+        {
+            inventory.AddItem(item);
+            Debug.Log($"[ShopManager] 소모형 아이템 {item.ItemName} 구매 완료");
+        }
+
         return true;
     }
 }

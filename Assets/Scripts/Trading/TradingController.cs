@@ -49,6 +49,13 @@ namespace FXOverdose.Trading
         public void SimulateCloseForTest(bool isProfit, float pnl)
         {
             if (currentPosition == PositionType.None) return;
+
+            if (ActiveItemEffectManager.Instance != null)
+            {
+                if (pnl > 0f) pnl *= (1f + ActiveItemEffectManager.Instance.ProfitBoostRate);
+                else if (pnl < 0f) pnl *= (1f - ActiveItemEffectManager.Instance.LossReductionRate);
+            }
+
             float returned = marginAmount + pnl;
             if (returned < 0f) returned = 0f;
             lastMarginAmount = marginAmount;
@@ -212,6 +219,20 @@ namespace FXOverdose.Trading
             }
 
             float pnl = CalculateUnrealizedPnL();
+
+            // 액티브 업그레이드 보정 적용
+            if (ActiveItemEffectManager.Instance != null)
+            {
+                if (pnl > 0f)
+                {
+                    pnl *= (1f + ActiveItemEffectManager.Instance.ProfitBoostRate);
+                }
+                else if (pnl < 0f)
+                {
+                    pnl *= (1f - ActiveItemEffectManager.Instance.LossReductionRate);
+                }
+            }
+
             float totalReturn = marginAmount + pnl;
 
             // 자산 정산

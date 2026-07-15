@@ -143,9 +143,9 @@ public class DynamicShopUI : MonoBehaviour
         Image frame = card.GetComponent<Image>();
         frame.sprite = cardFrameSprite;
         frame.type = cardFrameSprite != null ? Image.Type.Sliced : Image.Type.Simple;
-        frame.color = item.Type == ItemData.EffectType.Health
-            ? new Color(0.62f, 0.91f, 1f, 1f)
-            : new Color(1f, 0.72f, 0.98f, 1f);
+
+        bool isActive = item.IsActiveItem;
+        frame.color = isActive ? new Color(1f, 0.88f, 0.5f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.62f, 0.91f, 1f, 1f) : new Color(1f, 0.72f, 0.98f, 1f));
 
         Image icon = CreateImage(card.transform, "Icon");
         icon.sprite = item.Icon;
@@ -155,12 +155,23 @@ public class DynamicShopUI : MonoBehaviour
 
         TMP_Text name = CreateText(card.transform, "Name", 21f, TextAlignmentOptions.MidlineLeft);
         name.text = item.ItemName.ToUpperInvariant();
-        name.color = item.Type == ItemData.EffectType.Health ? new Color(0.16f, 0.82f, 1f, 1f) : new Color(0.91f, 0.50f, 1f, 1f);
+        name.color = isActive ? new Color(1f, 0.75f, 0.2f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.16f, 0.82f, 1f, 1f) : new Color(0.91f, 0.50f, 1f, 1f));
         SetRect(name.rectTransform, new Vector2(0.44f, 0.73f), new Vector2(0.96f, 0.94f), Vector2.zero, Vector2.zero);
 
         TMP_Text effect = CreateText(card.transform, "Effect", 18f, TextAlignmentOptions.MidlineLeft);
-        effect.text = item.Type == ItemData.EffectType.Health ? $"HP +{item.EffectAmount:0}" : $"MENTAL +{item.EffectAmount:0}";
-        effect.color = item.Type == ItemData.EffectType.Health ? new Color(0.28f, 0.88f, 0.52f, 1f) : new Color(0.72f, 0.43f, 0.96f, 1f);
+        string effectString = "";
+        switch (item.Type)
+        {
+            case ItemData.EffectType.Health: effectString = $"HP +{item.EffectAmount:0}"; break;
+            case ItemData.EffectType.Mental: effectString = $"MENTAL +{item.EffectAmount:0}"; break;
+            case ItemData.EffectType.ProfitBoost: effectString = $"PROFIT +{item.EffectAmount:0}% (UPGRADE)"; break;
+            case ItemData.EffectType.LossReduction: effectString = $"LOSS -{item.EffectAmount:0}% (UPGRADE)"; break;
+            case ItemData.EffectType.MentalDrainGuard: effectString = $"MENTAL DRAIN -{item.EffectAmount:0}%"; break;
+            case ItemData.EffectType.HealthDrainGuard: effectString = $"HP DRAIN -{item.EffectAmount:0}%"; break;
+            default: effectString = $"EFFECT +{item.EffectAmount:0}"; break;
+        }
+        effect.text = effectString;
+        effect.color = isActive ? new Color(0.4f, 0.95f, 0.6f, 1f) : (item.Type == ItemData.EffectType.Health ? new Color(0.28f, 0.88f, 0.52f, 1f) : new Color(0.72f, 0.43f, 0.96f, 1f));
         SetRect(effect.rectTransform, new Vector2(0.44f, 0.54f), new Vector2(0.96f, 0.73f), Vector2.zero, Vector2.zero);
 
         TMP_Text price = CreateText(card.transform, "Price", 25f, TextAlignmentOptions.MidlineLeft);

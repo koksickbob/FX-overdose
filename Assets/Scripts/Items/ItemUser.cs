@@ -52,6 +52,13 @@ public class ItemUser : MonoBehaviour
             case ItemData.EffectType.Mental:
                 return RestoreMental(item);
 
+            case ItemData.EffectType.ProfitBoost:
+            case ItemData.EffectType.LossReduction:
+            case ItemData.EffectType.MentalDrainGuard:
+            case ItemData.EffectType.HealthDrainGuard:
+                Debug.Log($"[ItemUser] {item.ItemName}은(는) 액티브 패시브 버프/업그레이드 아이템이므로 인벤토리에서 소모 사용되지 않고 상시 적용됩니다.");
+                return false;
+
             default:
                 Debug.LogWarning($"[ItemUser] 지원하지 않는 아이템 효과입니다: {item.Type}", item);
                 return false;

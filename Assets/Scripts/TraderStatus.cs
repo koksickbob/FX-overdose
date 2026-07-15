@@ -239,17 +239,21 @@ public class TraderStatus : MonoBehaviour
     {
         // 인게임 1분 속도(SecondsPerGameMinute)에 동기화하여 체력/멘탈 감소 속도 자동 조절
         float speedScale = 5.0f / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
-        ChangeHealth(-healthDecreasePerSecond * speedScale * Time.deltaTime);
+
+        float healthGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.HealthDrainReduction : 0f;
+        float mentalGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.MentalDrainReduction : 0f;
+
+        ChangeHealth(-healthDecreasePerSecond * (1f - healthGuard) * speedScale * Time.deltaTime);
 
         // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * 2.0f * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * 2.0f * (1f - mentalGuard) * speedScale * Time.deltaTime);
         }
         else if (currentHealth <= maxHealth * 0.5f)
         {
             // 체력이 절반 이하일 때는 기본 멘탈 지속 감소 속도 적용
-            ChangeMental(-mentalDecreasePerSecond * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime);
         }
     }
 

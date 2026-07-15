@@ -27,6 +27,38 @@ public class ShopItemButton : MonoBehaviour
         Refresh();
     }
 
+    private void OnEnable()
+    {
+        if (ActiveItemEffectManager.Instance != null)
+        {
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged -= Refresh;
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged += Refresh;
+        }
+        if (inventory != null)
+        {
+            inventory.QuantityChanged -= OnInventoryChanged;
+            inventory.QuantityChanged += OnInventoryChanged;
+        }
+        Refresh();
+    }
+
+    private void OnDisable()
+    {
+        if (ActiveItemEffectManager.Instance != null)
+        {
+            ActiveItemEffectManager.Instance.OnActiveItemsChanged -= Refresh;
+        }
+        if (inventory != null)
+        {
+            inventory.QuantityChanged -= OnInventoryChanged;
+        }
+    }
+
+    private void OnInventoryChanged(ItemData changedItem, int qty)
+    {
+        if (changedItem == item) Refresh();
+    }
+
     private void OnDestroy()
     {
         if (button != null)
@@ -54,7 +86,7 @@ public class ShopItemButton : MonoBehaviour
         Refresh();
     }
 
-    private void Refresh()
+    public void Refresh()
     {
         if (item == null)
         {
@@ -66,15 +98,54 @@ public class ShopItemButton : MonoBehaviour
             nameText.text = item.ItemName;
         }
 
+        bool isActive = item.IsActiveItem;
+        bool isMax = isActive && ActiveItemEffectManager.Instance != null && ActiveItemEffectManager.Instance.IsMaxLevel(item);
+
+        if (button != null)
+        {
+            button.interactable = !isMax;
+            TMP_Text buttonLabel = button.GetComponentInChildren<TMP_Text>();
+            if (buttonLabel != null)
+            {
+                if (isMax)
+                {
+                    buttonLabel.text = item.MaxLevel <= 1 ? "ACTIVE ✓" : "MAX LV ✓";
+                }
+                else
+                {
+                    buttonLabel.text = "BUY";
+                }
+            }
+        }
+
         if (priceText != null)
         {
-            priceText.text = $"${item.Price:N0}";
+            if (isMax)
+            {
+                priceText.text = "MAXED";
+            }
+            else if (isActive && ActiveItemEffectManager.Instance != null)
+            {
+                int nextPrice = ActiveItemEffectManager.Instance.GetNextUpgradePrice(item);
+                priceText.text = $"${nextPrice:N0}";
+            }
+            else
+            {
+                priceText.text = $"${item.Price:N0}";
+            }
         }
 
         if (ownedText != null)
         {
-            int owned = inventory != null ? inventory.GetQuantity(item) : 0;
-            ownedText.text = $"OWNED x{owned}";
+            if (isActive && ActiveItemEffectManager.Instance != null)
+            {
+                ownedText.text = ActiveItemEffectManager.Instance.GetItemStatusLabel(item);
+            }
+            else
+            {
+                int owned = inventory != null ? inventory.GetQuantity(item) : 0;
+                ownedText.text = $"OWNED x{owned}";
+            }
         }
     }
 
