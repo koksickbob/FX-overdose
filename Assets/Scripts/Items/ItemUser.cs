@@ -111,6 +111,7 @@ public class ItemUser : MonoBehaviour
             }
         }
 
+        Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
         traderStatus.ChangeMental(item.EffectAmount, true);
 
         // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료

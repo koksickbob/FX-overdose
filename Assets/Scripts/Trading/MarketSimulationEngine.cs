@@ -256,6 +256,19 @@ namespace FXOverdose.Trading
                     break;
             }
 
+            // 💡 [자연스러운 차트 파동 생성] 고정된 Drift로 인해 차트가 일직선으로 그려지는 것을 방지하기 위해 단기 파동(Sine Wave)을 결합합니다.
+            float waveCycle1 = (currentTotalMinutes % 35) / 35f * Mathf.PI * 2f;
+            float waveCycle2 = (currentTotalMinutes % 13) / 13f * Mathf.PI * 2f;
+            float waveDrift = (Mathf.Sin(waveCycle1) * 0.0003f) + (Mathf.Cos(waveCycle2) * 0.00015f);
+            
+            // 고속 스킵 중에는 랜덤성을 더 부여하여 일직선 패턴 완전 타파
+            if (IsFastForwarding)
+            {
+                waveDrift += UnityEngine.Random.Range(-0.0003f, 0.0003f);
+            }
+
+            drift += waveDrift;
+
             // 2. GARCH 스타일 변동성 군집 (TargetVol로 서서히 수렴하거나 스파이크 후 유지)
             currentVolatility = Mathf.Lerp(currentVolatility, targetVol, dtFraction * 5f);
 
@@ -424,6 +437,12 @@ namespace FXOverdose.Trading
 
             // 5. 국면(Regime) 전환 검사
             minutesUntilNextRegimeChange--;
+            if (IsFastForwarding && UnityEngine.Random.value < 0.15f)
+            {
+                // 스킵 중에는 차트가 한 방향으로만 일직선으로 뻗는 것을 방지하기 위해 15% 확률로 잦은 국면 전환 유도
+                minutesUntilNextRegimeChange = 0;
+            }
+
             if (minutesUntilNextRegimeChange <= 0)
             {
                 SwitchToRandomRegime();
@@ -531,8 +550,8 @@ namespace FXOverdose.Trading
         // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)
         public void OverrideMarketTrend(float targetChangePercent, int durationSeconds, bool isWhipsaw = false)
         {
-            // 💡 [순간이동 제거] 1프레임 만에 주가를 순간 이동시키지 않고, 8~12캔들 동안 점진적 드리프트로 이동하도록 계산
-            int durationMins = Mathf.Max(8, Mathf.CeilToInt(durationSeconds / 2.5f));
+            // 💡 [순간이동 제거] 1프레임 만에 주가를 순간 이동시키지 않고, 인게임시간 30분(5분봉 6캔들) 동안 점진적 드리프트로 이동하도록 설정
+            int durationMins = 30; // 사용자 요청: 돌발이벤트 차트 변동을 30분으로 일괄 확대
             InitiateEventSignalOverride(targetChangePercent, durationMins, isWhipsaw);
         }
 

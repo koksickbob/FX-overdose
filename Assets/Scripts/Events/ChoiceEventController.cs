@@ -93,7 +93,7 @@ namespace FXOverdose.Events
         {
             // 하루 총 2번 제한에 따라, 이전 이벤트 발생 후 최소 1시간(인게임 시간 60분)의 여유를 두고 그 이후부터 다시 랜덤으로 발생
             int minNextMinute = Mathf.Max(currentDayMinutes + 60, 10 * 60);
-            int maxNextMinute = Mathf.Min(minNextMinute + 300, 23 * 60); // 최소 1시간 ~ 최대 6시간 이내 랜덤 (23:00 한도)
+            int maxNextMinute = Mathf.Min(minNextMinute + 300, 23 * 60 + 20); // 최소 1시간 ~ 최대 6시간 이내 랜덤 (23:20 한도)
             if (maxNextMinute <= minNextMinute) maxNextMinute = minNextMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minNextMinute, maxNextMinute);
@@ -297,7 +297,7 @@ namespace FXOverdose.Events
                 }
                 else if (option.ForceLeverage > 0 || option.ForcePosition != TradingController.PositionType.None)
                 {
-                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, option.OverrideDurationSeconds, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
+                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, 150, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
                 }
             }
 
@@ -312,7 +312,7 @@ namespace FXOverdose.Events
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (marketEngine != null && Mathf.Abs(option.OverrideBeamPercent) > 0.001f)
             {
-                marketEngine.OverrideMarketTrend(option.OverrideBeamPercent, option.OverrideDurationSeconds, !isOptionSuccess);
+                marketEngine.OverrideMarketTrend(option.OverrideBeamPercent, 150, !isOptionSuccess);
             }
         }
 
@@ -333,7 +333,7 @@ namespace FXOverdose.Events
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             if (tradingController != null)
             {
-                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, option.OverrideDurationSeconds, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isSuccess);
+                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, 150, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isSuccess);
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 트랩/빔 처리 중단
@@ -348,13 +348,13 @@ namespace FXOverdose.Events
                 if (isSuccess)
                 {
                     float targetBeam = playerChosenPos == TradingController.PositionType.Long ? Mathf.Abs(option.OverrideBeamPercent) : -Mathf.Abs(option.OverrideBeamPercent);
-                    marketEngine.OverrideMarketTrend(targetBeam, option.OverrideDurationSeconds, false);
+                    marketEngine.OverrideMarketTrend(targetBeam, 150, false);
                     Debug.Log($"[ChoiceEventController] ⚡ 플레이어 직접 선택({playerChosenPos}) 익절 빔 성공! ({targetBeam:F2}%, 모드: {handlingMode})");
                 }
                 else
                 {
                     float trapBeam = playerChosenPos == TradingController.PositionType.Long ? -Mathf.Abs(option.OverrideBeamPercent) * 0.7f : Mathf.Abs(option.OverrideBeamPercent) * 0.7f;
-                    marketEngine.OverrideMarketTrend(trapBeam, option.OverrideDurationSeconds, true);
+                    marketEngine.OverrideMarketTrend(trapBeam, 150, true);
                     if (traderStatus != null) traderStatus.ModifyMentalState(-20f);
                     Debug.LogWarning($"[ChoiceEventController] ⚠️ 플레이어 직접 선택({playerChosenPos}) 트랩 발동! ({trapBeam:F2}%, 모드: {handlingMode}) 및 멘탈 페널티");
                 }

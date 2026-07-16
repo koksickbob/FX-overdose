@@ -333,13 +333,34 @@ namespace FXOverdose.AI
             {
                 if (priority == DialoguePriority.Low)
                 {
-                    // Low는 현재 말풍선이 떠 있거나 큐가 밀려 있으면 과감히 스킵(Drop)
+                    // Low는 무조건 버리지 않고, 큐 내에 기존 Low가 있다면 최신 내용으로 덮어씁니다.
+                    bool replaced = false;
+                    var arr = dialogueQueue.ToArray();
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        if (arr[i].Priority == DialoguePriority.Low)
+                        {
+                            arr[i] = new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time };
+                            replaced = true;
+                            break;
+                        }
+                    }
+
+                    if (replaced)
+                    {
+                        dialogueQueue.Clear();
+                        foreach (var req in arr) dialogueQueue.Enqueue(req);
+                    }
+                    else if (dialogueQueue.Count < 10) // 큐 공간이 남아있다면 삽입
+                    {
+                        dialogueQueue.Enqueue(new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time });
+                    }
                     return;
                 }
                 else
                 {
-                    // Normal은 큐가 너무 꽉 차있지 않다면(최대 3개) 큐에 대기
-                    if (dialogueQueue.Count < 3)
+                    // Normal은 큐가 너무 꽉 차있지 않다면(최대 10개) 큐에 대기
+                    if (dialogueQueue.Count < 10)
                     {
                         dialogueQueue.Enqueue(new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time });
                     }
@@ -408,10 +429,10 @@ namespace FXOverdose.AI
             if (dialogueQueue.Count > 0)
             {
                 DialogueRequest nextReq = dialogueQueue.Dequeue();
-                // 큐에서 대기한 지 8초가 넘은 일반 요청은 만료 처리하여 낡은 상황 대사를 스킵 (단, 게임오버 상태의 멘헤라 연쇄 대사는 만료되지 않고 100% 출력!)
+                // 큐에서 대기한 지 25초가 넘은 일반 요청은 만료 처리하여 낡은 상황 대사를 스킵 (단, 게임오버 상태의 멘헤라 연쇄 대사는 만료되지 않고 100% 출력!)
                 var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
                 bool isGameOver = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
-                if (isGameOver || Time.time - nextReq.RequestTime < 8f)
+                if (isGameOver || Time.time - nextReq.RequestTime < 25f)
                 {
                     StartOrPreemptDialogue(nextReq.Text, nextReq.Priority, nextReq.Category);
                     yield break;
