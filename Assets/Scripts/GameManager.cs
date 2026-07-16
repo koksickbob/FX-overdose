@@ -235,6 +235,14 @@ public class GameManager : MonoBehaviour
         // 24시가 되면 마지막 1분 데이터 반영 이후 일일 정산 모드 진입
         if (currentHour >= 24 && currentState == GameState.Playing)
         {
+            // 💡 [24시 정산] 당일 정산 전에 보유 중인 포지션이 있다면 전량 강제 청산(정산)하여 손익을 확정합니다.
+            var tradingCtrl = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            if (tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None)
+            {
+                tradingCtrl.ClosePosition();
+                Debug.Log("[GameManager] 24:00 마감 시간 도달. 당일 정산을 위해 열려 있는 포지션을 강제로 종료 및 수익/손실 확정.");
+            }
+
             currentState = GameState.Settlement;
             Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
             OnDayEnded?.Invoke();
@@ -258,6 +266,14 @@ public class GameManager : MonoBehaviour
 
         // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행
         FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(currentDay);
+
+        // 💡 [차트 리셋] 다음 날로 넘어갈 때 새로운 하루가 시작되도록 차트를 새로 고침(프리웜)합니다.
+        var marketEngine = FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
+        if (marketEngine != null)
+        {
+            marketEngine.ResetEngine(marketEngine.CurrentPrice);
+            Debug.Log("[GameManager] 다음 날로 넘어감에 따라 차트 엔진(과거 기록)을 리셋 및 새로운 차트 프리웜 완료.");
+        }
 
         currentState = GameState.Playing;
 

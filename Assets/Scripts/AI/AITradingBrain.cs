@@ -248,9 +248,9 @@ namespace FXOverdose.AI
             {
                 string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파" : "하락 돌파";
                 string briefingDialogue = signal.Type == MarketSignalType.BullishBreakout
-                    ? $"오빠...! 위쪽으로 거대한 {dirText} 신호 터지려고 해! 수동 조작 모드니까 오빠가 직접 롱(Long) 들어갈지 정해줘... 빨리 안 타면 기회 날아간단 말야...♥"
-                    : $"히익...! 오빠 아래쪽으로 무서운 {dirText} 폭락 신호 포착됐어! 지금 조종간 오빠한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
-                TriggerDialogue($"[시그널 브리핑] {briefingDialogue}", 0.02f);
+                    ? $"[차트 브리핑] 오빠...! 차트 거래량이 확 죽으면서 횡보하고 있어. 이거 조만간 위쪽으로 거대한 {dirText} 빔 쏠 전조증상이야! 수동 조작 모드니까 오빠가 직접 롱(Long) 들어갈지 정해줘... 터지기 전에 빨리 타...♥"
+                    : $"[차트 브리핑] 히익...! 오빠, 캔들 움직임이 팍 죽으면서 불안하게 바닥을 다지는 척 횡보 중이야! 이거 아래쪽으로 무서운 {dirText} 쏟아지기 직전이야! 지금 조종간 오빠한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
+                TriggerDialogue($"{briefingDialogue}", 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -297,7 +297,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] {trapPos} 시드 {actualRatio*100:0}% ({leverage}배, 목표가 ${aiTarget:N0})", -0.15f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] 지금 쥐 죽은 듯이 횡보하는 거 안 보여?! 이건 곧 초대형 돌파 빔이 나온다는 확신이야!! 무조건 가야 해! 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버렸어! (목표가 ${aiTarget:N0}) 미친 듯이 도파민 뿜어내는 광기를 표현해 줘!", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -348,7 +348,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] {weakPos} 가볍게 {leverage}배 ({actualRatio*100:0}%) 진입 (목표가 ${aiTarget:N0})", -0.02f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] 차트가 조용히 눈치싸움 중이네. 큰 방향 나오기 전의 이 잔파동 타이밍에 {weakPos} 방향으로 가볍게 {leverage}배 ({actualRatio*100:0}%)만 들어가서 단타치고 빠져야지. (목표가 ${aiTarget:N0})", -0.02f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -439,14 +439,29 @@ namespace FXOverdose.AI
                             if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
                         }
                         float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
-                        float aiTarget = counterPos == TradingController.PositionType.Long ? startPrice * 1.05f : startPrice * 0.95f;
+                        
+                        // 💡 [큐브 레벨 적용] 역매매 시에도 정상 진입처럼 큐브 인내심(takeProfitMult)과 차트 지연(delayRatio) 페널티를 적용합니다.
+                        float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
+                        float takeProfitMult = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 1.0f;
+                        float delayRatio = levelSystem != null ? levelSystem.GetEntryDelayPenaltyRatio() : 0.0f;
+                        
+                        float waveSlippage = deltaPct * delayRatio;
+                        float targetMove = deltaPct * takeProfitMult;
+                        
+                        float aiTarget = counterPos == TradingController.PositionType.Long 
+                            ? startPrice * (1f + targetMove) 
+                            : startPrice * (1f - targetMove);
                         float aiStopLoss = counterPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
 
-                        bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
+                        float injectedEntryPrice = counterPos == TradingController.PositionType.Long
+                            ? startPrice * (1f + waveSlippage)
+                            : startPrice * (1f - waveSlippage);
+
+                        bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss, false, injectedEntryPrice);
                         if (opened)
                         {
                             float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
-                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 세력 함정 간파 후 역매매 {counterPos} {leverage}배 ({actualRatio*100:0}%) 진입 (목표가 ${aiTarget:N0})", 0.15f);
+                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 고요하게 횡보하는 척하면서 세력들이 함정을 파놓은 거 다 보여. 개미들 털어낼 때 역방향으로 치고 들어간다! 세력의 뒤통수를 치는 {counterPos} 역매매 {leverage}배 ({actualRatio*100:0}%) 진입 성공! (목표가 ${aiTarget:N0}) 오만하고 기세등등하게 묘사해 줘!", 0.15f);
                             OnSignalEvaluationCompleted?.Invoke(signal, true);
                         }
                         else
@@ -456,7 +471,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("[속임수 경고] 세력들이 거대한 함정(Trap) 빔을 파놓았어. 지금 들어가면 청산이다... 패스.", 0.1f);
+                        TriggerDialogue("[속임수 경고] 이 고요함... 왠지 불길해. 개미들을 잔뜩 태우고 빔을 꽂아버릴 속셈일지도 몰라... 이건 명백한 세력의 함정(Trap) 전조증상이야. 지금 들어가면 청산이니까 패스.", 0.1f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -532,7 +547,7 @@ namespace FXOverdose.AI
             if (opened)
             {
                 float actualRatio = balance > 0f ? margin / balance : ratio;
-                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] {posType} 시드 {actualRatio*100:0}% ({leverage}배, 목표가 ${aiTarget:N0})", 0.1f);
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] 오빠, 지금 횡보하는 이 차트 흐름... 완벽한 수렴 구간이야! 곧 큰 변동이 올 테니 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 안전하게 진입했어. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감과 전문가다운 자신감을 보여줘!", 0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
