@@ -120,12 +120,12 @@ namespace FXOverdose.AI
                 if (tradingController.IsEventTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
-                    visual.DisplayDialogueBalloon("마스터...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 마스터 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
-                    visual.DisplayDialogueBalloon("마스터... 잠깐만! 방금 마스터가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
                 }
             }
             else
@@ -133,12 +133,12 @@ namespace FXOverdose.AI
                 if (signal.IsTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
-                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 마스터 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
-                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 마스터!!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
                 }
             }
         }
@@ -229,8 +229,8 @@ namespace FXOverdose.AI
             {
                 string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파" : "하락 돌파";
                 string briefingDialogue = signal.Type == MarketSignalType.BullishBreakout
-                    ? $"마스터...! 위쪽으로 거대한 {dirText} 신호 터지려고 해! 수동 조작 모드니까 마스터가 직접 롱(Long) 들어갈지 정해줘... 빨리 안 타면 기회 날아간단 말야...♥"
-                    : $"히익...! 마스터 아래쪽으로 무서운 {dirText} 폭락 신호 포착됐어! 지금 조종간 마스터한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
+                    ? $"오빠...! 위쪽으로 거대한 {dirText} 신호 터지려고 해! 수동 조작 모드니까 오빠가 직접 롱(Long) 들어갈지 정해줘... 빨리 안 타면 기회 날아간단 말야...♥"
+                    : $"히익...! 오빠 아래쪽으로 무서운 {dirText} 폭락 신호 포착됐어! 지금 조종간 오빠한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
                 TriggerDialogue($"[시그널 브리핑] {briefingDialogue}", 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
@@ -585,15 +585,15 @@ namespace FXOverdose.AI
                 // 고레벨 / 정확한 간파 힌트
                 if (isProcessingSignal && !currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"꺄아악 마스터 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 내 말 들어줘 흐윽...!!";
+                    hintText = $"꺄아악 오빠 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 요미 말 들어줘 흐윽...!!";
                 }
                 else if (isProcessingSignal && currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"앗...! 우리 마스터 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
+                    hintText = $"앗...! 우리 오빠 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
                 }
                 else
                 {
-                    hintText = $"마스터가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 나 지금 심장 엄청 떨려 ♥";
+                    hintText = $"오빠가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 요미 지금 심장 엄청 떨려 ♥";
                 }
             }
             else
@@ -601,11 +601,11 @@ namespace FXOverdose.AI
                 // 차트 공부 레벨이 낮아 불안하거나 감에 의존하는 멘헤라 리액션
                 if (UnityEngine.Random.value < 0.5f)
                 {
-                    hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 나 미워하거나 버리면 안 돼 마스터...? 약속해... 흐윽...";
+                    hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 요미 미워하거나 버리면 안 돼 오빠...? 약속해... 흐윽...";
                 }
                 else
                 {
-                    hintText = $"꺄아아 마스터가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 마스터 돈 뺏어가는 세력 놈들은 내가 다 저주해 버릴 거야!! ♥";
+                    hintText = $"꺄아아 오빠가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 오빠 돈 뺏어가는 세력 놈들은 요미가 다 저주해 버릴 거야!! ♥";
                 }
             }
 

@@ -26,7 +26,7 @@ public class TraderStatus : MonoBehaviour
 
     [Header("시간에 따른 감소량 (게임 8시간 = 100 소모 속도)")]
     [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
-    [SerializeField] private float healthDecreasePerSecond = 0.04f;
+    [SerializeField] private float healthDecreasePerSecond = 0.05f;
 
     [Tooltip("체력이 0일 때 현실 시간 1초마다 감소하는 멘탈입니다.")]
     [SerializeField] private float mentalDecreasePerSecond = 0.04f;
@@ -43,6 +43,9 @@ public class TraderStatus : MonoBehaviour
 
     [Header("현재 상태")]
     [SerializeField] private MentalState currentMentalState;
+
+    // 멘탈 감소/증가 시 원인과 함께 알리는 이벤트
+    public event System.Action<float, string> OnMentalChangedWithReason;
 
     // 다른 스크립트에서 현재 상태를 읽을 때 사용
     public float CurrentHealth => currentHealth;
@@ -340,11 +343,11 @@ public class TraderStatus : MonoBehaviour
     }
 
     // 멘탈을 증가하거나 감소시키는 함수
-    public void ChangeMental(float amount, bool ignoreRegenBlock = false)
+    public void ChangeMental(float amount, bool ignoreRegenBlock = false, string reason = "")
     {
         if (this != CanonicalInstance && CanonicalInstance != null)
         {
-            CanonicalInstance.ChangeMental(amount, ignoreRegenBlock);
+            CanonicalInstance.ChangeMental(amount, ignoreRegenBlock, reason);
             return;
         }
 
@@ -363,6 +366,11 @@ public class TraderStatus : MonoBehaviour
             0f,
             effectiveMax
         );
+
+        if (!string.IsNullOrEmpty(reason))
+        {
+            OnMentalChangedWithReason?.Invoke(amount, reason);
+        }
 
         // 멘탈이 바뀔 때마다 감정 상태 갱신
         UpdateMentalState();

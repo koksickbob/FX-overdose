@@ -22,6 +22,17 @@ namespace FXOverdose.AI
         private float panicDialogueTimer = 0f;
         private int sidewaysStreakMinutes = 0;
         private float lastCheckPrice = -1f;
+        public bool isUnrealizedPnLCured = false;
+
+        public void CureMentalGimmicks()
+        {
+            isUnrealizedPnLCured = true;
+            sidewaysStreakMinutes = 0;
+            isTrackingMissedSignal = false;
+            traderStatus.CurrentLosingStreak = 0;
+            isImpulsiveCountdownActive = false;
+            Debug.Log("[MentalDrainGimmickController] 💊 멘탈 감소 기믹들이 1회성으로 치료(초기화)되었습니다.");
+        }
 
         // 4연속 손절 시 15초 카운트다운 관련
         private bool isImpulsiveCountdownActive = false;
@@ -152,6 +163,8 @@ namespace FXOverdose.AI
         // --- [기믹 1: 미실현 손실(Unrealized P&L) 실시간 침식] ---
         private void EvaluateUnrealizedPnLErosion(float deltaTime)
         {
+            if (isUnrealizedPnLCured) return;
+
             if (!tradingController.IsActive || tradingController.MarginAmount <= 0f)
             {
                 panicDialogueTimer = 0f;
@@ -178,13 +191,13 @@ namespace FXOverdose.AI
                 drainRate = 0.01f;
             }
 
-            traderStatus.ChangeMental(-drainRate * deltaTime);
+            traderStatus.ChangeMental(-drainRate * deltaTime, false, "미실현 손실 압박");
 
-            // ROE <= -20% 지속 시 7초 주기로 불안/패닉 독백 출력
+            // ROE <= -20% 지속 시 25초 주기로 불안/패닉 독백 출력
             if (roe <= -20.0f)
             {
                 panicDialogueTimer += deltaTime;
-                if (panicDialogueTimer >= 7.0f)
+                if (panicDialogueTimer >= 25.0f)
                 {
                     panicDialogueTimer = 0f;
                     TriggerGimmickDialogue($"미실현 손실 공포 기믹 (ROE {roe:0.0}% 손실 진행 중, 극도의 공포와 패닉)", "안돼 안돼 안돼!! 내 시드가... 갈려 나간다!! 물타기 해야 해, 아니 손절해야 해?!");
@@ -227,9 +240,17 @@ namespace FXOverdose.AI
         // --- [기믹 2: 연속 손절 콤보 (Losing Streak Multiplier) 및 기믹 4 중독 감지] ---
         private void OnPositionClosed(float returnedAmount, float realizedPnL)
         {
+            isUnrealizedPnLCured = false;
+
             if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (traderStatus == null || tradingController == null) return;
+
+            if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual && traderStatus.IsLeverageAddicted)
+            {
+                traderStatus.CureLeverageAddiction();
+                Debug.Log("[MentalDrainGimmickController] 💊 플레이어 직접 포지션 정리로 고배율 금단현상 치료됨");
+            }
 
             int closedLeverage = tradingController.CurrentLeverage;
 
@@ -246,6 +267,7 @@ namespace FXOverdose.AI
                     if (traderStatus.ConsecutiveHighLevWins >= 3 && !traderStatus.IsLeverageAddicted)
                     {
                         traderStatus.IsLeverageAddicted = true;
+                        traderStatus.ConsecutiveHighLevWins = 0; // 수치 초기화!!
                         TriggerGimmickDialogue("50배 이상 고배율 3연승 과몰입 중독 기믹 발동 (도파민 폭주 및 희열)", "그래!! 바로 이 느낌이야!! 호가창의 진동이 온몸에 짜릿하게 감돈다!!");
                         Debug.LogWarning("[MentalDrainGimmickController] 🎰 [고배율 중독 금단현상 발동] 50배 이상 3연승으로 AI가 고배율에 중독되었습니다!");
                     }
@@ -290,16 +312,18 @@ namespace FXOverdose.AI
                         break;
                 }
 
-                traderStatus.ChangeMental(-penalty);
+                traderStatus.ChangeMental(-penalty, false, "연속 손절 스트레스");
             }
         }
 
         // --- [신규 기믹: 매 거래 실행(포지션 진입/물타기) 시 고정 10 멘탈 소모] ---
         private void OnPositionOpened(TradingController.PositionType type, float margin, int leverage)
         {
+            isUnrealizedPnLCured = false;
+
             if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
             if (traderStatus == null) return;
-            traderStatus.ChangeMental(-10.0f);
+            traderStatus.ChangeMental(-10.0f, false, "포지션 진입/물타기");
             Debug.Log($"[MentalDrainGimmickController] 💸 매매 실행({type}, {leverage}배)으로 고정 멘탈 -10 감소 (현재 멘탈: {traderStatus.CurrentMental:F1})");
         }
 
@@ -352,7 +376,7 @@ namespace FXOverdose.AI
                 {
                     isTrackingMissedSignal = false; // 중복 후회 방지
 
-                    traderStatus.ChangeMental(-15.0f);
+                    traderStatus.ChangeMental(-15.0f, false, "수익 타점 놓침(FOMO)");
                     TriggerGimmickDialogue($"FOMO 놓친 기회 후회 기믹 발동 (놓친 상승 {priceDeltaPct:0.0}%, 멘탈 -15 감소)", "아씨!! 휩소인 줄 알고 쫄아서 안 들어갔는데 진짜 수익 자리였잖아!! 저거 다 내 돈이었는데...!!");
 
                     Debug.LogWarning($"[MentalDrainGimmickController] 😭 [FOMO/후회 기믹 발동] 휩소에 속아 수익 타점을 놓친 것에 대한 후회로 멘탈 -15 감소 (놓친 주가 변동: {priceDeltaPct:F2}%)");
@@ -382,39 +406,13 @@ namespace FXOverdose.AI
                 return;
             }
 
-            EvaluateSleepDeprivationCascade();
             EvaluateLeverageAddiction();
             EvaluateBoredomDrain();
             EvaluateDrawdownTrauma();
         }
 
         // --- [기믹 3: 수면 부족 연쇄 (Sleep Deprivation Cascade)] ---
-        private void EvaluateSleepDeprivationCascade()
-        {
-            float healthRatio = traderStatus.HealthRatio;
-
-            if (healthRatio <= 0.30f)
-            {
-                traderStatus.CanRegenMental = false;
-            }
-            else
-            {
-                traderStatus.CanRegenMental = true;
-            }
-
-            if (healthRatio <= 0.05f)
-            {
-                traderStatus.ChangeMental(-3.0f);
-                if (UnityEngine.Random.value < 0.1f)
-                {
-                    TriggerGimmickDialogue("수면 부족 탈진 상태 (체력 5% 이하, 시야 깜빡임 및 극심한 피로감 호소)", "눈 앞이 정전된 것처럼 깜빡거려... 머리가 깨질 것 같아...");
-                }
-            }
-            else if (healthRatio <= 0.15f) // Exhausted
-            {
-                traderStatus.ChangeMental(-1.0f);
-            }
-        }
+        // (기획 변경으로 인해 삭제됨)
 
         // --- [기믹 4: 고배율 중독 금단현상 (Leverage Addiction)] ---
         private void EvaluateLeverageAddiction()
@@ -425,7 +423,7 @@ namespace FXOverdose.AI
             {
                 if (tradingController.CurrentLeverage < 50)
                 {
-                    traderStatus.ChangeMental(-3.0f);
+                    traderStatus.ChangeMental(-3.0f, false, "고배율 금단현상");
                     if (UnityEngine.Random.value < 0.12f)
                     {
                         TriggerGimmickDialogue($"저배율 매매 도파민 결핍 금단현상 기믹 ({tradingController.CurrentLeverage}배에서 100배 스위칭 충동)", "10배? 10배로 뭘 먹으라고...? 이건 매매가 아니야, 소꿉장난이지. 찌릿한 그 감각이 필요해... 100배로 올리자!! 당장!!");
@@ -440,10 +438,10 @@ namespace FXOverdose.AI
             else
             {
                 // 무포지션 대기 시 금단현상
-                traderStatus.ChangeMental(-2.0f);
+                traderStatus.ChangeMental(-2.0f, false, "무포지션 금단현상");
                 if (UnityEngine.Random.value < 0.12f)
                 {
-                    TriggerGimmickDialogue("무포지션 대기 고배율 금단현상 기믹 (손가락 떨림 및 진입 충동)", "엔터키 누르고 싶어 미치겠네... 호가창이 날 부르고 있다고... 한 번만 당기게 해줘 마스터...!");
+                    TriggerGimmickDialogue("무포지션 대기 고배율 금단현상 기믹 (손가락 떨림 및 진입 충동)", "엔터키 누르고 싶어 미치겠네... 호가창이 날 부르고 있다고... 한 번만 당기게 해줘 오빠...!");
                 }
             }
         }
@@ -466,7 +464,7 @@ namespace FXOverdose.AI
 
             if (sidewaysStreakMinutes >= 240) // 4시간 이상 연속 횡보
             {
-                traderStatus.ChangeMental(-3.0f);
+                traderStatus.ChangeMental(-3.0f, false, "장기 횡보장 지루함 (4시간)");
 
                 // 60분 주기로 자극 섭취 또는 20배 단타 시도
                 if (sidewaysStreakMinutes % 60 == 0)
@@ -476,7 +474,7 @@ namespace FXOverdose.AI
             }
             else if (sidewaysStreakMinutes >= 180) // 3시간 이상 연속 횡보
             {
-                traderStatus.ChangeMental(-2.0f);
+                traderStatus.ChangeMental(-2.0f, false, "장기 횡보장 지루함 (3시간)");
                 if (sidewaysStreakMinutes == 180 || UnityEngine.Random.value < 0.1f)
                 {
                     TriggerGimmickDialogue("장시간 횡보장 극도의 지루함 스트레스 및 신경질 기믹 발동", "아 왜 안 움직여?! 위든 아래든 좋으니까 제발 움직이란 말이야!!");

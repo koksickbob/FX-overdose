@@ -123,12 +123,12 @@ namespace FXOverdose.Events
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [양방향 스톱로스 헷징] (스탑로스 가이드 1개 소모)", Description = "위아래 스톱로스를 걸고 휩소 박스 캔들만 먹어라. 왕복 성공 (ROE +80% 달성).", RequiredItemIndex = 2, RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 20, ForcePosition = TradingController.PositionType.Long }
                 }));
 
-            list.Add(Create("EVENT_12_AI_DEPENDENCY", "AI 트레이더의 멘탈 붕괴와 의존증 폭주 - '마스터, 정해줘!'",
+            list.Add(Create("EVENT_12_AI_DEPENDENCY", "AI 트레이더의 멘탈 붕괴와 의존증 폭주 - '자기야, 정해줘!'",
                 "계속된 매매 실패로 자신감을 완전히 상실한 AI 트레이더가 포지션 잡기를 극도로 두려워하며 엔터키 입력을 거부합니다. AI가 모니터 화면 쪽을 바라보며 자신의 모든 의사결정권을 포기하고, 플레이어에게 거래 방향 지시를 간절히 애원합니다.",
-                "내 계산은 다 틀렸어... 내가 잡으면 귀신같이 차트가 반대로 가... 무서워...! 마스터(플레이어)... 제발 부탁이야, 네가 정해줘! 위야, 아래야?! 마스터가 가라고 하는 방향이면 눈 감고 따라갈게...!!",
+                "요미의 계산은 다 틀렸어... 요미가 잡으면 귀신같이 차트가 반대로 가... 무서워...! 자기야(플레이어)... 제발 부탁이야, 자기가 정해줘! 위야, 아래야?! 자기가 가라고 하는 방향이면 눈 감고 따라갈게...!!",
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [따뜻한 LONG 지시] 고개를 들어라. 50배 롱으로 복구하자!", Description = "75% 확률로 +12% 상승 추세선 생성. 마스터의 지시로 멘탈 +30 회복 및 손실 복구.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [따뜻한 LONG 지시] 고개를 들어라. 50배 롱으로 복구하자!", Description = "75% 확률로 +12% 상승 추세선 생성. 자기의 지시로 멘탈 +30 회복 및 손실 복구.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [단호한 SHORT 지시] 거품은 빠진다. 50배 숏으로 내리꽂자!", Description = "75% 확률로 -12% 하락 추세선 생성. 숏 수익으로 손실 만회 및 멘탈 +30 회복.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "■ [매매 지시 거부 및 강제 휴식] 오늘 매매를 전면 중단한다.", Description = "3시간 동안 매매 차단 및 차트 미동 횡보. 플레이어의 보호 조치에 안도하며 멘탈 +25, 체력 +40.", MentalChangeAmount = 25, HealthChangeAmount = 40, ForcePosition = TradingController.PositionType.None }
                 }));
