@@ -129,7 +129,6 @@ GameObject:
   m_Component:
   - component: {fileID: 43840113}
   - component: {fileID: 43840115}
-  - component: {fileID: 43840114}
   m_Layer: 0
   m_Name: MainMenuController
   m_TagString: Untagged
@@ -152,18 +151,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1454755081}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &43840114
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 43840112}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 1207228164}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.UI.TitleScreenRuntimeBinder
 --- !u!114 &43840115
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4338,21 +4325,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1150390449}
   m_CullTransparentMesh: 1
---- !u!115 &1207228164
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: TitleScreenRuntimeBinder
-  m_Namespace: FXOverdose.UI
-  m_AssemblyName: Assembly-CSharp
 --- !u!1 &1308287644
 GameObject:
   m_ObjectHideFlags: 0

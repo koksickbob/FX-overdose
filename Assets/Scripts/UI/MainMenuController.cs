@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -42,6 +43,8 @@ namespace FXOverdose.UI
             if (btnSettings != null) btnSettings.onClick.AddListener(OnClickSettings);
             if (btnQuitGame != null) btnQuitGame.onClick.AddListener(OnClickQuitGame);
 
+            BindPopupControls();
+
             // 초기 팝업 비활성화
             if (loadGamePanel != null) loadGamePanel.SetActive(false);
             if (settingsPanel != null) settingsPanel.SetActive(false);
@@ -63,8 +66,8 @@ namespace FXOverdose.UI
             Debug.Log("[MainMenuController] 불러오기 팝업 오픈");
             if (loadGamePanel != null)
             {
+                BindLoadPanelControls();
                 loadGamePanel.SetActive(true);
-                // TODO: UI 담당자가 슬롯 버튼 생성 후 SaveLoadManager.Instance.PrepareLoadGame(slot) 호출 연결 필요
             }
         }
 
@@ -75,6 +78,79 @@ namespace FXOverdose.UI
             {
                 settingsPanel.SetActive(true);
             }
+        }
+
+        public void CloseLoadGamePanel()
+        {
+            if (loadGamePanel != null) loadGamePanel.SetActive(false);
+        }
+
+        public void CloseSettingsPanel()
+        {
+            PlayerPrefs.Save();
+            if (settingsPanel != null) settingsPanel.SetActive(false);
+        }
+
+        private void BindPopupControls()
+        {
+            BindLoadPanelControls();
+            BindSettingsPanelControls();
+        }
+
+        private void BindLoadPanelControls()
+        {
+            if (loadGamePanel == null) return;
+
+            Button close = loadGamePanel.transform.Find("ModalWindow/Btn_Close")?.GetComponent<Button>();
+            if (close != null)
+            {
+                close.onClick.RemoveAllListeners();
+                close.onClick.AddListener(CloseLoadGamePanel);
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                int slotIndex = i;
+                Transform slot = loadGamePanel.transform.Find($"ModalWindow/SaveSlot_{i + 1}");
+                if (slot == null) continue;
+
+                bool hasSave = SaveLoadManager.Instance != null && SaveLoadManager.Instance.HasSave(i);
+                Button button = slot.GetComponent<Button>();
+                if (button != null)
+                {
+                    button.onClick.RemoveAllListeners();
+                    button.interactable = hasSave;
+                    button.onClick.AddListener(() => OnClickLoadSlot(slotIndex));
+                }
+
+                TMP_Text state = slot.Find("State")?.GetComponent<TMP_Text>();
+                if (state != null) state.text = hasSave ? "DATA FOUND" : "EMPTY SLOT";
+            }
+        }
+
+        private void BindSettingsPanelControls()
+        {
+            if (settingsPanel == null) return;
+
+            Button close = settingsPanel.transform.Find("ModalWindow/Btn_Close")?.GetComponent<Button>();
+            if (close != null)
+            {
+                close.onClick.RemoveAllListeners();
+                close.onClick.AddListener(CloseSettingsPanel);
+            }
+
+            BindVolumeSlider(settingsPanel.transform, "ModalWindow/Slider_BGM", "BGMVolume");
+            BindVolumeSlider(settingsPanel.transform, "ModalWindow/Slider_SFX", "SFXVolume");
+        }
+
+        private static void BindVolumeSlider(Transform panel, string path, string key)
+        {
+            Slider slider = panel.Find(path)?.GetComponent<Slider>();
+            if (slider == null) return;
+
+            slider.onValueChanged.RemoveAllListeners();
+            slider.SetValueWithoutNotify(PlayerPrefs.GetFloat(key, 0.8f));
+            slider.onValueChanged.AddListener(value => PlayerPrefs.SetFloat(key, value));
         }
 
         public void OnClickLoadSlot(int slotIndex)

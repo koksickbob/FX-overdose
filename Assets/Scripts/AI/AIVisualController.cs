@@ -19,6 +19,9 @@ namespace FXOverdose.AI
 
     public class AIVisualController : MonoBehaviour
     {
+        private const float DialogueContentPadding = 52f;
+        private const float DialogueTailCenterOffset = 6f;
+
         public enum ExpressionState
         {
             Delighted = 0, // 대박 수익 (ROE > +20%)
@@ -131,10 +134,24 @@ namespace FXOverdose.AI
             dialogueText.fontSizeMin = dialogueFontSizeMin;
             dialogueText.fontSizeMax = Mathf.Max(dialogueFontSizeMin, dialogueFontSizeMax);
             dialogueText.fontStyle = FontStyles.Normal;
-            dialogueText.alignment = TextAlignmentOptions.TopLeft;
+            dialogueText.color = new Color32(207, 250, 254, 255); // UI 가이드 AI 대사색 #CFFAFE
+            dialogueText.alignment = TextAlignmentOptions.Center;
             dialogueText.textWrappingMode = TextWrappingModes.Normal;
             dialogueText.overflowMode = TextOverflowModes.Ellipsis;
-            dialogueText.margin = new Vector4(6f, 5f, 6f, 5f);
+
+            // 스프라이트의 투명 바깥 영역과 왼쪽 꼬리를 피해 실제 프레임 안쪽에 텍스트를 배치합니다.
+            RectTransform textRect = dialogueText.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(
+                DialogueContentPadding + DialogueTailCenterOffset,
+                DialogueContentPadding);
+            textRect.offsetMax = new Vector2(
+                -(DialogueContentPadding - DialogueTailCenterOffset),
+                -DialogueContentPadding);
+
+            // 보이는 프레임 기준 여백을 RectTransform에서 처리하므로 TMP 내부 여백은 중복 적용하지 않습니다.
+            dialogueText.margin = Vector4.zero;
         }
 
         private void OnDestroy()

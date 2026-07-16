@@ -842,9 +842,10 @@ namespace FXOverdose.EditorTools
             balloonRect.offsetMax = Vector2.zero;
 
             Image balloonImg = balloonGO.AddComponent<Image>();
-            Sprite balloonSprite = LoadSpriteAsset("Assets/Img/Generated_image_1-removebg-preview.png");
+            Sprite balloonSprite = LoadSpriteAsset("Assets/Img/UI/DialogueBalloonFramePixel.png");
             if (balloonSprite != null) balloonImg.sprite = balloonSprite;
-            else balloonImg.color = new Color(0.08f, 0.12f, 0.22f, 0.95f);
+            else balloonImg.color = new Color32(15, 23, 42, 242); // #0F172A
+            balloonImg.type = Image.Type.Sliced;
             balloonImg.preserveAspect = false;
             balloonImg.raycastTarget = false;
             balloonGO.SetActive(false);
@@ -853,8 +854,10 @@ namespace FXOverdose.EditorTools
             RectTransform textRect = textGO.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(45f, 25f);
-            textRect.offsetMax = new Vector2(-45f, -30f);
+            const float dialoguePadding = 52f;
+            const float dialogueTailCenterOffset = 6f;
+            textRect.offsetMin = new Vector2(dialoguePadding + dialogueTailCenterOffset, dialoguePadding);
+            textRect.offsetMax = new Vector2(-(dialoguePadding - dialogueTailCenterOffset), -dialoguePadding);
 
             TextMeshProUGUI dialogueText = textGO.AddComponent<TextMeshProUGUI>();
             TMP_FontAsset kFont = GetOrCreateKoreanFontAsset();
@@ -872,11 +875,11 @@ namespace FXOverdose.EditorTools
             dialogueText.fontSizeMin = 19;
             dialogueText.fontSizeMax = 27;
             dialogueText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
-            dialogueText.color = Color.white;
+            dialogueText.color = new Color32(207, 250, 254, 255); // #CFFAFE
             dialogueText.fontStyle = FontStyles.Normal;
-            dialogueText.alignment = TextAlignmentOptions.TopLeft;
+            dialogueText.alignment = TextAlignmentOptions.Center;
             dialogueText.textWrappingMode = TMPro.TextWrappingModes.Normal;
-            dialogueText.margin = new Vector4(6f, 5f, 6f, 5f);
+            dialogueText.margin = Vector4.zero;
             dialogueText.raycastTarget = false;
             dialogueText.text = "";
 

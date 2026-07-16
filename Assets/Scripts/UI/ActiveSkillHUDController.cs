@@ -388,17 +388,34 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 /// <summary>GameScene의 메인 Canvas에 액티브 스킬 HUD를 자동 설치합니다.</summary>
 public static class ActiveSkillHUDBootstrap
 {
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Install()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneCallback()
     {
-        if (SceneManager.GetActiveScene().name != "GameScene") return;
-        Canvas[] canvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include);
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+    }
+
+    private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name != "GameScene") return;
+        Install(scene);
+    }
+
+    private static void Install(Scene gameScene)
+    {
         Canvas target = null;
-        foreach (Canvas canvas in canvases)
+        foreach (GameObject root in gameScene.GetRootGameObjects())
         {
-            if (canvas.isRootCanvas && (target == null || canvas.sortingOrder < target.sortingOrder)) target = canvas;
+            Canvas[] canvases = root.GetComponentsInChildren<Canvas>(true);
+            foreach (Canvas canvas in canvases)
+            {
+                if (canvas.isRootCanvas && (target == null || canvas.sortingOrder < target.sortingOrder))
+                    target = canvas;
+            }
         }
+
         if (target == null || target.GetComponent<ActiveSkillHUDController>() != null) return;
         target.gameObject.AddComponent<ActiveSkillHUDController>();
+        Debug.Log("[ActiveSkillHUD] GameScene 메인 Canvas에 스킬 UI 복구 완료");
     }
 }

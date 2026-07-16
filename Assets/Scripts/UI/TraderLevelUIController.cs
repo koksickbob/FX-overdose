@@ -8,6 +8,11 @@ using FXOverdose.Trading;
 /// <summary>캐릭터 머리 위에 주인공 레벨과 경험치만 간결하게 표시합니다.</summary>
 public sealed class TraderLevelUIController : MonoBehaviour
 {
+    private const float BaseHudWidth = 280f;
+    private const float BaseHudHeight = 46f;
+    private const float HudWidthScale = 1.3f;
+    private const float VerticalExpansionPerSide = 0f;
+
     private TraderLevelSystem levelSystem;
     private TMP_Text levelText;
     private TMP_Text expText;
@@ -62,22 +67,36 @@ public sealed class TraderLevelUIController : MonoBehaviour
         Canvas parentCanvas = GetComponentInParent<Canvas>();
         Transform hudParent = parentCanvas != null ? parentCanvas.transform : transform;
 
-        // 프레임 스프라이트에 공통 UI와 같은 두께의 테두리가 이미 포함되어 있습니다.
-        // Unity Outline을 추가로 겹치면 이 UI만 선이 두 배로 두꺼워 보이므로 사용하지 않습니다.
         GameObject hud = new("CharacterLevelExpHUD", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         hud.transform.SetParent(hudParent, false);
 
         levelHudRect = hud.GetComponent<RectTransform>();
         levelHudRect.anchorMin = levelHudRect.anchorMax = new Vector2(1f, 1f);
         levelHudRect.pivot = new Vector2(0f, 1f);
-        levelHudRect.sizeDelta = new Vector2(280f, 46f);
-        levelHudRect.anchoredPosition = new Vector2(-310f, -65f);
+        levelHudRect.sizeDelta = new Vector2(
+            BaseHudWidth * HudWidthScale,
+            BaseHudHeight + VerticalExpansionPerSide * 2f);
+        levelHudRect.anchoredPosition = new Vector2(-394f, -65f + VerticalExpansionPerSide);
 
         Image frame = hud.GetComponent<Image>();
-        frame.sprite = Resources.Load<Sprite>("UI/CharacterLevelExpFrame");
-        // 캐릭터 머리 위 공간을 덜 차지하도록 원본보다 세로를 살짝 낮춰 표시합니다.
-        frame.preserveAspect = false;
+        // AI/USER 버튼과 동일한 배경색과 Unity Outline을 사용해 선 두께를 정확히 통일합니다.
+        frame.sprite = null;
+        frame.color = new Color32(20, 29, 51, 255); // #141D33
         frame.raycastTarget = false;
+
+        Outline frameOutline = hud.AddComponent<Outline>();
+        frameOutline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
+        frameOutline.effectDistance = UIStrokeStyle.EffectDistance;
+        frameOutline.useGraphicAlpha = true;
+
+        Image divider = CreateImage(hud.transform, "LevelDivider");
+        RectTransform dividerRect = divider.rectTransform;
+        dividerRect.anchorMin = new Vector2(0.28f, 0.12f);
+        dividerRect.anchorMax = new Vector2(0.28f, 0.88f);
+        dividerRect.pivot = new Vector2(0.5f, 0.5f);
+        dividerRect.anchoredPosition = Vector2.zero;
+        dividerRect.sizeDelta = new Vector2(UIStrokeStyle.Width, 0f);
+        divider.color = new Color32(6, 182, 212, 255);
 
         levelText = CreateText(hud.transform, "LevelText", "LV.1", 19f, TextAlignmentOptions.Center);
         SetRect(levelText.rectTransform, new Vector2(0.035f, 0.16f), new Vector2(0.27f, 0.84f));
@@ -116,17 +135,18 @@ public sealed class TraderLevelUIController : MonoBehaviour
 
         const float gap = 10f;
         const float edgeMargin = 10f;
-        const float hudWidth = 280f;
+        const float hudWidth = BaseHudWidth * HudWidthScale;
+        float hudHeight = Mathf.Max(1f, modeRect.rect.height) + VerticalExpansionPerSide * 2f;
         levelHudRect.anchorMin = levelHudRect.anchorMax = new Vector2(0.5f, 0.5f);
         levelHudRect.pivot = new Vector2(0f, 1f);
-        levelHudRect.sizeDelta = new Vector2(hudWidth, 46f);
+        levelHudRect.sizeDelta = new Vector2(hudWidth, hudHeight);
 
         RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
         float x = modeTopRight.x + gap;
         if (canvasRect != null)
             x = Mathf.Min(x, canvasRect.rect.xMax - hudWidth - edgeMargin);
 
-        levelHudRect.localPosition = new Vector3(x, modeTopRight.y, 0f);
+        levelHudRect.localPosition = new Vector3(x, modeTopRight.y + VerticalExpansionPerSide, 0f);
     }
 
     private void Refresh()
@@ -217,13 +237,37 @@ public sealed class TraderLevelUIController : MonoBehaviour
 /// <summary>GameScene의 캐릭터 이미지에 소형 레벨 HUD를 자동 부착합니다.</summary>
 public static class TraderLevelUIBootstrap
 {
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Install()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneCallback()
     {
-        if (SceneManager.GetActiveScene().name != "GameScene") return;
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+    }
 
-        GameObject character = GameObject.Find("ProtagonistCharacterImage");
+    private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name != "GameScene") return;
+        Install(scene);
+    }
+
+    private static void Install(Scene gameScene)
+    {
+        GameObject character = null;
+        foreach (GameObject root in gameScene.GetRootGameObjects())
+        {
+            Transform[] children = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in children)
+            {
+                if (child.name != "ProtagonistCharacterImage") continue;
+                character = child.gameObject;
+                break;
+            }
+
+            if (character != null) break;
+        }
+
         if (character == null || character.GetComponent<TraderLevelUIController>() != null) return;
         character.AddComponent<TraderLevelUIController>();
+        Debug.Log("[TraderLevelUI] GameScene 캐릭터에 레벨/EXP UI 복구 완료");
     }
 }
