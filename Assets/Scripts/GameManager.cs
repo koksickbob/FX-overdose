@@ -9,6 +9,8 @@ public class GameManager : MonoBehaviour
     public event Action OnFastForwardEnded;
     // 하루 종료(24:00) 시 발행하는 이벤트 (일일 정산 UI 표시용)
     public event Action OnDayEnded;
+    // 게임 오버 발생 시 발행하는 이벤트 (게임 오버 UI 표시용)
+    public static event Action<EndingType> OnGameOverEvent;
     //게임 진행 상태
     public enum GameState
     {
@@ -431,6 +433,10 @@ public class GameManager : MonoBehaviour
         currentState = GameState.GameOver;
 
         Debug.Log($"게임 종료: {ending}");
+        
+        // 게임 오버 이벤트 발생 (UI 연동)
+        OnGameOverEvent?.Invoke(ending);
+        
         if (FXOverdose.AI.LLM.LocalLLMService.Instance != null)
         {
             FXOverdose.AI.LLM.LocalLLMService.Instance.TriggerGameOverSpiralLoop(ending.ToString());
