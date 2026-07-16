@@ -450,7 +450,12 @@ public class TraderStatus : MonoBehaviour
             // [기획서 7장 엔딩 조건 부합] 멘탈이 0일 때 자금/증거금까지 소진(0 이하)된 경우에만 Overdose 배드엔딩 발동
             if (gameManager != null && GetTotalEquity() <= 0f)
             {
-                gameManager.TriggerOverdoseEnding();
+                // ⭐ [Overdose 보호] 35초의 연출/쉴드 시간 동안에는 총자산이 0 이하가 되어도 게임오버를 유예합니다.
+                bool isProtected = tradingController != null && tradingController.IsOverdoseProtected();
+                if (!isProtected)
+                {
+                    gameManager.TriggerOverdoseEnding();
+                }
             }
         }
         else if (currentMental <= 25f)

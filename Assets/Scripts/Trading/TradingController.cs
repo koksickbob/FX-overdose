@@ -1123,6 +1123,11 @@ namespace FXOverdose.Trading
         private float lastOverdoseTradeTime = -100f;
 
         // 멘헤라 AI 트레이더 폭주(Overdose 상태) 시 호출되는 고레버리지 뇌동매매 실행 함수
+        public bool IsOverdoseProtected()
+        {
+            return isOverdoseTradeActive && Time.time < overdoseProtectionEndTime - 1.0f;
+        }
+
         public void TriggerOverdoseTrade()
         {
             if (gameManager == null || marketEngine == null) return;
