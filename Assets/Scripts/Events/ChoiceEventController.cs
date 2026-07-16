@@ -365,8 +365,13 @@ namespace FXOverdose.Events
                 {
                     float trapBeam = playerChosenPos == TradingController.PositionType.Long ? -Mathf.Abs(option.OverrideBeamPercent) * 0.7f : Mathf.Abs(option.OverrideBeamPercent) * 0.7f;
                     marketEngine.OverrideMarketTrend(trapBeam, 150, true);
-                    if (traderStatus != null) traderStatus.ModifyMentalState(-20f);
-                    Debug.LogWarning($"[ChoiceEventController] ⚠️ 플레이어 직접 선택({playerChosenPos}) 트랩 발동! ({trapBeam:F2}%, 모드: {handlingMode}) 및 멘탈 페널티");
+                    float trapPenalty = -20f;
+                    if (TraderLevelSystem.Instance != null && TraderLevelSystem.Instance.ChartStudyLevel >= 9)
+                    {
+                        trapPenalty *= 0.5f;
+                    }
+                    if (traderStatus != null) traderStatus.ModifyMentalState(trapPenalty);
+                    Debug.LogWarning($"[ChoiceEventController] ⚠️ 플레이어 직접 선택({playerChosenPos}) 트랩 발동! ({trapBeam:F2}%, 모드: {handlingMode}) 및 멘탈 페널티({trapPenalty})");
                 }
             }
         }

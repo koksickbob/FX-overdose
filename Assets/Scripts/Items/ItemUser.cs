@@ -112,7 +112,20 @@ public class ItemUser : MonoBehaviour
         }
 
         Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
-        traderStatus.ChangeMental(item.EffectAmount, true);
+        
+        float finalEffectAmount = item.EffectAmount;
+        if (traderStatus.HasTraumaCureItemBuff)
+        {
+            finalEffectAmount *= 1.5f;
+            traderStatus.HasTraumaCureItemBuff = false;
+            
+            if (llmService == null) llmService = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            llmService?.RequestDialogue(FXOverdose.AI.LLM.EventCategory.ItemUsed, $"[트라우마 완치 후 아이템 효과 1.5배 증폭] 트라우마 극복 후 처음으로 {item.ItemName}을(를) 먹었어. 몸속 깊은 곳부터 약효가 1.5배로 퍼져나가는 쾌감을 느끼며, 이전과는 비교도 안 되는 엄청난 활력을 되찾은 기쁨을 표현해 줘.");
+            
+            Debug.Log($"[ItemUser] ✨ 트라우마 극복 아이템 1.5배 버프 적용! 원래: {item.EffectAmount} -> 버프: {finalEffectAmount}");
+        }
+
+        traderStatus.ChangeMental(finalEffectAmount, true);
 
         // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료
         if (traderStatus.IsLeverageAddicted && (item.ItemName.Contains("진정") || item.ItemName.Contains("수면") || item.EffectAmount >= 20f))
