@@ -10,6 +10,7 @@ public class VitalsValueUI : MonoBehaviour
     [SerializeField] private Slider mentalSlider;
     [SerializeField] private TMP_Text healthValueText;
     [SerializeField] private TMP_Text mentalValueText;
+    [SerializeField] private float mentalFloatTravelDistance = 60f;
 
     private void Start()
     {
@@ -54,7 +55,8 @@ public class VitalsValueUI : MonoBehaviour
         float duration = 2.0f;
         float elapsed = 0f;
         Vector2 startPos = rt.anchoredPosition;
-        Vector2 endPos = startPos + new Vector2(0, 60f);
+        // 멘탈 감소 수치와 원인이 위가 아닌 아래 방향으로 흐르며 사라집니다.
+        Vector2 endPos = startPos + new Vector2(0, -Mathf.Abs(mentalFloatTravelDistance));
         
         while (elapsed < duration)
         {

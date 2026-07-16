@@ -17,6 +17,23 @@ namespace FXOverdose.UI
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
 
+        /// <summary>런타임 타이틀 빌더가 생성한 UI를 컨트롤러에 연결합니다.</summary>
+        public void Configure(
+            Button newGame,
+            Button loadGame,
+            Button settings,
+            Button quitGame,
+            GameObject loadPanel,
+            GameObject settingsPopup)
+        {
+            btnNewGame = newGame;
+            btnLoadGame = loadGame;
+            btnSettings = settings;
+            btnQuitGame = quitGame;
+            loadGamePanel = loadPanel;
+            settingsPanel = settingsPopup;
+        }
+
         private void Start()
         {
             // 이벤트 리스너 연결
@@ -38,16 +55,7 @@ namespace FXOverdose.UI
                 SaveLoadManager.Instance.PrepareNewGame();
             }
             
-            // LoadingScene 로드 시도. 만약 LoadingScene이 비활성화/빌드 제외 상태면 Fallback 작동
-            try
-            {
-                SceneManager.LoadScene("LoadingScene");
-            }
-            catch
-            {
-                Debug.LogWarning("[MainMenuController] LoadingScene을 찾을 수 없으므로 GameScene으로 바로 진입합니다.");
-                SceneManager.LoadScene("GameScene");
-            }
+            LoadGameFlow();
         }
 
         public void OnClickLoadGame()
@@ -67,6 +75,30 @@ namespace FXOverdose.UI
             {
                 settingsPanel.SetActive(true);
             }
+        }
+
+        public void OnClickLoadSlot(int slotIndex)
+        {
+            if (SaveLoadManager.Instance == null || !SaveLoadManager.Instance.HasSave(slotIndex))
+            {
+                Debug.LogWarning($"[MainMenuController] 슬롯 {slotIndex + 1}에 저장 데이터가 없습니다.");
+                return;
+            }
+
+            SaveLoadManager.Instance.PrepareLoadGame(slotIndex);
+            LoadGameFlow();
+        }
+
+        private static void LoadGameFlow()
+        {
+            if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
+            {
+                SceneManager.LoadScene("LoadingScene");
+                return;
+            }
+
+            Debug.LogWarning("[MainMenuController] LoadingScene이 아직 없어 GameScene으로 바로 진입합니다.");
+            SceneManager.LoadScene("GameScene");
         }
 
         public void OnClickQuitGame()

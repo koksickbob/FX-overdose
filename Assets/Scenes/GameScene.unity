@@ -874,7 +874,9 @@ MonoBehaviour:
   aiBrain: {fileID: 33821701}
   llmService: {fileID: 0}
   characterAnimator: {fileID: 0}
+  characterImage: {fileID: 0}
   dangerAuraEffect: {fileID: 0}
+  contextualEmotionDuration: 4
   dialogueBalloonPanel: {fileID: 1389656952}
   dialogueText: {fileID: 361591868}
   dialogueFont: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
@@ -882,7 +884,7 @@ MonoBehaviour:
   dialogueFontSizeMax: 27
   typewriterCharDelay: 0.03
   balloonDisplayDuration: 8
-  currentExpression: 1
+  currentEmotion: 5
 --- !u!114 &33821701
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1701,7 +1703,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.515, y: 0.06}
   m_AnchorMax: {x: 0.775, y: 0.7}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: -33, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &203193170
@@ -6518,6 +6520,8 @@ MonoBehaviour:
   settingsButton: {fileID: 597823312}
   gameManager: {fileID: 33821695}
   font: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
+  bgmVolumeSlider: {fileID: 0}
+  sfxVolumeSlider: {fileID: 0}
 --- !u!114 &597823312
 MonoBehaviour:
   m_ObjectHideFlags: 0

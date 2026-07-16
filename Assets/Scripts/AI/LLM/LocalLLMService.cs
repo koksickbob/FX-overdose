@@ -48,6 +48,8 @@ namespace FXOverdose.AI.LLM
         public LLMExecutionMode ActiveRuntimeMode => activeRuntimeMode;
         public bool IsGenerating => isGenerating;
         public bool IsLLMReady => isLLMReady;
+        public bool IsStartupSequenceReady { get; private set; }
+        public static bool DeferGameStartToLoadingScreen { get; set; }
 
         private static LocalLLMService _instance;
         public static LocalLLMService Instance
@@ -108,6 +110,7 @@ namespace FXOverdose.AI.LLM
         private IEnumerator InitializeAndWarmUpLLMCoroutine()
         {
             isLLMReady = false;
+            IsStartupSequenceReady = false;
             Debug.Log($"[LocalLLMService] 🚀 LLM 서비스 초기화 시작. (설정 모드: {executionMode})");
 
             // 로딩 기간(5~6초) 동안 차트 및 AI 트레이딩이 시작되지 않도록 대기
@@ -163,17 +166,21 @@ namespace FXOverdose.AI.LLM
                 isLLMReady = true;
             }
 
-            // 예열 완료 후 첫 개장 대사 출력
-            RequestDialogue(EventCategory.GameStartup, "게임 시작 및 시장 개장");
-
-            // 💡 개장 대사를 플레이어가 충분히 읽을 수 있도록 3.0초 여유를 준 뒤 차트와 AI 거래를 본격 시작
-            yield return new WaitForSeconds(3.0f);
+            // LLM 예열 자체는 끝났지만 로딩 화면이 페이드 아웃될 때까지 첫 대사는 보류합니다.
+            IsStartupSequenceReady = true;
+            while (DeferGameStartToLoadingScreen)
+            {
+                yield return null;
+            }
 
             var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (gm != null) gm.FinishLoadingAndStartPlaying();
 
             var marketEngine = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>(FindObjectsInactive.Include);
             if (marketEngine != null) marketEngine.OpenMarketAfterLoading();
+
+            // 화면 전환과 0.5초 프리즈가 모두 끝난 시점에 첫 개장 대사를 요청합니다.
+            RequestDialogue(EventCategory.GameStartup, "게임 시작 및 시장 개장");
 
             // 💡 [2번 솔루션: 상태 스냅샷 주기적 종합 보고 코루틴 가동]
             StartCoroutine(PeriodicStateSnapshotCoroutine());

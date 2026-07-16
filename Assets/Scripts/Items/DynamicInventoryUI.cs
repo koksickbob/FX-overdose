@@ -130,7 +130,11 @@ public class DynamicInventoryUI : MonoBehaviour
         button.targetGraphic = frame;
 
         Image icon = CreateImage(slot.transform, "ItemIcon");
-        SetAnchors(icon.rectTransform, new Vector2(0.14f, 0.19f), new Vector2(0.86f, 0.91f), Vector2.zero, Vector2.zero);
+        // 슬롯 프레임 정중앙을 기준으로 상하좌우 여백을 동일하게 둡니다.
+        // 기존 Y 0.19~0.91 영역은 중심이 위로 치우쳐 에너지 드링크 아래 여백이 더 크게 보였습니다.
+        SetAnchors(icon.rectTransform, new Vector2(0.14f, 0.14f), new Vector2(0.86f, 0.86f), Vector2.zero, Vector2.zero);
+        icon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        icon.rectTransform.anchoredPosition = Vector2.zero;
         icon.preserveAspect = true;
         icon.raycastTarget = false;
 

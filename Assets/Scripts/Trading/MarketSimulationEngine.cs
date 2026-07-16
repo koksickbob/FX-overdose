@@ -52,6 +52,7 @@ namespace FXOverdose.Trading
 
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
+        public bool IsDataPrepared { get; private set; } = false;
         public bool IsFastForwarding => gameManager != null && gameManager.IsFastForwardingTime;
         public bool IsOverridingTrend => isExternalEventOverride || isOverdoseTrapOverride || (currentSignalPhase != SignalPhase.None && currentSignalPhase != SignalPhase.Cooldown);
 
@@ -173,6 +174,7 @@ namespace FXOverdose.Trading
         public void ResetEngine(float startPrice)
         {
             EnsureCandleHistoriesInitialized();
+            IsDataPrepared = false;
             IsMarketOpen = false;
             currentPrice = startPrice;
             ouCenterPrice = startPrice;
@@ -200,6 +202,7 @@ namespace FXOverdose.Trading
 
             // 첫 실시간 1분봉 열기 (과거 캔들의 마지막 종가와 정확히 맞닿아 갭 없이 연결)
             StartNewLiveCandle(currentPrice);
+            IsDataPrepared = true;
         }
 
         private void Update()
