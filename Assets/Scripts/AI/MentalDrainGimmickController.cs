@@ -154,7 +154,7 @@ namespace FXOverdose.AI
                 return;
             }
 
-            float dt = Time.deltaTime;
+            float dt = Time.unscaledDeltaTime;
             EvaluateUnrealizedPnLErosion(dt);
             EvaluateLosingStreakCountdown(dt);
             EvaluateMissedOpportunityRegret(dt);

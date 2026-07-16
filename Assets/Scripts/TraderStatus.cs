@@ -445,6 +445,14 @@ public class TraderStatus : MonoBehaviour
             }
         }
 
+        if (lastTrackedMentalState == MentalState.Overdose && currentMentalState != MentalState.Overdose)
+        {
+            if (gameManager != null)
+            {
+                gameManager.ResumePreservedFastForward();
+            }
+        }
+
         lastTrackedMentalState = currentMentalState;
     }
 

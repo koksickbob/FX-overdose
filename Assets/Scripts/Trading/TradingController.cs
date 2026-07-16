@@ -888,6 +888,12 @@ namespace FXOverdose.Trading
                 return;
             }
 
+            // ⭐ [Overdose 보호] 오버도즈 폭주 상태일 때는 플레이어가 대처할 수 있도록 35초의 연출/쉴드 시간을 보장하며, 그 전에는 지하실로 처박혀도 청산을 유예함
+            if (isOverdoseTradeActive && Time.time < overdoseProtectionEndTime - 1.0f)
+            {
+                return;
+            }
+
             bool isLiquidated = false;
             if (currentPosition == PositionType.Long && currentPrice <= liquidationPrice)
             {
@@ -955,6 +961,9 @@ namespace FXOverdose.Trading
         public void TriggerOverdoseTrade()
         {
             if (gameManager == null || marketEngine == null) return;
+            
+            // ⭐ [고속 스킵 일시정지] 오버도즈 골든타임 보장을 위해 진행 중인 고속 스킵 중단
+            gameManager.PauseFastForwardForOverdose();
 
             // ⭐ [이벤트 포지션 쉴드] 돌발 이벤트 등으로 전략적 포지션을 개설한 직후에는 AI의 Overdose 뇌동매매 개입을 차단!
             if (Time.time < eventProtectionEndTime && !isOverdoseTradeActive)

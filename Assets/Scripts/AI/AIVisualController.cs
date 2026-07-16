@@ -61,6 +61,7 @@ namespace FXOverdose.AI
         [SerializeField] private ExpressionState currentExpression = ExpressionState.Confident;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
+        private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
 
         // 우선순위 큐 및 쿨타임/Lock 관리 제어부
         private Queue<DialogueRequest> dialogueQueue = new Queue<DialogueRequest>();
@@ -240,6 +241,28 @@ namespace FXOverdose.AI
         {
             if (string.IsNullOrEmpty(text) || dialogueBalloonPanel == null || dialogueText == null) return;
 
+            // 🚀 [고속 스킵 중 대사 제한] 시간이 빠르게 스킵 중일 때는 중요(High) 대사만 수용하고, 나머지는 무시하여 밀림 방지
+            var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (gm != null && gm.IsFastForwardingTime && priority != DialoguePriority.High)
+            {
+                return;
+            }
+
+            // 🚀 [스킬업 광클 대사 큐 정리] 새로운 스킬업 대사가 들어오면 큐에 밀려있던 예전 스킬업 대사는 비움
+            if (category == EventCategory.SkillUpgraded)
+            {
+                var newQueue = new Queue<DialogueRequest>();
+                while (dialogueQueue.Count > 0)
+                {
+                    var req = dialogueQueue.Dequeue();
+                    if (req.Category != EventCategory.SkillUpgraded)
+                    {
+                        newQueue.Enqueue(req);
+                    }
+                }
+                dialogueQueue = newQueue;
+            }
+
             // 1. 카테고리별 글로벌 쿨타임 검사 (High 우선순위는 쿨타임 무시)
             if (priority != DialoguePriority.High && category != EventCategory.General)
             {
@@ -258,14 +281,20 @@ namespace FXOverdose.AI
             if (priority == DialoguePriority.High)
             {
                 // 💡 [게임오버 연쇄 대사 보호] 게임오버 상태에서는 말풍선이 출력/Lock 중일 때 이전 연쇄 대사를 중간에 끊지 않고 큐에 적재하여 순차적으로 완벽히 읽을 수 있게 보장!
-                var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
                 if (gm != null && gm.CurrentState == GameManager.GameState.GameOver && (isBalloonLocked || (dialogueBalloonPanel != null && dialogueBalloonPanel.activeSelf)))
                 {
                     dialogueQueue.Enqueue(new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time });
                     return;
                 }
 
-                // 일반 High는 즉시 현재 진행 중인 대사를 멈추고 가로채기
+                // ⭐ [대사 보호] 현재 출력 중인 대사가 이미 High 우선순위이고 말풍선이 활성화되어 있다면, 덮어쓰지 않고 큐에 저장해 모두 출력 보장
+                if (currentDisplayPriority == DialoguePriority.High && (isBalloonLocked || (dialogueBalloonPanel != null && dialogueBalloonPanel.activeSelf)))
+                {
+                    dialogueQueue.Enqueue(new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time });
+                    return;
+                }
+
+                // 일반 High는 즉시 현재 진행 중인 대사(Low/Normal)를 멈추고 가로채기
                 StartOrPreemptDialogue(text, priority, category);
                 return;
             }
@@ -321,6 +350,7 @@ namespace FXOverdose.AI
 
             ApplyDialogueTextStyle();
             dialogueBalloonPanel.SetActive(true);
+            currentDisplayPriority = priority;
 
             // 카테고리 출력 타임스탬프 기록
             lastCategoryOutputTimes[category] = Time.time;
