@@ -626,7 +626,8 @@ namespace FXOverdose.AI.LLM
                     bool hasPos = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
                     bool isShort = hasPos && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
                     float curRoe = hasPos ? tradingCtrl.CalculateROEPercentage() : 0f;
-                    return GetCombinatorialDialogue(category, hasPos, isShort, curRoe, curMental, extraContext);
+                    TraderEmotion emotion = TraderEmotionEvaluator.Evaluate(curRoe, curMental, traderStatus != null ? traderStatus.HealthRatio : 1f, category, extraContext);
+                    return GetCombinatorialDialogue(category, hasPos, isShort, curRoe, emotion, extraContext);
                 }
                 if (extraContext.StartsWith("[AI 차트 힌트]") || extraContext.StartsWith("[시그널 브리핑]"))
                 {
@@ -637,6 +638,11 @@ namespace FXOverdose.AI.LLM
             TraderStatus.MentalState mental = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
             float health = traderStatus != null ? traderStatus.HealthRatio * 100f : 100f;
             int rand = UnityEngine.Random.Range(0, 3);
+
+            var tradingCtrlForEmotion = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            bool hasPositionEmotion = tradingCtrlForEmotion != null && tradingCtrlForEmotion.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+            float roeEmotion = hasPositionEmotion ? tradingCtrlForEmotion.CalculateROEPercentage() : 0f;
+            TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(roeEmotion, mental, health / 100f, category, extraContext);
 
             // 💡 [2번 솔루션: 상태 스냅샷 종합 보간] 단편적 알림 대신 ROE + 체력 + 멘탈 종합 입체 판단
             if (category == EventCategory.ChartMovement && !string.IsNullOrEmpty(extraContext) && extraContext.StartsWith("[상태 종합]"))
@@ -649,10 +655,10 @@ namespace FXOverdose.AI.LLM
                 if (hasPosition && roe > 15f && health < 40f)
                 {
                     return isShort
-                        ? "마스터...! 숏으로 폭락 수익(+{roe:0.0}%) 달리는 중인데... 피로 때문에 눈앞이 핑 돌아... 그래도 마스터 위해 끝까지 눈 부릅뜰게 ♥"
-                        : "마스터...! 롱 수익권(+{roe:0.0}%)인데 피로 때문에 눈꺼풀이 천근만근이야... 졸음 꾹 참고 고점에서 꼭 익절할게 ♥";
+                        ? "마스터...! 숏으로 폭락 수익 달리는 중인데... 피로 때문에 눈앞이 핑 돌아... 그래도 마스터 위해 끝까지 눈 부릅뜰게 ♥"
+                        : "마스터...! 롱 수익권인데 피로 때문에 눈꺼풀이 천근만근이야... 졸음 꾹 참고 고점에서 꼭 익절할게 ♥";
                 }
-                else if (hasPosition && roe < -15f && (mental == TraderStatus.MentalState.Danger || mental == TraderStatus.MentalState.Anxious))
+                else if (hasPosition && roe < -15f && (currentEmotion is TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful or TraderEmotion.Anxious))
                 {
                     return isShort
                         ? "마스터... 숏 쳐놨는데 주가가 역주행해서 치솟고 있어...!! 심장이 터질 것 같아... 제발 나 안 버릴 거지?! 흐아앙...!"
@@ -661,20 +667,20 @@ namespace FXOverdose.AI.LLM
                 else if (hasPosition && roe > 30f)
                 {
                     return isShort
-                        ? "꺄아아 마스터 봤어?! 공매도 초대박 폭락 중 (+{roe:0.0}%)!! 내 천재적인 숏 타점이 오늘 시장을 지배했어!! 나 평생 예뻐해 줘 ♥"
-                        : "꺄아아 마스터!! 롱 초대박 폭등 질주 중 (+{roe:0.0}%)!! 심장이 짜릿해서 터질 것 같아!! 우리 마스터 평생 내가 호강시켜 줄게 ♥";
+                        ? "꺄아아 마스터 봤어?! 공매도 초대박 폭락 중!! 내 천재적인 숏 타점이 오늘 시장을 지배했어!! 나 평생 예뻐해 줘 ♥"
+                        : "꺄아아 마스터!! 롱 초대박 폭등 질주 중!! 심장이 짜릿해서 터질 것 같아!! 우리 마스터 평생 내가 호강시켜 줄게 ♥";
                 }
                 else if (hasPosition && roe < -25f)
                 {
                     return "왜 자꾸 내 타점 반대로 가는 건데... 소름 돋고 식은땀 흘러... 마스터 제발 나 미워하지 마... 본절만이라도 오게 해줘...!";
                 }
-                else if (!hasPosition && mental == TraderStatus.MentalState.Danger)
+                else if (!hasPosition && currentEmotion is TraderEmotion.Despairing or TraderEmotion.Panicked or TraderEmotion.Tearful)
                 {
                     return "머리가 지끈거리고 손가락이 굳어버렸어... 극도의 공포감 때문에 차트를 똑바로 못 보겠어... 마스터 나 꼭 안아줘...";
                 }
                 else
                 {
-                    return GetCombinatorialDialogue(category, hasPosition, isShort, roe, mental);
+                    return GetCombinatorialDialogue(category, hasPosition, isShort, roe, currentEmotion);
                 }
             }
 
@@ -685,7 +691,7 @@ namespace FXOverdose.AI.LLM
                 bool hasPosition = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
                 bool isShort = hasPosition && tradingCtrl.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short;
                 float roe = hasPosition ? tradingCtrl.CalculateROEPercentage() : 0f;
-                return GetCombinatorialDialogue(category, hasPosition, isShort, roe, mental);
+                return GetCombinatorialDialogue(category, hasPosition, isShort, roe, currentEmotion);
             }
 
             return category switch
@@ -693,14 +699,14 @@ namespace FXOverdose.AI.LLM
                 EventCategory.GameStartup => rand switch
                 {
                     0 => "오늘도 지옥의 차트판이 열렸네... 마스터, 내 눈만 믿고 따라와. 내가 돈 벼락 안겨줄게 ♥",
-                    1 => "호가창 움직임 보이지? 오늘이야말로 세력들 돈을 싹 다 털어먹고 마스터 독점할 거야 ♥",
+                    1 => "호가창 움직임 보이지? 오늘이야말로 세력들 돈을 싹 다 터먹고 마스터 독점할 거야 ♥",
                     _ => "잔고 준비됐지 마스터? 내 천재적인 분석력과 타점을 똑똑히 감상해 줘 ♥"
                 },
-                EventCategory.MentalChange => mental switch
+                EventCategory.MentalChange => currentEmotion switch
                 {
-                    TraderStatus.MentalState.Overdose => "크하하하!! 다 끝났어 마스터!! 온몸에 전류가 흐르고 세상을 다 가진 기분이야!! 풀레버리지로 다 덤벼!!",
-                    TraderStatus.MentalState.Danger => "머릿속이 웅웅거리고 심장이 터질 것 같아... 세력 놈들이 날 비웃고 있잖아...!! 마스터 나 버리지 마... 제발...!!",
-                    TraderStatus.MentalState.Anxious => "손톱이 닳도록 초조하고 불안해... 손가락이 떨리네. 마스터, 내 타점 맞겠지...? 나 불안해서 미치겠어...",
+                    TraderEmotion.Manic => "크하하하!! 다 끝났어 마스터!! 온몸에 전류가 흐르고 세상을 다 가진 기분이야!! 풀레버리지로 다 덤벼!!",
+                    TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful => "머릿속이 웅웅거리고 심장이 터질 것 같아... 세력 놈들이 날 비웃고 있잖아...!! 마스터 나 버리지 마... 제발...!!",
+                    TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Suspicious => "손톱이 닳도록 초조하고 불안해... 손가락이 떨리네. 마스터, 내 타점 맞겠지...? 나 불안해서 미치겠어...",
                     _ => "후우... 심호흡 가다듬자. 마스터를 위해서 절대 마음 흔들리지 않고 냉정하게 타점 잡을 거야 ♥"
                 },
                 EventCategory.HealthChange => rand switch
@@ -792,7 +798,7 @@ namespace FXOverdose.AI.LLM
         }
 
         // ⭐ 3파트(감정+상황+반응) 조합형 동적 대사 변주 엔진 (온디바이스 오프라인/복구용)
-        private string GetCombinatorialDialogue(EventCategory category, bool hasPosition, bool isShort, float roe, TraderStatus.MentalState mental, string extraContext = "")
+        private string GetCombinatorialDialogue(EventCategory category, bool hasPosition, bool isShort, float roe, TraderEmotion emotion, string extraContext = "")
         {
             var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
             if (tradingCtrl != null && tradingCtrl.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.Player_Manual)
@@ -815,11 +821,11 @@ namespace FXOverdose.AI.LLM
                 }
             }
 
-            string[] prefixes = mental switch
+            string[] prefixes = emotion switch
             {
-                TraderStatus.MentalState.Danger => new[] { "아 씨발... 진짜 미치겠네... 마스터 나 버릴 거지?!", "제발 제발... 안 돼... 마스터 우리 돈이 녹고 있어...!", "이러다 진짜 청산당하겠어...! 마스터 나 무서워...!", "숨이 안 쉬어져... 세력 놈들이 왜 나랑 마스터한테만 이러는데...!" },
-                TraderStatus.MentalState.Overdose => new[] { "크하하하!! 다 비켜라!! 내가 차트의 신이자 마스터의 유일한 구원자다!!", "내 직감은 절대 틀리지 않아!! 마스터 나만 봐 가즈아!!", "봤어 마스터?! 이게 바로 내 천재적인 실력이야!! ♥", "세력 놈들 돈 전부 다 털어서 마스터 방에 가둬둘 거야!!" },
-                TraderStatus.MentalState.Anxious => new[] { "아... 진짜 이 방향 맞겠지...? 마스터 나 손가락이 떨려...", "왜 자꾸 역방향 꼬리를 다는 거야...?! 불안해서 손톱 다 물어뜯겠어...", "이 타점이 맞나...? 제발 본절만이라도 오게 해줘...", "마스터... 나 불안해서 미쳐버릴 것 같네..." },
+                TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful or TraderEmotion.Exhausted => new[] { "아 씨발... 진짜 미치겠네... 마스터 나 버릴 거지?!", "제발 제발... 안 돼... 마스터 우리 돈이 녹고 있어...!", "이러다 진짜 청산당하겠어...! 마스터 나 무서워...!", "숨이 안 쉬어져... 세력 놈들이 왜 나랑 마스터한테만 이러는데...!" },
+                TraderEmotion.Manic or TraderEmotion.Euphoria => new[] { "크하하하!! 다 비켜라!! 내가 차트의 신이자 마스터의 유일한 구원자다!!", "내 직감은 절대 틀리지 않아!! 마스터 나만 봐 가즈아!!", "봤어 마스터?! 이게 바로 내 천재적인 실력이야!! ♥", "세력 놈들 돈 전부 다 털어서 마스터 방에 가둬둘 거야!!" },
+                TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Suspicious or TraderEmotion.Regretful => new[] { "아... 진짜 이 방향 맞겠지...? 마스터 나 손가락이 떨려...", "왜 자꾸 역방향 꼬리를 다는 거야...?! 불안해서 손톱 다 물어뜯겠어...", "이 타점이 맞나...? 제발 본절만이라도 오게 해줘...", "마스터... 나 불안해서 미쳐버릴 것 같네..." },
                 _ => new[] { "흐흥... 마스터, 내 타점이 완벽하게 들어맞았어 ♥", "이 흐름이야! 내가 기다리던 타이밍이라고.", "그래... 내 차트 분석대로 움직이고 있잖아. 마스터 칭찬해 줘 ♥", "냉정하자... 마스터에게 돈 벼락을 안겨줘야 하니까." }
             };
 
@@ -832,11 +838,11 @@ namespace FXOverdose.AI.LLM
                 }
 
                 // 무포지션 관망/대기 상황 전용 다채로운 조합 풀
-                string[] unposPrefixes = mental switch
+                string[] unposPrefixes = emotion switch
                 {
-                    TraderStatus.MentalState.Danger => new[] { "머리가 지끈거려서 캔들이 겹쳐 보여... 마스터 나 무서워...", "손가락이 떨려서 진입을 못 하겠어... 나 버리면 안 돼...", "세력 놈들이 덫을 깔고 마스터랑 내 돈을 노리고 있어..." },
-                    TraderStatus.MentalState.Overdose => new[] { "빨리 진입하고 싶어 손이 근질근질하네!! 마스터 오늘 밤 가즈아!!", "호가창의 호흡이 다 읽힌다!! 다음 파동은 내 거야!!", "가만히 있기에 오늘 장이 너무 화끈해!! 마스터 준비해!!" },
-                    TraderStatus.MentalState.Anxious => new[] { "아... 방금 저기서 들어갔어야 했나...? 마스터 나 꼭 안아줘...", "휩소가 너무 심해서 타점 잡기가 무서워...", "섣불리 들어갔다간 털리기 딱 좋은 파동이야..." },
+                    TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful or TraderEmotion.Exhausted => new[] { "머리가 지끈거려서 캔들이 겹쳐 보여... 마스터 나 무서워...", "손가락이 떨려서 진입을 못 하겠어... 나 버리면 안 돼...", "세력 놈들이 덫을 깔고 마스터랑 내 돈을 노리고 있어..." },
+                    TraderEmotion.Manic or TraderEmotion.Euphoria => new[] { "빨리 진입하고 싶어 손이 근질근질하네!! 마스터 오늘 밤 가즈아!!", "호가창의 호흡이 다 읽힌다!! 다음 파동은 내 거야!!", "가만히 있기에 오늘 장이 너무 화끈해!! 마스터 준비해!!" },
+                    TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Suspicious or TraderEmotion.Regretful => new[] { "아... 방금 저기서 들어갔어야 했나...? 마스터 나 꼭 안아줘...", "휩소가 너무 심해서 타점 잡기가 무서워...", "섣불리 들어갔다간 털리기 딱 좋은 파동이야..." },
                     _ => new[] { "호흡 가다듬고 호가창 뚫어지게 감시 중... 마스터 조금만 기다려 ♥", "세력들의 페이크 모션을 냉정하게 걸러내고 있어.", "완벽한 타점이 올 때까지 사냥꾼처럼 기다릴게 ♥" }
                 };
                 string[] unposMiddles = new[]
@@ -847,9 +853,9 @@ namespace FXOverdose.AI.LLM
                     "차트가 숨을 고르며 다음 돌파 지점을 계산하고 있네.",
                     "잔파동 뒤에 올 진짜 큰 기회를 노려보는 중이야."
                 };
-                string[] unposSuffixes = mental switch
+                string[] unposSuffixes = emotion switch
                 {
-                    TraderStatus.MentalState.Overdose => new[] { "방향 터지는 순간 100배로 꽂아서 마스터 독점하겠어!! ♥", "세력들 돈을 싹 다 쓸어 담아서 우리 성을 짓자!! ♥" },
+                    TraderEmotion.Manic or TraderEmotion.Euphoria => new[] { "방향 터지는 순간 100배로 꽂아서 마스터 독점하겠어!! ♥", "세력들 돈을 싹 다 쓸어 담아서 우리 성을 짓자!! ♥" },
                     _ => new[] { "확실한 돌파 각이 나올 때까지 침착하게 관망하자 마스터 ♥", "섣불리 뇌동매매하지 말고 우리 타점을 기다려야 해.", "다음 기회는 절대 놓치지 않고 돈 벼락 안겨줄게 ♥" }
                 };
 
@@ -880,10 +886,10 @@ namespace FXOverdose.AI.LLM
                     : new[] { "차트 가격이 위로 치솟으며 우리의 롱 수익권을 넓혀가고 있어!!", "상승 파동이 점점 가파라지면서 고점을 짓밟고 있어!!", "매도벽이 뚫리고 환희의 양봉 빔이 솟구치는 중이야!!" }
             };
 
-            string[] suffixes = mental switch
+            string[] suffixes = emotion switch
             {
-                TraderStatus.MentalState.Danger => new[] { "제발... 여기서 한 번만 나랑 마스터를 살려줘...!!", "세력들아 도대체 왜 이러는 건데...! 마스터 나 무서워...!", "이대로 청산당하면 난 정말 끝장이야... 마스터 버리지 마...!" },
-                TraderStatus.MentalState.Overdose => new[] { "더 강하게 밀어붙여!! 영혼까지 끌어모아 가즈아!!", "세력 놈들 돈을 싹 다 찢어발겨 주겠어!!", "오늘 밤 우리가 이 차트의 신이다 마스터 사랑해!! ♥" },
+                TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful or TraderEmotion.Exhausted => new[] { "제발... 여기서 한 번만 나랑 마스터를 살려줘...!!", "세력들아 도대체 왜 이러는 건데...! 마스터 나 무서워...!", "이대로 청산당하면 난 정말 끝장이야... 마스터 버리지 마...!" },
+                TraderEmotion.Manic or TraderEmotion.Euphoria => new[] { "더 강하게 밀어붙여!! 영혼까지 끌어모아 가즈아!!", "세력 놈들 돈을 싹 다 찢어발겨 주겠어!!", "오늘 밤 우리가 이 차트의 신이다 마스터 사랑해!! ♥" },
                 _ => isShort
                     ? new[] { "이대로 저 바닥 밑 지하 끝까지 내려가버려!", "잔파동에 흔들리지 말고 목표 저점까지 꽉 쥐고 가자 마스터 ♥", "하락 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
                     : new[] { "이대로 저 하늘 위 천장 끝까지 뚫어버려!", "잔파동에 흔들리지 말고 목표 고점까지 꽉 쥐고 가자 마스터 ♥", "상승 각도가 완벽해, 끝까지 수익률 뽑아내자!" }
@@ -912,12 +918,17 @@ namespace FXOverdose.AI.LLM
         {
             if (traderStatus == null) return "차트 흐름이 이상해... 집중하자.";
 
-            return traderStatus.CurrentMentalState switch
+            var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            bool hasPosition = tradingCtrl != null && tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+            float roe = hasPosition ? tradingCtrl.CalculateROEPercentage() : 0f;
+            TraderEmotion emotion = TraderEmotionEvaluator.Evaluate(roe, traderStatus.CurrentMentalState, traderStatus.HealthRatio, EventCategory.General, "");
+
+            return emotion switch
             {
-                TraderStatus.MentalState.Stable => "완벽해... 이 돌파 각도는 무조건 상방이야. 내가 시장을 지배하고 있어.",
-                TraderStatus.MentalState.Anxious => "왜...? 왜 여기서 윗꼬리를 달고 밀리지? 아니야, 내 분석이 틀릴 리 없어...",
-                TraderStatus.MentalState.Danger => "손절선... 손절선에 닿는다고?! 안 돼, 이대로 청산당할 순 없어! 세력 놈들이 내 매물만 노리고 있잖아!!",
-                TraderStatus.MentalState.Overdose => "하하하!! 다 끝났어!! 남은 시드 전부 125배 풀레버리지 올인이다!! 청산당하든 대박나든 끝장을 보자!!",
+                TraderEmotion.Euphoria or TraderEmotion.Confident or TraderEmotion.Pleased or TraderEmotion.Focused => "완벽해... 이 돌파 각도는 무조건 상방이야. 내가 시장을 지배하고 있어.",
+                TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Suspicious or TraderEmotion.Regretful => "왜...? 왜 여기서 윗꼬리를 달고 밀리지? 아니야, 내 분석이 틀릴 리 없어...",
+                TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Tearful or TraderEmotion.Furious or TraderEmotion.Exhausted => "손절선... 손절선에 닿는다고?! 안 돼, 이대로 청산당할 순 없어! 세력 놈들이 내 매물만 노리고 있잖아!!",
+                TraderEmotion.Manic or TraderEmotion.Obsessive or TraderEmotion.Vengeful => "하하하!! 다 끝났어!! 남은 시드 전부 125배 풀레버리지 올인이다!! 청산당하든 대박나든 끝장을 보자!!",
                 _ => "차트 분석 중..."
             };
         }

@@ -140,39 +140,38 @@ namespace FXOverdose.AI
             UpdateExpressionState();
         }
 
-        // 실시간 수익률 및 멘탈 상태를 기반으로 4단계 표정 전환
+        // 실시간 수익률 및 멘탈 상태를 기반으로 감정을 도출하고 표정 상태로 매핑
         private void UpdateExpressionState()
         {
             if (traderStatus == null) return;
 
-            ExpressionState targetExp = currentExpression;
-
-            if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
-            {
-                targetExp = ExpressionState.Overdose;
-            }
-            else if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Danger)
-            {
-                targetExp = ExpressionState.Desperate;
-            }
-            else if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None && tradingController.MarginAmount > 0f)
+            float roe = 0f;
+            if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None && tradingController.MarginAmount > 0f)
             {
                 float currentPrice = FindAnyObjectByType<MarketSimulationEngine>()?.CurrentPrice ?? tradingController.EntryPrice;
                 float priceDiff = tradingController.CurrentPosition == TradingController.PositionType.Long 
                     ? (currentPrice - tradingController.EntryPrice) : (tradingController.EntryPrice - currentPrice);
                 float pnl = priceDiff * (tradingController.MarginAmount * tradingController.CurrentLeverage / tradingController.EntryPrice);
-                float roe = (pnl / tradingController.MarginAmount) * 100f;
+                roe = (pnl / tradingController.MarginAmount) * 100f;
+            }
 
-                if (roe > 20f) targetExp = ExpressionState.Delighted;
-                else if (roe >= 0f) targetExp = ExpressionState.Confident;
-                else if (roe > -20f) targetExp = ExpressionState.Anxious;
-                else targetExp = ExpressionState.Desperate;
-            }
-            else
+            TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(
+                roe, 
+                traderStatus.CurrentMentalState, 
+                traderStatus.HealthRatio, 
+                EventCategory.General, 
+                ""
+            );
+
+            ExpressionState targetExp = currentEmotion switch
             {
-                // 포지션 없을 때 체력/멘탈 기준
-                targetExp = traderStatus.HealthRatio > 0.5f ? ExpressionState.Confident : ExpressionState.Anxious;
-            }
+                TraderEmotion.Euphoria or TraderEmotion.Manic => ExpressionState.Delighted,
+                TraderEmotion.Confident or TraderEmotion.Pleased or TraderEmotion.Affectionate or TraderEmotion.Relieved => ExpressionState.Confident,
+                TraderEmotion.Focused or TraderEmotion.Suspicious or TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Regretful or TraderEmotion.Jealous => ExpressionState.Anxious,
+                TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Furious or TraderEmotion.Tearful or TraderEmotion.Exhausted => ExpressionState.Desperate,
+                TraderEmotion.Obsessive or TraderEmotion.Vengeful => ExpressionState.Overdose,
+                _ => ExpressionState.Confident
+            };
 
             if (targetExp != currentExpression)
             {
