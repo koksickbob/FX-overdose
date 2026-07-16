@@ -135,6 +135,9 @@ namespace FXOverdose.Trading
         private float lastClosedPrice = 0f;
         private float lastClosedTime = -1f;
 
+        private bool isMarginCallSlowMotionTriggered = false;
+        private bool isTargetBreakthroughSlowMotionTriggered = false;
+
         public PositionType CurrentPosition => currentPosition;
         public OwnerType CurrentOwner => currentOwner;
         public bool IsActive => currentPosition != PositionType.None;
@@ -679,8 +682,20 @@ namespace FXOverdose.Trading
                 }
             }
 
-            // 4. 실시간 ROE 변동 구간 돌파 독백 트리거 (+15%, -15%, +30%, -30% 등)
+            // 4. 실시간 ROE 변동 구간 돌파 독백 트리거 (+15%, -15%, +30%, -30% 등) 및 슬로우 모션 기믹
             float roe = CalculateROEPercentage();
+
+            // [슬로우 모션 기믹] 대박 수익(ROE 50% 이상) 도달 시 슬로우 모션 (4초간 2배 감속)
+            if (roe >= 50f && !isTargetBreakthroughSlowMotionTriggered)
+            {
+                isTargetBreakthroughSlowMotionTriggered = true;
+                if (FXOverdose.Core.DynamicTimeRegulator.Instance != null)
+                {
+                    FXOverdose.Core.DynamicTimeRegulator.Instance.TriggerDramaticSlowMotion(2.0f, 4.0f);
+                    Debug.Log("[TradingController] 🚀 대박 수익 돌파(ROE +50%)! 극적 연출을 위해 4초간 슬로우 모션(2배 감속) 가동.");
+                }
+            }
+
             if (Time.time - lastROEDialogueTime >= 12f)
             {
                 if ((roe >= 15f && lastReportedROE < 15f) || (roe >= 30f && lastReportedROE < 30f))
@@ -1012,6 +1027,24 @@ namespace FXOverdose.Trading
         // 강제 청산(Liquidation) 판정
         private void CheckLiquidation(float currentPrice)
         {
+            if (currentPosition == PositionType.None) return;
+            if (liquidationPrice <= 0f) return;
+
+            // [슬로우 모션 기믹] 청산 마진콜 임박 (청산가까지 주가 여유 0.5% 미만)
+            if (!isMarginCallSlowMotionTriggered)
+            {
+                float priceDiffPct = Mathf.Abs(currentPrice - liquidationPrice) / currentPrice;
+                if (priceDiffPct < 0.005f)
+                {
+                    isMarginCallSlowMotionTriggered = true;
+                    if (FXOverdose.Core.DynamicTimeRegulator.Instance != null)
+                    {
+                        FXOverdose.Core.DynamicTimeRegulator.Instance.TriggerDramaticSlowMotion(3.0f, 3.0f);
+                        Debug.Log("[TradingController] ⚠️ 마진콜 청산 임박! (여유 0.5% 미만) 극적 연출을 위해 3초간 슬로우 모션(3배 감속) 가동.");
+                    }
+                }
+            }
+
             // ⭐ [이벤트 포지션 초반 휩소 보호] 이벤트 등으로 포지션을 개설한 직후 3초 이내에는 순간적인 꼬리 스파이크 노이즈 1틱에 의한 억울한 즉사 청산을 방어!
             if (Time.time < eventPositionOpenedTime + 3.0f)
             {
@@ -1110,6 +1143,7 @@ namespace FXOverdose.Trading
             {
                 Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] 진행 중인 돌발 이벤트 보호 쉴드를 파괴하고 탕진 매매를 시작합니다!");
                 eventProtectionEndTime = -1f;
+                isEventTradeActive = false; // 💡 핵심 원인: 이벤트 플래그를 해제하지 않으면 Overdose 35초 보호 쉴드가 무시되어 즉사 청산이 발생합니다.
             }
 
             // 과도한 중복 호출 방지 (최근 3초 이내에 Overdose 매매가 실행되었고 현재 보유 포지션이 있다면 추가 호출 스킵)

@@ -83,6 +83,11 @@ public class GameManager : MonoBehaviour
         IsDailyPnlPartial = isPartial;
     }
 
+    public void SetSecondsPerGameMinute(float newValue)
+    {
+        secondsPerGameMinute = Mathf.Max(0.001f, newValue);
+    }
+
     // 게임 시작 시 한 번 실행
     private void Start()
     {
@@ -97,6 +102,7 @@ public class GameManager : MonoBehaviour
             InitializeChoiceEventController();
             InitializeTraderLevelSystem();
             EnsureActiveItemEffectManager();
+            EnsureDynamicTimeRegulator();
 
             saveManager.ApplyLoadedDataToGame();
             Debug.Log("[GameManager] 불러오기 데이터 적용 완료. 게임 로딩 단계 진입.");
@@ -145,6 +151,9 @@ public class GameManager : MonoBehaviour
         InitializeChoiceEventController();
         InitializeTraderLevelSystem();
 
+        // 동적 시간 완급 조절기(DynamicTimeRegulator) 부착
+        EnsureDynamicTimeRegulator();
+
         // 액티브 아이템 효과 및 업그레이드 초기화
         EnsureActiveItemEffectManager();
         ActiveItemEffectManager.Instance?.ResetAll();
@@ -163,6 +172,13 @@ public class GameManager : MonoBehaviour
         if (ActiveItemEffectManager.Instance != null) return;
         ActiveItemEffectManager manager = GetComponent<ActiveItemEffectManager>();
         if (manager == null) gameObject.AddComponent<ActiveItemEffectManager>();
+    }
+
+    private void EnsureDynamicTimeRegulator()
+    {
+        if (FXOverdose.Core.DynamicTimeRegulator.Instance != null) return;
+        var regulator = GetComponent<FXOverdose.Core.DynamicTimeRegulator>();
+        if (regulator == null) gameObject.AddComponent<FXOverdose.Core.DynamicTimeRegulator>();
     }
 
     public void FinishLoadingAndStartPlaying()
@@ -275,6 +291,9 @@ public class GameManager : MonoBehaviour
         {
             marketEngine.ResetEngine(marketEngine.CurrentPrice);
             Debug.Log("[GameManager] 다음 날로 넘어감에 따라 차트 엔진(과거 기록)을 리셋 및 새로운 차트 프리웜 완료.");
+            
+            // 💡 리셋된 엔진의 마켓을 다시 개장합니다.
+            marketEngine.OpenMarketAfterLoading();
         }
 
         currentState = GameState.Playing;

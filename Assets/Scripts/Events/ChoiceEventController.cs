@@ -103,7 +103,7 @@ namespace FXOverdose.Events
 
         private void OnGameMinuteAdvanced()
         {
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
             {
                 return;
             }
@@ -112,6 +112,21 @@ namespace FXOverdose.Events
             int hour = gameManager.CurrentHour;
             int minute = gameManager.CurrentMinute;
             int currentDayMinutes = hour * 60 + minute;
+
+            if (gameManager.IsFastForwardingTime)
+            {
+                // 💡 [UI 겹침 방지 및 자연스러운 연출] 
+                // 고속 스킵 중 이벤트 예정 시간을 돌파했다면, 스킵 도중이나 직후에 팝업이 바로 떠서 지저분해지는 것을 방지하기 위해
+                // 이벤트 발생 시각을 '현재 시간 + 15~45분 뒤'로 지속적으로 밀어냅니다.
+                // 결과적으로 고속 스킵이 완전히 종료된 이후 15~45분 사이에 자연스럽게 이벤트가 발생하게 됩니다.
+                if (eventsTriggeredToday < 2 && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
+                {
+                    nextRandomTriggerMinuteOfDay = currentDayMinutes + UnityEngine.Random.Range(15, 46);
+                    Debug.Log($"[ChoiceEventController] 📅 고속 스킵 중 이벤트 예정 시간 돌파 감지! 이벤트 발생을 고속 스킵 이후 자연스러운 시점({nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2})으로 재조정합니다.");
+                }
+                return;
+            }
+
             long totalGameMinutes = (long)day * 1440L + currentDayMinutes;
 
             // 24:00 마지막 분 계산 중에는 신규 돌발 이벤트를 열지 않고 일일 정산을 우선합니다.
