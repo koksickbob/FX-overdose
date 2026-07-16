@@ -18,6 +18,10 @@ public class SettingsMenuController : MonoBehaviour
     private Image popupModeImage;
     private Image floatingModeImage;
 
+    [Header("오디오 설정 UI (UI 담당자 할당)")]
+    [SerializeField] private Slider bgmVolumeSlider;
+    [SerializeField] private Slider sfxVolumeSlider;
+
     private void Awake()
     {
         if (settingsButton == null) settingsButton = GetComponent<Button>();
@@ -26,6 +30,38 @@ public class SettingsMenuController : MonoBehaviour
         BuildMenu();
         settingsButton?.onClick.AddListener(ToggleMenu);
         CreateFloatingModeToggleButton();
+
+        // 오디오 슬라이더 이벤트 연동
+        if (bgmVolumeSlider != null)
+        {
+            bgmVolumeSlider.onValueChanged.AddListener(OnBgmVolumeChanged);
+            if (FXOverdose.Core.AudioManager.Instance != null)
+                bgmVolumeSlider.value = FXOverdose.Core.AudioManager.Instance.bgmVolume;
+        }
+        if (sfxVolumeSlider != null)
+        {
+            sfxVolumeSlider.onValueChanged.AddListener(OnSfxVolumeChanged);
+            if (FXOverdose.Core.AudioManager.Instance != null)
+                sfxVolumeSlider.value = FXOverdose.Core.AudioManager.Instance.sfxVolume;
+        }
+    }
+
+    public void OnBgmVolumeChanged(float value)
+    {
+        if (FXOverdose.Core.AudioManager.Instance != null)
+        {
+            FXOverdose.Core.AudioManager.Instance.SetBGMVolume(value);
+            FXOverdose.Core.AudioManager.Instance.SaveSettings();
+        }
+    }
+
+    public void OnSfxVolumeChanged(float value)
+    {
+        if (FXOverdose.Core.AudioManager.Instance != null)
+        {
+            FXOverdose.Core.AudioManager.Instance.SetSFXVolume(value);
+            FXOverdose.Core.AudioManager.Instance.SaveSettings();
+        }
     }
 
     private void UpdateModeButtonVisuals()
@@ -197,6 +233,37 @@ public class SettingsMenuController : MonoBehaviour
         RestoreGameState();
     }
 
+    public void SaveGame()
+    {
+        if (FXOverdose.Core.SaveLoadManager.Instance != null)
+        {
+            FXOverdose.Core.SaveLoadManager.Instance.SaveGame(0);
+            Debug.Log("[SettingsMenuController] 게임 저장 완료 (Slot 0)");
+            
+            Transform saveBtnObj = overlay.transform.Find("SettingsPanel/InnerFrame/SaveButton");
+            if (saveBtnObj != null)
+            {
+                var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
+                if (tmpText != null)
+                {
+                    tmpText.text = "SAVED!";
+                    Invoke(nameof(ResetSaveButtonText), 2f);
+                }
+            }
+        }
+    }
+
+    private void ResetSaveButtonText()
+    {
+        if (overlay == null) return;
+        Transform saveBtnObj = overlay.transform.Find("SettingsPanel/InnerFrame/SaveButton");
+        if (saveBtnObj != null)
+        {
+            var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
+            if (tmpText != null) tmpText.text = "SAVE GAME";
+        }
+    }
+
     public void QuitGame()
     {
         Time.timeScale = previousTimeScale > 0f ? previousTimeScale : 1f;
@@ -258,7 +325,7 @@ public class SettingsMenuController : MonoBehaviour
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
         Button modeSwitchButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: ⚡ AI 자동", new Color(0.12f, 0.48f, 0.72f, 1f));
-        SetRect(modeSwitchButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.46f), new Vector2(0.74f, 0.55f));
+        SetRect(modeSwitchButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.50f), new Vector2(0.74f, 0.58f));
         popupModeImage = modeSwitchButton.GetComponent<Image>();
         popupModeText = modeSwitchButton.GetComponentInChildren<TMP_Text>();
         if (popupModeText != null)
@@ -272,12 +339,16 @@ public class SettingsMenuController : MonoBehaviour
             UpdateModeButtonVisuals();
         });
 
+        Button saveButton = CreateButton(inner.transform, "SaveButton", "SAVE GAME", new Color(0.18f, 0.55f, 0.34f, 1f));
+        SetRect(saveButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.34f), new Vector2(0.87f, 0.45f));
+        saveButton.onClick.AddListener(SaveGame);
+
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.25f), new Vector2(0.87f, 0.40f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.19f), new Vector2(0.87f, 0.30f));
         resumeButton.onClick.AddListener(CloseMenu);
 
         Button quitButton = CreateButton(inner.transform, "QuitButton", "QUIT GAME", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.06f), new Vector2(0.87f, 0.21f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.04f), new Vector2(0.87f, 0.15f));
         quitButton.onClick.AddListener(QuitGame);
 
         overlay.SetActive(false);

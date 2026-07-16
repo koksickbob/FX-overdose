@@ -111,9 +111,6 @@ namespace FXOverdose.AI.LLM
             Debug.Log($"[LocalLLMService] 🚀 LLM 서비스 초기화 시작. (설정 모드: {executionMode})");
 
             // 로딩 기간(5~6초) 동안 차트 및 AI 트레이딩이 시작되지 않도록 대기
-            // 로딩 상태 알림 대사 풍선 즉시 출력
-            OnDialogueGenerated?.Invoke("[시스템 예열 중...] 온디바이스 AI 트레이딩 두뇌 로딩 및 차트 개장 준비 중...");
-            OnDialogueGeneratedWithCategory?.Invoke(EventCategory.GameStartup, "[시스템 예열 중...] 온디바이스 AI 트레이딩 두뇌 로딩 및 차트 개장 준비 중...");
 
             float loadingWaitTime = Mathf.Max(startupGraceDelay, 5.0f);
 
@@ -328,6 +325,20 @@ namespace FXOverdose.AI.LLM
                     {
                         var req = requestQueue.Dequeue();
                         if (req.Category != EventCategory.SkillUpgraded)
+                        {
+                            filteredQueue.Enqueue(req);
+                        }
+                    }
+                    while (filteredQueue.Count > 0) requestQueue.Enqueue(filteredQueue.Dequeue());
+                }
+                // ⭐ ChartMovement 연속 발생 시 큐 내부의 이전 요청을 제거하고 가장 최신 데이터 1건으로 덮어쓰기
+                else if (category == EventCategory.ChartMovement)
+                {
+                    var filteredQueue = new System.Collections.Generic.Queue<DialogueRequest>();
+                    while (requestQueue.Count > 0)
+                    {
+                        var req = requestQueue.Dequeue();
+                        if (req.Category != EventCategory.ChartMovement)
                         {
                             filteredQueue.Enqueue(req);
                         }

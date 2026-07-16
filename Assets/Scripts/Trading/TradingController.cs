@@ -573,7 +573,7 @@ namespace FXOverdose.Trading
                     string directionHint = currentPosition == PositionType.Short
                         ? "Short(공매도 하락 배팅) 중인데 주가가 반대로 솟구쳐올라 고점을 부수며 손실이 커지고 있는 위기 상황입니다! (제발 폭락하라고 비세요)"
                         : "Long(상승 배팅) 중인데 주가가 바닥으로 떨어지며 손실이 커지고 있는 위기 상황입니다! (제발 반등하라고 비세요)";
-                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE {roe:0.0}% 손절권 급락 중! {directionHint}");
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, $"현재 포지션({currentPosition}) ROE {roe:0.0}% 손실 악화 중! {directionHint}");
                 }
             }
         }

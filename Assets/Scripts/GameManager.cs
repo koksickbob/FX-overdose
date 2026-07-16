@@ -7,12 +7,15 @@ public class GameManager : MonoBehaviour
     public event Action OnGameMinuteAdvanced;
     // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
     public event Action OnFastForwardEnded;
+    // 하루 종료(24:00) 시 발행하는 이벤트 (일일 정산 UI 표시용)
+    public event Action OnDayEnded;
     //게임 진행 상태
     public enum GameState
     {
         Loading,
         Playing,
         Paused,
+        Settlement,
         GameOver
     }
 
@@ -38,6 +41,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int currentDay = 1;    // 현재 일차
     [SerializeField] private int currentHour = 9;   // 현재 시간
     [SerializeField] private int currentMinute = 0; // 현재 분
+
+    // 당일 오전 9시작 시점의 총 자산 (일일 정산용)
+    public float StartOfDayEquity { get; private set; }
 
     // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (기본 5.0초 대비 5배/기존 2.0초 대비 2배 빠른 속도 -> 1분 = 1.0초)
     [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다. (1.0초 = 5배속)")]
@@ -65,7 +71,26 @@ public class GameManager : MonoBehaviour
     // 게임 시작 시 한 번 실행
     private void Start()
     {
-        StartNewGame();
+        var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+        if (saveManager != null && saveManager.IsPendingLoad)
+        {
+            // 불러오기 모드 진입
+            currentState = GameState.Loading;
+            currentEnding = EndingType.None;
+            timeAccumulator = 0f;
+
+            InitializeChoiceEventController();
+            InitializeTraderLevelSystem();
+            EnsureActiveItemEffectManager();
+
+            saveManager.ApplyLoadedDataToGame();
+            Debug.Log("[GameManager] 불러오기 데이터 적용 완료. 게임 로딩 단계 진입.");
+        }
+        else
+        {
+            // 새 게임 시작
+            StartNewGame();
+        }
     }
 
     // 게임 실행 중 매 프레임 호출
@@ -94,6 +119,8 @@ public class GameManager : MonoBehaviour
         // 게임 상태 초기화 -> 초기에는 LLM 로딩 및 개장 준비 상태(Loading)로 대기
         currentState = GameState.Loading;
         currentEnding = EndingType.None;
+
+        StartOfDayEquity = startingBalance;
 
         // 시간 누적값 초기화
         timeAccumulator = 0f;
@@ -188,20 +215,43 @@ public class GameManager : MonoBehaviour
             currentHour++;
         }
 
-        // 24시가 되면 다음 날로 이동
+        // 24시가 되면 일일 정산 모드 진입
         if (currentHour >= 24)
         {
-            currentHour = 0;
-            currentDay++;
-
-            Debug.Log($"{currentDay}일차 시작");
-
-            // ⭐ 자정 마감 기억 압축 및 저중요도 Pruning 실행
-            FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(currentDay);
+            currentState = GameState.Settlement;
+            Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
+            OnDayEnded?.Invoke();
         }
 
         // 1분 경과 이벤트 발행
         OnGameMinuteAdvanced?.Invoke();
+    }
+
+    // 일일 정산 화면에서 '다음날 진행하기' 호출 시 실행
+    public void ProceedToNextDay()
+    {
+        if (currentState != GameState.Settlement) return;
+
+        currentHour = 9;
+        currentMinute = 0;
+        currentDay++;
+
+        var status = TraderStatus.CanonicalInstance;
+        StartOfDayEquity = status != null ? status.GetTotalEquity() : currentBalance;
+
+        Debug.Log($"{currentDay}일차 시작 (09:00)");
+
+        // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행
+        FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(currentDay);
+
+        currentState = GameState.Playing;
+
+        if (remainingFastForwardMinutes > 0)
+        {
+            int resumeMinutes = remainingFastForwardMinutes;
+            remainingFastForwardMinutes = 0;
+            AdvanceGameMinutes(resumeMinutes);
+        }
     }
 
     // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출

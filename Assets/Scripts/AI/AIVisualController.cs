@@ -275,7 +275,28 @@ namespace FXOverdose.AI
             {
                 if (priority == DialoguePriority.Low)
                 {
-                    // Low는 현재 말풍선이 떠 있거나 큐가 밀려 있으면 과감히 스킵(Drop)
+                    // Low는 무조건 버리지 않고, 큐 내에 기존 Low가 있다면 최신 내용으로 덮어씁니다.
+                    bool replaced = false;
+                    var arr = dialogueQueue.ToArray();
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        if (arr[i].Priority == DialoguePriority.Low)
+                        {
+                            arr[i] = new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time };
+                            replaced = true;
+                            break;
+                        }
+                    }
+
+                    if (replaced)
+                    {
+                        dialogueQueue.Clear();
+                        foreach (var req in arr) dialogueQueue.Enqueue(req);
+                    }
+                    else if (dialogueQueue.Count < 3) // 큐 공간이 남아있다면 삽입
+                    {
+                        dialogueQueue.Enqueue(new DialogueRequest { Text = text, Priority = priority, Category = category, RequestTime = Time.time });
+                    }
                     return;
                 }
                 else
