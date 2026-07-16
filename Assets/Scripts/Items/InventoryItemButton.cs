@@ -150,6 +150,7 @@ public class InventoryItemButton : MonoBehaviour
         if (quantityText != null)
         {
             quantityText.text = $"×{quantity}";
+            quantityText.ForceMeshUpdate();
         }
 
         if (button != null)

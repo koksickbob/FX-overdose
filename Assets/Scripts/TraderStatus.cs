@@ -89,6 +89,26 @@ public class TraderStatus : MonoBehaviour
         set => canRegenMental = value;
     }
 
+    // 아이템 및 스킬 구매 등으로 자산을 지출할 때 드로다운 트라우마(Drawdown Trauma)가 발생하거나 증가하지 않도록,
+    // 지출 전후의 드로다운 비율(%)이 정확히 유지되게 역대 최고 자산(PeakBalance)을 비례 하향 조정합니다.
+    public void AdjustPeakBalanceForExpenditure(float expenditureAmount)
+    {
+        if (expenditureAmount <= 0f || peakBalance <= 0f) return;
+
+        float currentEquity = GetTotalEquity();
+        float preExpenditureEquity = currentEquity + expenditureAmount;
+        if (preExpenditureEquity > 0f)
+        {
+            float ratio = Mathf.Clamp01(currentEquity / preExpenditureEquity);
+            peakBalance *= ratio;
+            Debug.Log($"[TraderStatus] 🛍️ 아이템/스킬 지출(-{expenditureAmount:N0})로 역대 최고 자산(PeakBalance)이 비례 보정되었습니다: {peakBalance:N0} (드로다운 % 동일 유지)");
+        }
+        else
+        {
+            peakBalance = Mathf.Max(0f, peakBalance - expenditureAmount);
+        }
+    }
+
     // 실시간 총 자산 (보유 현금 + 포지션 증거금 + 미실현 손익) 반환
     public float GetTotalEquity()
     {
@@ -366,12 +386,12 @@ public class TraderStatus : MonoBehaviour
             {
                 currentMentalState = MentalState.Overdose;
                 TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.MentalChange, "멘탈 0 도달, 통제 불능 및 Overdose 폭주 상태");
-            }
 
-            // 통제 불능 시 즉각 고레버리지 뇌동매매/물타기 강행
-            if (tradingController != null)
-            {
-                tradingController.TriggerOverdoseTrade();
+                // 통제 불능 최초 진입 시에만 즉각 고레버리지 뇌동매매/물타기 강행 (매 프레임 호출 및 랙 유발 방지)
+                if (tradingController != null)
+                {
+                    tradingController.TriggerOverdoseTrade();
+                }
             }
 
             // [기획서 7장 엔딩 조건 부합] 멘탈이 0일 때 자금/증거금까지 소진(0 이하)된 경우에만 Overdose 배드엔딩 발동

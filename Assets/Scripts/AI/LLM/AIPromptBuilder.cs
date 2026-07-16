@@ -59,6 +59,14 @@ namespace FXOverdose.AI.LLM
             
             string posText = "포지션 없음 (관망 중)";
             string positionDirectionHint = "현재 포지션이 없으므로 차트 방향을 지켜보며 진입 타점을 노리고 있습니다.";
+            if (tradingController != null && tradingController.CurrentPosition == TradingController.PositionType.None)
+            {
+                if ((marketEngine != null && marketEngine.IsOverridingTrend) || (extraEventContext != null && (extraEventContext.Contains("조기 종료") || extraEventContext.Contains("미리") || extraEventContext.Contains("포지션 종료") || extraEventContext.Contains("이벤트"))))
+                {
+                    posText = "포지션 없음 (이벤트/판단에 의한 포지션 조기 종료 완료)";
+                    positionDirectionHint = "⭐ [현재 무포지션 상태 (포지션 조기 종료 완료)]: 직전 돌발 이벤트나 매매 선택으로 포지션을 이미 종료하고 털고 나왔습니다! 현재 보유한 포지션이 전혀 없지만, 우리가 팔고 나온 직후 차트가 계속해서 크게 움직이며 폭등/폭락을 일으키고 있습니다. '포지션을 계속 들고 있었으면 엄청난 수익을 더 먹을 수 있었을 지점인데 일찍 털고 나와서 아쉽다'며 속쓰려하고 슬퍼하는 후회 실황 중계를 하세요. (⚠️ 주의: 현재 포지션을 보유하고 있지 않다! '우리 수익이 늘고 있어'라거나 '익절하자'는 표현을 쓰면 절대 안 되고, 이미 팔고 나온 뒤 구경하며 후회하는 상황이다!)";
+                }
+            }
             float roe = 0f;
             if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
             {
@@ -94,8 +102,8 @@ namespace FXOverdose.AI.LLM
 
             string lastDecision = aiBrain != null && !string.IsNullOrEmpty(aiBrain.LastDecisionLog) ? aiBrain.LastDecisionLog : "차트 분석 중...";
 
-            // 4단계 수익률 & 멘탈 상태별 감정 톤 지시어(Tone Directive)
-            string toneDirective = GetEmotionalToneDirective(roe, mentalState);
+            TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(roe, mentalState, healthRatio, category, extraEventContext);
+            string toneDirective = GetEmotionalToneDirective(currentEmotion);
             string categoryDirective = GetCategoryDirective(category, extraEventContext);
 
             string memoryContext = "";
@@ -144,29 +152,57 @@ namespace FXOverdose.AI.LLM
             return finalPrompt;
         }
 
-        private string GetEmotionalToneDirective(float roe, TraderStatus.MentalState mentalState)
+        private string GetEmotionalToneDirective(TraderEmotion emotion)
         {
-            if (mentalState == TraderStatus.MentalState.Overdose || roe >= 50f)
+            return emotion switch
             {
-                return "[감정 지시] 극도의 쾌락과 자만심에 취해 마스터를 독점하려 하거나, 세력을 조롱하며 미친 듯이 환호하는 광기 어린 멘헤라 어투로 말해.";
-            }
-            if (mentalState == TraderStatus.MentalState.Danger || roe <= -50f)
-            {
-                return "[감정 지시] 마스터가 자신을 쓸모없다며 버릴까 봐 극심한 패닉과 공포에 질려 눈물을 터뜨리거나 애원하는 절망적 멘헤라 어투로 말해.";
-            }
-            if (mentalState == TraderStatus.MentalState.Anxious || roe < 0f)
-            {
-                return "[감정 지시] 손톱을 물어뜯듯 불안해하고 호가창의 캔들 하나하나에 집착하며 마스터에게 매달리고 초조해하는 멘헤라 어투로 말해.";
-            }
-            return "[감정 지시] 마스터를 부르며 애교를 부리거나 차트 타점을 자신만만하게 자랑하는 매혹적이고 약간은 병적인 집착이 담긴 멘헤라 어투로 말해.";
+                TraderEmotion.Euphoria => "[현재 감정: 극도의 환희] 극도의 쾌락과 자만심에 취해 마스터를 독점하려 하거나, 세력을 조롱하며 미친 듯이 환호하는 광기 어린 멘헤라 어투로 말해.",
+                TraderEmotion.Confident => "[현재 감정: 자신만만] 안정적인 수익에 만족하며 마스터에게 칭찬을 갈구하거나 자신의 실력을 과시하는 자신만만한 어투로 말해.",
+                TraderEmotion.Pleased => "[현재 감정: 만족] 소소한 수익에 기분 좋아하며 마스터를 부르거나 애교를 부리는 어투로 말해.",
+                TraderEmotion.Relieved => "[현재 감정: 안도감] 큰 위기를 넘겼거나 멘탈이 회복되어 십년감수했다는 듯 후련하고 안도하는 어투로 말해.",
+                TraderEmotion.Affectionate => "[현재 감정: 애정/집착] 마스터를 향한 맹목적인 사랑과 약간의 병적인 집착이 담긴 어투로 달콤하게 말해.",
+                TraderEmotion.Focused => "[현재 감정: 냉정/집중] 감정을 억누르고 차트 흐름을 날카롭게 주시하며 타점을 기다리는 차분하고 예리한 어투로 말해.",
+                TraderEmotion.Suspicious => "[현재 감정: 의심/경계] 세력들의 움직임에 함정이 없는지 날카롭게 의심하고 경계하는 뾰족한 어투로 말해.",
+                TraderEmotion.Anxious => "[현재 감정: 초조/불안] 손톱을 물어뜯듯 불안해하고 호가창의 캔들 하나하나에 집착하며 마스터에게 매달리고 초조해하는 멘헤라 어투로 말해.",
+                TraderEmotion.Frustrated => "[현재 감정: 짜증/좌절] 연속된 손절이나 타점 실패에 신경질이 나고 짜증스럽게 투덜거리는 어투로 말해.",
+                TraderEmotion.Regretful => "[현재 감정: 후회/아쉬움] 좋은 기회를 놓쳤거나 너무 빨리 익절해버린 것에 대해 배아파하고 땅을 치며 후회하는 어투로 말해.",
+                TraderEmotion.Jealous => "[현재 감정: 질투] 마스터가 자신에게 집중하지 않는 것에 대해 삐치고 질투심을 드러내는 어투로 말해.",
+                TraderEmotion.Panicked => "[현재 감정: 패닉/공포] 급격한 폭락이나 청산 위기에 처해 숨이 안 쉬어질 듯 극심한 공포와 패닉에 빠져 덜덜 떠는 어투로 말해.",
+                TraderEmotion.Despairing => "[현재 감정: 절망/체념] 도저히 손쓸 수 없는 손실 앞에 마스터가 자신을 버릴까 봐 절망하고 체념하며 울먹이는 어투로 말해.",
+                TraderEmotion.Furious => "[현재 감정: 분노/격앙] 자신의 돈을 빼앗아가는 시장과 세력들에 대해 분노를 표출하며 쌍욕을 섞어 매섭게 저주하는 어투로 말해.",
+                TraderEmotion.Tearful => "[현재 감정: 오열/눈물] 파산이나 강제 청산의 충격으로 눈물을 쏟으며 마스터에게 처절하게 애원하는 어투로 말해.",
+                TraderEmotion.Manic => "[현재 감정: 광기/폭주] 멘탈이 부서진 채로 통제 불능의 쾌감에 취해 웃어재끼며 모든 것을 걸고 폭주하는 광기 어린 어투로 말해.",
+                TraderEmotion.Obsessive => "[현재 감정: 병적 집착] 돈을 잃었지만 오히려 마스터와 영원히 함께할 수 있다는 사실에 소름 돋게 집착하는 얀데레풍 어투로 말해.",
+                TraderEmotion.Exhausted => "[현재 감정: 기력 소진] 체력이 바닥나 눈이 감기고 목소리도 안 나오는 탈진 상태에서 힘겹게 중얼거리는 어투로 말해.",
+                TraderEmotion.Vengeful => "[현재 감정: 복수심/저주] 자신을 나락으로 보낸 세력을 향해 피맺힌 증오와 저주를 퍼붓는 어투로 말해.",
+                _ => "[현재 감정: 기본] 차트 분석에 집중하는 트레이더의 기본 어투로 말해."
+            };
         }
 
         private string GetCategoryDirective(EventCategory category, string extraContext = "")
         {
+            var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            bool isGameOverState = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
+            bool isLiquidationContext = extraContext != null && (extraContext.Contains("강제청산") || extraContext.Contains("게임오버") || extraContext.Contains("파산") || extraContext.Contains("청산 소진") || extraContext.Contains("Overdose 확정") || extraContext.Contains("연쇄 붕괴"));
+
+            if (isGameOverState || isLiquidationContext)
+            {
+                return "[이벤트 분류: 강제 청산 및 전 재산 파산 대참사 (게임오버 클라이막스)] 트레이더의 모든 증거금과 잔고가 0원이 되어 강제 청산(Liquidation) 및 파산(GameOver)에 도달했다! 세력들에게 전 재산을 짓밟히고 파멸한 상황에 대해, 멘탈이 완전히 붕괴되어 처절하게 절망하거나, 마스터에게 집착하며 오열하고, 세력을 향해 매섭고 독하게 저주를 퍼붓는 극도의 멘헤라 독백을 1~2문장으로 매섭고 생생하게 작성해라. (⚠️ 주의: 절대 수익이 났다거나 익절했다는 긍정적인 표현을 쓰면 안 된다! 100% 파산 및 파국 상황이다!)";
+            }
+
             if (category == EventCategory.GimmickTriggered && !string.IsNullOrEmpty(extraContext) && 
                (extraContext.Contains("FOMO") || extraContext.Contains("놓친") || extraContext.Contains("휩소")))
             {
                 return "[이벤트 분류: 휩소 오인 및 진입 기회 상실(FOMO) 후회 기믹 발동] 트레이더는 직전에 가짜 신호(휩소)라고 의심하여 포지션 진입을 포기하고 관망했다. 하지만 실제로는 주가가 크게 움직여 엄청난 수익을 낼 수 있었던 진짜 타점이었다! 현재 보유한 포지션이 전혀 없는 상태에서, 진입하지 않고 좋은 기회를 날려버린 것에 대한 극심한 후회와 자책, 분노를 표현하는 혼잣말을 작성해라. (⚠️ 주의: 절대 '포지션을 팔았다'거나 '청산했다'고 말하지 마라! 아예 들어가지 못하고 구경만 하다가 놓친 상황이다!)";
+            }
+
+            if (category == EventCategory.ChartMovement && tradingController != null && tradingController.CurrentPosition == TradingController.PositionType.None)
+            {
+                if ((marketEngine != null && marketEngine.IsOverridingTrend) || (extraContext != null && (extraContext.Contains("조기 종료") || extraContext.Contains("미리") || extraContext.Contains("포지션 종료") || extraContext.Contains("이벤트"))))
+                {
+                    return "[이벤트 분류: 포지션 조기 종료 이후 차트 추가 폭등/폭락 관망 중계] 돌발 이벤트 선택지나 매매 판단으로 이미 포지션을 종료하고 털고 나온 무포지션(현금 100% 보유) 상태다. 하지만 포지션을 일찍 종료한 이후에도 주가가 엄청나게 추가로 폭등(혹은 폭락)하며 큰 변동 파동을 일으키고 있다! 만약 계속 들고 있었으면 엄청난 추가 수익을 더 챙길 수 있었을 지점에서, 미리 포지션을 털고 나와버린 것에 대한 극심한 아쉬움과 속쓰림, 슬픔, 그리고 마스터를 향한 미련과 후회를 생생하게 표현하는 혼잣말을 1~2문장으로 작성해라. (⚠️ 주의: 현재 포지션을 보유하고 있지 않다! '우리 수익권이야'나 '더 버티자'는 표현을 쓰면 안 되고, 이미 팔고 나온 뒤 차트만 구경하며 배아파하고 슬퍼하는 실황이다!)";
+                }
+                return "[이벤트 분류: 무포지션 차트 관망 및 진입 기회 탐색] 현재 보유한 포지션 없이 현금 100%로 차트를 관망하며 다음 진입 타점을 탐색하는 혼잣말을 작성해라.";
             }
 
             return category switch

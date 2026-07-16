@@ -73,7 +73,7 @@ public class DynamicInventoryUI : MonoBehaviour
 
     private void OnInventoryChanged(ItemData item, int quantity)
     {
-        if (inventory != null && inventory.Slots.Count != lastSlotCount)
+        if (inventory != null && (inventory.Slots.Count != lastSlotCount || quantity <= 0))
         {
             Rebuild();
             return;
@@ -85,7 +85,13 @@ public class DynamicInventoryUI : MonoBehaviour
             if (slot == null) continue;
             InventoryItemButton button = slot.GetComponent<InventoryItemButton>();
             if (button != null) button.RefreshDisplay();
+            TMP_Text[] texts = slot.GetComponentsInChildren<TMP_Text>(true);
+            if (texts != null)
+            {
+                foreach (var t in texts) if (t != null) t.ForceMeshUpdate();
+            }
         }
+        Canvas.ForceUpdateCanvases();
     }
 
     [ContextMenu("Rebuild Inventory UI")]
@@ -213,6 +219,8 @@ public class DynamicInventoryUI : MonoBehaviour
         TMP_Text text = go.GetComponent<TMP_Text>();
         text.font = font != null ? font : TMP_Settings.defaultFontAsset;
         text.fontSize = size;
+        text.enableAutoSizing = false;
+        text.overflowMode = TextOverflowModes.Overflow;
         text.color = Color.white;
         text.alignment = alignment;
         text.textWrappingMode = TextWrappingModes.NoWrap;

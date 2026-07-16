@@ -44,8 +44,16 @@ namespace FXOverdose.Trading
         public SignalPhase CurrentSignalPhase => currentSignalPhase;
         public MarketSignal ActiveSignal => activeSignal;
         public bool IsExternalEventOverride => isExternalEventOverride;
+
+        [Header("Overdose 폭주 차트 트랩 (Phase 3 Override)")]
+        [SerializeField] private bool isOverdoseTrapOverride = false;
+        [SerializeField] private TradingController.PositionType overdoseTrapPositionType;
+        [SerializeField] private float overdoseTrapEndTime = -1f;
+
+        public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
         public bool IsFastForwarding => gameManager != null && gameManager.IsFastForwardingTime;
+        public bool IsOverridingTrend => isExternalEventOverride || isOverdoseTrapOverride || (currentSignalPhase != SignalPhase.None && currentSignalPhase != SignalPhase.Cooldown);
 
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
@@ -262,8 +270,23 @@ namespace FXOverdose.Trading
 
             float stochasticNoise = currentVolatility * Mathf.Sqrt(dtFraction) * randNormal;
 
-            // 확정적 신호 구간(SignalPhase)에 따른 주가 오버라이드 제어
-            if (currentSignalPhase == SignalPhase.GraceWindow)
+            // ⭐ [Overdose 폭주 죽음의 차트 빔 주입] 오버도즈 상태일 때 주인공 포지션과 반대 방향으로 휩소(중간 반등) 없이 확실하고 가파르게 주가를 이동시켜 0원 청산을 유도!
+            if (isOverdoseTrapOverride && Time.time < overdoseTrapEndTime)
+            {
+                // 노이즈(잔파도 휩소)를 3% 수준으로 극히 억제하여 휩소에 의해 청산이 방해받거나 엉뚱한 반등이 나오는 것을 원천 차단
+                stochasticNoise *= 0.03f;
+                ouTerm = 0f;
+
+                // 125배 레버리지 기준 0.8% 역행 시 -100% 청산. 약 20~25초에 걸쳐 확실하게 청산선(-1.2% 등)에 도달하도록 강력한 반대 방향 드리프트 주입
+                float trapRemainingSeconds = Mathf.Max(1f, overdoseTrapEndTime - Time.time);
+                float requiredDriftPerSecond = (overdoseTrapPositionType == TradingController.PositionType.Long ? -0.015f : 0.015f) / Mathf.Max(15f, trapRemainingSeconds);
+                drift = requiredDriftPerSecond * (gameManager != null ? gameManager.SecondsPerGameMinute : 5.0f);
+            }
+            else if (isOverdoseTrapOverride && Time.time >= overdoseTrapEndTime)
+            {
+                CancelOverdoseTrapSignal();
+            }
+            else if (currentSignalPhase == SignalPhase.GraceWindow)
             {
                 // 1단계 판단 여유 시간: 노이즈를 15% 수준으로 억제하고 횡보 유지 (골든타임 예고 방송 및 대기)
                 stochasticNoise *= 0.15f;
@@ -792,6 +815,49 @@ namespace FXOverdose.Trading
             Debug.Log($"[MarketEngine] ⚡ [외부 강제 신호 주입 (이벤트 빔 보장)] {activeSignal.GetSignalDescription()}");
             OnMarketSignalGenerated?.Invoke(activeSignal);
             OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+        }
+
+        // 오버도즈 상태 돌입 시 호출되어 주인공을 함정(반대 방향 죽음의 차트 빔)으로 이끄는 신호 주입 및 차트 제어
+        public void TriggerOverdoseTrapSignal(TradingController.PositionType trapPosType, int durationSeconds = 35)
+        {
+            isOverdoseTrapOverride = true;
+            overdoseTrapPositionType = trapPosType;
+            overdoseTrapEndTime = Time.time + durationSeconds;
+
+            // 함정 신호 방송 (주인공 AI가 완벽한 기회로 착각하도록 과장된 가짜 신호 주입)
+            MarketSignalType trapSigType = trapPosType == TradingController.PositionType.Long 
+                ? MarketSignalType.BullishBreakout : MarketSignalType.BearishBreakout;
+            float trapTargetDelta = trapPosType == TradingController.PositionType.Long ? 180f : -180f; // 엄청난 대각선 상승/하락 착각 유도
+
+            activeSignal = new MarketSignal
+            {
+                Type = trapSigType,
+                Strength = SignalStrength.Strong,
+                IsTrueSignal = false,
+                TargetPercentageDelta = trapTargetDelta,
+                DurationMinutes = Mathf.Max(12, Mathf.CeilToInt(durationSeconds / 2.5f)),
+                GraceMinutes = 0,
+                SignalStartPrice = currentPrice
+            };
+
+            currentSignalPhase = SignalPhase.GuaranteedOverride;
+            signalPhaseTimerMinutes = activeSignal.DurationMinutes;
+
+            Debug.Log($"[MarketEngine] 🩸 [Overdose 함정 신호 가동] AI가 {trapPosType} 방향 확실한 대박 기회로 착각! ({durationSeconds}초간 반대 방향 청산 빔 발동)");
+            OnMarketSignalGenerated?.Invoke(activeSignal);
+            OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
+        }
+
+        public void CancelOverdoseTrapSignal()
+        {
+            if (isOverdoseTrapOverride)
+            {
+                isOverdoseTrapOverride = false;
+                overdoseTrapEndTime = -1f;
+                currentSignalPhase = SignalPhase.None;
+                minutesUntilNextSignal = 3;
+                Debug.Log("[MarketEngine] 💊 [Overdose 차트 함정 해제] 플레이어의 멘탈 회복 조치로 죽음의 차트 빔이 해제되고 정상 차트로 복귀합니다.");
+            }
         }
     }
 }

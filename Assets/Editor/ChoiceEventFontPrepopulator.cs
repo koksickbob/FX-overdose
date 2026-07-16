@@ -35,25 +35,27 @@ namespace FXOverdose.Editor
             // 2. 자주 사용되는 한글 자모 및 2,350자 기본 완성형 텍스트 + 기획 시나리오에서 쓰이는 주요 글자들
             AddKoreanBasicCharacters(charSet);
 
-            // 3. ChoiceEventSO 에셋들 (이벤트 텍스트 전체) 스캔
-            string[] eventGuids = AssetDatabase.FindAssets("t:ChoiceEventSO", new[] { EVENTS_DIR });
-            foreach (string guid in eventGuids)
+            // 3. 모든 ScriptableObject 에셋 (이벤트, 아이템 데이터, 상점 목록 등 전체) 스캔
+            List<string> validDirs = new List<string>();
+            if (AssetDatabase.IsValidFolder("Assets/Data")) validDirs.Add("Assets/Data");
+            if (AssetDatabase.IsValidFolder("Assets/Resources")) validDirs.Add("Assets/Resources");
+
+            if (validDirs.Count > 0)
             {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
-                ChoiceEventSO eventSO = AssetDatabase.LoadAssetAtPath<ChoiceEventSO>(assetPath);
-                if (eventSO != null)
+                string[] soGuids = AssetDatabase.FindAssets("t:ScriptableObject", validDirs.ToArray());
+                foreach (string guid in soGuids)
                 {
-                    AddStringToSet(charSet, eventSO.ScenarioTitle);
-                    AddStringToSet(charSet, eventSO.ScenarioDescription);
-                    AddStringToSet(charSet, eventSO.AIMonologue);
-                    if (eventSO.Options != null)
+                    string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                    ScriptableObject so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                    if (so != null)
                     {
-                        foreach (var opt in eventSO.Options)
+                        SerializedObject serializedObject = new SerializedObject(so);
+                        SerializedProperty prop = serializedObject.GetIterator();
+                        while (prop.Next(true))
                         {
-                            if (opt != null)
+                            if (prop.propertyType == SerializedPropertyType.String)
                             {
-                                AddStringToSet(charSet, opt.OptionTitle);
-                                AddStringToSet(charSet, opt.Description);
+                                AddStringToSet(charSet, prop.stringValue);
                             }
                         }
                     }

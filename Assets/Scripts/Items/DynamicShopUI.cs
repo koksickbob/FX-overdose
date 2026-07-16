@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>ShopManager.CatalogItems에 맞춰 고품질 픽셀 상점 카드를 동적으로 생성합니다.</summary>
@@ -26,6 +27,7 @@ public class DynamicShopUI : MonoBehaviour
     private RectTransform content;
     private TMP_Text balanceText;
     private readonly List<GameObject> cards = new();
+    private float lastDisplayedBalance = -1f;
 
     private void Awake()
     {
@@ -47,6 +49,27 @@ public class DynamicShopUI : MonoBehaviour
     {
         if (content == null || shopManager == null) return;
         ClearCards();
+        lastDisplayedBalance = -1f;
+
+        // 상점 아이템에 사용되는 모든 문자열을 수집하여 폰트 아틀라스에 사전 등록합니다.
+        // 스크롤 중 새 글자가 발견되어 SDF 아틀라스가 동적 갱신되고 ImportAsset이 호출되는 현상(스크롤 끊김 및 Importer 경고)을 방지합니다.
+        TMP_FontAsset targetFont = font != null ? font : TMP_Settings.defaultFontAsset;
+        if (targetFont != null)
+        {
+            System.Text.StringBuilder sb = new();
+            sb.Append("FX MARKET BALANCE $0123456789.,-+% ALL ITEMS CARE ACTIVE GEAR INSTANT DELIVERY UPGRADE OWNED x MAXED BUY LV ✓ ");
+            foreach (ItemData item in shopManager.CatalogItems)
+            {
+                if (item == null) continue;
+                if (!string.IsNullOrEmpty(item.ItemName)) sb.Append(item.ItemName);
+                if (!string.IsNullOrEmpty(item.Description)) sb.Append(item.Description);
+                if (ActiveItemEffectManager.Instance != null && item.IsActiveItem)
+                {
+                    sb.Append(ActiveItemEffectManager.Instance.GetItemStatusLabel(item));
+                }
+            }
+            targetFont.TryAddCharacters(sb.ToString(), out _);
+        }
 
         foreach (ItemData item in shopManager.CatalogItems)
         {
@@ -85,6 +108,20 @@ public class DynamicShopUI : MonoBehaviour
         BuildCategoryBar();
         BuildFooter();
         BuildScrollArea();
+
+        Transform vp = modal?.Find("ProductViewport");
+        ScrollRect scroll = vp != null ? vp.GetComponent<ScrollRect>() : null;
+        if (scroll != null)
+        {
+            ForwardScrollEvents(gameObject, scroll);
+            ForwardScrollEvents(modal?.gameObject, scroll);
+            Transform header = modal?.Find("Header");
+            if (header != null) ForwardScrollEvents(header.gameObject, scroll);
+            Transform categoryBar = modal?.Find("CategoryBar");
+            if (categoryBar != null) ForwardScrollEvents(categoryBar.gameObject, scroll);
+            Transform footerBackground = modal?.Find("FooterBackground");
+            if (footerBackground != null) ForwardScrollEvents(footerBackground.gameObject, scroll);
+        }
     }
 
     private void BuildHeader()
@@ -92,12 +129,12 @@ public class DynamicShopUI : MonoBehaviour
         RectTransform header = GetOrCreateRect(modal, "Header");
         SetRect(header, new Vector2(0.025f, 0.855f), new Vector2(0.975f, 0.98f), Vector2.zero, Vector2.zero);
 
-        TMP_Text title = GetOrCreateText(header, "Title", 32f, TextAlignmentOptions.MidlineLeft);
+        TMP_Text title = GetOrCreateText(header, "Title", 32f, TextAlignmentOptions.MidlineLeft, true);
         title.text = "FX MARKET";
         title.color = Color.white;
         SetRect(title.rectTransform, Vector2.zero, new Vector2(0.53f, 1f), new Vector2(10f, 0f), Vector2.zero);
 
-        balanceText = GetOrCreateText(header, "Balance", 24f, TextAlignmentOptions.MidlineRight);
+        balanceText = GetOrCreateText(header, "Balance", 24f, TextAlignmentOptions.MidlineRight, true);
         balanceText.color = new Color(1f, 0.78f, 0.25f, 1f);
         SetRect(balanceText.rectTransform, new Vector2(0.50f, 0f), new Vector2(0.87f, 1f), Vector2.zero, new Vector2(-8f, 0f));
 
@@ -113,7 +150,7 @@ public class DynamicShopUI : MonoBehaviour
             closeOutline.effectDistance = UIStrokeStyle.EffectDistance;
             closeOutline.useGraphicAlpha = true;
             TMP_Text label = close.GetComponentInChildren<TMP_Text>(true);
-            if (label != null) { label.text = "X"; ApplyTextStyle(label, 25f, TextAlignmentOptions.Center); }
+            if (label != null) { label.text = "X"; ApplyTextStyle(label, 25f, TextAlignmentOptions.Center, true); }
         }
     }
 
@@ -124,12 +161,12 @@ public class DynamicShopUI : MonoBehaviour
         Image background = GetOrAdd<Image>(bar.gameObject);
         background.color = new Color(0.035f, 0.075f, 0.12f, 0.96f);
 
-        TMP_Text categories = GetOrCreateText(bar, "Categories", 18f, TextAlignmentOptions.MidlineLeft);
+        TMP_Text categories = GetOrCreateText(bar, "Categories", 18f, TextAlignmentOptions.MidlineLeft, true);
         categories.text = "ALL ITEMS     CARE     ACTIVE GEAR";
         categories.color = new Color(0.66f, 0.88f, 0.96f, 1f);
         SetRect(categories.rectTransform, Vector2.zero, new Vector2(0.62f, 1f), new Vector2(18f, 0f), Vector2.zero);
 
-        TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight);
+        TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight, true);
         delivery.text = "INSTANT DELIVERY  •  BUFFS APPLY NOW";
         delivery.color = new Color(1f, 0.76f, 0.25f, 1f);
         SetRect(delivery.rectTransform, new Vector2(0.58f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
@@ -163,7 +200,7 @@ public class DynamicShopUI : MonoBehaviour
         Image bg = GetOrAdd<Image>(footerBackground.gameObject);
         bg.color = new Color(0.07f, 0.08f, 0.16f, 0.9f);
 
-        TMP_Text footer = GetOrCreateText(footerBackground, "Footer", 18f, TextAlignmentOptions.Center);
+        TMP_Text footer = GetOrCreateText(footerBackground, "Footer", 18f, TextAlignmentOptions.Center, true);
         footer.text = "SECURE CHECKOUT  •  PURCHASES APPLY IMMEDIATELY  •  TRADE RESPONSIBLY";
         footer.color = new Color(0.79f, 0.74f, 0.91f, 1f);
         SetRect(footer.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -265,6 +302,9 @@ public class DynamicShopUI : MonoBehaviour
         SetRect(buyLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         buyObject.GetComponent<ShopItemButton>().Configure(shopManager, shopManager.Inventory, item, buy, name, price, owned);
+        Transform vp = modal?.Find("ProductViewport");
+        ScrollRect scroll = vp != null ? vp.GetComponent<ScrollRect>() : null;
+        if (scroll != null) ForwardScrollEvents(card, scroll);
         return card;
     }
 
@@ -300,7 +340,14 @@ public class DynamicShopUI : MonoBehaviour
     private void RefreshBalance()
     {
         if (balanceText != null && shopManager?.GameManager != null)
-            balanceText.text = $"BALANCE  ${shopManager.GameManager.CurrentBalance:N0}";
+        {
+            float cur = shopManager.GameManager.CurrentBalance;
+            if (Mathf.Abs(cur - lastDisplayedBalance) > 0.01f)
+            {
+                lastDisplayedBalance = cur;
+                balanceText.text = $"BALANCE  ${cur:N0}";
+            }
+        }
     }
 
     private void HideLegacyProductButtons()
@@ -324,29 +371,33 @@ public class DynamicShopUI : MonoBehaviour
         cards.Clear();
     }
 
-    private TMP_Text GetOrCreateText(Transform parent, string name, float size, TextAlignmentOptions alignment)
+    private TMP_Text GetOrCreateText(Transform parent, string name, float size, TextAlignmentOptions alignment, bool autoSize = false)
     {
         Transform found = parent.Find(name);
         TMP_Text text = found != null ? found.GetComponent<TMP_Text>() : null;
-        return text != null ? text : CreateText(parent, name, size, alignment);
+        if (text != null) ApplyTextStyle(text, size, alignment, autoSize);
+        return text != null ? text : CreateText(parent, name, size, alignment, autoSize);
     }
 
-    private TMP_Text CreateText(Transform parent, string name, float size, TextAlignmentOptions alignment)
+    private TMP_Text CreateText(Transform parent, string name, float size, TextAlignmentOptions alignment, bool autoSize = false)
     {
         GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         go.transform.SetParent(parent, false);
         TMP_Text text = go.GetComponent<TMP_Text>();
-        ApplyTextStyle(text, size, alignment);
+        ApplyTextStyle(text, size, alignment, autoSize);
         return text;
     }
 
-    private void ApplyTextStyle(TMP_Text text, float size, TextAlignmentOptions alignment)
+    private void ApplyTextStyle(TMP_Text text, float size, TextAlignmentOptions alignment, bool autoSize = false)
     {
         text.font = font != null ? font : TMP_Settings.defaultFontAsset;
         text.fontSize = size;
-        text.enableAutoSizing = true;
-        text.fontSizeMin = Mathf.Max(10f, size - 6f);
-        text.fontSizeMax = size;
+        text.enableAutoSizing = autoSize;
+        if (autoSize)
+        {
+            text.fontSizeMin = Mathf.Max(10f, size - 6f);
+            text.fontSizeMax = size;
+        }
         text.alignment = alignment;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.raycastTarget = false;
@@ -405,5 +456,40 @@ public class DynamicShopUI : MonoBehaviour
         rect.offsetMin = offsetMin;
         rect.offsetMax = offsetMax;
         rect.localScale = Vector3.one;
+    }
+
+    private static void ForwardScrollEvents(GameObject go, ScrollRect scroll)
+    {
+        if (go == null || scroll == null) return;
+        ScrollEventForwarder forwarder = GetOrAdd<ScrollEventForwarder>(go);
+        forwarder.targetScrollRect = scroll;
+    }
+}
+
+/// <summary>
+/// UI 요소(헤더, 푸터, 마스크 외 영역 등)에 발생한 마우스 휠 및 터치 드래그 스크롤 이벤트를 대상 ScrollRect로 전달합니다.
+/// </summary>
+public class ScrollEventForwarder : MonoBehaviour, IScrollHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
+{
+    public ScrollRect targetScrollRect;
+
+    public void OnScroll(PointerEventData eventData)
+    {
+        if (targetScrollRect != null) targetScrollRect.OnScroll(eventData);
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (targetScrollRect != null) targetScrollRect.OnBeginDrag(eventData);
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (targetScrollRect != null) targetScrollRect.OnDrag(eventData);
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (targetScrollRect != null) targetScrollRect.OnEndDrag(eventData);
     }
 }

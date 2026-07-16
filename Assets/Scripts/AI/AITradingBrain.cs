@@ -84,9 +84,13 @@ namespace FXOverdose.AI
             }
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
 
-            // 💡 [이벤트 오버라이드 능동적 반응 처리]
-            if (tradingController != null && tradingController.IsEventProtected)
+            // 💡 [이벤트/Overdose 오버라이드 능동적 반응 처리 및 방해 차단]
+            if (tradingController != null && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
             {
+                if (tradingController.IsOverdoseTradeActive)
+                {
+                    return;
+                }
                 if (marketEngine != null && marketEngine.IsExternalEventOverride)
                 {
                     currentActiveSignal = signal;
@@ -170,7 +174,7 @@ namespace FXOverdose.AI
             else if (phase == SignalPhase.Cooldown)
             {
                 isProcessingSignal = false;
-                if (tradingController != null && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected))
+                if (tradingController != null && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
                 {
                     return;
                 }
@@ -202,9 +206,9 @@ namespace FXOverdose.AI
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
 
             if (traderStatus == null || tradingController == null || gameManager == null) return;
-            if (tradingController.IsEventProtected)
+            if (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive)
             {
-                Debug.Log("[AITradingBrain] 🛡️ 이벤트 보호 쉴드 작동 중: AI 자동매매 판단을 보류하고 이벤트 선택 포지션을 유지합니다.");
+                Debug.Log("[AITradingBrain] 🛡️ 이벤트/Overdose 보호 쉴드 작동 중: AI 자동매매 판단을 보류합니다.");
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -509,7 +513,8 @@ namespace FXOverdose.AI
             // Overdose 시에는 목표가는 터무니없이 높게(+50%), 손절선은 없음(0f)
             float aiTarget = crazyPos == TradingController.PositionType.Long ? startPrice * 1.5f : startPrice * 0.5f;
 
-            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f);
+            // 💡 isEmergencyTrade: true를 전달하여 레벨에 따른 레버리지 클램핑을 무시하고 125배 뇌동/반대매매 보장
+            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f, true);
             if (opened)
             {
                 int actualLev = tradingController != null ? tradingController.CurrentLeverage : leverage;
