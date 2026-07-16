@@ -815,10 +815,17 @@ MonoBehaviour:
   currentLosingStreak: 0
   isLeverageAddicted: 0
   consecutiveHighLevWins: 0
+  consecutiveLowLevTrades: 0
   hasDrawdownTrauma: 0
   peakBalance: 0
   currentDrawdownPercent: 0
   canRegenMental: 1
+  trauma20Applied: 0
+  trauma30Applied: 0
+  trauma50Applied: 0
+  traumaConsumedMental: 0
+  hasTraumaCureItemBuff: 0
+  hasTraumaCureTradeBuff: 0
   currentMentalState: 0
   tradingController: {fileID: 0}
 --- !u!114 &33821699
@@ -913,6 +920,7 @@ MonoBehaviour:
     GraceMinutes: 0
     SignalStartPrice: 0
   lastDecisionLog: 
+  ForceNextTradeHighLeverage: 0
 --- !u!1 &46816041
 GameObject:
   m_ObjectHideFlags: 0
@@ -10930,6 +10938,7 @@ MonoBehaviour:
   mentalSlider: {fileID: 984677662}
   healthValueText: {fileID: 891966448}
   mentalValueText: {fileID: 880869635}
+  mentalFloatTravelDistance: 60
 --- !u!1 &930192668
 GameObject:
   m_ObjectHideFlags: 0
@@ -11455,10 +11464,17 @@ MonoBehaviour:
   currentLosingStreak: 0
   isLeverageAddicted: 0
   consecutiveHighLevWins: 0
+  consecutiveLowLevTrades: 0
   hasDrawdownTrauma: 0
   peakBalance: 0
   currentDrawdownPercent: 0
   canRegenMental: 1
+  trauma20Applied: 0
+  trauma30Applied: 0
+  trauma50Applied: 0
+  traumaConsumedMental: 0
+  hasTraumaCureItemBuff: 0
+  hasTraumaCureTradeBuff: 0
   currentMentalState: 0
   tradingController: {fileID: 0}
 --- !u!4 &1021043941
@@ -17324,6 +17340,8 @@ MonoBehaviour:
   cardFrameSprite: {fileID: 21300000, guid: 049b6cd24aca34a729aebb23d3f190ae, type: 3}
   font: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
   maxColumns: 3
+  browserShellSprite: {fileID: 21300000, guid: 71bd5d9de4644ca19a8b0b7cb78fd1f4, type: 3}
+  productCardSprite: {fileID: 21300000, guid: 0f3905dd325e4db99f7ee790c008cc9a, type: 3}
   careBadgeSprite: {fileID: 21300000, guid: 02188f293818f4fd8b26cc140ba2c18d, type: 3}
   activeBadgeSprite: {fileID: 21300000, guid: 69d43abe4feb1419abc92fde5d7a7bbd, type: 3}
   careBuyButtonSprite: {fileID: 21300000, guid: efc41feee1321463f80f951598307b2a, type: 3}

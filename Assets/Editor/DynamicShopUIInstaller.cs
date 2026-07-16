@@ -12,7 +12,9 @@ public static class DynamicShopUIInstaller
     private const string EnergyPath = "Assets/Data/Items/EnergyDrink.asset";
     private const string DessertPath = "Assets/Data/Items/Dessert.asset";
     private const string CardFramePath = "Assets/Img/UI/InventorySlotFramePixel.png";
-    private const string AppliedKey = "FXOverdose_DynamicCareShop_v2";
+    private const string BrowserShellPath = "Assets/Resources/UI/Shop/MarketplaceBrowserShell.png";
+    private const string ProductCardPath = "Assets/Resources/UI/Shop/MarketplaceProductCard.png";
+    private const string AppliedKey = "FXOverdose_DynamicCareShop_v3";
 
     [InitializeOnLoadMethod]
     private static void Initialize()
@@ -47,7 +49,9 @@ public static class DynamicShopUIInstaller
         ItemData energy = AssetDatabase.LoadAssetAtPath<ItemData>(EnergyPath);
         ItemData dessert = AssetDatabase.LoadAssetAtPath<ItemData>(DessertPath);
         Sprite cardFrame = AssetDatabase.LoadAssetAtPath<Sprite>(CardFramePath);
-        if (panel == null || manager == null || cardFrame == null) return;
+        Sprite browserShell = AssetDatabase.LoadAssetAtPath<Sprite>(BrowserShellPath);
+        Sprite productCard = AssetDatabase.LoadAssetAtPath<Sprite>(ProductCardPath);
+        if (panel == null || manager == null || cardFrame == null || browserShell == null || productCard == null) return;
 
         SerializedObject managerSerialized = new(manager);
         SerializedProperty catalog = managerSerialized.FindProperty("catalogItems");
@@ -70,6 +74,9 @@ public static class DynamicShopUIInstaller
         SerializedObject uiSerialized = new(dynamicUI);
         uiSerialized.FindProperty("shopManager").objectReferenceValue = manager;
         uiSerialized.FindProperty("cardFrameSprite").objectReferenceValue = cardFrame;
+        uiSerialized.FindProperty("maxColumns").intValue = 3;
+        uiSerialized.FindProperty("browserShellSprite").objectReferenceValue = browserShell;
+        uiSerialized.FindProperty("productCardSprite").objectReferenceValue = productCard;
         uiSerialized.FindProperty("font").objectReferenceValue = PFStardustGlobalFontApplicator.GetFont() ?? TMP_Settings.defaultFontAsset;
         uiSerialized.ApplyModifiedProperties();
 
