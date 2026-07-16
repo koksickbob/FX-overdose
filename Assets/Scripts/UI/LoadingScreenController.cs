@@ -69,6 +69,18 @@ namespace FXOverdose.UI
             if (gameScene.IsValid())
                 SceneManager.SetActiveScene(gameScene);
 
+            // 💡 [중복 경고 스팸 방지] GameScene이 Additive로 로드되면서 GameScene의 AudioListener가 활성화됩니다.
+            // 이후 LLM을 기다리는 동안 두 씬이 모두 켜져 있어 AudioListener가 2개가 되어 로그가 폭주하는 것을 막기 위해,
+            // 이전 씬(로딩 씬)의 AudioListener를 찾아서 즉시 꺼줍니다.
+            AudioListener[] listeners = Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+            foreach (var listener in listeners)
+            {
+                if (listener.gameObject.scene == gameObject.scene)
+                {
+                    listener.enabled = false;
+                }
+            }
+
             LocalLLMService llm = LocalLLMService.Instance;
             while (!AreGameSystemsReady(llm))
             {

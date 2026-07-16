@@ -28,8 +28,8 @@ namespace FXOverdose.Events
 
         private void Awake()
         {
-            if (uiController == null) uiController = GetComponentInChildren<ChoiceEventPopupUIController>();
-            if (uiController == null) uiController = FindAnyObjectByType<ChoiceEventPopupUIController>();
+            if (uiController == null) uiController = GetComponentInChildren<ChoiceEventPopupUIController>(true);
+            if (uiController == null) uiController = FindAnyObjectByType<ChoiceEventPopupUIController>(FindObjectsInactive.Include);
             if (uiController == null)
             {
                 GameObject uiGo = new GameObject("ChoiceEventPopupUIController", typeof(ChoiceEventPopupUIController));
