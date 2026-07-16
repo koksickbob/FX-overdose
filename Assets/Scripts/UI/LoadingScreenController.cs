@@ -100,6 +100,13 @@ namespace FXOverdose.UI
             LocalLLMService.DeferGameStartToLoadingScreen = false;
             yield return null;
 
+            // LocalLLMService는 DontDestroyOnLoad이므로 두 번째 게임 진입에서는 Start 코루틴이 다시 실행되지 않습니다.
+            // 매 진입마다 현재 GameScene의 매니저와 시장을 명시적으로 개장해 Loading 상태 고착을 방지합니다.
+            GameManager gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            gameManager?.FinishLoadingAndStartPlaying();
+            MarketSimulationEngine market = Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+            market?.OpenMarketAfterLoading();
+
             Scene loadingScene = gameObject.scene;
             if (loadingScene.IsValid() && loadingScene.isLoaded)
                 SceneManager.UnloadSceneAsync(loadingScene);

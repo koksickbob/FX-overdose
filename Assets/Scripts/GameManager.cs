@@ -415,6 +415,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>청산처럼 잔고 변경 이벤트 없이 포지션 자산이 소멸한 직후 엔딩 조건을 다시 검사합니다.</summary>
+    public void EvaluateEndingConditions()
+    {
+        if (currentState != GameState.Playing && currentState != GameState.Paused)
+        {
+            return;
+        }
+
+        CheckEnding();
+    }
+
     // 멘탈 시스템에서 호출할 Overdose 엔딩 함수
     public void TriggerOverdoseEnding()
     {

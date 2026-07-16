@@ -972,6 +972,8 @@ namespace FXOverdose.Trading
                 overdoseProtectionEndTime = -1f;
                 if (marketEngine != null) marketEngine.CancelOverdoseTrapSignal();
             }
+            // 포지션 정리 뒤 총자산을 다시 계산해 반환금이 없는 종료도 엔딩 판정에서 누락되지 않게 합니다.
+            gameManager?.EvaluateEndingConditions();
             isEventTradeActive = false;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
             eventTargetROELimit = 0f;
@@ -1072,6 +1074,8 @@ namespace FXOverdose.Trading
                     gameManager.TriggerOverdoseEnding();
                 }
             }
+            // 증거금이 완전히 소멸한 뒤 총자산을 재평가해야 일반 올인 청산도 Bankruptcy로 연결됩니다.
+            gameManager?.EvaluateEndingConditions();
             isEventTradeActive = false;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
             eventTargetROELimit = 0f;
