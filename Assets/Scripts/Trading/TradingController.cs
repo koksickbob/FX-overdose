@@ -39,6 +39,10 @@ namespace FXOverdose.Trading
         [SerializeField] private TradingMode activeTradingMode = TradingMode.AI_Auto;
         public TradingMode ActiveTradingMode => activeTradingMode;
         public event Action<TradingMode> OnTradingModeChanged;
+        
+        public bool IsManualModeLockedByYomi { get; private set; } = false;
+        public void LockManualMode() { IsManualModeLockedByYomi = true; }
+        public void UnlockManualMode() { IsManualModeLockedByYomi = false; }
 
         private void Awake()
         {
@@ -48,6 +52,14 @@ namespace FXOverdose.Trading
         public void SetTradingMode(TradingMode mode)
         {
             if (activeTradingMode == mode) return;
+
+            if (mode == TradingMode.Player_Manual && IsManualModeLockedByYomi)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 요미가 매매 주도권을 강제로 뺏어 잠근 상태라 수동 모드로 전환할 수 없습니다.");
+                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                if (visual != null) visual.DisplayDialogueBalloon("이건 요미가 알아서 할 거야! 오빠는 가만히 있어봐!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                return;
+            }
 
             // 1. LLM 모델 로딩 완료 검증
             var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
@@ -121,6 +133,7 @@ namespace FXOverdose.Trading
         private float lastMarginAmount = 0f;
         private PositionType lastClosedPosition = PositionType.None;
         private float lastClosedPrice = 0f;
+        private float lastClosedTime = -1f;
 
         public PositionType CurrentPosition => currentPosition;
         public OwnerType CurrentOwner => currentOwner;
@@ -148,6 +161,21 @@ namespace FXOverdose.Trading
             {
                 if (pnl > 0f) pnl *= (1f + ActiveItemEffectManager.Instance.ProfitBoostRate);
                 else if (pnl < 0f) pnl *= (1f - ActiveItemEffectManager.Instance.LossReductionRate);
+            }
+
+            if (traderStatus != null && traderStatus.HasTraumaCureTradeBuff)
+            {
+                if (pnl > 0f) 
+                {
+                    pnl *= 1.25f;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.GimmickTriggered, "[트라우마 완치 후 첫 매매 버프] 트라우마를 완치한 직후의 첫 매매에서 1.25배의 수익률 잭팟을 터뜨렸어! 도파민이 한도 끝까지 차오르며 스스로를 투자의 신이라 부르는 광기를 짧게 표현해 줘.");
+                }
+                else if (pnl < 0f) 
+                {
+                    pnl *= 0.75f;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.GimmickTriggered, "[트라우마 완치 후 첫 매매 손실 방어] 트라우마를 완치한 직후의 매매에서 손실이 났지만, 각성 상태 덕분에 손실금을 0.75배로 막아냈어! '이 정도 생채기는 아무것도 아니야!'라며 여유롭게 콧방귀를 뀌는 기세등등한 모습을 짧게 표현해 줘.");
+                }
+                traderStatus.HasTraumaCureTradeBuff = false;
             }
 
             float returned = marginAmount + pnl;
@@ -214,6 +242,7 @@ namespace FXOverdose.Trading
         [SerializeField] private bool isEventTrueSignal = true;
         private float maxObservedEventROE = 0f;
         private int lastReportedROEBasket = 0;
+        private float playerTradeCooldownEndTime = -1f;
 
         private void TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory cat, string ctx)
         {
@@ -283,6 +312,12 @@ namespace FXOverdose.Trading
                 }
             }
 
+            // 💡 [수동 조작 모드 보호] 플레이어가 수동 조작 중이고 오버도즈 상태가 아니면 AI가 비상 물타기 및 자동 청산 로직을 수행하지 않음
+            if (activeTradingMode == TradingMode.Player_Manual && !isOverdoseTradeActive)
+            {
+                return;
+            }
+
             // 💡 2. [악결과(Trap/실패) 바닥 부근 비상 물타기 발동 (HoldToMitigateLoss 혹은 StandardAuto)]
             if (!isEventTrueSignal && (currentEventHandlingMode == EventPositionHandlingMode.HoldToMitigateLoss || currentEventHandlingMode == EventPositionHandlingMode.StandardAuto))
             {
@@ -302,24 +337,44 @@ namespace FXOverdose.Trading
                 }
             }
 
+            var levelSystem = TraderLevelSystem.Instance;
+            int cubeLvl = levelSystem != null ? levelSystem.CubePatienceLevel : 1;
+            int bookLvl = levelSystem != null ? levelSystem.BookJudgmentLevel : 1;
+            int chartLvl = levelSystem != null ? levelSystem.ChartStudyLevel : 1;
+
             switch (currentEventHandlingMode)
             {
                 case EventPositionHandlingMode.InstantTakeProfit:
-                    float targetTakeProfitROE = eventTargetROELimit > 0f ? eventTargetROELimit : 100f;
+                    float expectedMaxROE = 100f;
+                    if (marketEngine != null && marketEngine.CurrentSignalPhase != SignalPhase.None)
+                    {
+                        float beamPct = Mathf.Abs(marketEngine.ActiveSignal.TargetPercentageDelta);
+                        expectedMaxROE = beamPct * currentLeverage;
+                        if (expectedMaxROE <= 0f) expectedMaxROE = 100f;
+                    }
+                    float takeProfitMultiplier = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 0.8f;
+                    float dynamicTakeProfit = expectedMaxROE * takeProfitMultiplier;
+                    float targetTakeProfitROE = eventTargetROELimit > 0f ? eventTargetROELimit : dynamicTakeProfit;
                     if (roe >= targetTakeProfitROE)
                     {
-                        Debug.Log($"[TradingController ⚡] 이벤트 칼익절(InstantTakeProfit) 발동! ROE +{roe:F1}% 달성으로 수익을 즉시 확정합니다.");
-                        if (visual != null) visual.DisplayDialogueBalloon($"오빠...! 이벤트 빔으로 ROE +{roe:0.0}% 찍자마자 칼익절로 챙겼어!! 기회 놓치지 않는 게 최고지 ♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                        Debug.Log($"[TradingController ⚡] 이벤트 칼익절(InstantTakeProfit) 발동! 예상 수익 구간의 {takeProfitMultiplier*100:0}% 달성 (ROE +{roe:F1}%).");
+                        string prompt = $"[이벤트 기믹 발동: 완벽한 칼익절] 거대한 상승 빔 잠재력의 {takeProfitMultiplier*100:0}% 지점을 정확히 타격하여 선제 익절 성공! 대박 수익 확정. (ROE +{roe:F1}%)";
+                        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                        else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
                         ClosePosition();
                     }
                     break;
 
                 case EventPositionHandlingMode.InstantStopLoss:
-                    float targetStopLossROE = eventStopLossROELimit < 0f ? eventStopLossROELimit : -30f;
+                    float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
+                    float dynamicStopLoss = -stopLossTightness * 3.33f * 100f; // -30% ~ -5%
+                    float targetStopLossROE = eventStopLossROELimit < 0f ? eventStopLossROELimit : dynamicStopLoss;
                     if (roe <= targetStopLossROE)
                     {
                         Debug.Log($"[TradingController ⚡] 이벤트 긴급 손절(InstantStopLoss) 발동! ROE {roe:F1}% 위기 감지로 피해를 최소화하기 위해 즉시 정리합니다.");
-                        if (visual != null) visual.DisplayDialogueBalloon($"히익...! ROE {roe:0.0}% 떨어지는 거 보고 바로 손절 쳤어...! 뼈아프지만 청산당하는 것보단 낫잖아 흐윽...", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                        string prompt = $"[이벤트 기믹 발동: 빠른 손실 회피] 악결과 빔이 나오자마자 청산당하기 전에 -{Mathf.Abs(targetStopLossROE):0}%에서 즉각 손절하여 피해 최소화 성공. (ROE {roe:F1}%)";
+                        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                        else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
                         ClosePosition();
                     }
                     break;
@@ -329,64 +384,84 @@ namespace FXOverdose.Trading
                     if (roe <= mitigationStopLimit)
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 비상 방어: 청산 직전까지 인내했으나 잔여 증거금을 지키기 위해 긴급 정리합니다. (ROE {roe:F1}%)");
-                        if (visual != null) visual.DisplayDialogueBalloon($"끝까지 이 악물고 버텼는데 더 버티면 100% 청산이야...! 남은 증거금이라도 건지려고 비상 탈출했어...! (ROE {roe:0.0}%)", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                        string prompt = $"[이벤트 기믹: 비상 방어 실패] 개미털기 트랩 바닥에서 물타기를 하며 버텼으나 더 이상 버티면 청산이 확정되어 남은 증거금이라도 지키기 위해 눈물을 머금고 최후 손절. (ROE {roe:F1}%)";
+                        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                        else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
                         ClosePosition();
                     }
-                    else if ((maxObservedEventROE <= -40f || lastReportedROEBasket == -999) && roe >= -12f)
+                    else 
                     {
-                        Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 성공! 반등 꼬리(Whipsaw Recovery) 시점에 극적으로 손실을 최소화하여 탈출합니다. (ROE {roe:F1}%)");
-                        if (visual != null)
+                        float escapeLimit = -12f + (bookLvl - 1) * 1.5f;
+                        if ((maxObservedEventROE <= -40f || lastReportedROEBasket == -999) && roe >= escapeLimit)
                         {
-                            if (isEventPlayerChoice && !isEventTrueSignal)
-                            {
-                                visual.DisplayDialogueBalloon($"휴우... 오빠가 고른 악결과 트레이드 바닥에서 요미가 필사적으로 물타서 반등 꼬리에 탈출시켰어...! 진짜 심장 멈추는 줄 알았네 흐윽... 다음엔 좋은 거 골라야 해 오빠!♥ (ROE {roe:0.0}%)", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
-                            }
-                            else
-                            {
-                                visual.DisplayDialogueBalloon($"휴우... 아까 바닥까지 떨어졌을 때 끝까지 버틴 덕분에 손실 거의 다 회복하고 탈출했어! 심장 떨어지는 줄 알았네...♥ (ROE {roe:0.0}%)", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
-                            }
+                            Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 성공! 반등 꼬리(Whipsaw Recovery) 시점에 극적으로 탈출합니다. (ROE {roe:F1}%)");
+                            string prompt = isEventPlayerChoice && !isEventTrueSignal 
+                                ? $"[이벤트 기믹 발동: 기적의 양전 탈출] 오빠가 고른 악결과 함정 바닥에서 필사적으로 물을 탄 뒤, 기적적인 반등 꼬리를 잡아내어 손실을 복구하고 탈출 성공! (ROE {roe:F1}%)"
+                                : $"[이벤트 기믹 발동: 기적의 양전 탈출] 청산 직전 바닥에서 물을 타며 버틴 끝에 반등 꼬리를 잡아내어 손실을 복구하고 극적으로 탈출 성공! (ROE {roe:F1}%)";
+                            if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                            else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                            ClosePosition();
                         }
-                        ClosePosition();
                     }
                     break;
 
                 case EventPositionHandlingMode.GreedyHold:
-                    float targetGreedyROE = eventTargetROELimit > 0f ? eventTargetROELimit : 300f;
-                    if (roe >= targetGreedyROE)
+                    if (eventTargetROELimit > 0f && roe >= eventTargetROELimit)
                     {
-                        Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 목표치 달성! ROE +{roe:F1}% 극한 수익 확정 청산!");
-                        if (visual != null) visual.DisplayDialogueBalloon($"꺄아아악!! 오빠 봤어?! ROE +{roe:0.0}% 초거대 대박이야!! 이대로 전액 수익 확정!! 우리 부자다아아♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                        Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 지정 목표치 달성! ROE +{roe:F1}% 극한 수익 확정 청산!");
+                        string prompt = $"[이벤트 기믹 발동: 극한 탐욕 홀딩] 목표가 도달!! 빔 끝까지 영혼을 모아 홀딩하여 초거대 대박 수익을 전액 확정! 부자가 된 기분! (ROE +{roe:F1}%)";
+                        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                        else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
                         ClosePosition();
                     }
-                    else if ((maxObservedEventROE >= 150f && roe <= maxObservedEventROE * 0.75f) ||
-                             (maxObservedEventROE >= 80f && roe <= maxObservedEventROE * 0.80f) ||
-                             (maxObservedEventROE >= 45f && roe <= maxObservedEventROE * 0.82f))
+                    else 
                     {
-                        Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 트레이링 익절 작동! 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산!");
-                        if (visual != null) visual.DisplayDialogueBalloon($"고점(+{maxObservedEventROE:0.0}%) 찍고 꺾이는 거 감지해서 ROE +{roe:0.0}%에 트레이링 익절했어!! 최고점에서 조금 내려왔지만 그래도 초대박이야 오빠♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
-                        ClosePosition();
+                        float trailingSens1 = 0.75f + (chartLvl - 1) * 0.015f;
+                        float trailingSens2 = 0.80f + (chartLvl - 1) * 0.015f;
+                        float trailingSens3 = 0.82f + (chartLvl - 1) * 0.015f;
+
+                        if ((maxObservedEventROE >= 150f && roe <= maxObservedEventROE * trailingSens1) ||
+                            (maxObservedEventROE >= 80f && roe <= maxObservedEventROE * trailingSens2) ||
+                            (maxObservedEventROE >= 45f && roe <= maxObservedEventROE * trailingSens3))
+                        {
+                            Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 트레이링 익절 작동! 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산!");
+                            string prompt = $"[이벤트 기믹 발동: 트레일링 스탑] 끝을 모르고 치솟던 빔이 초대박 고점(+{maxObservedEventROE:F1}%)을 찍고 꺾이는 찰나, 차트 분석을 통해 최상단 꼭지점 부근에서 기가 막히게 스마트 익절 발동! (ROE +{roe:F1}%)";
+                            if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                            else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                            ClosePosition();
+                        }
                     }
                     break;
 
                 case EventPositionHandlingMode.StandardAuto:
                 default:
-                    float autoLimit = eventTargetROELimit > 0f ? eventTargetROELimit : 90f;
-                    if (roe >= autoLimit)
+                    if (eventTargetROELimit > 0f && roe >= eventTargetROELimit)
                     {
-                        Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 익절: ROE +{roe:F1}% 달성으로 수익을 챙깁니다.");
-                        if (visual != null) visual.DisplayDialogueBalloon($"이벤트 빔으로 ROE +{roe:0.0}% 달성! 욕심부리지 않고 확실하게 수익 챙겼어♥", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                        Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 지정 익절: ROE +{roe:F1}% 달성으로 수익을 챙깁니다.");
+                        string prompt = $"[이벤트 기믹 발동: 스마트 매매 익절] 빔 폭발 중에 욕심부리지 않고 확실한 수익 목표치 도달 즉시 스마트하게 익절 챙김! (ROE +{roe:F1}%)";
+                        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                        else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
                         ClosePosition();
                     }
-                    else if (maxObservedEventROE >= 40f && roe <= maxObservedEventROE * 0.80f)
+                    else
                     {
-                        Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 트레이링 익절: 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산.");
-                        if (visual != null) visual.DisplayDialogueBalloon($"고점 찍고 떨어지는 거 보고 ROE +{roe:0.0}%에 스마트 익절했어! 수익 방어 성공!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
-                        ClosePosition();
-                    }
-                    else if (roe <= -65f && Time.time >= eventPositionOpenedTime + 5.0f)
-                    {
-                        Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 손절: 위험 수준의 손실(ROE {roe:F1}%) 감지로 포지션을 정리합니다.");
-                        ClosePosition();
+                        float trailingSens = 0.75f + (chartLvl - 1) * 0.015f; // LV1 = 75%, LV10 = 88.5%
+                        if (maxObservedEventROE >= 40f && roe <= maxObservedEventROE * trailingSens)
+                        {
+                            Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 트레이링 익절: 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산.");
+                            string prompt = $"[이벤트 기믹 발동: 스마트 트레일링 스탑] 고점(+{maxObservedEventROE:F1}%) 찍고 하락하는 것을 감지하자마자 재빨리 스마트 익절을 발동하여 수익 방어 대성공! (ROE +{roe:F1}%)";
+                            if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                            else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                            ClosePosition();
+                        }
+                        else if (roe <= -65f && Time.time >= eventPositionOpenedTime + 5.0f)
+                        {
+                            Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 손절: 위험 수준의 손실(ROE {roe:F1}%) 감지로 포지션을 정리합니다.");
+                            string prompt = $"[이벤트 기믹 발동: 스마트 매매 손절] 차트가 예상과 다르게 흘러가자 손실이 더 커지기 전에 기계적인 원칙으로 빠르게 손절. (ROE {roe:F1}%)";
+                            if (FXOverdose.AI.LLM.LocalLLMService.Instance != null) FXOverdose.AI.LLM.LocalLLMService.Instance.RequestDialogue(FXOverdose.AI.LLM.EventCategory.PositionClosed, prompt);
+                            else if (visual != null) visual.DisplayDialogueBalloon(prompt, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.PositionClosed);
+                            ClosePosition();
+                        }
                     }
                     break;
             }
@@ -402,6 +477,17 @@ namespace FXOverdose.Trading
             Debug.Log($"[TradingController 🏁] 이벤트 보호 쉴드 및 유지 시간 종료. 최종 ROE: {roe:F1}%, 모드: {currentEventHandlingMode}");
 
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+
+            // 💡 [수동 조작 모드 보호] 플레이어 수동 조작 중이면 AI가 포지션을 자동 청산하지 않고 제어권을 넘김
+            if (activeTradingMode == TradingMode.Player_Manual && !isOverdoseTradeActive)
+            {
+                Debug.Log($"[TradingController 🔄] 이벤트 보호 쉴드 종료. 플레이어 수동 모드이므로 AI가 포지션을 자동 정리하지 않고 제어권을 유지합니다.");
+                currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
+                eventTargetROELimit = 0f;
+                eventStopLossROELimit = 0f;
+                maxObservedEventROE = 0f;
+                return;
+            }
 
             switch (currentEventHandlingMode)
             {
@@ -473,7 +559,9 @@ namespace FXOverdose.Trading
                         lastROEDialogueTime = Time.time;
                         
                         string contextPrompt = "";
-                        if (lastClosedPosition != PositionType.None && lastClosedPrice > 0f)
+                        bool isRecentlyClosed = (lastClosedPosition != PositionType.None && lastClosedPrice > 0f && lastClosedTime > 0f && (Time.time - lastClosedTime < 45f));
+
+                        if (isRecentlyClosed)
                         {
                             float priceDiffPct = (price - lastClosedPrice) / lastClosedPrice * 100f;
                             bool isMissedProfit = (lastClosedPosition == PositionType.Long && priceDiffPct > 0.5f) || 
@@ -496,7 +584,7 @@ namespace FXOverdose.Trading
                         }
                         else
                         {
-                            contextPrompt = "[포지션 조기 종료 후 추가 폭등/폭락 관망] 이미 포지션을 종료하고 털고 나왔으나 그 후 주가가 계속해서 크게 움직이는 중. 후회나 안도 등의 상황에 맞는 반응을 해줘.";
+                            contextPrompt = "[무포지션 폭주 빔 관망] 포지션이 아예 없는 상태(관망 중)에서, 차트가 미친듯이 수직으로 치솟거나 꽂히는 거대한 빔을 구경하고 있습니다. 엄청난 변동성에 놀라거나, 구경꾼의 입장에서 감탄하는 혼잣말을 짧게 작성하세요. (주의: 내가 팔았다는 식의 말은 절대 금지!)";
                         }
 
                         llmService?.RequestDialogue(FXOverdose.AI.LLM.EventCategory.ChartMovement, contextPrompt);
@@ -559,8 +647,8 @@ namespace FXOverdose.Trading
                 if (currentPosition == PositionType.None) return;
             }
 
-            // 2. AI 목표 주가(Target Price) 도달 익절 자동 청산 (플레이어 개입 없음, AI 독자 결정)
-            if (targetPrice > 0f)
+            // 2. AI 목표 주가(Target Price) 도달 익절 자동 청산 (플레이어 수동 조작 중에는 비활성화, 단 Overdose 시 강제 실행)
+            if (targetPrice > 0f && (activeTradingMode == TradingMode.AI_Auto || isOverdoseTradeActive))
             {
                 if ((currentPosition == PositionType.Long && price >= targetPrice) ||
                     (currentPosition == PositionType.Short && price <= targetPrice))
@@ -571,8 +659,8 @@ namespace FXOverdose.Trading
                 }
             }
 
-            // 3. AI 손절가(Stop Loss) 도달 자동 청산
-            if (stopLossPrice > 0f)
+            // 3. AI 손절가(Stop Loss) 도달 자동 청산 (플레이어 수동 조작 중에는 비활성화, 단 Overdose 시 강제 실행)
+            if (stopLossPrice > 0f && (activeTradingMode == TradingMode.AI_Auto || isOverdoseTradeActive))
             {
                 if ((currentPosition == PositionType.Long && price <= stopLossPrice) ||
                     (currentPosition == PositionType.Short && price >= stopLossPrice))
@@ -692,6 +780,13 @@ namespace FXOverdose.Trading
         // 플레이어 직접(수동) 매매 진입
         public bool OpenPlayerPosition(PositionType type, float marginPercentage, int leverage)
         {
+            // 💡 [단타 어뷰징 방지] 매매 쿨타임 체크 (종료 후 1초간 신규 진입/스위칭 제한)
+            if (Time.time < playerTradeCooldownEndTime)
+            {
+                Debug.LogWarning("[TradingController] ⏳ 매매 쿨타임 적용 중: 단타 어뷰징을 방지하기 위해 포지션 종료 후 1초간은 새로운 포지션을 개설할 수 없습니다.");
+                return false;
+            }
+
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
@@ -791,6 +886,24 @@ namespace FXOverdose.Trading
                 }
             }
 
+            // 트라우마 극복 직후 첫 매매 보너스 적용
+            if (traderStatus != null && traderStatus.HasTraumaCureTradeBuff)
+            {
+                if (pnl > 0f)
+                {
+                    pnl *= 1.25f;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.GimmickTriggered, "[트라우마 완치 후 첫 매매 버프] 트라우마를 완치한 직후의 첫 매매에서 1.25배의 수익률 잭팟을 터뜨렸어! 도파민이 한도 끝까지 차오르며 스스로를 투자의 신이라 부르는 광기를 짧게 표현해 줘.");
+                    Debug.Log($"[TradingController] ✨ 트라우마 극복 버프! 다음 거래 수익 1.25배 증가 적용 (PnL: {pnl:N1})");
+                }
+                else if (pnl < 0f)
+                {
+                    pnl *= 0.75f;
+                    TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.GimmickTriggered, "[트라우마 완치 후 첫 매매 손실 방어] 트라우마를 완치한 직후의 매매에서 손실이 났지만, 각성 상태 덕분에 손실금을 0.75배로 막아냈어! '이 정도 생채기는 아무것도 아니야!'라며 여유롭게 콧방귀를 뀌는 기세등등한 모습을 짧게 표현해 줘.");
+                    Debug.Log($"[TradingController] ✨ 트라우마 극복 버프! 다음 거래 손실 0.75배 방어 적용 (PnL: {pnl:N1})");
+                }
+                traderStatus.HasTraumaCureTradeBuff = false;
+            }
+
             float totalReturn = marginAmount + pnl;
 
             // 자산 정산
@@ -829,6 +942,13 @@ namespace FXOverdose.Trading
             lastMarginAmount = marginAmount;
             lastClosedPosition = currentPosition;
             lastClosedPrice = marketEngine != null ? marketEngine.CurrentPrice : entryPrice;
+            lastClosedTime = Time.time;
+
+            // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 1초 적용
+            if (activeTradingMode == TradingMode.Player_Manual || currentOwner == OwnerType.Player)
+            {
+                playerTradeCooldownEndTime = Time.time + 1.0f;
+            }
 
             // 💡 [이벤트 순서 수정] 이벤트 수신자가 활성 증거금 및 PnL ROE를 정확히 읽을 수 있도록 청산 상태 초기화 직전에 발송!
             OnPositionClosed?.Invoke(totalReturn, pnl);
@@ -917,10 +1037,10 @@ namespace FXOverdose.Trading
 
             lastMarginAmount = marginAmount;
 
-            // AI 트레이더 멘탈 대붕괴 (Overdose 직전 또는 즉시 도달)
+            // AI 트레이더 멘탈 붕괴 (Overdose 가속)
             if (traderStatus != null)
             {
-                traderStatus.ChangeMental(-60f);
+                traderStatus.ChangeMental(-40f);
             }
 
             // 💡 [이벤트 순서 수정] 강제청산 이벤트 발송을 포지션/증거금 초기화 직전에 진행하여 수신자가 손실 정보를 인지할 수 있게 보완
@@ -962,6 +1082,14 @@ namespace FXOverdose.Trading
         {
             if (gameManager == null || marketEngine == null) return;
             
+            // ⭐ [AI 통제권 강제 탈환] Overdose 상태 진입 시 플레이어 수동 조작 상태여도 AI가 통제권을 강제로 빼앗음
+            if (activeTradingMode == TradingMode.Player_Manual)
+            {
+                Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] 플레이어 수동 조작 모드 강제 해제! AI가 제어권을 탈환합니다!");
+                activeTradingMode = TradingMode.AI_Auto;
+                OnTradingModeChanged?.Invoke(activeTradingMode);
+            }
+
             // ⭐ [고속 스킵 일시정지] 오버도즈 골든타임 보장을 위해 진행 중인 고속 스킵 중단
             gameManager.PauseFastForwardForOverdose();
 
@@ -1017,7 +1145,7 @@ namespace FXOverdose.Trading
             }
         }
 
-        public void ExecuteEmergencyTrade(PositionType posType, int leverage, int durationSeconds = 30, EventPositionHandlingMode handlingMode = EventPositionHandlingMode.StandardAuto, float customTargetROE = 0f, float customStopLossROE = 0f, bool isPlayerChoice = false, bool isTrueSignal = true)
+        public void ExecuteEmergencyTrade(PositionType posType, int leverage, int durationSeconds = 30, EventPositionHandlingMode handlingMode = EventPositionHandlingMode.StandardAuto, float customTargetROE = 0f, float customStopLossROE = 0f, bool isPlayerChoice = false, bool isTrueSignal = true, float customMarginRatio = -1f)
         {
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
@@ -1089,10 +1217,11 @@ namespace FXOverdose.Trading
             if (gameManager != null && (gameManager.CurrentState == GameManager.GameState.Playing || gameManager.CurrentState == GameManager.GameState.Paused) && marketEngine != null)
             {
                 float effectiveBalance = gameManager.CurrentBalance > 1f ? gameManager.CurrentBalance : 100f; // 잔고가 1원 이하이거나 0원일 때도 이벤트 효과로 포지션이 개설되도록 최소 보증금 적용
-                float forcedMargin = Mathf.Max(10f, effectiveBalance * 0.4f);
+                float marginRatio = customMarginRatio > 0f ? customMarginRatio : 0.4f;
+                float forcedMargin = Mathf.Max(10f, effectiveBalance * marginRatio);
                 if (forcedMargin > gameManager.CurrentBalance && gameManager.CurrentBalance > 1f)
                 {
-                    forcedMargin = gameManager.CurrentBalance * 0.95f;
+                    forcedMargin = gameManager.CurrentBalance * (customMarginRatio > 0f ? customMarginRatio : 0.95f);
                 }
                 if (forcedMargin > 0f)
                 {
