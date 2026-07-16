@@ -33,6 +33,7 @@ namespace FXOverdose.Events
             if (uiController == null)
             {
                 GameObject uiGo = new GameObject("ChoiceEventPopupUIController", typeof(ChoiceEventPopupUIController));
+                uiGo.transform.SetParent(this.transform);
                 uiController = uiGo.GetComponent<ChoiceEventPopupUIController>();
             }
 
