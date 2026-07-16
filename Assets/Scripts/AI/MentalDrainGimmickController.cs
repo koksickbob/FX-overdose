@@ -293,7 +293,7 @@ namespace FXOverdose.AI
                     {
                         // 2회 누적 시 요미가 강제로 매매 주도권을 뺏음
                         Debug.LogWarning("[MentalDrainGimmickController] 😡 [고배율 중독 폭주] 요미가 답답함을 못 참고 매매 주도권을 강탈합니다!");
-                        TriggerGimmickDialogue("[고배율 중독 폭주 기믹 발동] 오빠의 쫄보 같은 저배율 매매에 극도의 답답함과 짜증을 느끼며 강제로 마우스를 뺏어버리는 상황. 요미는 도파민 부족으로 손을 떨며 '비켜봐, 내가 시원하게 긁어줄게'라는 식의 미친듯한 탐욕과 참을 수 없는 짜증을 강렬하게 표출해 줘.", "아 진짜 답답해 미치겠네!! 장난쳐?! 그딴 푼돈으로 언제 부자 될 건데?! 이리 내, 요미가 직접 할 거야!!");
+                        TriggerGimmickDialogue("[고배율 중독 폭주 기믹 발동] 쫄보 같은 저배율 매매에 극도의 답답함과 짜증을 느끼며 강제로 마우스를 뺏어버리는 상황. 트레이더는 도파민 부족으로 손을 떨며 '비켜봐, 내가 시원하게 긁어줄게'라는 식의 미친듯한 탐욕과 참을 수 없는 짜증을 강렬하게 표출해 줘.", "아 진짜 답답해 미치겠네!! 장난쳐?! 그딴 푼돈으로 언제 부자 될 건데?! 이리 내, 내가 직접 할 거야!!");
                         
                         tradingController.LockManualMode();
                         tradingController.SetTradingMode(TradingController.TradingMode.AI_Auto);
@@ -307,7 +307,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerGimmickDialogue("고배율 중독 금단현상 1회 경고 (저배율 답답함)", "오빠... 배율 너무 낮지 않아...? 아까처럼 팍팍 좀 들어가자 응...?");
+                        TriggerGimmickDialogue("고배율 중독 금단현상 1회 경고 (저배율 답답함)", "야... 배율 너무 낮지 않아...? 아까처럼 고배율로 팍팍 좀 들어가자 응...?");
                     }
                 }
                 else if (closedLeverage >= 50 && realizedPnL <= 0f)
