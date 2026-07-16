@@ -61,6 +61,11 @@ namespace FXOverdose.Trading
 
         public void OpenMarketAfterLoading()
         {
+            if (IsMarketOpen)
+            {
+                return;
+            }
+
             IsMarketOpen = true;
             minutesUntilNextSignal = 3; // 개장 후 3분(3초) 뒤 첫 거래 신호 발생
             Debug.Log("[MarketSimulationEngine] 📈 로딩 및 AI 개장 대사 출력 완료 -> 시장 개장! 주가 차트 시뮬레이션 및 AI 실시간 매매가 시작됩니다.");

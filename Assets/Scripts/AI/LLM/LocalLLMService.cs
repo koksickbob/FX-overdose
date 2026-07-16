@@ -238,10 +238,12 @@ namespace FXOverdose.AI.LLM
         }
 
         private Coroutine gameOverSpiralCoroutine;
+        private bool suppressGameOverSpiralDialogue;
 
         // 게임오버 시 단 1회 대사로 끝나지 않고, 약 10초간 연쇄적으로 극도의 멘헤라 절망/집착/분노 대사를 쏟아내는 연쇄 루프 가동
         public void TriggerGameOverSpiralLoop(string endingType)
         {
+            suppressGameOverSpiralDialogue = false;
             if (gameOverSpiralCoroutine != null)
             {
                 StopCoroutine(gameOverSpiralCoroutine);
@@ -271,6 +273,21 @@ namespace FXOverdose.AI.LLM
 
             yield return new WaitForSeconds(8.5f);
             Debug.Log("[LocalLLMService 🌀] 멘헤라 연쇄 대사 붕괴 루프(1~3단계 완주) 종료.");
+            gameOverSpiralCoroutine = null;
+        }
+
+        /// <summary>타이틀 복귀 시 남아 있는 게임오버 독백과 지연 요청을 정리합니다.</summary>
+        public void CancelGameOverSpiralLoop()
+        {
+            suppressGameOverSpiralDialogue = true;
+            if (gameOverSpiralCoroutine != null)
+            {
+                StopCoroutine(gameOverSpiralCoroutine);
+                gameOverSpiralCoroutine = null;
+            }
+
+            requestQueue.Clear();
+            Debug.Log("[LocalLLMService 🧹] 타이틀 복귀를 위해 게임오버 연쇄 대사와 대기 요청을 정리했습니다.");
         }
 
         public void RequestDialogue(string extraEventContext = "")
@@ -431,6 +448,14 @@ namespace FXOverdose.AI.LLM
 
         private void PublishGeneratedDialogue(EventCategory category, string dialogue, string extraContext)
         {
+            if (suppressGameOverSpiralDialogue &&
+                !string.IsNullOrEmpty(extraContext) &&
+                extraContext.Contains("[게임오버 연쇄 붕괴"))
+            {
+                Debug.Log("[LocalLLMService] 타이틀 복귀 후 도착한 게임오버 대사를 폐기했습니다.");
+                return;
+            }
+
             // 정산 화면을 이미 닫고 다음 날로 넘어갔다면 늦게 도착한 전날 대사를 폐기합니다.
             if (category == EventCategory.DailySettlement)
             {
