@@ -234,9 +234,9 @@ namespace FXOverdose.Events
             if (option == null) return;
 
             // 1. 특수 아이템 개입 요구 검증 및 차감
-            if (option.OptionType == ChoiceOptionType.SpecialItem && option.RequiredItemIndex >= 0)
+            if (option.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(option.RequiredItemId))
             {
-                if (traderStatus == null || !traderStatus.ConsumeItem(option.RequiredItemIndex, option.RequiredItemCount))
+                if (traderStatus == null || !traderStatus.ConsumeItem(option.RequiredItemId, option.RequiredItemCount))
                 {
                     uiController?.ShowToastWarning("필요한 특수 아이템이 부족합니다!");
                     return;

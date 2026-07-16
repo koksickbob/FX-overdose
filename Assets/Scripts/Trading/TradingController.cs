@@ -965,15 +965,11 @@ namespace FXOverdose.Trading
             // ⭐ [고속 스킵 일시정지] 오버도즈 골든타임 보장을 위해 진행 중인 고속 스킵 중단
             gameManager.PauseFastForwardForOverdose();
 
-            // ⭐ [이벤트 포지션 쉴드] 돌발 이벤트 등으로 전략적 포지션을 개설한 직후에는 AI의 Overdose 뇌동매매 개입을 차단!
+            // ⭐ [이벤트 포지션 쉴드 무시 및 강제 반대매매 탕진] 돌발 이벤트가 진행 중이어도 Overdose가 발생하면 이벤트를 파괴하고 쉴드를 해제합니다.
             if (Time.time < eventProtectionEndTime && !isOverdoseTradeActive)
             {
-                if (Time.time - lastOverdoseTradeTime > 3f)
-                {
-                    Debug.Log("[TradingController] 🛡️ 이벤트 선택지 포지션 쉴드 활성화 중 -> AI Overdose 뇌동매매 개입을 임시 차단하여 이벤트 의도를 존중합니다.");
-                    lastOverdoseTradeTime = Time.time;
-                }
-                return;
+                Debug.LogWarning("[TradingController] 🩸 [Overdose 폭주] 진행 중인 돌발 이벤트 보호 쉴드를 파괴하고 탕진 매매를 시작합니다!");
+                eventProtectionEndTime = -1f;
             }
 
             // 과도한 중복 호출 방지 (최근 3초 이내에 Overdose 매매가 실행되었고 현재 보유 포지션이 있다면 추가 호출 스킵)
@@ -996,7 +992,8 @@ namespace FXOverdose.Trading
             }
             else if (marketEngine.CurrentSignalPhase != SignalPhase.None && Mathf.Abs(marketEngine.ActiveSignal.TargetPercentageDelta) > 0.01f)
             {
-                forcedDirection = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? PositionType.Long : PositionType.Short;
+                // 💡 이벤트 차트 빔 방향의 정확히 반대 방향으로 배팅하여 확정 청산을 유도합니다.
+                forcedDirection = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? PositionType.Short : PositionType.Long;
             }
 
             // ⭐ [확실한 0원 청산 보장 All-In] 잔고의 일부가 아닌 전액 100% 올인하여 청산 시 잔고 0원(Overdose 게임오버)을 확실히 보장합니다!
@@ -1029,6 +1026,33 @@ namespace FXOverdose.Trading
             if (posType == PositionType.None && leverage <= 0)
             {
                 CloseAllPositions();
+                return;
+            }
+
+            // ⭐ [Overdose 통수 로직] 이미 Overdose 중일 때 이벤트 선택지가 들어오면, 무조건 이벤트 신호의 반대 방향으로 풀레버리지 탕진 스위칭
+            if (isOverdoseTradeActive)
+            {
+                PositionType eventDirection = posType;
+                if (eventDirection == PositionType.None && marketEngine != null && marketEngine.CurrentSignalPhase != SignalPhase.None)
+                {
+                    eventDirection = marketEngine.ActiveSignal.TargetPercentageDelta >= 0 ? PositionType.Long : PositionType.Short;
+                }
+                if (eventDirection == PositionType.None) eventDirection = PositionType.Long;
+                PositionType reverseDirection = eventDirection == PositionType.Long ? PositionType.Short : PositionType.Long;
+
+                Debug.LogWarning($"[TradingController] 🩸 [Overdose 폭주 중] 돌발 이벤트 진입 감지! 이벤트 의도({eventDirection})를 무시하고 확정 청산을 위해 반대 방향({reverseDirection}) 125배 풀레버리지로 통수 스위칭합니다!");
+                
+                if (currentPosition != PositionType.None) ClosePosition();
+                
+                float forcedMargin = gameManager.CurrentBalance;
+                int forcedLeverage = 125;
+                float currentP = marketEngine.CurrentPrice;
+                float aiTarget = reverseDirection == PositionType.Long ? currentP * 2.5f : currentP * 0.2f;
+
+                if (forcedMargin > 1f)
+                {
+                    OpenPosition(reverseDirection, forcedMargin, forcedLeverage, aiTarget, 0f, true);
+                }
                 return;
             }
 

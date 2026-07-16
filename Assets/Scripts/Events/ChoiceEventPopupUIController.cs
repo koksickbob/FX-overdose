@@ -53,20 +53,43 @@ namespace FXOverdose.Events
             if (aiMonologueText != null) aiMonologueText.text = $"💬 <color=#06B6D4>[AI 트레이더 독백]</color>\n\"{eventData.AIMonologue}\"";
             if (toastText != null) toastText.gameObject.SetActive(false);
 
+            TraderStatus traderStatus = FindAnyObjectByType<TraderStatus>();
+
             for (int i = 0; i < 3; i++)
             {
                 int optionIndex = i;
+                bool hasOption = i < eventData.Options.Length && eventData.Options[i] != null;
+                ChoiceOptionData optData = hasOption ? eventData.Options[i] : null;
+
                 if (optionButtons != null && i < optionButtons.Length && optionButtons[i] != null)
                 {
                     optionButtons[i].onClick.RemoveAllListeners();
                     optionButtons[i].onClick.AddListener(() => OnOptionButtonClicked(optionIndex));
-                    optionButtons[i].gameObject.SetActive(i < eventData.Options.Length && eventData.Options[i] != null);
+                    optionButtons[i].gameObject.SetActive(hasOption);
+
+                    if (hasOption)
+                    {
+                        bool isInteractable = true;
+                        if (optData.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(optData.RequiredItemId))
+                        {
+                            isInteractable = traderStatus != null && traderStatus.HasItem(optData.RequiredItemId, optData.RequiredItemCount);
+                        }
+                        optionButtons[i].interactable = isInteractable;
+                    }
                 }
 
-                if (optionTexts != null && i < optionTexts.Length && optionTexts[i] != null && i < eventData.Options.Length && eventData.Options[i] != null)
+                if (optionTexts != null && i < optionTexts.Length && optionTexts[i] != null && hasOption)
                 {
                     string prefix = i == 0 ? "A. [안전] " : (i == 1 ? "B. [공격] " : "C. [특수/직접] ");
-                    optionTexts[i].text = $"{prefix}{eventData.Options[i].OptionTitle}\n<size=88%><color=#CBD5E1>{eventData.Options[i].Description}</color></size>";
+                    
+                    bool isInteractable = true;
+                    if (optData.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(optData.RequiredItemId))
+                    {
+                        isInteractable = traderStatus != null && traderStatus.HasItem(optData.RequiredItemId, optData.RequiredItemCount);
+                    }
+
+                    string suffix = isInteractable ? "" : " <color=#EF4444><b>(아이템 부족)</b></color>";
+                    optionTexts[i].text = $"{prefix}{optData.OptionTitle}{suffix}\n<size=88%><color=#CBD5E1>{optData.Description}</color></size>";
                 }
             }
 

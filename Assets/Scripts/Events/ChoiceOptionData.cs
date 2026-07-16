@@ -31,7 +31,7 @@ namespace FXOverdose.Events
         public string Description;
 
         [Header("아이템 개입 요구 (SpecialItem 선택 시)")]
-        public int RequiredItemIndex = -1; // -1이면 불필요, 0~3은 4대 아이템군
+        public string RequiredItemId = ""; // 빈 문자열이면 불필요
         public int RequiredItemCount = 1;
 
         [Header("차트 강제 빔 오버라이드 수치")]
