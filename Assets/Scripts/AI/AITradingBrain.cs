@@ -292,7 +292,7 @@ namespace FXOverdose.AI
                     float aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.15f : startPrice * 0.85f;
                     float aiStopLoss = trapPos == TradingController.PositionType.Long ? startPrice * 0.95f : startPrice * 1.05f;
 
-                    bool opened = tradingController.OpenPosition(trapPos, margin, leverage, aiTarget, aiStopLoss);
+                    bool opened = tradingController.OpenPosition(trapPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
                     if (opened)
                     {
@@ -344,7 +344,7 @@ namespace FXOverdose.AI
                     float aiTarget = weakPos == TradingController.PositionType.Long ? startPrice * 1.03f : startPrice * 0.97f;
                     float aiStopLoss = weakPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
 
-                    bool opened = tradingController.OpenPosition(weakPos, margin, leverage, aiTarget, aiStopLoss);
+                    bool opened = tradingController.OpenPosition(weakPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
@@ -442,7 +442,7 @@ namespace FXOverdose.AI
                         float aiTarget = counterPos == TradingController.PositionType.Long ? startPrice * 1.05f : startPrice * 0.95f;
                         float aiStopLoss = counterPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
 
-                        bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss);
+                        bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
                         if (opened)
                         {
                             float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
@@ -498,19 +498,20 @@ namespace FXOverdose.AI
             float margin = balance * Mathf.Clamp01(ratio);
             float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
 
-            // 💡 [차트 공부 귀속] 진입 지연 패널티 반영: 이미 주가가 움직인 후 늦게 따라들어가는 슬리피지 보정
+            float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
+
+            // 💡 [차트 공부 귀속] 진입 지연 패널티 반영: 예상 변동 파동(deltaPct) 중 n%만큼 주가가 진행된 뒤 늦게 진입하는 슬리피지 보정
             if (levelSystem != null)
             {
                 float delayRatio = levelSystem.GetEntryDelayPenaltyRatio();
                 if (delayRatio > 0f)
                 {
+                    float waveSlippage = deltaPct * delayRatio;
                     startPrice = posType == TradingController.PositionType.Long 
-                        ? startPrice * (1f + delayRatio) 
-                        : startPrice * (1f - delayRatio);
+                        ? startPrice * (1f + waveSlippage) 
+                        : startPrice * (1f - waveSlippage);
                 }
             }
-
-            float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
 
             // 💡 [큐브 풀기 귀속] 인내심 계수 반영: 확정 수익 구간에서도 목표 수익의 일부만 먹고 조기 익절하거나 100% 홀딩
             float takeProfitMult = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 1.0f;
@@ -518,13 +519,15 @@ namespace FXOverdose.AI
                 ? startPrice * (1f + deltaPct * takeProfitMult) 
                 : startPrice * (1f - deltaPct * takeProfitMult);
 
+            Debug.Log($"[AITradingBrain 진입 계산] 방향:{posType}, Delta:{deltaPct}, 지연패널티적용타점:{startPrice}, 익절배율:{takeProfitMult}, 최종목표가:{aiTarget}");
+
             // 💡 [책읽기 귀속] 판단력 계수 반영: 손절 타점 단축/확대 (LV 낮을수록 큰 손절 -9%, 높을수록 빠른 칼손절 -1.5%)
             float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.02f;
             float aiStopLoss = posType == TradingController.PositionType.Long 
                 ? startPrice * (1f - stopLossTightness) 
                 : startPrice * (1f + stopLossTightness);
 
-            bool opened = tradingController.OpenPosition(posType, margin, leverage, aiTarget, aiStopLoss);
+            bool opened = tradingController.OpenPosition(posType, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
             if (opened)
             {
@@ -551,7 +554,7 @@ namespace FXOverdose.AI
             float aiTarget = crazyPos == TradingController.PositionType.Long ? startPrice * 1.5f : startPrice * 0.5f;
 
             // 💡 isEmergencyTrade: true를 전달하여 레벨에 따른 레버리지 클램핑을 무시하고 125배 뇌동/반대매매 보장
-            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f, true);
+            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f, true, startPrice);
             if (opened)
             {
                 int actualLev = tradingController != null ? tradingController.CurrentLeverage : leverage;

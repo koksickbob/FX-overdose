@@ -697,7 +697,7 @@ namespace FXOverdose.Trading
         }
 
         // 포지션 진입 (AI가 방향, 레버리지, 목표가 TargetPrice를 독자적으로 결정하여 호출)
-        public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f, bool isEmergencyTrade = false)
+        public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f, bool isEmergencyTrade = false, float customEntryPrice = 0f)
         {
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
@@ -749,7 +749,7 @@ namespace FXOverdose.Trading
 
             currentPosition = type;
             currentOwner = OwnerType.AI;
-            entryPrice = marketEngine.CurrentPrice;
+            entryPrice = customEntryPrice > 0f ? customEntryPrice : marketEngine.CurrentPrice;
             marginAmount = margin;
             currentLeverage = leverage;
             targetPrice = aiTargetPrice;
