@@ -35,7 +35,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private EndingType currentEnding = EndingType.None;
 
     [Header("자산 설정")]
-    [SerializeField] private float startingBalance = 2500f; // 시작 자산 (초기 2,500)
+    [SerializeField] private float startingBalance = 4000f; // 시작 자산 (초기 4,000)
     [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
 
