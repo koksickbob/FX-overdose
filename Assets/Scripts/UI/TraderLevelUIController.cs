@@ -12,6 +12,7 @@ public sealed class TraderLevelUIController : MonoBehaviour
     private TMP_Text levelText;
     private TMP_Text expText;
     private Slider expSlider;
+    private RectTransform levelHudRect;
 
     private void Awake()
     {
@@ -55,19 +56,22 @@ public sealed class TraderLevelUIController : MonoBehaviour
 
     private void BuildCompactHud()
     {
-        Transform old = transform.Find("CharacterLevelExpHUD");
-        if (old != null) Destroy(old.gameObject);
+        GameObject old = GameObject.Find("CharacterLevelExpHUD");
+        if (old != null) Destroy(old);
+
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        Transform hudParent = parentCanvas != null ? parentCanvas.transform : transform;
 
         // 프레임 스프라이트에 공통 UI와 같은 두께의 테두리가 이미 포함되어 있습니다.
         // Unity Outline을 추가로 겹치면 이 UI만 선이 두 배로 두꺼워 보이므로 사용하지 않습니다.
         GameObject hud = new("CharacterLevelExpHUD", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        hud.transform.SetParent(transform, false);
+        hud.transform.SetParent(hudParent, false);
 
-        RectTransform hudRect = hud.GetComponent<RectTransform>();
-        hudRect.anchorMin = hudRect.anchorMax = new Vector2(0.5f, 1f);
-        hudRect.pivot = new Vector2(0.5f, 0f);
-        hudRect.sizeDelta = new Vector2(390f, 60f);
-        hudRect.anchoredPosition = new Vector2(0f, 14f);
+        levelHudRect = hud.GetComponent<RectTransform>();
+        levelHudRect.anchorMin = levelHudRect.anchorMax = new Vector2(1f, 1f);
+        levelHudRect.pivot = new Vector2(0f, 1f);
+        levelHudRect.sizeDelta = new Vector2(280f, 46f);
+        levelHudRect.anchoredPosition = new Vector2(-310f, -65f);
 
         Image frame = hud.GetComponent<Image>();
         frame.sprite = Resources.Load<Sprite>("UI/CharacterLevelExpFrame");
@@ -86,6 +90,43 @@ public sealed class TraderLevelUIController : MonoBehaviour
 
         expSlider = CreateExperienceBar(hud.transform);
         SetRect(expSlider.GetComponent<RectTransform>(), new Vector2(0.31f, 0.25f), new Vector2(0.94f, 0.47f));
+
+        if (parentCanvas != null)
+            StartCoroutine(AlignBesideModeButton(parentCanvas));
+    }
+
+    private IEnumerator AlignBesideModeButton(Canvas parentCanvas)
+    {
+        // SettingsMenuController의 동적 버튼 생성/차트 기준 재배치가 끝날 때까지 기다립니다.
+        RectTransform modeRect = null;
+        for (int attempt = 0; attempt < 10 && modeRect == null; attempt++)
+        {
+            yield return null;
+            modeRect = GameObject.Find("Temp_TradingModeToggleBtn")?.GetComponent<RectTransform>();
+        }
+
+        if (modeRect == null || levelHudRect == null) yield break;
+
+        yield return null;
+        Canvas.ForceUpdateCanvases();
+
+        Vector3[] modeCorners = new Vector3[4];
+        modeRect.GetWorldCorners(modeCorners);
+        Vector3 modeTopRight = parentCanvas.transform.InverseTransformPoint(modeCorners[2]);
+
+        const float gap = 10f;
+        const float edgeMargin = 10f;
+        const float hudWidth = 280f;
+        levelHudRect.anchorMin = levelHudRect.anchorMax = new Vector2(0.5f, 0.5f);
+        levelHudRect.pivot = new Vector2(0f, 1f);
+        levelHudRect.sizeDelta = new Vector2(hudWidth, 46f);
+
+        RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
+        float x = modeTopRight.x + gap;
+        if (canvasRect != null)
+            x = Mathf.Min(x, canvasRect.rect.xMax - hudWidth - edgeMargin);
+
+        levelHudRect.localPosition = new Vector3(x, modeTopRight.y, 0f);
     }
 
     private void Refresh()

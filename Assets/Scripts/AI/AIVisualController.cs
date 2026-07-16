@@ -43,7 +43,9 @@ namespace FXOverdose.AI
 
         [Header("비주얼 및 애니메이터")]
         [SerializeField] private Animator characterAnimator;
+        [SerializeField] private Image characterImage;
         [SerializeField] private GameObject dangerAuraEffect; // Danger/Overdose 시 경고 오라
+        [SerializeField, Min(0f)] private float contextualEmotionDuration = 4f;
 
         [Header("말풍선 UI (Typewriter Effect)")]
         [SerializeField] private GameObject dialogueBalloonPanel;
@@ -58,7 +60,9 @@ namespace FXOverdose.AI
         public float BalloonDisplayDuration => balloonDisplayDuration;
 
         [Header("현재 상태 (읽기 전용)")]
-        [SerializeField] private ExpressionState currentExpression = ExpressionState.Confident;
+        [SerializeField] private TraderEmotion currentEmotion = TraderEmotion.Focused;
+        private readonly Dictionary<TraderEmotion, Sprite> emotionSprites = new Dictionary<TraderEmotion, Sprite>();
+        private float emotionOverrideUntil;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
 
@@ -74,6 +78,10 @@ namespace FXOverdose.AI
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
             if (llmService == null) llmService = LocalLLMService.Instance;
+
+            ResolveCharacterImage();
+            LoadEmotionSprites();
+            ApplyEmotion(currentEmotion, true);
 
             ApplyDialogueTextStyle();
 
@@ -145,15 +153,9 @@ namespace FXOverdose.AI
         {
             if (traderStatus == null) return;
 
-            float roe = 0f;
-            if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None && tradingController.MarginAmount > 0f)
-            {
-                float currentPrice = FindAnyObjectByType<MarketSimulationEngine>()?.CurrentPrice ?? tradingController.EntryPrice;
-                float priceDiff = tradingController.CurrentPosition == TradingController.PositionType.Long 
-                    ? (currentPrice - tradingController.EntryPrice) : (tradingController.EntryPrice - currentPrice);
-                float pnl = priceDiff * (tradingController.MarginAmount * tradingController.CurrentLeverage / tradingController.EntryPrice);
-                roe = (pnl / tradingController.MarginAmount) * 100f;
-            }
+            if (Time.unscaledTime < emotionOverrideUntil) return;
+
+            float roe = CalculateCurrentRoe();
 
             TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(
                 roe, 
@@ -163,37 +165,82 @@ namespace FXOverdose.AI
                 ""
             );
 
-            ExpressionState targetExp = currentEmotion switch
-            {
-                TraderEmotion.Euphoria or TraderEmotion.Manic => ExpressionState.Delighted,
-                TraderEmotion.Confident or TraderEmotion.Pleased or TraderEmotion.Affectionate or TraderEmotion.Relieved => ExpressionState.Confident,
-                TraderEmotion.Focused or TraderEmotion.Suspicious or TraderEmotion.Anxious or TraderEmotion.Frustrated or TraderEmotion.Regretful or TraderEmotion.Jealous => ExpressionState.Anxious,
-                TraderEmotion.Panicked or TraderEmotion.Despairing or TraderEmotion.Furious or TraderEmotion.Tearful or TraderEmotion.Exhausted => ExpressionState.Desperate,
-                TraderEmotion.Obsessive or TraderEmotion.Vengeful => ExpressionState.Overdose,
-                _ => ExpressionState.Confident
-            };
+            ApplyEmotion(currentEmotion);
+        }
 
-            if (targetExp != currentExpression)
+        private float CalculateCurrentRoe()
+        {
+            if (tradingController == null ||
+                tradingController.CurrentPosition == TradingController.PositionType.None ||
+                tradingController.MarginAmount <= 0f)
             {
-                currentExpression = targetExp;
-                ApplyExpressionToAnimator(currentExpression);
+                return 0f;
             }
 
-            // 오라 제어
-            bool showAura = currentExpression == ExpressionState.Desperate || currentExpression == ExpressionState.Overdose;
-            if (dangerAuraEffect != null && dangerAuraEffect.activeSelf != showAura)
+            float currentPrice = FindAnyObjectByType<MarketSimulationEngine>()?.CurrentPrice ?? tradingController.EntryPrice;
+            float priceDiff = tradingController.CurrentPosition == TradingController.PositionType.Long
+                ? currentPrice - tradingController.EntryPrice
+                : tradingController.EntryPrice - currentPrice;
+            float pnl = priceDiff * (tradingController.MarginAmount * tradingController.CurrentLeverage / tradingController.EntryPrice);
+            return pnl / tradingController.MarginAmount * 100f;
+        }
+
+        private void ResolveCharacterImage()
+        {
+            if (characterImage != null) return;
+            GameObject characterObject = GameObject.Find("ProtagonistCharacterImage");
+            if (characterObject != null)
+                characterImage = characterObject.GetComponent<Image>();
+        }
+
+        private void LoadEmotionSprites()
+        {
+            emotionSprites.Clear();
+            foreach (TraderEmotion emotion in Enum.GetValues(typeof(TraderEmotion)))
             {
-                dangerAuraEffect.SetActive(showAura);
+                Sprite sprite = Resources.Load<Sprite>($"Characters/Emotions/{emotion}");
+                if (sprite != null)
+                    emotionSprites[emotion] = sprite;
+                else
+                    Debug.LogWarning($"[AIVisualController] 감정 스프라이트를 찾지 못했습니다: {emotion}", this);
             }
         }
 
-        private void ApplyExpressionToAnimator(ExpressionState state)
+        /// <summary>이벤트나 연출 코드에서 19종 감정을 직접 표시할 때 사용합니다.</summary>
+        public void ShowEmotion(TraderEmotion emotion, float duration = 4f)
         {
+            emotionOverrideUntil = Time.unscaledTime + Mathf.Max(0f, duration);
+            ApplyEmotion(emotion, true);
+        }
+
+        private void ApplyEmotion(TraderEmotion emotion, bool force = false)
+        {
+            if (!force && emotion == currentEmotion) return;
+            currentEmotion = emotion;
+
+            ResolveCharacterImage();
+            if (characterImage != null && emotionSprites.TryGetValue(emotion, out Sprite sprite))
+            {
+                characterImage.sprite = sprite;
+                characterImage.preserveAspect = true;
+            }
+
+            // 기존 Animator를 사용하는 씬도 0~18 ExpressionState 파라미터로 호환합니다.
             if (characterAnimator != null)
             {
-                characterAnimator.SetInteger("ExpressionState", (int)state);
+                characterAnimator.SetInteger("ExpressionState", (int)emotion);
                 characterAnimator.SetTrigger("OnExpressionChanged");
             }
+
+            bool showAura = emotion is TraderEmotion.Panicked
+                or TraderEmotion.Despairing
+                or TraderEmotion.Furious
+                or TraderEmotion.Tearful
+                or TraderEmotion.Manic
+                or TraderEmotion.Obsessive
+                or TraderEmotion.Vengeful;
+            if (dangerAuraEffect != null && dangerAuraEffect.activeSelf != showAura)
+                dangerAuraEffect.SetActive(showAura);
         }
 
         private void HandleAIDecisionMade(string dialogue, float emotionDelta)
@@ -221,6 +268,17 @@ namespace FXOverdose.AI
             else if (category == EventCategory.ChartMovement || category == EventCategory.General)
             {
                 priority = DialoguePriority.Low;
+            }
+
+            if (traderStatus != null)
+            {
+                TraderEmotion contextualEmotion = TraderEmotionEvaluator.Evaluate(
+                    CalculateCurrentRoe(),
+                    traderStatus.CurrentMentalState,
+                    traderStatus.HealthRatio,
+                    category,
+                    dialogue);
+                ShowEmotion(contextualEmotion, contextualEmotionDuration);
             }
 
             DisplayDialogueBalloon(dialogue, priority, category);
