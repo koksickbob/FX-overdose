@@ -55,6 +55,9 @@ public class GameManager : MonoBehaviour
     // 💡 고속 시간 진행 상태 및 남은 분 보존 변수 (스킬 업그레이드 중 이벤트 발생 시 스킵 방지)
     public bool IsFastForwardingTime { get; private set; } = false;
     private int remainingFastForwardMinutes = 0;
+    
+    private int preservedFastForwardMinutes = 0;
+    private bool interruptFastForwardForOverdose = false;
 
     // 다른 스크립트에서 현재 값을 읽을 수 있도록 공개
     // 값 변경은 할 수 없음
@@ -263,7 +266,7 @@ public class GameManager : MonoBehaviour
 
         while (remainingFastForwardMinutes > 0)
         {
-            if (currentState != GameState.Playing)
+            if (currentState != GameState.Playing || interruptFastForwardForOverdose)
             {
                 // 돌발 이벤트 팝업 등으로 게임이 일시정지(Paused)되었으면 즉시 루프를 중단하여 남은 시간을 보존 (이벤트 스킵 방지)
                 Debug.Log($"[GameManager] ⏸️ 고속 시간 진행 중 일시정지 감지! (남은 고속 진행 시간: {remainingFastForwardMinutes}분 보존 및 대기)");
@@ -273,12 +276,38 @@ public class GameManager : MonoBehaviour
             AdvanceOneMinute();
         }
 
-        if (remainingFastForwardMinutes <= 0)
+        if (remainingFastForwardMinutes <= 0 && !interruptFastForwardForOverdose)
         {
             IsFastForwardingTime = false;
+            OnFastForwardEnded?.Invoke();
         }
+        else if (interruptFastForwardForOverdose)
+        {
+            interruptFastForwardForOverdose = false;
+        }
+    }
 
-        OnFastForwardEnded?.Invoke();
+    public void PauseFastForwardForOverdose()
+    {
+        if (IsFastForwardingTime && remainingFastForwardMinutes > 0)
+        {
+            interruptFastForwardForOverdose = true;
+            preservedFastForwardMinutes = remainingFastForwardMinutes;
+            remainingFastForwardMinutes = 0; 
+            IsFastForwardingTime = false;
+            Debug.Log($"[GameManager] ⏸️ Overdose 발생으로 고속 시간 진행 중단. (남은 {preservedFastForwardMinutes}분 보존)");
+        }
+    }
+
+    public void ResumePreservedFastForward()
+    {
+        if (preservedFastForwardMinutes > 0)
+        {
+            Debug.Log($"[GameManager] ▶️ Overdose 해제. 보존된 남은 고속 진행 시간({preservedFastForwardMinutes}분) 이어서 진행");
+            int resumeMinutes = preservedFastForwardMinutes;
+            preservedFastForwardMinutes = 0;
+            AdvanceGameMinutes(resumeMinutes);
+        }
     }
 
     // 자산을 증가하거나 감소시키는 함수

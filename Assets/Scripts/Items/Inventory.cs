@@ -136,10 +136,6 @@ public class Inventory : MonoBehaviour
         }
 
         slot.RemoveOne();
-        if (slot.Quantity <= 0)
-        {
-            slots.Remove(slot);
-        }
         QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
         Debug.Log($"[Inventory] {item.ItemName} 사용 완료, 남은 수량 {slot?.Quantity ?? 0}개");
         return true;
@@ -154,10 +150,6 @@ public class Inventory : MonoBehaviour
         InventorySlot slot = FindSlot(item);
         if (slot == null || slot.Quantity < amount) return false;
         slot.RemoveAmount(amount);
-        if (slot.Quantity <= 0)
-        {
-            slots.Remove(slot);
-        }
         QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
         Debug.Log($"[Inventory] {item.ItemName} {amount}개 소비 완료, 남은 수량 {slot?.Quantity ?? 0}개");
         return true;
@@ -174,6 +166,16 @@ public class Inventory : MonoBehaviour
         }
 
         InventorySlot slot = FindSlot(item);
+        return slot?.Quantity ?? 0;
+    }
+
+    /// <summary>
+    /// 해당 아이템 ID의 현재 보유 개수를 반환합니다.
+    /// </summary>
+    public int GetQuantity(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return 0;
+        InventorySlot slot = slots.Find(s => s != null && s.Item != null && s.Item.ItemId == itemId);
         return slot?.Quantity ?? 0;
     }
 

@@ -320,6 +320,13 @@ namespace FXOverdose.Trading
                 return false;
             }
 
+            // 🚀 [이벤트 중 스킬 레벨업 차단] 돌발 이벤트 팝업 등이 떠서 게임이 Paused 상태일 때는 진행 금지
+            if (gameManager.CurrentState != GameManager.GameState.Playing)
+            {
+                reason = "현재 진행 중인 중요한 상황(이벤트 등)을 먼저 해결해야 합니다.";
+                return false;
+            }
+
             float cost = GetSkillCost(type);
             if (gameManager.CurrentBalance < cost)
             {

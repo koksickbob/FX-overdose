@@ -141,8 +141,6 @@ public class DynamicInventoryUI : MonoBehaviour
         TMP_Text quantity = CreateText(slot.transform, "Quantity", 22f, TextAlignmentOptions.BottomRight);
         SetAnchors(quantity.rectTransform, new Vector2(0.43f, 0.02f), new Vector2(0.94f, 0.34f), Vector2.zero, Vector2.zero);
         quantity.fontStyle = FontStyles.Bold;
-        quantity.outlineWidth = 0.18f;
-        quantity.outlineColor = new Color32(4, 8, 18, 255);
 
         InventoryItemButton itemButton = slot.GetComponent<InventoryItemButton>();
         itemButton.Configure(inventory, item, button, icon, null, quantity);

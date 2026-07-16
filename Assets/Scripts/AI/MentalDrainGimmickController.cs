@@ -154,7 +154,7 @@ namespace FXOverdose.AI
                 return;
             }
 
-            float dt = Time.deltaTime;
+            float dt = Time.unscaledDeltaTime;
             EvaluateUnrealizedPnLErosion(dt);
             EvaluateLosingStreakCountdown(dt);
             EvaluateMissedOpportunityRegret(dt);
@@ -485,7 +485,7 @@ namespace FXOverdose.AI
         private void TriggerBoredomImpulse()
         {
             // 1순위: 에너지 드링크 등 소비 시도 (인벤토리/상점에서 자동 사용)
-            bool consumedDrink = traderStatus.ConsumeItem(0, 1);
+            bool consumedDrink = traderStatus.ConsumeItem("energy_drink", 1);
             if (consumedDrink)
             {
                 TriggerGimmickDialogue("횡보장 지루함 스트레스 탈피를 위한 에너지 드링크 자가 섭취 기믹 발동", "너무 지루해서 몰래 에너지 드링크를 하나 땄어...");

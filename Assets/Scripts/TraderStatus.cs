@@ -445,6 +445,14 @@ public class TraderStatus : MonoBehaviour
             }
         }
 
+        if (lastTrackedMentalState == MentalState.Overdose && currentMentalState != MentalState.Overdose)
+        {
+            if (gameManager != null)
+            {
+                gameManager.ResumePreservedFastForward();
+            }
+        }
+
         lastTrackedMentalState = currentMentalState;
     }
 
@@ -514,32 +522,37 @@ public class TraderStatus : MonoBehaviour
         ChangeHealth(amount);
     }
 
-    public bool ConsumeItem(int itemIndex, int count = 1)
+    public bool HasItem(string itemId, int count = 1)
     {
-        if (itemIndex < 0 || count <= 0) return true;
+        if (string.IsNullOrEmpty(itemId) || count <= 0) return true;
 
-        ShopManager shop = FindAnyObjectByType<ShopManager>();
-        Inventory inv = null;
-        if (shop != null) inv = shop.Inventory;
-        if (inv == null) inv = FindAnyObjectByType<Inventory>();
+        Inventory inv = FindAnyObjectByType<Inventory>();
+        if (inv != null)
+        {
+            return inv.GetQuantity(itemId) >= count;
+        }
+
+        return false;
+    }
+
+    public bool ConsumeItem(string itemId, int count = 1)
+    {
+        if (string.IsNullOrEmpty(itemId) || count <= 0) return true;
+
+        Inventory inv = FindAnyObjectByType<Inventory>();
 
         if (inv != null)
         {
-            if (shop != null && shop.CatalogItems != null && itemIndex < shop.CatalogItems.Count)
+            // InventorySlot 순회하여 itemId가 일치하는 아이템 찾기
+            foreach (var slot in inv.Slots)
             {
-                ItemData item = shop.CatalogItems[itemIndex];
-                if (item != null && inv.GetQuantity(item) >= count)
+                if (slot != null && slot.Item != null && slot.Item.ItemId == itemId)
                 {
-                    return inv.RemoveItem(item, count);
-                }
-            }
-
-            if (inv.Slots != null && itemIndex < inv.Slots.Count)
-            {
-                ItemData slotItem = inv.Slots[itemIndex].Item;
-                if (slotItem != null && inv.GetQuantity(slotItem) >= count)
-                {
-                    return inv.RemoveItem(slotItem, count);
+                    if (inv.GetQuantity(slot.Item) >= count)
+                    {
+                        return inv.RemoveItem(slot.Item, count);
+                    }
+                    break;
                 }
             }
         }

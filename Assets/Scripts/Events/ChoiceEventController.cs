@@ -24,6 +24,7 @@ namespace FXOverdose.Events
         private long lastEventTriggerGameMinutes = -999999L;
         private int eventsTriggeredToday = 0;
         private float lastMentalTriggerTime = -999f;
+        private float lastEventTriggerRealTime = -999f;
 
         private void Awake()
         {
@@ -124,8 +125,8 @@ namespace FXOverdose.Events
                 return;
             }
 
-            // 2. 이벤트 발생 후 최소 1시간(인게임 60분) 여유 쿨다운 체크
-            if (totalGameMinutes - lastEventTriggerGameMinutes < 60)
+            // 2. 이벤트 발생 후 쿨다운 체크 (인게임 60분 및 현실 시간 10초)
+            if (totalGameMinutes - lastEventTriggerGameMinutes < 60 || Time.unscaledTime - lastEventTriggerRealTime < 10f)
             {
                 return;
             }
@@ -208,6 +209,9 @@ namespace FXOverdose.Events
                 int currentMinuteOfDay = gameManager.CurrentHour * 60 + gameManager.CurrentMinute;
                 lastEventTriggerGameMinutes = (long)gameManager.CurrentDay * 1440L + currentMinuteOfDay;
             }
+            
+            // 🚀 [현실 시간 쿨타임] 고속 스킵 중 이벤트가 연속으로 터지는 것을 방지
+            lastEventTriggerRealTime = Time.unscaledTime;
 
             // 💡 [핵심: 상점 시간정지 동기화] 선택지 창이 떠있는 동안 상점과 완전히 동일하게 PauseGame()
             if (gameManager != null)
@@ -230,9 +234,9 @@ namespace FXOverdose.Events
             if (option == null) return;
 
             // 1. 특수 아이템 개입 요구 검증 및 차감
-            if (option.OptionType == ChoiceOptionType.SpecialItem && option.RequiredItemIndex >= 0)
+            if (option.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(option.RequiredItemId))
             {
-                if (traderStatus == null || !traderStatus.ConsumeItem(option.RequiredItemIndex, option.RequiredItemCount))
+                if (traderStatus == null || !traderStatus.ConsumeItem(option.RequiredItemId, option.RequiredItemCount))
                 {
                     uiController?.ShowToastWarning("필요한 특수 아이템이 부족합니다!");
                     return;
