@@ -433,6 +433,13 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Overdose;
                 TriggerLLMDialogue(FXOverdose.AI.LLM.EventCategory.MentalChange, "멘탈 0 도달, 통제 불능 및 Overdose 폭주 상태");
 
+                // [슬로우 모션 기믹] 오버도즈 폭주 발동 순간 슬로우 모션 (5초간 2.5배 감속)
+                if (FXOverdose.Core.DynamicTimeRegulator.Instance != null)
+                {
+                    FXOverdose.Core.DynamicTimeRegulator.Instance.TriggerDramaticSlowMotion(2.5f, 5.0f);
+                    Debug.Log("[TraderStatus] 💥 오버도즈 폭주 발동! 극적 연출을 위해 5초간 슬로우 모션(2.5배 감속) 가동.");
+                }
+
                 // 통제 불능 최초 진입 시에만 즉각 고레버리지 뇌동매매/물타기 강행 (매 프레임 호출 및 랙 유발 방지)
                 if (tradingController != null)
                 {
