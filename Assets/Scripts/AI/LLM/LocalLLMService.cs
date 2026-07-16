@@ -286,10 +286,21 @@ namespace FXOverdose.AI.LLM
 
             lastDialogueRequestTime = Time.time;
 
+            var tradingCtrlLog = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            bool hasPositionLog = tradingCtrlLog != null && tradingCtrlLog.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+            float roeLog = hasPositionLog ? tradingCtrlLog.CalculateROEPercentage() : 0f;
+            TraderStatus.MentalState mentalLog = traderStatus != null ? traderStatus.CurrentMentalState : TraderStatus.MentalState.Stable;
+            float healthRatioLog = traderStatus != null ? traderStatus.HealthRatio : 1f;
+            TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(roeLog, mentalLog, healthRatioLog, category, extraEventContext);
+
             // 💡 [시스템 로그 vs 캐릭터 대사 분리] 상황 설명은 시스템 로그로 명확히 별도 출력
             if (!string.IsNullOrEmpty(extraEventContext))
             {
-                Debug.Log($"[LocalLLMService 📋 System Context/Log] ({category}) 상황 설명: {extraEventContext}");
+                Debug.Log($"[LocalLLMService 📋 System Context/Log] ({category}) [감정:{currentEmotion}] 상황 설명: {extraEventContext}");
+            }
+            else
+            {
+                Debug.Log($"[LocalLLMService 📋 System Context/Log] ({category}) [감정:{currentEmotion}] 상황 설명 없음");
             }
 
             // 만약 오프라인/모바일 온디바이스 모드이거나, 아직 예열 중이면 즉각 Fallback 엔진 가동 (네트워크 HTTP 요청 없음!)
