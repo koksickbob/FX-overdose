@@ -44,6 +44,8 @@ public class GameManager : MonoBehaviour
 
     // 당일 오전 9시작 시점의 총 자산 (일일 정산용)
     public float StartOfDayEquity { get; private set; }
+    // 구버전 세이브처럼 09:00 기준 자산이 없는 경우, 로드 시점부터 계산 중인지 표시합니다.
+    public bool IsDailyPnlPartial { get; private set; }
 
     // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (기본 5.0초 대비 5배/기존 2.0초 대비 2배 빠른 속도 -> 1분 = 1.0초)
     [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다. (1.0초 = 5배속)")]
@@ -70,6 +72,14 @@ public class GameManager : MonoBehaviour
     public int CurrentHour => currentHour;
     public int CurrentMinute => currentMinute;
     public float SecondsPerGameMinute => secondsPerGameMinute;
+
+    // 저장 데이터를 불러올 때 당일 손익 기준 자산을 복구합니다.
+    // 구버전 세이브에는 값이 없으므로 현재 잔고를 안전한 기준값으로 사용합니다.
+    internal void RestoreStartOfDayEquity(float equity, bool isPartial)
+    {
+        StartOfDayEquity = float.IsFinite(equity) && equity > 0f ? equity : currentBalance;
+        IsDailyPnlPartial = isPartial;
+    }
 
     // 게임 시작 시 한 번 실행
     private void Start()
@@ -124,6 +134,7 @@ public class GameManager : MonoBehaviour
         currentEnding = EndingType.None;
 
         StartOfDayEquity = startingBalance;
+        IsDailyPnlPartial = false;
 
         // 시간 누적값 초기화
         timeAccumulator = 0f;
@@ -199,7 +210,7 @@ public class GameManager : MonoBehaviour
         timeAccumulator += Time.deltaTime;
 
         // 설정한 시간이 지나면 게임 시간 1분 증가
-        while (timeAccumulator >= secondsPerGameMinute)
+        while (timeAccumulator >= secondsPerGameMinute && currentState == GameState.Playing)
         {
             timeAccumulator -= secondsPerGameMinute;
             AdvanceOneMinute();
@@ -218,16 +229,16 @@ public class GameManager : MonoBehaviour
             currentHour++;
         }
 
-        // 24시가 되면 일일 정산 모드 진입
-        if (currentHour >= 24)
+        // 해당 분의 차트/상태 계산을 먼저 완료한 뒤 정산 스냅샷을 만들 수 있도록 알립니다.
+        OnGameMinuteAdvanced?.Invoke();
+
+        // 24시가 되면 마지막 1분 데이터 반영 이후 일일 정산 모드 진입
+        if (currentHour >= 24 && currentState == GameState.Playing)
         {
             currentState = GameState.Settlement;
             Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
             OnDayEnded?.Invoke();
         }
-
-        // 1분 경과 이벤트 발행
-        OnGameMinuteAdvanced?.Invoke();
     }
 
     // 일일 정산 화면에서 '다음날 진행하기' 호출 시 실행
@@ -241,6 +252,7 @@ public class GameManager : MonoBehaviour
 
         var status = TraderStatus.CanonicalInstance;
         StartOfDayEquity = status != null ? status.GetTotalEquity() : currentBalance;
+        IsDailyPnlPartial = false;
 
         Debug.Log($"{currentDay}일차 시작 (09:00)");
 

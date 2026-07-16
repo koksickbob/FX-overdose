@@ -114,6 +114,12 @@ namespace FXOverdose.Events
             int currentDayMinutes = hour * 60 + minute;
             long totalGameMinutes = (long)day * 1440L + currentDayMinutes;
 
+            // 24:00 마지막 분 계산 중에는 신규 돌발 이벤트를 열지 않고 일일 정산을 우선합니다.
+            if (hour >= 24)
+            {
+                return;
+            }
+
             if (day != lastTriggerDay)
             {
                 ResetDailySchedule(day, currentDayMinutes);

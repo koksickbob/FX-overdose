@@ -8,7 +8,7 @@ namespace FXOverdose.Core
     [Serializable]
     public class SaveData
     {
-        public string Version = "1.0.0"; // 데이터 호환성 버저닝
+        public string Version = "1.1.0"; // 1.1.0: 일일 정산 기준 자산 저장 추가
 
         // --- GameManager 데이터 ---
         public float Balance;
@@ -16,6 +16,7 @@ namespace FXOverdose.Core
         public int CurrentHour;
         public int CurrentMinute;
         public float SecondsPerGameMinute;
+        public float StartOfDayEquity;
 
         // --- TraderStatus 데이터 ---
         public float PeakBalance;

@@ -38,17 +38,33 @@ namespace FXOverdose.Core
             return File.Exists(GetSaveFilePath(slotIndex));
         }
 
-        public void SaveGame(int slotIndex)
+        public bool SaveGame(int slotIndex)
         {
             var gm = FindAnyObjectByType<GameManager>();
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
+            var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
 
             if (gm == null || status == null || levelSys == null || memory == null)
             {
                 Debug.LogError("[SaveLoadManager] 저장에 실패했습니다. 필요한 시스템 중 일부를 찾을 수 없습니다.");
-                return;
+                return false;
+            }
+
+            if (gm.CurrentState != GameManager.GameState.Playing &&
+                gm.CurrentState != GameManager.GameState.Paused)
+            {
+                Debug.LogWarning($"[SaveLoadManager] 현재 상태({gm.CurrentState})에서는 저장할 수 없습니다.");
+                return false;
+            }
+
+            // 현재 저장 포맷은 포지션/증거금을 직렬화하지 않습니다. 열린 포지션을 현금만 저장하면
+            // 불러오기 후 증거금이 사라지고 일일 손익도 왜곡되므로 안전하게 저장을 막습니다.
+            if (trading != null && trading.IsActive)
+            {
+                Debug.LogWarning("[SaveLoadManager] 열린 포지션이 있어 저장하지 않았습니다. 포지션을 정리한 뒤 다시 저장해 주세요.");
+                return false;
             }
 
             SaveData data = new SaveData
@@ -59,6 +75,7 @@ namespace FXOverdose.Core
                 CurrentHour = gm.CurrentHour,
                 CurrentMinute = gm.CurrentMinute,
                 SecondsPerGameMinute = gm.SecondsPerGameMinute,
+                StartOfDayEquity = gm.StartOfDayEquity,
 
                 // TraderStatus
                 PeakBalance = status.PeakBalance,
@@ -83,6 +100,7 @@ namespace FXOverdose.Core
             string json = JsonUtility.ToJson(data, true);
             File.WriteAllText(GetSaveFilePath(slotIndex), json);
             Debug.Log($"[SaveLoadManager] 슬롯 {slotIndex}에 게임 저장 완료:\n{GetSaveFilePath(slotIndex)}");
+            return true;
         }
 
         private void ExtractMemoryData(TraderMemoryManager memory, SaveData data)
@@ -164,6 +182,14 @@ namespace FXOverdose.Core
                 gmType.GetField("currentHour", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentHour);
                 gmType.GetField("currentMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentMinute);
                 gmType.GetField("secondsPerGameMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.SecondsPerGameMinute);
+                bool hasDailyBaseline = float.IsFinite(CurrentData.StartOfDayEquity) && CurrentData.StartOfDayEquity > 0f;
+                gm.RestoreStartOfDayEquity(
+                    hasDailyBaseline ? CurrentData.StartOfDayEquity : CurrentData.Balance,
+                    !hasDailyBaseline);
+                if (!hasDailyBaseline)
+                {
+                    Debug.LogWarning("[SaveLoadManager] 구버전 저장 데이터에 일일 기준 자산이 없어, 이번 날의 손익은 불러온 시점부터 계산합니다.");
+                }
             }
 
             if (status != null)

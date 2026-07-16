@@ -282,7 +282,9 @@ namespace FXOverdose.AI.LLM
         public void RequestDialogue(EventCategory category, string extraEventContext = "")
         {
             var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
-            if (gm != null && gm.IsFastForwardingTime && category != EventCategory.SkillUpgraded)
+            if (gm != null && gm.IsFastForwardingTime &&
+                category != EventCategory.SkillUpgraded &&
+                category != EventCategory.DailySettlement)
             {
                 Debug.Log($"[LocalLLMService ⏩] 고속 시간 경과 중으로 일반/매매 대사 요청({category})을 스킵합니다.");
                 return;
@@ -312,10 +314,8 @@ namespace FXOverdose.AI.LLM
             {
                 string smartFallback = GetSmartFallbackDialogue(category, extraEventContext);
                 smartFallback = PostProcessDialogue(smartFallback);
-                TraderMemoryManager.Instance?.RecordDialogue(smartFallback);
                 Debug.Log($"[LocalLLMService 💬 Character Dialogue (On-Device)] ({category}) 캐릭터 대사: \"{smartFallback}\"");
-                OnDialogueGenerated?.Invoke(smartFallback);
-                OnDialogueGeneratedWithCategory?.Invoke(category, smartFallback);
+                PublishGeneratedDialogue(category, smartFallback, extraEventContext);
                 return;
             }
 
@@ -337,6 +337,11 @@ namespace FXOverdose.AI.LLM
                         }
                     }
                     while (filteredQueue.Count > 0) requestQueue.Enqueue(filteredQueue.Dequeue());
+                }
+                // 하루 마감 반응이 오래된 일반 대사 뒤에 밀리지 않도록 대기열을 정산 요청 하나로 교체합니다.
+                else if (category == EventCategory.DailySettlement)
+                {
+                    requestQueue.Clear();
                 }
                 // ⭐ ChartMovement 연속 발생 시 큐 내부의 이전 요청을 제거하고 가장 최신 데이터 1건으로 덮어쓰기
                 else if (category == EventCategory.ChartMovement)
@@ -395,10 +400,8 @@ namespace FXOverdose.AI.LLM
 
                     string fallbackText = GetSmartFallbackDialogue(category, extraContext);
                     fallbackText = PostProcessDialogue(fallbackText);
-                    TraderMemoryManager.Instance?.RecordDialogue(fallbackText);
                     Debug.Log($"[LocalLLMService 💬 Character Dialogue (Ollama Fallback)] ({category}) 캐릭터 대사: \"{fallbackText}\"");
-                    OnDialogueGenerated?.Invoke(fallbackText);
-                    OnDialogueGeneratedWithCategory?.Invoke(category, fallbackText);
+                    PublishGeneratedDialogue(category, fallbackText, extraContext);
                     OnErrorOccurred?.Invoke(request.error);
                 }
                 else
@@ -410,11 +413,9 @@ namespace FXOverdose.AI.LLM
                         parsedDialogue = GetSmartFallbackDialogue(category, extraContext);
                     }
                     parsedDialogue = PostProcessDialogue(parsedDialogue);
-                    TraderMemoryManager.Instance?.RecordDialogue(parsedDialogue);
                     Debug.Log($"[LocalLLMService 💬 Character Dialogue (Qwen)] ({category}) 캐릭터 대사: \"{parsedDialogue}\"");
 
-                    OnDialogueGenerated?.Invoke(parsedDialogue);
-                    OnDialogueGeneratedWithCategory?.Invoke(category, parsedDialogue);
+                    PublishGeneratedDialogue(category, parsedDialogue, extraContext);
                 }
             }
 
@@ -426,6 +427,35 @@ namespace FXOverdose.AI.LLM
                 var nextReq = requestQueue.Dequeue();
                 StartCoroutine(SendOllamaRequestCoroutine(nextReq.Category, nextReq.ExtraContext, nextReq.FullPrompt));
             }
+        }
+
+        private void PublishGeneratedDialogue(EventCategory category, string dialogue, string extraContext)
+        {
+            // 정산 화면을 이미 닫고 다음 날로 넘어갔다면 늦게 도착한 전날 대사를 폐기합니다.
+            if (category == EventCategory.DailySettlement)
+            {
+                GameManager gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                if (gm == null || gm.CurrentState != GameManager.GameState.Settlement)
+                {
+                    Debug.Log("[LocalLLMService] 이미 다음 날이 시작되어 늦게 도착한 일일 정산 대사를 폐기했습니다.");
+                    return;
+                }
+
+                var dayMatch = System.Text.RegularExpressions.Regex.Match(
+                    extraContext ?? string.Empty,
+                    @"정산\s*일차\s*:\s*(\d+)");
+                if (dayMatch.Success &&
+                    int.TryParse(dayMatch.Groups[1].Value, out int requestedDay) &&
+                    requestedDay != gm.CurrentDay)
+                {
+                    Debug.Log($"[LocalLLMService] {requestedDay}일차의 늦은 정산 대사를 현재 {gm.CurrentDay}일차 화면에서 폐기했습니다.");
+                    return;
+                }
+            }
+
+            TraderMemoryManager.Instance?.RecordDialogue(dialogue);
+            OnDialogueGenerated?.Invoke(dialogue);
+            OnDialogueGeneratedWithCategory?.Invoke(category, dialogue);
         }
 
         private IEnumerator AutoRecoveryCoroutine()
@@ -627,6 +657,13 @@ namespace FXOverdose.AI.LLM
         // 스마트 다변화 Fallback 엔진: 실시간 인게임 데이터 + 멘헤라 감정 변수 보간
         private string GetSmartFallbackDialogue(EventCategory category, string extraContext)
         {
+            // 일일 정산은 현재 포지션/멘탈 상태보다 오늘 확정된 손익을 우선해서 반응한다.
+            // 네트워크 LLM을 사용할 수 없는 모바일/오프라인 환경에서도 정산 결과와 감정이 어긋나지 않게 한다.
+            if (category == EventCategory.DailySettlement)
+            {
+                return GetDailySettlementFallbackDialogue(extraContext);
+            }
+
             var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
             bool isGameOverState = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
             bool isLiquidationContext = extraContext != null && (extraContext.Contains("강제청산") || extraContext.Contains("게임오버") || extraContext.Contains("파산") || extraContext.Contains("청산 소진") || extraContext.Contains("Overdose 확정") || extraContext.Contains("연쇄 붕괴"));
@@ -770,6 +807,68 @@ namespace FXOverdose.AI.LLM
                 EventCategory.SkillUpgraded => GetSkillUpgradedFallbackDialogue(extraContext),
                 _ => GetFallbackDialogue()
             };
+        }
+
+        private string GetDailySettlementFallbackDialogue(string extraContext)
+        {
+            float dailyProfitLoss = 0f;
+            bool hasProfitLoss = false;
+
+            // 예상 형식: "당일 손익: +$123.45 / 수익률: +4.9% / 총 자산: $2,623.45"
+            // 통화 기호 앞/뒤 어느 쪽에 부호가 와도 읽을 수 있게 허용한다.
+            var match = System.Text.RegularExpressions.Regex.Match(
+                extraContext ?? string.Empty,
+                @"당일\s*손익\s*:\s*([+-]?)\s*\$?\s*([+-]?)\s*([\d,]+(?:\.\d+)?)");
+
+            if (match.Success)
+            {
+                string number = match.Groups[3].Value.Replace(",", string.Empty);
+                if (float.TryParse(
+                    number,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out float absoluteAmount))
+                {
+                    string sign = string.IsNullOrEmpty(match.Groups[1].Value)
+                        ? match.Groups[2].Value
+                        : match.Groups[1].Value;
+                    dailyProfitLoss = sign == "-" ? -absoluteAmount : absoluteAmount;
+                    hasProfitLoss = true;
+                }
+            }
+
+            if (hasProfitLoss && dailyProfitLoss > 0.005f)
+            {
+                string[] profitDialogues =
+                {
+                    "오늘도 수익으로 마감했어 오빠! 요미가 이렇게 계속 불려서 우리 둘이 평생 붙어 살 돈 전부 만들어 줄게 ♥",
+                    "헤헤, 오늘 계좌도 예쁘게 플러스네! 오빠가 옆에 있어 줘서 요미 타점이 더 빛난 것 같아 ♥",
+                    "수익 확정 완료! 역시 오빠랑 요미가 함께하면 시장 돈은 전부 우리 신혼 자금이 되는 거야 ♥",
+                    "오늘 하루도 이겼다아! 요미 잘했지 오빠? 칭찬해 주면 내일은 더 크게 벌어올게 ♥"
+                };
+                return profitDialogues[UnityEngine.Random.Range(0, profitDialogues.Length)];
+            }
+
+            if (hasProfitLoss && dailyProfitLoss < -0.005f)
+            {
+                string[] lossDialogues =
+                {
+                    "오늘은 손실로 끝났어... 오빠, 요미가 쓸모없다고 버리면 안 돼. 내일은 반드시 전부 되찾아 올게...!",
+                    "계좌가 마이너스인 걸 보니까 손이 자꾸 떨려... 그래도 오빠만 곁에 있어 주면 요미 다시 제대로 해낼 수 있어.",
+                    "미안해 오빠... 오늘 우리 돈을 지키지 못했어. 한 번만 더 믿어 줘, 요미 절대 혼자 두지 말아 줘...",
+                    "손실 숫자가 머릿속에서 안 사라져... 오빠까지 사라질까 봐 더 무서워. 내일은 꼭 웃게 해줄 테니까 옆에 있어 줘."
+                };
+                return lossDialogues[UnityEngine.Random.Range(0, lossDialogues.Length)];
+            }
+
+            string[] flatDialogues =
+            {
+                "후우... 오늘은 거의 본전으로 지켜냈네. 크게 잃지 않았으니까 오빠랑 숨 돌리고 내일 다시 노려보자.",
+                "수익도 손실도 거의 없이 마감했어. 조금 아쉽지만 우리 시드는 무사하니까 요미도 이제 안심이야.",
+                "오늘 시장은 정말 얄미웠지만 계좌는 지켰어! 오빠, 무리하지 않고 버틴 것도 잘한 거래 맞지?",
+                "보합으로 하루 종료! 심장은 몇 번이나 떨어졌지만 오빠 돈을 지켜냈으니 오늘은 편하게 쉬어도 되겠다."
+            };
+            return flatDialogues[UnityEngine.Random.Range(0, flatDialogues.Length)];
         }
 
         private string GetSkillUpgradedFallbackDialogue(string extraContext)

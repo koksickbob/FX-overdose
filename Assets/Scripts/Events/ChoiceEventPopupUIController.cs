@@ -1,37 +1,64 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 namespace FXOverdose.Events
 {
+    /// <summary>
+    /// 돌발 선택 이벤트를 FX WIRE 인터넷 기사 형태로 표시합니다.
+    /// 선택 효과와 아이템 검증은 ChoiceEventController가 담당하고,
+    /// 이 컴포넌트는 화면 구성과 사용자 입력만 처리합니다.
+    /// </summary>
     public class ChoiceEventPopupUIController : MonoBehaviour
     {
         private const int EventPopupSortingOrder = 150;
+        private const int OptionCount = 3;
+        private const float ModalWidth = 1500f;
+        private const float ModalHeight = 920f;
+
+        private static readonly Color DeepBackground = new Color32(11, 15, 25, 255);   // #0B0F19
+        private static readonly Color PanelBackground = new Color32(15, 23, 42, 255);  // #0F172A
+        private static readonly Color HeaderBackground = new Color32(20, 29, 51, 255); // #141D33
+        private static readonly Color BorderColor = new Color32(59, 75, 102, 255);      // #3B4B66
+        private static readonly Color Cyan = new Color32(6, 182, 212, 255);             // #06B6D4
+        private static readonly Color BodyText = new Color32(203, 213, 225, 255);       // #CBD5E1
+        private static readonly Color MutedText = new Color32(102, 117, 143, 255);      // #66758F
+        private static readonly Color AiText = new Color32(207, 250, 254, 255);         // #CFFAFE
+        private static readonly Color SafeGreen = new Color32(34, 197, 94, 255);        // #22C55E
+        private static readonly Color RiskRed = new Color32(239, 68, 68, 255);          // #EF4444
+        private static readonly Color SpecialGold = new Color32(234, 179, 8, 255);      // #EAB308
+        private static readonly Color ErrorRed = new Color32(255, 77, 77, 255);         // #FF4D4D
 
         [Header("UI 연결 슬롯 (미연결 시 런타임 자동 생성)")]
         [SerializeField] private GameObject popupPanel;
         [SerializeField] private TMP_Text scenarioTitleText;
         [SerializeField] private TMP_Text scenarioDescText;
         [SerializeField] private TMP_Text aiMonologueText;
-        [SerializeField] private Button[] optionButtons = new Button[3];
-        [SerializeField] private TMP_Text[] optionTexts = new TMP_Text[3];
+        [SerializeField] private Button[] optionButtons = new Button[OptionCount];
+        [SerializeField] private TMP_Text[] optionTexts = new TMP_Text[OptionCount];
         [SerializeField] private TMP_Text toastText;
 
-        [Header("디자인 테마 색상")]
-        private readonly Color colorSafe = new Color(0.133f, 0.773f, 0.369f, 1f);       // #22C55E (A: 안전)
-        private readonly Color colorAggressive = new Color(0.937f, 0.267f, 0.267f, 1f); // #EF4444 (B: 공격)
-        private readonly Color colorSpecial = new Color(0.918f, 0.702f, 0.031f, 1f);    // #EAB308 (C: 특수/직접)
-        private readonly Color colorBG = new Color(0.059f, 0.090f, 0.165f, 0.95f);      // #0F172A
-
+        private readonly Color disabledAccent = new Color32(86, 98, 119, 255);
         private Action<int> currentCallback;
         private ChoiceEventSO currentEvent;
         private ScrollRect scrollRect;
+        private RectTransform articleContentRect;
+        private RectTransform aiQuoteCardRect;
+        private LayoutElement aiQuoteLayout;
+        private TMP_Text browserAddressText;
+        private TMP_Text breakingMetaText;
+        private TMP_Text articleMetaText;
+        private GameObject toastContainer;
+        private Image[] optionBackgrounds = new Image[OptionCount];
+        private Image[] optionAccentBars = new Image[OptionCount];
+        private Outline[] optionOutlines = new Outline[OptionCount];
 
         private void Awake()
         {
             EnsureUIBuilt();
             EnsureOverlayPriority();
+
             if (popupPanel != null)
             {
                 popupPanel.SetActive(false);
@@ -40,76 +67,150 @@ namespace FXOverdose.Events
 
         public void Show(ChoiceEventSO eventData, Action<int> onOptionSelected)
         {
-            if (eventData == null) return;
+            if (eventData == null)
+            {
+                return;
+            }
 
             EnsureUIBuilt();
             EnsureOverlayPriority();
+            EnsureRuntimeArrays();
+
+            if (popupPanel == null)
+            {
+                Debug.LogWarning("[ChoiceEventUI] Canvas가 준비되지 않아 돌발 이벤트 UI를 표시하지 못했습니다.");
+                return;
+            }
 
             currentEvent = eventData;
             currentCallback = onOptionSelected;
 
-            if (scenarioTitleText != null) scenarioTitleText.text = $"[BREAKING NEWS] {eventData.ScenarioTitle}";
-            if (scenarioDescText != null) scenarioDescText.text = eventData.ScenarioDescription;
-            if (aiMonologueText != null) aiMonologueText.text = $"💬 <color=#06B6D4>[AI 트레이더 독백]</color>\n\"{eventData.AIMonologue}\"";
-            if (toastText != null) toastText.gameObject.SetActive(false);
+            string eventId = string.IsNullOrWhiteSpace(eventData.EventID) ? "market-alert" : eventData.EventID.Trim();
+            string category = GetEventCategory(eventData.TriggerCondition);
+            string title = string.IsNullOrWhiteSpace(eventData.ScenarioTitle) ? "긴급 시장 속보" : eventData.ScenarioTitle;
 
-            TraderStatus traderStatus = FindAnyObjectByType<TraderStatus>();
+            if (scenarioTitleText != null)
+            {
+                scenarioTitleText.text = title;
+            }
 
-            for (int i = 0; i < 3; i++)
+            if (scenarioDescText != null)
+            {
+                scenarioDescText.text = string.IsNullOrWhiteSpace(eventData.ScenarioDescription)
+                    ? "현재 시장 상황을 분석하고 대응 방안을 선택해 주세요."
+                    : eventData.ScenarioDescription;
+            }
+
+            if (aiMonologueText != null)
+            {
+                string monologue = string.IsNullOrWhiteSpace(eventData.AIMonologue)
+                    ? "시장 데이터가 불안정해요. 대응 방향을 정해 주세요."
+                    : eventData.AIMonologue;
+                aiMonologueText.text =
+                    $"<color=#06B6D4><b>YOMI // AI MARKET ANALYST</b></color>\n" +
+                    $"<color=#CFFAFE>“{monologue}”</color>";
+            }
+
+            GameManager gameManager = FindAnyObjectByType<GameManager>();
+            int day = gameManager != null ? gameManager.CurrentDay : 1;
+            int hour = gameManager != null ? gameManager.CurrentHour : 0;
+            int minute = gameManager != null ? gameManager.CurrentMinute : 0;
+
+            if (browserAddressText != null)
+            {
+                browserAddressText.text = $"https://fxwire.local/live/{ToUrlSlug(eventId)}";
+            }
+
+            if (breakingMetaText != null)
+            {
+                breakingMetaText.text = $"LIVE UPDATE  /  {category}  /  DAY {day:00}  {hour:00}:{minute:00}";
+            }
+
+            if (articleMetaText != null)
+            {
+                articleMetaText.text = $"BREAKING  /  {category}  /  {eventId.ToUpperInvariant()}";
+            }
+
+            HideToast();
+
+            TraderStatus traderStatus = TraderStatus.CanonicalInstance;
+            ChoiceOptionData[] options = eventData.Options ?? Array.Empty<ChoiceOptionData>();
+
+            for (int i = 0; i < OptionCount; i++)
             {
                 int optionIndex = i;
-                bool hasOption = i < eventData.Options.Length && eventData.Options[i] != null;
-                ChoiceOptionData optData = hasOption ? eventData.Options[i] : null;
+                bool hasOption = i < options.Length && options[i] != null;
+                ChoiceOptionData option = hasOption ? options[i] : null;
 
-                if (optionButtons != null && i < optionButtons.Length && optionButtons[i] != null)
+                if (optionButtons[i] != null)
                 {
                     optionButtons[i].onClick.RemoveAllListeners();
                     optionButtons[i].onClick.AddListener(() => OnOptionButtonClicked(optionIndex));
                     optionButtons[i].gameObject.SetActive(hasOption);
-
-                    if (hasOption)
-                    {
-                        bool isInteractable = true;
-                        if (optData.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(optData.RequiredItemId))
-                        {
-                            isInteractable = traderStatus != null && traderStatus.HasItem(optData.RequiredItemId, optData.RequiredItemCount);
-                        }
-                        optionButtons[i].interactable = isInteractable;
-                    }
                 }
 
-                if (optionTexts != null && i < optionTexts.Length && optionTexts[i] != null && hasOption)
+                if (!hasOption)
                 {
-                    string prefix = i == 0 ? "A. [안전] " : (i == 1 ? "B. [공격] " : "C. [특수/직접] ");
-                    
-                    bool isInteractable = true;
-                    if (optData.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrEmpty(optData.RequiredItemId))
+                    continue;
+                }
+
+                bool isAvailable = IsOptionAvailable(option, traderStatus);
+                if (optionButtons[i] != null)
+                {
+                    optionButtons[i].interactable = isAvailable;
+                }
+                ApplyOptionVisual(i, option.OptionType, isAvailable);
+
+                if (optionTexts[i] != null)
+                {
+                    Color accent = GetOptionAccent(option.OptionType, i);
+                    string accentHex = ColorUtility.ToHtmlStringRGB(accent);
+                    string letter = ((char)('A' + i)).ToString();
+                    string requirement = string.Empty;
+
+                    if (option.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrWhiteSpace(option.RequiredItemId))
                     {
-                        isInteractable = traderStatus != null && traderStatus.HasItem(optData.RequiredItemId, optData.RequiredItemCount);
+                        requirement =
+                            $"\n<size=68%><color=#EAB308>REQUIRED: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
                     }
 
-                    string suffix = isInteractable ? "" : " <color=#EF4444><b>(아이템 부족)</b></color>";
-                    optionTexts[i].text = $"{prefix}{optData.OptionTitle}{suffix}\n<size=88%><color=#CBD5E1>{optData.Description}</color></size>";
+                    string unavailable = isAvailable
+                        ? string.Empty
+                        : "\n<size=68%><color=#FF4D4D><b>REQUIRED ITEM MISSING</b></color></size>";
+
+                    optionTexts[i].text =
+                        $"<size=76%><color=#{accentHex}><b>{letter} / {GetOptionLabel(option.OptionType)}</b></color></size>\n" +
+                        $"<size=100%><b>{option.OptionTitle}</b></size>\n" +
+                        $"<size=68%><color=#CBD5E1>{option.Description}</color></size>" +
+                        requirement + unavailable;
                 }
             }
 
-            if (popupPanel != null)
+            if (popupPanel == null)
             {
-                popupPanel.SetActive(true);
-                popupPanel.transform.SetAsLastSibling();
-                EnsureOverlayPriority();
+                return;
+            }
 
-                if (scrollRect == null) scrollRect = popupPanel.GetComponentInChildren<ScrollRect>();
-                if (scrollRect != null)
-                {
-                    Canvas.ForceUpdateCanvases();
-                    scrollRect.verticalNormalizedPosition = 1f;
-                }
+            popupPanel.SetActive(true);
+            popupPanel.transform.SetAsLastSibling();
+            EnsureOverlayPriority();
+
+            Canvas.ForceUpdateCanvases();
+            RefreshArticleLayout();
+
+            if (scrollRect != null)
+            {
+                scrollRect.StopMovement();
+                scrollRect.verticalNormalizedPosition = 1f;
             }
         }
 
         public void Hide()
         {
+            CancelInvoke(nameof(HideToast));
+            currentEvent = null;
+            currentCallback = null;
+
             if (popupPanel != null)
             {
                 popupPanel.SetActive(false);
@@ -118,215 +219,672 @@ namespace FXOverdose.Events
 
         public void ShowToastWarning(string message)
         {
-            Debug.LogWarning($"[ChoiceEventUI] ⚠️ {message}");
-            if (toastText != null)
+            Debug.LogWarning($"[ChoiceEventUI] {message}");
+
+            if (toastText == null)
             {
-                toastText.text = message;
-                toastText.gameObject.SetActive(true);
-                CancelInvoke(nameof(HideToast));
-                Invoke(nameof(HideToast), 2.5f);
+                return;
             }
+
+            toastText.text = message;
+            if (toastContainer != null)
+            {
+                toastContainer.SetActive(true);
+            }
+            else
+            {
+                toastText.gameObject.SetActive(true);
+            }
+
+            CancelInvoke(nameof(HideToast));
+            Invoke(nameof(HideToast), 2.5f);
         }
 
         private void HideToast()
         {
-            if (toastText != null) toastText.gameObject.SetActive(false);
+            if (toastContainer != null)
+            {
+                toastContainer.SetActive(false);
+            }
+            else if (toastText != null)
+            {
+                toastText.gameObject.SetActive(false);
+            }
         }
 
         private void OnOptionButtonClicked(int index)
         {
+            if (currentEvent == null)
+            {
+                return;
+            }
+
             currentCallback?.Invoke(index);
         }
 
         private void EnsureUIBuilt()
         {
+            EnsureRuntimeArrays();
+
             if (popupPanel != null)
             {
-                if (scrollRect != null || popupPanel.GetComponentInChildren<ScrollRect>() != null)
+                Transform marker = popupPanel.transform.Find("ModalBox/InternetNewsLayout");
+                if (marker != null && RebindGeneratedUI(marker))
                 {
                     return;
                 }
-                Destroy(popupPanel);
+
+                popupPanel.SetActive(false);
+                if (Application.isPlaying)
+                {
+                    Destroy(popupPanel);
+                }
+                else
+                {
+                    DestroyImmediate(popupPanel);
+                }
+
                 popupPanel = null;
+                ResetRuntimeReferences();
             }
 
-            // Canvas 찾기 또는 생성
-            Canvas canvas = GetComponentInParent<Canvas>();
+            Canvas canvas = FindTargetCanvas();
             if (canvas == null)
             {
-                canvas = FindAnyObjectByType<Canvas>();
+                Debug.LogWarning("[ChoiceEventUI] 돌발 이벤트 UI를 배치할 Canvas를 찾지 못했습니다.");
+                return;
             }
-            if (canvas == null) return;
 
-            // 팝업 루트 패널 (전체 화면 딤 처리)
-            GameObject panelGo = new GameObject("ChoiceEventPopupPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            panelGo.transform.SetParent(canvas.transform, false);
+            GameObject panelGo = CreatePanel(canvas.transform, "ChoiceEventPopupPanel", new Color(0f, 0f, 0f, 0.78f), true);
             RectTransform rootRect = panelGo.GetComponent<RectTransform>();
-            rootRect.anchorMin = Vector2.zero;
-            rootRect.anchorMax = Vector2.one;
-            rootRect.offsetMin = Vector2.zero;
-            rootRect.offsetMax = Vector2.zero;
-            panelGo.GetComponent<Image>().color = new Color(0, 0, 0, 0.75f);
+            Stretch(rootRect, Vector2.zero, Vector2.zero);
             popupPanel = panelGo;
 
-            // 중앙 모달 창 (크기 740 x 640으로 넉넉하게 확장)
-            GameObject modalGo = new GameObject("ModalBox", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            modalGo.transform.SetParent(panelGo.transform, false);
+            GameObject modalGo = CreatePanel(panelGo.transform, "ModalBox", PanelBackground, false);
             RectTransform modalRect = modalGo.GetComponent<RectTransform>();
-            modalRect.anchorMin = new Vector2(0.5f, 0.5f);
-            modalRect.anchorMax = new Vector2(0.5f, 0.5f);
-            modalRect.sizeDelta = new Vector2(740, 640);
-            Image modalImg = modalGo.GetComponent<Image>();
-            modalImg.color = colorBG;
+            Fixed(modalRect, new Vector2(0.5f, 0.5f), new Vector2(ModalWidth, ModalHeight), Vector2.zero);
 
-            // 외곽선 및 헤더 상단 고정 텍스트 (기존 34 -> 39 (+5포인트))
-            scenarioTitleText = CreateLabel(modalGo.transform, "Title", 39, new Vector2(24, -16), new Vector2(-24, -76), TextAlignmentOptions.TopLeft, Color.white);
+            Shadow shadow = modalGo.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.78f);
+            shadow.effectDistance = new Vector2(12f, -12f);
+            shadow.useGraphicAlpha = true;
+            AddOutline(modalGo, BorderColor);
 
-            // 토스트 경고
-            toastText = CreateLabel(modalGo.transform, "Toast", 25, new Vector2(24, -580), new Vector2(-24, -616), TextAlignmentOptions.Center, new Color(1f, 0.3f, 0.3f));
-            toastText.gameObject.SetActive(false);
+            GameObject layoutGo = new GameObject("InternetNewsLayout", typeof(RectTransform));
+            layoutGo.transform.SetParent(modalGo.transform, false);
+            RectTransform layoutRect = layoutGo.GetComponent<RectTransform>();
+            Stretch(layoutRect, Vector2.zero, Vector2.zero);
 
-            // =========================================================================
-            // 하단 스크롤 영역 (ScrollRect) 구축 - 타이틀 하단부터 모달창 하단까지
-            // =========================================================================
-            GameObject scrollAreaGo = new GameObject("ScrollArea", typeof(RectTransform));
-            scrollAreaGo.transform.SetParent(modalGo.transform, false);
-            RectTransform scrollAreaRect = scrollAreaGo.GetComponent<RectTransform>();
-            scrollAreaRect.anchorMin = new Vector2(0f, 0f);
-            scrollAreaRect.anchorMax = new Vector2(1f, 1f);
-            scrollAreaRect.offsetMin = new Vector2(20f, 20f);
-            scrollAreaRect.offsetMax = new Vector2(-20f, -86f);
+            CreateTopAccent(layoutGo.transform);
+            CreateBrowserChrome(layoutGo.transform);
+            CreateSiteHeader(layoutGo.transform);
+            CreateBreakingTicker(layoutGo.transform);
+            CreateArticleColumn(layoutGo.transform);
+            CreateResponseSidebar(layoutGo.transform);
 
-            scrollRect = scrollAreaGo.AddComponent<ScrollRect>();
+            EnsureOverlayPriority();
+        }
+
+        private void CreateTopAccent(Transform parent)
+        {
+            GameObject accent = CreatePanel(parent, "TopAccent", Cyan, false);
+            SetTopRect(accent.GetComponent<RectTransform>(), 0f, 0f, 0f, 4f);
+        }
+
+        private void CreateBrowserChrome(Transform parent)
+        {
+            GameObject browser = CreatePanel(parent, "BrowserChrome", HeaderBackground, false);
+            RectTransform browserRect = browser.GetComponent<RectTransform>();
+            SetTopRect(browserRect, 0f, 0f, 4f, 44f);
+
+            CreatePixelIndicator(browser.transform, "ClosePixel", new Color32(239, 68, 68, 255), 24f);
+            CreatePixelIndicator(browser.transform, "MinimizePixel", new Color32(234, 179, 8, 255), 48f);
+            CreatePixelIndicator(browser.transform, "OnlinePixel", new Color32(34, 197, 94, 255), 72f);
+
+            GameObject addressBar = CreatePanel(browser.transform, "AddressBar", DeepBackground, false);
+            RectTransform addressRect = addressBar.GetComponent<RectTransform>();
+            Stretch(addressRect, new Vector2(102f, 7f), new Vector2(-18f, -7f));
+            AddOutline(addressBar, new Color32(44, 59, 82, 255), new Vector2(2f, -2f));
+
+            browserAddressText = CreateText(addressBar.transform, "AddressText", 16f, MutedText, TextAlignmentOptions.MidlineLeft);
+            Stretch(browserAddressText.rectTransform, new Vector2(14f, 0f), new Vector2(-12f, 0f));
+            browserAddressText.text = "https://fxwire.local/live/market-alert";
+        }
+
+        private void CreateSiteHeader(Transform parent)
+        {
+            GameObject header = CreatePanel(parent, "SiteHeader", DeepBackground, false);
+            RectTransform headerRect = header.GetComponent<RectTransform>();
+            SetTopRect(headerRect, 0f, 0f, 48f, 70f);
+
+            TMP_Text logo = CreateText(header.transform, "Logo", 34f, Color.white, TextAlignmentOptions.MidlineLeft);
+            SetRect(logo.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(26f, 0f), new Vector2(260f, 0f));
+            logo.text = "<color=#06B6D4>FX</color> WIRE";
+            logo.fontStyle = FontStyles.Bold;
+
+            TMP_Text nav = CreateText(header.transform, "Navigation", 17f, BodyText, TextAlignmentOptions.Center);
+            SetRect(nav.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(300f, 0f), new Vector2(-250f, 0f));
+            nav.text = "MARKETS     CRYPTO     MACRO     SIGNAL DESK";
+            nav.characterSpacing = 1.5f;
+
+            GameObject liveBadge = CreatePanel(header.transform, "LiveBadge", new Color32(64, 20, 30, 255), false);
+            Fixed(liveBadge.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(174f, 38f), new Vector2(-108f, 0f));
+            AddOutline(liveBadge, RiskRed, new Vector2(2f, -2f));
+
+            TMP_Text liveText = CreateText(liveBadge.transform, "LiveText", 18f, Color.white, TextAlignmentOptions.Center);
+            Stretch(liveText.rectTransform, Vector2.zero, Vector2.zero);
+            liveText.text = "24/7  LIVE";
+            liveText.fontStyle = FontStyles.Bold;
+
+            CreateHorizontalRule(header.transform, "HeaderRule", BorderColor, 0f, 0f, 68f, 2f);
+        }
+
+        private void CreateBreakingTicker(Transform parent)
+        {
+            GameObject ticker = CreatePanel(parent, "BreakingTicker", HeaderBackground, false);
+            RectTransform tickerRect = ticker.GetComponent<RectTransform>();
+            SetTopRect(tickerRect, 0f, 0f, 118f, 44f);
+
+            GameObject badge = CreatePanel(ticker.transform, "BreakingBadge", RiskRed, false);
+            SetRect(badge.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(166f, 0f));
+
+            TMP_Text badgeText = CreateText(badge.transform, "BreakingText", 20f, Color.white, TextAlignmentOptions.Center);
+            Stretch(badgeText.rectTransform, Vector2.zero, Vector2.zero);
+            badgeText.text = "BREAKING";
+            badgeText.fontStyle = FontStyles.Bold;
+
+            breakingMetaText = CreateText(ticker.transform, "BreakingMeta", 18f, BodyText, TextAlignmentOptions.MidlineLeft);
+            Stretch(breakingMetaText.rectTransform, new Vector2(188f, 0f), new Vector2(-22f, 0f));
+            breakingMetaText.text = "LIVE UPDATE  /  MARKET ALERT  /  DAY 01  09:00";
+            breakingMetaText.characterSpacing = 0.8f;
+        }
+
+        private void CreateArticleColumn(Transform parent)
+        {
+            GameObject article = CreatePanel(parent, "ArticleColumn", DeepBackground, false);
+            RectTransform articleRect = article.GetComponent<RectTransform>();
+            SetRect(articleRect, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(32f, 24f), new Vector2(950f, -182f));
+            AddOutline(article, BorderColor);
+
+            GameObject scrollArea = new GameObject("ScrollArea", typeof(RectTransform), typeof(ScrollRect));
+            scrollArea.transform.SetParent(article.transform, false);
+            RectTransform scrollAreaRect = scrollArea.GetComponent<RectTransform>();
+            Stretch(scrollAreaRect, new Vector2(8f, 8f), new Vector2(-8f, -8f));
+
+            scrollRect = scrollArea.GetComponent<ScrollRect>();
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
-            scrollRect.scrollSensitivity = 35f;
-            scrollRect.movementType = ScrollRect.MovementType.Elastic;
+            scrollRect.scrollSensitivity = 38f;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.inertia = true;
+            scrollRect.decelerationRate = 0.12f;
 
-            // Viewport
-            GameObject viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
-            viewportGo.transform.SetParent(scrollAreaGo.transform, false);
-            RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = new Vector2(-16f, 0f); // 우측 스크롤바 여백
-            Image viewportImg = viewportGo.GetComponent<Image>();
-            viewportImg.color = Color.white;
-            viewportImg.raycastTarget = true;
-            Mask viewportMask = viewportGo.GetComponent<Mask>();
-            viewportMask.showMaskGraphic = false;
+            GameObject viewport = CreatePanel(scrollArea.transform, "Viewport", new Color(1f, 1f, 1f, 0.001f), true);
+            RectTransform viewportRect = viewport.GetComponent<RectTransform>();
+            Stretch(viewportRect, Vector2.zero, new Vector2(-22f, 0f));
+            viewport.AddComponent<RectMask2D>();
 
-            // Content
-            GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            contentGo.transform.SetParent(viewportGo.transform, false);
-            RectTransform contentRect = contentGo.GetComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.sizeDelta = new Vector2(0f, 0f);
-            contentRect.anchoredPosition = Vector2.zero;
+            GameObject content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            articleContentRect = content.GetComponent<RectTransform>();
+            articleContentRect.anchorMin = new Vector2(0f, 1f);
+            articleContentRect.anchorMax = new Vector2(1f, 1f);
+            articleContentRect.pivot = new Vector2(0.5f, 1f);
+            articleContentRect.anchoredPosition = Vector2.zero;
+            articleContentRect.sizeDelta = Vector2.zero;
 
-            VerticalLayoutGroup vLayout = contentGo.GetComponent<VerticalLayoutGroup>();
-            vLayout.childAlignment = TextAnchor.UpperLeft;
-            vLayout.spacing = 18f;
-            vLayout.padding = new RectOffset(8, 12, 10, 24);
-            vLayout.childForceExpandWidth = true;
-            vLayout.childForceExpandHeight = false;
-            vLayout.childControlWidth = true;
-            vLayout.childControlHeight = true;
+            VerticalLayoutGroup articleLayout = content.GetComponent<VerticalLayoutGroup>();
+            articleLayout.childAlignment = TextAnchor.UpperLeft;
+            articleLayout.padding = new RectOffset(30, 30, 26, 34);
+            articleLayout.spacing = 18f;
+            articleLayout.childControlWidth = true;
+            articleLayout.childControlHeight = true;
+            articleLayout.childForceExpandWidth = true;
+            articleLayout.childForceExpandHeight = false;
 
-            ContentSizeFitter contentFitter = contentGo.GetComponent<ContentSizeFitter>();
+            ContentSizeFitter contentFitter = content.GetComponent<ContentSizeFitter>();
             contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // Scrollbar (우측 배치)
-            GameObject scrollbarGo = new GameObject("Scrollbar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Scrollbar));
-            scrollbarGo.transform.SetParent(scrollAreaGo.transform, false);
+            articleMetaText = CreateFlowText(content.transform, "ArticleMeta", 18f, Cyan, TextAlignmentOptions.Left);
+            articleMetaText.text = "BREAKING  /  MARKET ALERT  /  EVENT";
+            articleMetaText.fontStyle = FontStyles.Bold;
+            articleMetaText.characterSpacing = 1.5f;
+
+            scenarioTitleText = CreateFlowText(content.transform, "ArticleTitle", 44f, Color.white, TextAlignmentOptions.TopLeft);
+            scenarioTitleText.text = "긴급 시장 속보";
+            scenarioTitleText.fontStyle = FontStyles.Bold;
+            scenarioTitleText.lineSpacing = 2f;
+
+            GameObject divider = CreatePanel(content.transform, "TitleDivider", Cyan, false);
+            LayoutElement dividerLayout = divider.AddComponent<LayoutElement>();
+            dividerLayout.minHeight = 3f;
+            dividerLayout.preferredHeight = 3f;
+            dividerLayout.flexibleHeight = 0f;
+
+            TMP_Text byline = CreateFlowText(content.transform, "Byline", 16f, MutedText, TextAlignmentOptions.Left);
+            byline.text = "FX WIRE MARKET DESK  |  LIVE MARKET COVERAGE";
+            byline.characterSpacing = 1f;
+
+            scenarioDescText = CreateFlowText(content.transform, "ArticleBody", 27f, BodyText, TextAlignmentOptions.TopLeft);
+            scenarioDescText.text = "현재 시장 상황을 분석하고 대응 방안을 선택해 주세요.";
+            scenarioDescText.lineSpacing = 6f;
+            scenarioDescText.paragraphSpacing = 8f;
+
+            GameObject quoteCard = CreatePanel(content.transform, "AIQuoteCard", HeaderBackground, false);
+            aiQuoteCardRect = quoteCard.GetComponent<RectTransform>();
+            AddOutline(quoteCard, Cyan, new Vector2(2f, -2f));
+            aiQuoteLayout = quoteCard.AddComponent<LayoutElement>();
+            aiQuoteLayout.minHeight = 118f;
+            aiQuoteLayout.preferredHeight = 118f;
+
+            GameObject quoteAccent = CreatePanel(quoteCard.transform, "QuoteAccent", Cyan, false);
+            SetRect(quoteAccent.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(6f, 0f));
+
+            aiMonologueText = CreateText(quoteCard.transform, "AIMonologue", 23f, AiText, TextAlignmentOptions.TopLeft);
+            Stretch(aiMonologueText.rectTransform, new Vector2(26f, 20f), new Vector2(-24f, -20f));
+            aiMonologueText.textWrappingMode = TextWrappingModes.Normal;
+            aiMonologueText.overflowMode = TextOverflowModes.Overflow;
+            aiMonologueText.lineSpacing = 4f;
+
+            TMP_Text source = CreateFlowText(content.transform, "SourceFooter", 14f, MutedText, TextAlignmentOptions.Left);
+            source.text = "SOURCE: FX OVERDOSE MARKET SIMULATION NETWORK  •  UPDATED IN REAL TIME";
+            source.characterSpacing = 0.7f;
+
+            GameObject scrollbarGo = CreatePanel(scrollArea.transform, "Scrollbar", HeaderBackground, true);
             RectTransform scrollbarRect = scrollbarGo.GetComponent<RectTransform>();
-            scrollbarRect.anchorMin = new Vector2(1f, 0f);
-            scrollbarRect.anchorMax = new Vector2(1f, 1f);
-            scrollbarRect.pivot = new Vector2(1f, 0.5f);
-            scrollbarRect.sizeDelta = new Vector2(12f, 0f);
-            scrollbarRect.anchoredPosition = Vector2.zero;
-            Image scrollbarBg = scrollbarGo.GetComponent<Image>();
-            scrollbarBg.color = new Color(0.12f, 0.16f, 0.25f, 0.8f);
+            SetRect(scrollbarRect, new Vector2(1f, 0f), Vector2.one, new Vector2(-12f, 0f), Vector2.zero);
 
-            GameObject slidingAreaGo = new GameObject("SlidingArea", typeof(RectTransform));
-            slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
-            RectTransform slidingRect = slidingAreaGo.GetComponent<RectTransform>();
-            slidingRect.anchorMin = Vector2.zero;
-            slidingRect.anchorMax = Vector2.one;
-            slidingRect.offsetMin = slidingRect.offsetMax = Vector2.zero;
+            GameObject slidingArea = new GameObject("SlidingArea", typeof(RectTransform));
+            slidingArea.transform.SetParent(scrollbarGo.transform, false);
+            RectTransform slidingRect = slidingArea.GetComponent<RectTransform>();
+            Stretch(slidingRect, new Vector2(2f, 2f), new Vector2(-2f, -2f));
 
-            GameObject handleGo = new GameObject("Handle", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            handleGo.transform.SetParent(slidingAreaGo.transform, false);
-            RectTransform handleRect = handleGo.GetComponent<RectTransform>();
-            handleRect.sizeDelta = new Vector2(10f, 0f);
-            Image handleImg = handleGo.GetComponent<Image>();
-            handleImg.color = new Color(0.28f, 0.38f, 0.55f, 1f);
+            GameObject handle = CreatePanel(slidingArea.transform, "Handle", Cyan, true);
+            RectTransform handleRect = handle.GetComponent<RectTransform>();
+            handleRect.anchorMin = new Vector2(0f, 0f);
+            handleRect.anchorMax = new Vector2(1f, 0.25f);
+            handleRect.offsetMin = Vector2.zero;
+            handleRect.offsetMax = Vector2.zero;
 
-            Scrollbar scrollbar = scrollbarGo.GetComponent<Scrollbar>();
+            Scrollbar scrollbar = scrollbarGo.AddComponent<Scrollbar>();
             scrollbar.handleRect = handleRect;
+            scrollbar.targetGraphic = handle.GetComponent<Image>();
             scrollbar.direction = Scrollbar.Direction.BottomToTop;
 
             scrollRect.viewport = viewportRect;
-            scrollRect.content = contentRect;
+            scrollRect.content = articleContentRect;
             scrollRect.verticalScrollbar = scrollbar;
-            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
-            scrollRect.verticalScrollbarSpacing = 4f;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+            scrollRect.verticalScrollbarSpacing = 8f;
+        }
 
-            // =========================================================================
-            // Content 내부에 스크롤되는 대사 및 이벤트 내용, 선택지 버튼 배치
-            // =========================================================================
-            // 시나리오 설명 (기존 20 -> 25 (+5포인트))
-            scenarioDescText = CreateScrollableLabel(contentGo.transform, "Desc", 25, TextAlignmentOptions.TopLeft, new Color(0.89f, 0.92f, 0.96f));
+        private void CreateResponseSidebar(Transform parent)
+        {
+            GameObject sidebar = CreatePanel(parent, "ResponseSidebar", DeepBackground, false);
+            RectTransform sidebarRect = sidebar.GetComponent<RectTransform>();
+            SetRect(sidebarRect, new Vector2(1f, 0f), Vector2.one, new Vector2(-526f, 24f), new Vector2(-32f, -182f));
+            AddOutline(sidebar, BorderColor);
 
-            // AI 트레이더 독백 (기존 18 -> 23 (+5포인트))
-            aiMonologueText = CreateScrollableLabel(contentGo.transform, "AIMonologue", 23, TextAlignmentOptions.TopLeft, new Color(0.80f, 0.95f, 1f));
+            GameObject sidebarAccent = CreatePanel(sidebar.transform, "SidebarAccent", Cyan, false);
+            SetTopRect(sidebarAccent.GetComponent<RectTransform>(), 0f, 0f, 0f, 4f);
 
-            // 3개 선택지 버튼 (Content 내부에 순차 배치)
-            for (int i = 0; i < 3; i++)
+            TMP_Text deskTitle = CreateText(sidebar.transform, "DeskTitle", 27f, Color.white, TextAlignmentOptions.TopLeft);
+            SetTopRect(deskTitle.rectTransform, 22f, 22f, 20f, 34f);
+            deskTitle.text = "RESPONSE DESK";
+            deskTitle.fontStyle = FontStyles.Bold;
+
+            TMP_Text deskSubtitle = CreateText(sidebar.transform, "DeskSubtitle", 15f, MutedText, TextAlignmentOptions.TopLeft);
+            SetTopRect(deskSubtitle.rectTransform, 22f, 22f, 56f, 28f);
+            deskSubtitle.text = "CHOOSE ONE ACTION TO RESOLVE THIS ALERT";
+            deskSubtitle.characterSpacing = 0.6f;
+
+            CreateHorizontalRule(sidebar.transform, "DeskRule", BorderColor, 22f, 22f, 90f, 2f);
+
+            GameObject optionsContainer = new GameObject("OptionsContainer", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            optionsContainer.transform.SetParent(sidebar.transform, false);
+            RectTransform optionsRect = optionsContainer.GetComponent<RectTransform>();
+            Stretch(optionsRect, new Vector2(18f, 58f), new Vector2(-18f, -108f));
+
+            VerticalLayoutGroup optionsLayout = optionsContainer.GetComponent<VerticalLayoutGroup>();
+            optionsLayout.childAlignment = TextAnchor.UpperCenter;
+            optionsLayout.spacing = 14f;
+            optionsLayout.childControlWidth = true;
+            optionsLayout.childControlHeight = true;
+            optionsLayout.childForceExpandWidth = true;
+            optionsLayout.childForceExpandHeight = true;
+
+            for (int i = 0; i < OptionCount; i++)
             {
-                GameObject btnGo = new GameObject($"OptionButton_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
-                btnGo.transform.SetParent(contentGo.transform, false);
+                GameObject buttonGo = CreatePanel(optionsContainer.transform, $"OptionButton_{i}", HeaderBackground, true);
+                RectTransform buttonRect = buttonGo.GetComponent<RectTransform>();
+                buttonRect.sizeDelta = new Vector2(0f, 174f);
+                buttonGo.AddComponent<RectMask2D>();
 
-                Image btnImg = btnGo.GetComponent<Image>();
-                btnImg.color = i == 0 ? new Color(colorSafe.r, colorSafe.g, colorSafe.b, 0.25f) :
-                               (i == 1 ? new Color(colorAggressive.r, colorAggressive.g, colorAggressive.b, 0.25f) :
-                                         new Color(colorSpecial.r, colorSpecial.g, colorSpecial.b, 0.25f));
+                LayoutElement buttonLayout = buttonGo.AddComponent<LayoutElement>();
+                buttonLayout.minHeight = 168f;
+                buttonLayout.preferredHeight = 174f;
+                buttonLayout.flexibleHeight = 1f;
 
-                VerticalLayoutGroup btnLayout = btnGo.GetComponent<VerticalLayoutGroup>();
-                btnLayout.childAlignment = TextAnchor.MiddleLeft;
-                btnLayout.padding = new RectOffset(16, 16, 14, 14);
-                btnLayout.spacing = 4f;
-                btnLayout.childForceExpandWidth = true;
-                btnLayout.childForceExpandHeight = false;
-                btnLayout.childControlWidth = true;
-                btnLayout.childControlHeight = true;
+                optionBackgrounds[i] = buttonGo.GetComponent<Image>();
+                optionOutlines[i] = AddOutline(buttonGo, BorderColor);
 
-                ContentSizeFitter btnFitter = btnGo.GetComponent<ContentSizeFitter>();
-                btnFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-                btnFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                optionButtons[i] = buttonGo.AddComponent<Button>();
+                optionButtons[i].targetGraphic = optionBackgrounds[i];
+                optionButtons[i].transition = Selectable.Transition.ColorTint;
+                ColorBlock colors = optionButtons[i].colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color32(218, 250, 255, 255);
+                colors.pressedColor = new Color32(166, 217, 226, 255);
+                colors.selectedColor = Color.white;
+                colors.disabledColor = new Color32(112, 120, 135, 210);
+                colors.colorMultiplier = 1f;
+                colors.fadeDuration = 0.08f;
+                optionButtons[i].colors = colors;
 
-                LayoutElement btnElem = btnGo.GetComponent<LayoutElement>();
-                btnElem.minHeight = 78f;
+                GameObject accent = CreatePanel(buttonGo.transform, "AccentBar", GetOptionAccent(ChoiceOptionType.Safe, i), false);
+                SetRect(accent.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(7f, 0f));
+                optionAccentBars[i] = accent.GetComponent<Image>();
 
-                optionButtons[i] = btnGo.GetComponent<Button>();
-                // 선택지 텍스트 (기존 16 -> 21 (+5포인트))
-                optionTexts[i] = CreateScrollableLabel(btnGo.transform, "Text", 21, TextAlignmentOptions.Left, Color.white);
+                optionTexts[i] = CreateText(buttonGo.transform, "Text", 20f, Color.white, TextAlignmentOptions.TopLeft);
+                Stretch(optionTexts[i].rectTransform, new Vector2(24f, 12f), new Vector2(-16f, -12f));
+                optionTexts[i].enableAutoSizing = true;
+                optionTexts[i].fontSizeMin = 13f;
+                optionTexts[i].fontSizeMax = 20f;
+                optionTexts[i].textWrappingMode = TextWrappingModes.Normal;
+                optionTexts[i].overflowMode = TextOverflowModes.Overflow;
+                optionTexts[i].lineSpacing = 1.5f;
+                optionTexts[i].raycastTarget = false;
             }
 
-            EnsureOverlayPriority();
+            TMP_Text footer = CreateText(sidebar.transform, "DecisionFooter", 14f, MutedText, TextAlignmentOptions.Center);
+            SetRect(footer.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(18f, 16f), new Vector2(-18f, 48f));
+            footer.text = "THE SELECTED RESPONSE IS APPLIED IMMEDIATELY";
+            footer.characterSpacing = 0.4f;
+
+            toastContainer = CreatePanel(sidebar.transform, "Toast", new Color32(62, 19, 29, 250), false);
+            RectTransform toastRect = toastContainer.GetComponent<RectTransform>();
+            SetRect(toastRect, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(18f, 10f), new Vector2(-18f, 62f));
+            AddOutline(toastContainer, ErrorRed, new Vector2(2f, -2f));
+
+            toastText = CreateText(toastContainer.transform, "ToastText", 17f, Color.white, TextAlignmentOptions.Center);
+            Stretch(toastText.rectTransform, new Vector2(12f, 6f), new Vector2(-12f, -6f));
+            toastText.fontStyle = FontStyles.Bold;
+            toastContainer.SetActive(false);
+        }
+
+        private void RefreshArticleLayout()
+        {
+            if (articleContentRect == null)
+            {
+                return;
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(articleContentRect);
+
+            if (aiMonologueText != null && aiQuoteCardRect != null && aiQuoteLayout != null)
+            {
+                float availableWidth = Mathf.Max(320f, aiQuoteCardRect.rect.width - 50f);
+                float preferredHeight = aiMonologueText.GetPreferredValues(aiMonologueText.text, availableWidth, 0f).y + 44f;
+                aiQuoteLayout.preferredHeight = Mathf.Max(118f, preferredHeight);
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(articleContentRect);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private bool RebindGeneratedUI(Transform marker)
+        {
+            browserAddressText = FindText(marker, "BrowserChrome/AddressBar/AddressText");
+            breakingMetaText = FindText(marker, "BreakingTicker/BreakingMeta");
+            articleMetaText = FindText(marker, "ArticleColumn/ScrollArea/Viewport/Content/ArticleMeta");
+            scenarioTitleText = FindText(marker, "ArticleColumn/ScrollArea/Viewport/Content/ArticleTitle");
+            scenarioDescText = FindText(marker, "ArticleColumn/ScrollArea/Viewport/Content/ArticleBody");
+            aiMonologueText = FindText(marker, "ArticleColumn/ScrollArea/Viewport/Content/AIQuoteCard/AIMonologue");
+            toastText = FindText(marker, "ResponseSidebar/Toast/ToastText");
+
+            Transform scrollTransform = marker.Find("ArticleColumn/ScrollArea");
+            scrollRect = scrollTransform != null ? scrollTransform.GetComponent<ScrollRect>() : null;
+
+            Transform contentTransform = marker.Find("ArticleColumn/ScrollArea/Viewport/Content");
+            articleContentRect = contentTransform as RectTransform;
+
+            Transform quoteTransform = marker.Find("ArticleColumn/ScrollArea/Viewport/Content/AIQuoteCard");
+            aiQuoteCardRect = quoteTransform as RectTransform;
+            aiQuoteLayout = quoteTransform != null ? quoteTransform.GetComponent<LayoutElement>() : null;
+
+            Transform toastTransform = marker.Find("ResponseSidebar/Toast");
+            toastContainer = toastTransform != null ? toastTransform.gameObject : null;
+
+            for (int i = 0; i < OptionCount; i++)
+            {
+                Transform buttonTransform = marker.Find($"ResponseSidebar/OptionsContainer/OptionButton_{i}");
+                optionButtons[i] = buttonTransform != null ? buttonTransform.GetComponent<Button>() : null;
+                optionTexts[i] = buttonTransform != null ? FindText(buttonTransform, "Text") : null;
+                optionBackgrounds[i] = buttonTransform != null ? buttonTransform.GetComponent<Image>() : null;
+                optionOutlines[i] = buttonTransform != null ? buttonTransform.GetComponent<Outline>() : null;
+
+                Transform accentTransform = buttonTransform != null ? buttonTransform.Find("AccentBar") : null;
+                optionAccentBars[i] = accentTransform != null ? accentTransform.GetComponent<Image>() : null;
+            }
+
+            bool hasCoreReferences = scrollRect != null && articleContentRect != null && scenarioTitleText != null &&
+                                     scenarioDescText != null && aiMonologueText != null && toastText != null;
+
+            for (int i = 0; i < OptionCount && hasCoreReferences; i++)
+            {
+                hasCoreReferences = optionButtons[i] != null && optionTexts[i] != null &&
+                                    optionBackgrounds[i] != null && optionAccentBars[i] != null;
+            }
+
+            return hasCoreReferences;
+        }
+
+        private void ApplyOptionVisual(int index, ChoiceOptionType type, bool isAvailable)
+        {
+            if (index < 0 || index >= OptionCount)
+            {
+                return;
+            }
+
+            Color accent = isAvailable ? GetOptionAccent(type, index) : disabledAccent;
+
+            if (optionBackgrounds[index] != null)
+            {
+                Color tint = Color.Lerp(HeaderBackground, accent, isAvailable ? 0.13f : 0.04f);
+                tint.a = 1f;
+                optionBackgrounds[index].color = tint;
+            }
+
+            if (optionAccentBars[index] != null)
+            {
+                optionAccentBars[index].color = accent;
+            }
+
+            if (optionOutlines[index] != null)
+            {
+                optionOutlines[index].effectColor = isAvailable
+                    ? Color.Lerp(BorderColor, accent, 0.62f)
+                    : BorderColor;
+            }
+        }
+
+        private static bool IsOptionAvailable(ChoiceOptionData option, TraderStatus traderStatus)
+        {
+            if (option == null)
+            {
+                return false;
+            }
+
+            if (option.OptionType != ChoiceOptionType.SpecialItem || string.IsNullOrWhiteSpace(option.RequiredItemId))
+            {
+                return true;
+            }
+
+            return traderStatus != null && traderStatus.HasItem(option.RequiredItemId, option.RequiredItemCount);
+        }
+
+        private static string GetEventCategory(EventTriggerCondition condition)
+        {
+            return condition switch
+            {
+                EventTriggerCondition.TimeOfDay => "MARKET WATCH",
+                EventTriggerCondition.LowMental => "RISK ALERT",
+                EventTriggerCondition.HighLeverage => "LEVERAGE ALERT",
+                _ => "LIVE MARKET"
+            };
+        }
+
+        private static string GetOptionLabel(ChoiceOptionType type)
+        {
+            return type switch
+            {
+                ChoiceOptionType.Safe => "SAFE RESPONSE",
+                ChoiceOptionType.Aggressive => "HIGH RISK",
+                ChoiceOptionType.SpecialItem => "ACTIVE GEAR",
+                ChoiceOptionType.DirectionalLong => "LONG SIGNAL",
+                ChoiceOptionType.DirectionalShort => "SHORT SIGNAL",
+                _ => "RESPONSE"
+            };
+        }
+
+        private static Color GetOptionAccent(ChoiceOptionType type, int fallbackIndex)
+        {
+            return type switch
+            {
+                ChoiceOptionType.Safe => SafeGreen,
+                ChoiceOptionType.Aggressive => RiskRed,
+                ChoiceOptionType.SpecialItem => SpecialGold,
+                ChoiceOptionType.DirectionalLong => SafeGreen,
+                ChoiceOptionType.DirectionalShort => RiskRed,
+                _ => fallbackIndex == 0 ? SafeGreen : (fallbackIndex == 1 ? RiskRed : SpecialGold)
+            };
+        }
+
+        private static string ToUrlSlug(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "market-alert";
+            }
+
+            return value.Trim().ToLowerInvariant().Replace(' ', '-').Replace('_', '-');
+        }
+
+        private void EnsureRuntimeArrays()
+        {
+            if (optionButtons == null || optionButtons.Length != OptionCount)
+            {
+                optionButtons = new Button[OptionCount];
+            }
+
+            if (optionTexts == null || optionTexts.Length != OptionCount)
+            {
+                optionTexts = new TMP_Text[OptionCount];
+            }
+
+            if (optionBackgrounds == null || optionBackgrounds.Length != OptionCount)
+            {
+                optionBackgrounds = new Image[OptionCount];
+            }
+
+            if (optionAccentBars == null || optionAccentBars.Length != OptionCount)
+            {
+                optionAccentBars = new Image[OptionCount];
+            }
+
+            if (optionOutlines == null || optionOutlines.Length != OptionCount)
+            {
+                optionOutlines = new Outline[OptionCount];
+            }
+        }
+
+        private void ResetRuntimeReferences()
+        {
+            scenarioTitleText = null;
+            scenarioDescText = null;
+            aiMonologueText = null;
+            toastText = null;
+            browserAddressText = null;
+            breakingMetaText = null;
+            articleMetaText = null;
+            scrollRect = null;
+            articleContentRect = null;
+            aiQuoteCardRect = null;
+            aiQuoteLayout = null;
+            toastContainer = null;
+            optionButtons = new Button[OptionCount];
+            optionTexts = new TMP_Text[OptionCount];
+            optionBackgrounds = new Image[OptionCount];
+            optionAccentBars = new Image[OptionCount];
+            optionOutlines = new Outline[OptionCount];
+        }
+
+        private Canvas FindTargetCanvas()
+        {
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            if (parentCanvas != null)
+            {
+                return parentCanvas.rootCanvas;
+            }
+
+            Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Exclude);
+            foreach (Canvas candidate in canvases)
+            {
+                if (candidate != null && candidate.name == "TradingViewCanvas")
+                {
+                    return candidate;
+                }
+            }
+
+            Canvas bestCanvas = null;
+            float bestScore = float.MinValue;
+
+            foreach (Canvas candidate in canvases)
+            {
+                if (candidate == null || !candidate.isRootCanvas)
+                {
+                    continue;
+                }
+
+                float score = candidate.renderMode == RenderMode.ScreenSpaceOverlay ? 1000f : 0f;
+                CanvasScaler scaler = candidate.GetComponent<CanvasScaler>();
+                if (scaler != null)
+                {
+                    Vector2 reference = scaler.referenceResolution;
+                    score += 500f - Vector2.Distance(reference, new Vector2(1920f, 1080f)) * 0.1f;
+                }
+
+                RectTransform rect = candidate.transform as RectTransform;
+                if (rect != null)
+                {
+                    score += Mathf.Min(300f, rect.rect.width * rect.rect.height / 10000f);
+                }
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCanvas = candidate;
+                }
+            }
+
+            return bestCanvas;
         }
 
         // 차트(5), HUD(20), 상점(100)보다 위에서 렌더링하고 설정창(200)은 최상단으로 유지합니다.
         private void EnsureOverlayPriority()
         {
-            if (popupPanel == null) return;
+            if (popupPanel == null)
+            {
+                return;
+            }
 
             Canvas popupCanvas = popupPanel.GetComponent<Canvas>();
-            if (popupCanvas == null) popupCanvas = popupPanel.AddComponent<Canvas>();
+            if (popupCanvas == null)
+            {
+                popupCanvas = popupPanel.AddComponent<Canvas>();
+            }
+
             popupCanvas.overrideSorting = true;
             popupCanvas.sortingOrder = EventPopupSortingOrder;
 
@@ -336,40 +894,114 @@ namespace FXOverdose.Events
             }
         }
 
-        private TMP_Text CreateLabel(Transform parent, string name, int fontSize, Vector2 offsetMin, Vector2 offsetMax, TextAlignmentOptions align, Color textColor)
+        private static GameObject CreatePanel(Transform parent, string name, Color color, bool raycastTarget)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            go.transform.SetParent(parent, false);
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.offsetMin = new Vector2(offsetMin.x, offsetMax.y);
-            rect.offsetMax = new Vector2(offsetMax.x, offsetMin.y);
+            GameObject panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            panel.transform.SetParent(parent, false);
+            Image image = panel.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = raycastTarget;
+            return panel;
+        }
 
-            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
-            text.fontSize = fontSize;
-            text.alignment = align;
-            text.color = textColor;
-            text.textWrappingMode = TextWrappingModes.Normal;
+        private static TMP_Text CreateText(Transform parent, string name, float fontSize, Color color, TextAlignmentOptions alignment)
+        {
+            GameObject textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(parent, false);
+            TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+            ConfigureText(text, fontSize, color, alignment);
             return text;
         }
 
-        private TMP_Text CreateScrollableLabel(Transform parent, string name, int fontSize, TextAlignmentOptions align, Color textColor)
+        private static TMP_Text CreateFlowText(Transform parent, string name, float fontSize, Color color, TextAlignmentOptions alignment)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(ContentSizeFitter));
-            go.transform.SetParent(parent, false);
-
-            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
-            text.fontSize = fontSize;
-            text.alignment = align;
-            text.color = textColor;
+            TMP_Text text = CreateText(parent, name, fontSize, color, alignment);
             text.textWrappingMode = TextWrappingModes.Normal;
-
-            ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.raycastTarget = false;
             return text;
+        }
+
+        private static void ConfigureText(TMP_Text text, float fontSize, Color color, TextAlignmentOptions alignment)
+        {
+            text.fontSize = fontSize;
+            text.color = color;
+            text.alignment = alignment;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.raycastTarget = false;
+            text.richText = true;
+
+            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
+            if (defaultFont != null)
+            {
+                text.font = defaultFont;
+            }
+        }
+
+        private static TMP_Text FindText(Transform parent, string path)
+        {
+            Transform target = parent != null ? parent.Find(path) : null;
+            return target != null ? target.GetComponent<TMP_Text>() : null;
+        }
+
+        private static Outline AddOutline(GameObject target, Color color, Vector2? distance = null)
+        {
+            Outline outline = target.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = target.AddComponent<Outline>();
+            }
+
+            outline.effectColor = color;
+            outline.effectDistance = distance ?? global::UIStrokeStyle.EffectDistance;
+            outline.useGraphicAlpha = true;
+            return outline;
+        }
+
+        private static void CreatePixelIndicator(Transform parent, string name, Color color, float x)
+        {
+            GameObject indicator = CreatePanel(parent, name, color, false);
+            Fixed(indicator.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(12f, 12f), new Vector2(x, 0f));
+        }
+
+        private static void CreateHorizontalRule(Transform parent, string name, Color color, float left, float right, float top, float height)
+        {
+            GameObject rule = CreatePanel(parent, name, color, false);
+            SetTopRect(rule.GetComponent<RectTransform>(), left, right, top, height);
+        }
+
+        private static void Fixed(RectTransform rect, Vector2 anchor, Vector2 size, Vector2 anchoredPosition)
+        {
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = anchoredPosition;
+        }
+
+        private static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+        }
+
+        private static void SetRect(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+        {
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+        }
+
+        private static void SetTopRect(RectTransform rect, float left, float right, float top, float height)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.offsetMin = new Vector2(left, -top - height);
+            rect.offsetMax = new Vector2(-right, -top);
         }
     }
 }

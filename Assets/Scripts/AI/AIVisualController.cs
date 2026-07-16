@@ -276,6 +276,12 @@ namespace FXOverdose.AI
 
         private void HandleLLMDialogueGeneratedWithCategory(EventCategory category, string dialogue)
         {
+            // 일일 정산 대사는 전용 DAILY LEDGER 안에서 표시하므로 메인 말풍선에 중복 출력하지 않습니다.
+            if (category == EventCategory.DailySettlement)
+            {
+                return;
+            }
+
             DialoguePriority priority = DialoguePriority.Normal;
             if (category == EventCategory.SkillUpgraded)
             {

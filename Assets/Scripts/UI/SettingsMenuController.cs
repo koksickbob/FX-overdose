@@ -237,8 +237,10 @@ public class SettingsMenuController : MonoBehaviour
     {
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
         {
-            FXOverdose.Core.SaveLoadManager.Instance.SaveGame(0);
-            Debug.Log("[SettingsMenuController] 게임 저장 완료 (Slot 0)");
+            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveGame(0);
+            Debug.Log(saved
+                ? "[SettingsMenuController] 게임 저장 완료 (Slot 0)"
+                : "[SettingsMenuController] 열린 포지션 또는 시스템 상태로 인해 저장하지 못했습니다.");
             
             Transform saveBtnObj = overlay.transform.Find("SettingsPanel/InnerFrame/SaveButton");
             if (saveBtnObj != null)
@@ -246,7 +248,7 @@ public class SettingsMenuController : MonoBehaviour
                 var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
                 if (tmpText != null)
                 {
-                    tmpText.text = "SAVED!";
+                    tmpText.text = saved ? "SAVED!" : "CLOSE POSITION";
                     Invoke(nameof(ResetSaveButtonText), 2f);
                 }
             }

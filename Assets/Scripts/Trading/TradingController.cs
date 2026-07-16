@@ -223,6 +223,14 @@ namespace FXOverdose.Trading
 
         private void Update()
         {
+            // 일시정지/정산 중에는 자동 보호시간 만료가 포지션을 청산하지 않게 합니다.
+            // 특히 Settlement에서는 GameManager가 잔고 변경을 거부하므로, 여기서 청산하면
+            // 회수금 반영 없이 포지션만 초기화될 수 있습니다.
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+            {
+                return;
+            }
+
             if (isEventTradeActive && currentPosition != PositionType.None && Time.time >= eventProtectionEndTime)
             {
                 HandleEventProtectionExpired();
