@@ -85,6 +85,37 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Large AI model files (>100MB)
+# AI Models / Large Files
 *.gguf
 *.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.onnx.data
+*.tflite
+*.pb
+*.h5
+*.hdf5
+*.pkl
+*.mlmodel
+/Assets/Models/
+/Models/
+/Assets/StreamingAssets/Models/
+
+# Python & ML Training specific
+__pycache__/
+.ipynb_checkpoints/
+docs/outputs/
+docs/unsloth_compiled_cache/
+docs/_unsloth_sentencepiece_temp/
+docs/yomi_*/
+
+# Android Signing Keys (SECURITY: Do not commit!)
+*.keystore
+*.jks
+Assets/StreamingAssets/LlamaLib*/
+*.so
+*.dll
+*.dylib

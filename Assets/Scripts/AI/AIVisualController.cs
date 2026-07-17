@@ -101,6 +101,9 @@ namespace FXOverdose.AI
                 // 중복 호출 방지를 위해 카테고리 정보가 포함된 이벤트만 단일 구독
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
                 llmService.OnDialogueGeneratedWithCategory += HandleLLMDialogueGeneratedWithCategory;
+
+                llmService.OnDialogueStreamingWithCategory -= HandleLLMDialogueStreamingWithCategory;
+                llmService.OnDialogueStreamingWithCategory += HandleLLMDialogueStreamingWithCategory;
             }
 
             if (dialogueBalloonPanel != null) dialogueBalloonPanel.SetActive(false);
@@ -160,6 +163,7 @@ namespace FXOverdose.AI
             if (llmService != null)
             {
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
+                llmService.OnDialogueStreamingWithCategory -= HandleLLMDialogueStreamingWithCategory;
             }
         }
 
@@ -301,6 +305,28 @@ namespace FXOverdose.AI
             }
 
             DisplayDialogueBalloon(dialogue, priority, category);
+        }
+
+        private void HandleLLMDialogueStreamingWithCategory(EventCategory category, string accumulatedText)
+        {
+            // 스트리밍 중에는 대기열 처리나 가로채기(Preempt) 복잡도를 피하기 위해
+            // 현재 활성화된 말풍선 텍스트만 즉시 업데이트합니다. (On-Device 전용)
+            // 완성본 이벤트(OnDialogueGenerated) 도착 전까지 임시로 화면에 글자를 뿌려줍니다.
+            if (dialogueBalloonPanel != null && dialogueBalloonPanel.activeSelf && dialogueText != null)
+            {
+                // 스트리밍 중에는 타이프라이터 연출 코루틴을 중지시키고 직접 글자를 반영
+                if (typewriterCoroutine != null) StopCoroutine(typewriterCoroutine);
+                dialogueText.text = accumulatedText;
+                dialogueText.maxVisibleCharacters = accumulatedText.Length;
+                dialogueText.ForceMeshUpdate();
+            }
+            else
+            {
+                // 말풍선이 닫혀있는 상태에서 스트리밍이 시작되면 즉시 Low/Normal 우선순위로 강제 팝업
+                StartOrPreemptDialogue(accumulatedText, DialoguePriority.Normal, category);
+                if (typewriterCoroutine != null) StopCoroutine(typewriterCoroutine); // 팝업 즉시 타이핑 끄기
+                dialogueText.maxVisibleCharacters = accumulatedText.Length;
+            }
         }
 
         public void DisplayDialogueBalloon(string text)

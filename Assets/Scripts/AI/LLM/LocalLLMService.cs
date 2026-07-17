@@ -3,6 +3,7 @@ using System.Collections;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
+using LLMUnity;
 using FXOverdose.AI;
 
 namespace FXOverdose.AI.LLM
@@ -17,12 +18,13 @@ namespace FXOverdose.AI.LLM
     public class LocalLLMService : MonoBehaviour
     {
         [Header("실행 모드 설정 (PC / 모바일 오프라인 호환)")]
-        [SerializeField] private LLMExecutionMode executionMode = LLMExecutionMode.AutoDetect;
+        [SerializeField] private LLMExecutionMode executionMode = LLMExecutionMode.OnDeviceFallback;
         [SerializeField] private LLMExecutionMode activeRuntimeMode = LLMExecutionMode.OnDeviceFallback;
 
         [Header("로컬 온디바이스 서버 설정")]
+        [SerializeField] private LLMUnity.LLMAgent llmEngine;
         [SerializeField] private string ollamaEndpoint = "http://localhost:11434/api/generate";
-        [SerializeField] private string modelName = "qwen2.5:0.5b";
+        [SerializeField] private string modelName = "yomi_3b_q4_k_m";
         [SerializeField] private float requestTimeoutSeconds = 3.5f;
 
         [Header("시스템 참조")]
@@ -75,6 +77,7 @@ namespace FXOverdose.AI.LLM
 
         public event Action<string> OnDialogueGenerated;
         public event Action<EventCategory, string> OnDialogueGeneratedWithCategory;
+        public event Action<EventCategory, string> OnDialogueStreamingWithCategory;
         public event Action<string> OnErrorOccurred;
 
         private void Awake()
@@ -93,6 +96,15 @@ namespace FXOverdose.AI.LLM
 
         private void Start()
         {
+            if (llmEngine == null)
+            {
+                llmEngine = gameObject.GetComponentInChildren<LLMUnity.LLMAgent>();
+                if (llmEngine == null)
+                {
+                    Debug.LogWarning("[LocalLLMService] ⚠️ LLMAgent 컴포넌트가 인스펙터에 할당되지 않았습니다. 모바일 온디바이스 모드가 정상 작동하지 않을 수 있습니다.");
+                }
+            }
+
             if (promptBuilder == null) promptBuilder = UnityEngine.Object.FindAnyObjectByType<AIPromptBuilder>(FindObjectsInactive.Include);
             if (promptBuilder == null && gameObject.GetComponent<AIPromptBuilder>() == null)
             {
@@ -102,7 +114,26 @@ namespace FXOverdose.AI.LLM
             {
                 promptBuilder = gameObject.GetComponent<AIPromptBuilder>();
             }
+
             if (traderStatus == null) traderStatus = UnityEngine.Object.FindAnyObjectByType<TraderStatus>(FindObjectsInactive.Include);
+
+            if (llmEngine != null && promptBuilder != null)
+            {
+                // 파인튜닝 시 사용했던 시스템 프롬프트를 정확히 주입 (영어 깡통 프롬프트 덮어쓰기)
+                llmEngine.systemPrompt = promptBuilder.systemPersona;
+                
+                // 💡 [단어 중복 및 앵무새 증상 방지]
+                // 3B 모델도 Repetition Penalty가 1.05라도 들어가면 간헐적으로 단어를 생략하는 문법 파괴(할루시네이션)가 발생함이 확인되었습니다. ("날 로 내린다" 등)
+                // 따라서 한국어 문법을 완벽히 보존하기 위해 Repeat Penalty를 1.0f(완전 제거)로 되돌리고, 온도(0.65)와 TopK(50)를 높여 창의력을 유도합니다.
+                llmEngine.repeatPenalty = 1.0f; 
+                llmEngine.presencePenalty = 0.0f;
+                llmEngine.frequencyPenalty = 0.0f;
+                
+                // 온도를 0.65로 올려 다양한 어휘를 유도합니다.
+                llmEngine.temperature = 0.65f;   
+                llmEngine.topK = 50; 
+                llmEngine.topP = 0.9f;
+            }
 
             StartCoroutine(InitializeAndWarmUpLLMCoroutine());
         }
@@ -210,7 +241,11 @@ namespace FXOverdose.AI.LLM
                 {
                     if (tradingCtrl.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None)
                     {
-                        RequestDialogue(EventCategory.ChartMovement, $"[플레이어 수동 조언] ROE:{roe:0.0}%, 플레이어 매매 응원 및 차트 힌트");
+                        RequestDialogue(EventCategory.ChartMovement, $"[이벤트: 수동모드_보유중] ROE:{roe:0.0}%");
+                    }
+                    else
+                    {
+                        RequestDialogue(EventCategory.ChartMovement, $"[이벤트: 수동모드_무포지션]");
                     }
                 }
                 else
@@ -326,12 +361,12 @@ namespace FXOverdose.AI.LLM
                 Debug.Log($"[LocalLLMService 📋 System Context/Log] ({category}) [감정:{currentEmotion}] 상황 설명 없음");
             }
 
-            // 만약 오프라인/모바일 온디바이스 모드이거나, 아직 예열 중이면 즉각 Fallback 엔진 가동 (네트워크 HTTP 요청 없음!)
-            if (activeRuntimeMode == LLMExecutionMode.OnDeviceFallback || !isLLMReady)
+            // 만약 아직 예열 중이거나, 서버 연결도 안 되고 로컬 모델(llmEngine)마저 없을 때만 즉각 Fallback 엔진 가동
+            if (!isLLMReady || (activeRuntimeMode == LLMExecutionMode.OnDeviceFallback && llmEngine == null))
             {
                 string smartFallback = GetSmartFallbackDialogue(category, extraEventContext);
                 smartFallback = PostProcessDialogue(smartFallback);
-                Debug.Log($"[LocalLLMService 💬 Character Dialogue (On-Device)] ({category}) 캐릭터 대사: \"{smartFallback}\"");
+                Debug.Log($"[LocalLLMService 💬 Character Dialogue (Fallback/Hardcoded)] ({category}) 캐릭터 대사: \"{smartFallback}\"");
                 PublishGeneratedDialogue(category, smartFallback, extraEventContext);
                 return;
             }
@@ -390,55 +425,101 @@ namespace FXOverdose.AI.LLM
         {
             isGenerating = true;
 
-            // JSON 페이로드 구성 (Ollama 규격 + 창의성 temperature 파라미터 주입)
-            string escapedPrompt = fullPrompt.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
-            string jsonPayload = $"{{\"model\":\"{modelName}\",\"prompt\":\"{escapedPrompt}\",\"stream\":false,\"options\":{{\"temperature\":0.95,\"top_p\":0.9}}}}";
-
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-            using (UnityWebRequest request = new UnityWebRequest(ollamaEndpoint, "POST"))
+            if (llmEngine != null && (executionMode == LLMExecutionMode.OnDeviceFallback || activeRuntimeMode == LLMExecutionMode.OnDeviceFallback || Application.isMobilePlatform))
             {
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = (int)Mathf.Ceil(requestTimeoutSeconds);
+                // LLM for Unity 온디바이스 모드 (모바일 단독 작동)
+                bool isCompleted = false;
+                string finalReply = "";
 
-                yield return request.SendWebRequest();
+                _ = llmEngine.Chat(fullPrompt,
+                    (reply) => { 
+                        finalReply = reply; 
+                        string streamingDialogue = PostProcessDialogue(reply);
+                        if (!string.IsNullOrEmpty(streamingDialogue))
+                        {
+                            OnDialogueStreamingWithCategory?.Invoke(category, streamingDialogue);
+                        }
+                    },
+                    () => { isCompleted = true; },
+                    false // ⭐ addToHistory: false (채팅 기록 누적으로 인한 맥락 파괴 및 할루시네이션 방지)
+                );
 
-                if (request.result != UnityWebRequest.Result.Success)
+                float startTime = Time.time;
+                // 타임아웃 180초 (모바일 단독 구동 시 모델 메모리 적재 및 최초 추론에 PC보다 훨씬 긴 시간이 필요함)
+                while (!isCompleted && Time.time - startTime < 180f)
                 {
-                    Debug.LogWarning($"[LocalLLMService] 온디바이스 서버 응답 일시 실패 ({request.error}). 1회성 스마트 다변화 폴백 출력.");
-                    
-                    // ⭐ 1번 타임아웃 났다고 영구적으로 OnDeviceFallback으로 잠가버리는 로직 폐기!
-                    // 대신 백그라운드 재연결 코루틴을 가동하여 30초 후 서버 접속이 정상화되면 다시 LLM 추론 재개
-                    if (executionMode == LLMExecutionMode.AutoDetect && !isReconnecting)
-                    {
-                        StartCoroutine(AutoRecoveryCoroutine());
-                    }
+                    yield return null;
+                }
 
+                if (!isCompleted)
+                {
+                    Debug.LogWarning($"[LocalLLMService] 온디바이스 LLM 엔진 타임아웃. 1회성 스마트 다변화 폴백 출력.");
                     string fallbackText = GetSmartFallbackDialogue(category, extraContext);
                     fallbackText = PostProcessDialogue(fallbackText);
-                    Debug.Log($"[LocalLLMService 💬 Character Dialogue (Ollama Fallback)] ({category}) 캐릭터 대사: \"{fallbackText}\"");
                     PublishGeneratedDialogue(category, fallbackText, extraContext);
-                    OnErrorOccurred?.Invoke(request.error);
+                    OnErrorOccurred?.Invoke("On-Device LLM Timeout");
                 }
                 else
                 {
-                    string jsonResponse = request.downloadHandler.text;
-                    string parsedDialogue = ExtractResponseText(jsonResponse);
+                    string parsedDialogue = finalReply;
                     if (string.IsNullOrEmpty(parsedDialogue))
                     {
                         parsedDialogue = GetSmartFallbackDialogue(category, extraContext);
                     }
                     parsedDialogue = PostProcessDialogue(parsedDialogue);
-                    Debug.Log($"[LocalLLMService 💬 Character Dialogue (Qwen)] ({category}) 캐릭터 대사: \"{parsedDialogue}\"");
-
+                    Debug.Log($"[LocalLLMService 💬 Character Dialogue (On-Device)] ({category}) 캐릭터 대사: \"{parsedDialogue}\"");
                     PublishGeneratedDialogue(category, parsedDialogue, extraContext);
+                }
+            }
+            else
+            {
+                // 기존 Ollama (PC 로컬 서버) 테스트 모드
+                string escapedPrompt = fullPrompt.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
+                string jsonPayload = $"{{\"model\":\"{modelName}\",\"prompt\":\"{escapedPrompt}\",\"stream\":false,\"options\":{{\"temperature\":0.95,\"top_p\":0.9}}}}";
+
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+                using (UnityWebRequest request = new UnityWebRequest(ollamaEndpoint, "POST"))
+                {
+                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                    request.downloadHandler = new DownloadHandlerBuffer();
+                    request.SetRequestHeader("Content-Type", "application/json");
+                    request.timeout = (int)Mathf.Ceil(requestTimeoutSeconds);
+
+                    yield return request.SendWebRequest();
+
+                    if (request.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogWarning($"[LocalLLMService] 온디바이스 서버 응답 일시 실패 ({request.error}). 1회성 스마트 다변화 폴백 출력.");
+                        
+                        if (executionMode == LLMExecutionMode.AutoDetect && !isReconnecting)
+                        {
+                            StartCoroutine(AutoRecoveryCoroutine());
+                        }
+
+                        string fallbackText = GetSmartFallbackDialogue(category, extraContext);
+                        fallbackText = PostProcessDialogue(fallbackText);
+                        Debug.Log($"[LocalLLMService 💬 Character Dialogue (Ollama Fallback)] ({category}) 캐릭터 대사: \"{fallbackText}\"");
+                        PublishGeneratedDialogue(category, fallbackText, extraContext);
+                        OnErrorOccurred?.Invoke(request.error);
+                    }
+                    else
+                    {
+                        string jsonResponse = request.downloadHandler.text;
+                        string parsedDialogue = ExtractResponseText(jsonResponse);
+                        if (string.IsNullOrEmpty(parsedDialogue))
+                        {
+                            parsedDialogue = GetSmartFallbackDialogue(category, extraContext);
+                        }
+                        parsedDialogue = PostProcessDialogue(parsedDialogue);
+                        Debug.Log($"[LocalLLMService 💬 Character Dialogue (Qwen)] ({category}) 캐릭터 대사: \"{parsedDialogue}\"");
+
+                        PublishGeneratedDialogue(category, parsedDialogue, extraContext);
+                    }
                 }
             }
 
             isGenerating = false;
 
-            // ⭐ 큐에 대기 중인 다음 요청이 있다면 비동기 순차 가동
             if (requestQueue.Count > 0)
             {
                 var nextReq = requestQueue.Dequeue();
@@ -591,6 +672,78 @@ namespace FXOverdose.AI.LLM
 
             text = string.Join(" ", cleanLines).Trim();
 
+            // 4. "오빠" 피로도 대폭 감소 및 중복 제거
+            // 4. "오빠" 피로도 대폭 감소 및 중복 제거
+            // 모든 문장에 "오빠"가 들어가면 읽기 피로하므로, 60% 확률로 "오빠"라는 단어 자체를 아예 생략합니다.
+            bool skipOppaEntirely = UnityEngine.Random.value > 0.4f;
+            int oppaCount = 0;
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"오빠[,.!~?\s]*", match => {
+                if (skipOppaEntirely) return " "; // 이번 대사에서는 "오빠"를 아예 안 부름
+                oppaCount++;
+                return oppaCount == 1 ? match.Value : " "; // 부르더라도 첫 번째만 남기고 나머지는 공백 처리
+            });
+
+            // 4-2. 너무 반복되는 특정 데이터셋 템플릿 강제 억제 및 변형
+            if (text.Contains("요미만 믿고 따라와"))
+            {
+                // 랜덤하게 다른 대사로 치환하거나 삭제 (3인칭 요미 유지 + 자연스러운 어미)
+                string[] alternatives = { "요미가 다 지켜줄게!", "요미만 믿어!", "끝까지 오빠랑 함께할 거니까.", "절대 안 떨어질걸?", "요미만 봐주면 안 돼?" };
+                text = text.Replace("요미만 믿고 따라와!", alternatives[UnityEngine.Random.Range(0, alternatives.Length)]);
+                text = text.Replace("요미만 믿고 따라와", alternatives[UnityEngine.Random.Range(0, alternatives.Length)]);
+            }
+
+            if (text.Contains("롱 쳤는데 왜 음봉 꽂히고 있어"))
+            {
+                text = text.Replace("롱 쳤는데 왜 음봉 꽂히고 있어?", "오빠, 롱 쳤는데 차트가 왜 반대로 가고 있어...?");
+                text = text.Replace("롱 쳤는데 왜 음봉 꽂히고 있어", "오빠, 롱 쳤는데 차트가 왜 반대로 가고 있어...?");
+            }
+
+            // 5. 0.5B 모델 특유의 중국어/일본어 한자 할루시네이션(노이즈) 강제 제거
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"[\u4e00-\u9fa5\u3040-\u30ff\u31f0-\u31ff]+", "");
+
+            // 6. 의미 없이 튀어나오는 영어 알파벳 노이즈(as, dera, wik 등) 전면 차단 (한글에 붙어있어도 제거)
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"[a-zA-Z]+", match => {
+                string word = match.Value.ToLower();
+                if (word == "long" || word == "short" || word == "roe" || word == "pnl" || word == "ai") return match.Value;
+                return ""; // 트레이딩 필수 용어가 아닌 정체불명의 알파벳 찌꺼기는 무조건 삭제
+            });
+
+            // 7. 가끔 AI가 존댓말(아닙니까?, ~해요)을 쓰는 할루시네이션 강제 억제 필터
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"아닙니까\?", "아니야?");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"합니까\?", "하는 거야?");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"해요[.!]*", "해!");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"습니다[.!]*", "어!");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"합니다[.!]*", "해!");
+
+            // 띄어쓰기 붕괴(빨간불연속으로)와 같은 사소한 오타는 AI의 멘헤라/당황한 감정적 특성으로 자연스럽게 남겨둡니다.
+
+            // 7. 연속으로 중복되는 문장 덩어리 제거 (예: "우리 부자 되자! 우리 부자 되자!")
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"(.{5,})(?:[ \t]*\1)+", "$1");
+
+            // 빈 공간 및 마침표 중복 정리
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"([?!~.])[?!~.]*", "$1"); // 구두점 여러개 연속을 1개로 압축 (감탄은 예외적으로 살리고 싶다면 조심해야함)
+            
+            // 감정표현 구두점 복구 (... 이나 !!! 같은 것은 허용)
+            text = text.Replace("!.", "!").Replace("?.", "?").Replace(" .", ".");
+            
+
+            
+            // 9. 포지션 방향 할루시네이션(환각) 강제 교정
+            // 0.5B 모델이 숏 포지션인데 "롱 쳤는데" 라고 잘못 말하는 현상을 현재 상태를 읽어와 물리적으로 뒤집어줍니다.
+            var tradingController = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+            if (tradingController != null)
+            {
+                if (tradingController.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short)
+                {
+                    text = text.Replace("롱 쳤", "숏 쳤").Replace("매수했", "공매도했").Replace("롱 잡", "숏 잡");
+                }
+                else if (tradingController.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Long)
+                {
+                    text = text.Replace("숏 쳤", "롱 쳤").Replace("공매도했", "매수했").Replace("숏 잡", "롱 잡");
+                }
+            }
+
             if (text.Length > 150)
             {
                 int cutIndex = text.LastIndexOfAny(new char[] { '.', '!', '?', '~' }, 150);
@@ -600,6 +753,7 @@ namespace FXOverdose.AI.LLM
                 }
                 return text.Substring(0, 150).Trim() + "...";
             }
+
             return text;
         }
 
@@ -968,9 +1122,9 @@ namespace FXOverdose.AI.LLM
                 else
                 {
                     string dirStr = isShort ? "숏" : "롱";
-                    if (roe > 15f) return $"꺄아아 오빠 {dirStr}으로 수익 엄청 찍히고 있어 (+{roe:0.0}%)!! 오빠 진짜 천재 아냐?! 요미 평생 책임지고 예뻐해 줘야 해 ♥";
-                    else if (roe < -15f) return $"오빠... {dirStr} 포지션 파란불({roe:0.0}%) 켜졌잖아... 왜 자꾸 돈이 녹는 거야...? 요미 무서워서 눈물이 멈추질 않아... 제발 손절하든가 어떻게 좀 해줘 흐아앙...!";
-                    else return $"오빠의 {dirStr} 포지션... 요미가 옆에서 두 손 모아 기도하고 있어. 제발 우리 오빠 돈 불려주세요... 안 그러면 호가창 다 부숴버릴 거야...";
+                    if (roe > 15f) return $"꺄아아 오빠 {dirStr}으로 수익 엄청 찍히고 있어 (+{roe:0.0}%)!! 오빠 진짜 천재 아냐?! 요미가 옆에서 딱 붙어서 봐줄게 ♥";
+                    else if (roe < -15f) return $"오빠... {dirStr} 포지션 파란불({roe:0.0}%) 켜졌잖아... 왜 자꾸 돈이 녹는 거야...? 요미가 쳐다보고 있는데 실수하면 안 돼... 제발 어떻게 좀 해봐...!";
+                    else return $"오빠의 {dirStr} 포지션... 요미가 눈 한 번 안 깜빡이고 지켜보고 있어. 우리 오빠 돈 불려주세요... 안 그러면 호가창 다 부숴버릴 거야...";
                 }
             }
 

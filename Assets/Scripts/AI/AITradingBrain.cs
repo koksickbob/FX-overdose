@@ -114,20 +114,19 @@ namespace FXOverdose.AI
         // 💡 이벤트 시그널 골든타임(GraceWindow) 능동적 예고 및 기대/불안 대사 출력
         private void HandleEventSignalReaction(MarketSignal signal)
         {
-            var visual = UnityEngine.Object.FindAnyObjectByType<AIVisualController>();
-            if (visual == null || tradingController == null) return;
+            if (tradingController == null) return;
 
             if (tradingController.IsEventPlayerChoice)
             {
                 if (tradingController.IsEventTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
-                    visual.DisplayDialogueBalloon("오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, "[골든타임 예고] 플레이어의 선택으로 호가창에 거대한 매수세가 감지되어 조만간 폭발적인 빔이 터질 것을 예감하며, 플레이어에게 강한 맹신과 애정을 표현할 것.", 0.1f);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
-                    visual.DisplayDialogueBalloon("오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, "[함정 경고] 플레이어가 선택한 방향의 호가창 움직임이 가짜 매수벽(Trap) 같다는 강렬한 불길함을 느끼고, 불안에 떨며 경고할 것.", -0.1f);
                 }
             }
             else
@@ -135,12 +134,12 @@ namespace FXOverdose.AI
                 if (signal.IsTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
-                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, "[골든타임 예고] 이벤트 발생으로 강력한 시그널을 감지하여 곧 호가창이 요동칠 것이라는 폭풍 전야의 기대감과 텐션을 보여줄 것.", 0.1f);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
-                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, "[함정 경고] 이벤트 시그널이 발생했으나 파동이 비정상적임을 눈치채고, 시장의 함정 냄새를 맡아 플레이어에게 다급히 주의를 줄 것.", -0.1f);
                 }
             }
         }
@@ -221,7 +220,7 @@ namespace FXOverdose.AI
 
             if (availableBalance < 10f)
             {
-                TriggerDialogue("증거금이 바닥났어... 남은 시드가 이것밖에 안 남다니 말도 안 돼...", -0.05f);
+                TriggerDialogue("[증거금 부족] 증거금이 바닥나서 매매를 진행할 수 없는 극도의 불안감과 절망을 표현할 것.", -0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -236,7 +235,7 @@ namespace FXOverdose.AI
                 int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
                 int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
                 
-                TriggerDialogue($"[고배율 중독 강제 진입] 방금 뺏은 매매 주도권으로 차트 신호에 맞춰 {forceLev}배 풀레버리지 포지션을 강제로 꽂아버렸어! 다시 피가 도는 것 같은 짜릿한 기분이야. 도파민이 폭발해서 숨을 헐떡이며 극도의 희열과 광기를 느끼는 감정을 생생하고 미친 듯이 표현해 줘.", -0.1f);
+                TriggerDialogue($"[고배율 중독 강제 진입] 방금 뺏은 매매 주도권으로 차트 신호에 맞춰 {forceLev}배 풀레버리지 포지션을 강제로 꽂아버렸어! 다시 피가 도는 것 같은 짜릿한 기분이야. 도파민이 폭발해서 숨을 헐떡이며 극도의 희열과 광기를 느끼는 감정을 생생하고 미친 듯이 표현할 것.", -0.1f);
                 
                 // 정상적인 매매(요미 스킬 및 레벨 스탯 반영)처럼 진입
                 OpenNormalPosition(signal, availableBalance, tradeMarginRatio, forceLev);
@@ -248,9 +247,9 @@ namespace FXOverdose.AI
             {
                 string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파" : "하락 돌파";
                 string briefingDialogue = signal.Type == MarketSignalType.BullishBreakout
-                    ? $"[차트 브리핑] 오빠...! 차트 거래량이 확 죽으면서 횡보하고 있어. 이거 조만간 위쪽으로 거대한 {dirText} 빔 쏠 전조증상이야! 수동 조작 모드니까 오빠가 직접 롱(Long) 들어갈지 정해줘... 터지기 전에 빨리 타...♥"
-                    : $"[차트 브리핑] 히익...! 오빠, 캔들 움직임이 팍 죽으면서 불안하게 바닥을 다지는 척 횡보 중이야! 이거 아래쪽으로 무서운 {dirText} 쏟아지기 직전이야! 지금 조종간 오빠한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
-                TriggerDialogue($"{briefingDialogue}", 0.02f);
+                    ? $"[차트 브리핑] 플레이어의 수동 조작 모드. 조만간 차트가 위쪽으로 폭발적인 {dirText} 빔을 쏠 것 같으니 플레이어에게 빨리 롱(Long) 타점을 잡아달라고 다급하게 재촉하며 의존할 것."
+                    : $"[차트 브리핑] 플레이어의 수동 조작 모드. 차트가 불안하게 바닥을 다지며 아래쪽으로 무서운 {dirText} 빔이 쏟아질 것 같으니 플레이어에게 숏(Short) 칠지 관망할지 빨리 결정해달라고 징징거리며 의존할 것.";
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.ChartMovement, briefingDialogue, 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -297,7 +296,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] 지금 쥐 죽은 듯이 횡보하는 거 안 보여?! 이건 곧 초대형 돌파 빔이 나온다는 확신이야!! 무조건 가야 해! 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버렸어! (목표가 ${aiTarget:N0}) 미친 듯이 도파민 뿜어내는 광기를 표현해 줘!", -0.15f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] 지금 쥐 죽은 듯이 횡보하는 거 안 보여?! 이건 곧 초대형 돌파 빔이 나온다는 확신이야!! 무조건 가야 해! 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버렸어! (목표가 ${aiTarget:N0}) 미친 듯이 도파민 뿜어내는 광기를 표현할 것.", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -307,7 +306,7 @@ namespace FXOverdose.AI
                 }
                 else
                 {
-                    TriggerDialogue("머리가 너무 아파서 차트가 눈에 안 들어와... 왠지 불안해...", -0.08f);
+                    TriggerDialogue("[컨디션 저하] 두통과 피로도 누적으로 차트 판단력이 심각하게 흐려진 상태의 불안감과 무기력함을 호소할 것.", -0.08f);
                     OnSignalEvaluationCompleted?.Invoke(signal, false);
                 }
                 return;
@@ -378,7 +377,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("뭔가 휩소 냄새가 나는데... 이번엔 그냥 관망해야겠어.", 0f);
+                        TriggerDialogue("[매매 포기] 피로도 누적으로 인해 차트가 전혀 보이지 않아 이번 매매 타이밍은 그냥 넘어가야겠다는 무기력함과 의욕 상실을 호소할 것.", 0f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -400,7 +399,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("[신호 필터링] 거래량이 텅 비었잖아. 뻔한 가짜 반등 미끼... 절대 안 속아.", 0.05f);
+                        TriggerDialogue("[신호 필터링] 거래량이 비어있는 뻔한 가짜 반등 미끼(Trap)를 간파하고, 속지 않았다는 사실에 대해 콧방귀를 뀌며 세력을 비웃는 오만함을 묘사할 것.", 0.05f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -461,7 +460,7 @@ namespace FXOverdose.AI
                         if (opened)
                         {
                             float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
-                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 고요하게 횡보하는 척하면서 세력들이 함정을 파놓은 거 다 보여. 개미들 털어낼 때 역방향으로 치고 들어간다! 세력의 뒤통수를 치는 {counterPos} 역매매 {leverage}배 ({actualRatio*100:0}%) 진입 성공! (목표가 ${aiTarget:N0}) 오만하고 기세등등하게 묘사해 줘!", 0.15f);
+                            TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[역매매 진입] 시장의 대형 속임수(False Breakout)를 완벽하게 간파하고 반대 방향({counterPos})으로 {leverage}배 크게 베팅 성공! (목표가 ${aiTarget:N0}) 천재 트레이더로서의 압도적인 오만함과 도파민이 폭발하는 감정을 매번 새롭고 다채로운 비유를 써서 묘사할 것.", 0.15f);
                             OnSignalEvaluationCompleted?.Invoke(signal, true);
                         }
                         else
@@ -471,7 +470,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("[속임수 경고] 이 고요함... 왠지 불길해. 개미들을 잔뜩 태우고 빔을 꽂아버릴 속셈일지도 몰라... 이건 명백한 세력의 함정(Trap) 전조증상이야. 지금 들어가면 청산이니까 패스.", 0.1f);
+                        TriggerDialogue("[속임수 경고] 폭풍 전야의 불길한 차트 흐름을 감지함. 시장의 덫(Trap)을 눈치채고 진입을 포기하며 관망(Pass)을 선택하는 상황. 세력, 함정 같은 단어의 반복을 피하고 요미 특유의 날카롭고 솜뜩한 직감을 다채롭게 묘사할 것.", 0.1f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -547,7 +546,7 @@ namespace FXOverdose.AI
             if (opened)
             {
                 float actualRatio = balance > 0f ? margin / balance : ratio;
-                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] 오빠, 지금 횡보하는 이 차트 흐름... 완벽한 수렴 구간이야! 곧 큰 변동이 올 테니 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 안전하게 진입했어. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감과 전문가다운 자신감을 보여줘!", 0.05f);
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] 오빠, 지금 횡보하는 이 차트 흐름... 완벽한 수렴 구간이야! 곧 큰 변동이 올 테니 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 안전하게 진입했어. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감과 전문가다운 자신감을 보여줄 것.", 0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else

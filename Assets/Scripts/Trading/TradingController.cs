@@ -96,15 +96,15 @@ namespace FXOverdose.Trading
             OnTradingModeChanged?.Invoke(mode);
 
             var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-            if (visualCtrl != null)
+            if (llm != null)
             {
                 if (mode == TradingMode.Player_Manual)
                 {
-                    visualCtrl.DisplayDialogueBalloon("하...! 직접 매매하시겠다?! 내 타점이 못미더워...? 그래 맘대로 해봐. 대신 포지션 잡는 거 두 눈 부릅뜨고 지켜볼 거니까 실수해서 돈 날리기만 해봐...", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                    llm.RequestDialogue(FXOverdose.AI.LLM.EventCategory.General, "[이벤트: 수동모드_전환] 플레이어가 매매 통제권을 가져감");
                 }
                 else
                 {
-                    visualCtrl.DisplayDialogueBalloon("흥, 역시 나 없으면 안 되지?! 이제 조종간은 내가 잡았으니까 옆에서 화려한 수익률이나 감상하시지.", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.LLM.EventCategory.General);
+                    llm.RequestDialogue(FXOverdose.AI.LLM.EventCategory.General, "[이벤트: 수동모드_해제] 요미가 다시 통제권을 가져옴");
                 }
             }
         }
@@ -586,7 +586,7 @@ namespace FXOverdose.Trading
                             }
                             else if (isAvoidedLoss)
                             {
-                                contextPrompt = "[포지션 조기 종료 후 폭등/폭락 관망 - 가슴을 쓸어내리는 안도] 이미 포지션을 종료했는데, 그 직후 주가가 내 원래 포지션의 반대 방향으로 무섭게 수직 낙하하거나 치솟는 중. '휴... 팔길 진짜 잘했다', '안 팔았으면 청산당할 뻔했어' 라며 크게 안도하는 반응을 1~2문장으로 짧게 보여줘.";
+                                contextPrompt = "[포지션 조기 종료 후 폭등/폭락 관망 - 가슴을 쓸어내리는 안도] 이미 포지션을 종료했는데, 그 직후 주가가 내 원래 포지션의 반대 방향으로 무섭게 수직 낙하하거나 치솟는 중. '휴... 팔길 진짜 잘했다', '안 팔았으면 청산당할 뻔했어' 라며 크게 안도하는 반응을 1~2문장으로 짧게 보여줄 것.";
                             }
                             else
                             {
@@ -927,7 +927,31 @@ namespace FXOverdose.Trading
                 traderStatus.HasTraumaCureTradeBuff = false;
             }
 
+            float currentRoe = CalculateROEPercentage();
             float totalReturn = marginAmount + pnl;
+            PositionType closedType = currentPosition;
+            OwnerType closedOwner = currentOwner;
+            
+            // 💡 [핵심 버그 수정] 재귀 루프 방지: 이벤트(ChangeMental 등) 발송 전에 내부 상태를 가장 먼저 초기화해야 합니다.
+            // 그렇지 않으면 ChangeMental -> Danger 진입 -> Overdose 발동 -> ClosePosition 재귀 호출이 발생하여 1프레임 만에 잔고가 0이 됩니다.
+            lastMarginAmount = marginAmount;
+            lastClosedPosition = currentPosition;
+            lastClosedPrice = marketEngine != null ? marketEngine.CurrentPrice : entryPrice;
+            lastClosedTime = Time.time;
+
+            currentPosition = PositionType.None;
+            currentOwner = OwnerType.AI;
+            marginAmount = 0f;
+            targetPrice = 0f;
+            stopLossPrice = 0f;
+            lastReportedROE = 0f;
+
+            if (isOverdoseTradeActive)
+            {
+                isOverdoseTradeActive = false;
+                overdoseProtectionEndTime = -1f;
+                if (marketEngine != null) marketEngine.CancelOverdoseTrapSignal();
+            }
 
             // 자산 정산
             gameManager.ChangeBalance(totalReturn);
@@ -937,12 +961,10 @@ namespace FXOverdose.Trading
             {
                 if (pnl < 0f)
                 {
-                    // 손실 시 극심한 스트레스 및 기분 저하
                     traderStatus.ChangeMental(pnl * 0.05f); // 예: -1000원 손실 시 멘탈 -50 감소
                 }
                 else if (pnl > 0f)
                 {
-                    // 수익 시 경험치 지급 및 주인공 레벨 비례 멘탈 회복 계수 차등 적용
                     if (TraderLevelSystem.Instance != null)
                     {
                         TraderLevelSystem.Instance.AddProtagonistEXP(pnl, currentLeverage);
@@ -954,39 +976,19 @@ namespace FXOverdose.Trading
                 }
                 else
                 {
-                    // pnl == 0f (본전 종료 등 실제 수익이 발생하지 않은 거래): 거래 성공으로 인정하지 않아 경험치 및 보너스 미지급
                     Debug.Log("[TradingController] 실제 수익이 발생하지 않은 거래(PnL = 0)이므로 거래 성공 보너스 및 경험치가 지급되지 않습니다.");
                 }
             }
 
-            Debug.Log($"[TradingController] 포지션 종료. 실현 손익: {pnl:N1} ({CalculateROEPercentage():F2}%), 최종 회수금: {totalReturn:N0}");
-
-            PositionType closedType = currentPosition;
-            lastMarginAmount = marginAmount;
-            lastClosedPosition = currentPosition;
-            lastClosedPrice = marketEngine != null ? marketEngine.CurrentPrice : entryPrice;
-            lastClosedTime = Time.time;
+            Debug.Log($"[TradingController] 포지션 종료. 실현 손익: {pnl:N1} ({currentRoe:F2}%), 최종 회수금: {totalReturn:N0}");
 
             // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 1초 적용
-            if (activeTradingMode == TradingMode.Player_Manual || currentOwner == OwnerType.Player)
+            if (activeTradingMode == TradingMode.Player_Manual || closedOwner == OwnerType.Player)
             {
                 playerTradeCooldownEndTime = Time.time + 1.0f;
             }
 
-            // 💡 [이벤트 순서 수정] 이벤트 수신자가 활성 증거금 및 PnL ROE를 정확히 읽을 수 있도록 청산 상태 초기화 직전에 발송!
             OnPositionClosed?.Invoke(totalReturn, pnl);
-
-            currentPosition = PositionType.None;
-            currentOwner = OwnerType.AI;
-            targetPrice = 0f;
-            stopLossPrice = 0f;
-            lastReportedROE = 0f;
-            if (isOverdoseTradeActive)
-            {
-                isOverdoseTradeActive = false;
-                overdoseProtectionEndTime = -1f;
-                if (marketEngine != null) marketEngine.CancelOverdoseTrapSignal();
-            }
             // 포지션 정리 뒤 총자산을 다시 계산해 반환금이 없는 종료도 엔딩 판정에서 누락되지 않게 합니다.
             gameManager?.EvaluateEndingConditions();
             isEventTradeActive = false;
