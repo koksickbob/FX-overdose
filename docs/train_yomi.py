@@ -7,7 +7,7 @@ from unsloth.chat_templates import get_chat_template
 import os
 
 # 1. Configuration
-max_seq_length = 512 # 모바일(Android) 환경에 맞춘 최소 컨텍스트 윈도우
+max_seq_length = 1024 # 모바일(Android) 환경에 맞춘 최소 컨텍스트 윈도우 (여유 있게 1024로 늘림)
 dtype = None # 자동 감지 (RTX 4060의 경우 bf16/fp16 지원)
 load_in_4bit = True # 4bit 양자화로 VRAM 최소화 (RTX 4060 8GB에서 안정적으로 돌아가게 세팅)
 
@@ -52,11 +52,18 @@ print(f"📖 데이터셋 로드 중: {os.path.abspath('yomi_dataset.jsonl')}")
 dataset = load_dataset("json", data_files={"train": "yomi_dataset.jsonl"}, split="train")
 dataset = dataset.map(formatting_prompts_func, batched = True)
 
+# 학습(Train) / 검증(Validation) 데이터셋 분리 (95:5 비율)
+dataset = dataset.train_test_split(test_size=0.05, seed=3407)
+train_dataset = dataset["train"]
+eval_dataset = dataset["test"]
+print(f"📊 학습 데이터: {len(train_dataset)}개, 검증 데이터: {len(eval_dataset)}개")
+
 # 5. SFT 트레이너 설정
 trainer = SFTTrainer(
     model = model,
     tokenizer = tokenizer,
-    train_dataset = dataset,
+    train_dataset = train_dataset,
+    eval_dataset = eval_dataset,
     dataset_text_field = "text",
     max_seq_length = max_seq_length,
     dataset_num_proc = 2,
@@ -70,6 +77,8 @@ trainer = SFTTrainer(
         fp16 = not torch.cuda.is_bf16_supported(),
         bf16 = torch.cuda.is_bf16_supported(),
         logging_steps = 10,
+        eval_strategy = "steps",
+        eval_steps = 50, # 50 스텝마다 검증 데이터로 과적합(Overfitting) 체크
         optim = "adamw_8bit",
         weight_decay = 0.01,
         lr_scheduler_type = "linear",

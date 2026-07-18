@@ -119,20 +119,26 @@ namespace FXOverdose.AI.LLM
 
             if (llmEngine != null && promptBuilder != null)
             {
-                // 파인튜닝 시 사용했던 시스템 프롬프트를 정확히 주입 (영어 깡통 프롬프트 덮어쓰기)
+                // 파인튜닝 시 사용했던 초경량 시스템 프롬프트 주입
                 llmEngine.systemPrompt = promptBuilder.systemPersona;
                 
-                // 💡 [단어 중복 및 앵무새 증상 방지]
-                // 3B 모델도 Repetition Penalty가 1.05라도 들어가면 간헐적으로 단어를 생략하는 문법 파괴(할루시네이션)가 발생함이 확인되었습니다. ("날 로 내린다" 등)
-                // 따라서 한국어 문법을 완벽히 보존하기 위해 Repeat Penalty를 1.0f(완전 제거)로 되돌리고, 온도(0.65)와 TopK(50)를 높여 창의력을 유도합니다.
+                // 모바일 환경 OOM 방지 및 빠른 추론을 위해 Context Size를 2048로 설정 (최근 기억 누적으로 인한 짤림 방지)
+                if (llmEngine.llm != null)
+                {
+                    llmEngine.llm.contextSize = 2048;
+                }
+                
+                // 💡 [자연스러운 한국어 문법을 위한 샘플링 최적화]
+                // 3B 이하 소형 모델에서 repeatPenalty가 1.0을 초과하면 조사(은/는/이/가/오빠/나)를 피하려다 문법이 완전히 붕괴되는 현상이 발생합니다. ("복산", "패닉장 초입 같이 해" 등)
+                // 따라서 반복 페널티를 완전히 끄고(1.0f), 대신 온도를 낮춰(0.4f) 모델이 파인튜닝된 정돈된 데이터셋의 문장을 그대로 출력하도록 유도합니다.
                 llmEngine.repeatPenalty = 1.0f; 
                 llmEngine.presencePenalty = 0.0f;
                 llmEngine.frequencyPenalty = 0.0f;
                 
-                // 온도를 0.65로 올려 다양한 어휘를 유도합니다.
-                llmEngine.temperature = 0.65f;   
-                llmEngine.topK = 50; 
-                llmEngine.topP = 0.9f;
+                // 온도를 0.4f로 낮춰서 무리한 은어 창작("개미 헤드앤숄더를 쳤잖아" 등)을 막고 안정적인 대사를 유도
+                llmEngine.temperature = 0.4f;   
+                llmEngine.topK = 30; 
+                llmEngine.topP = 0.8f;
             }
 
             StartCoroutine(InitializeAndWarmUpLLMCoroutine());
@@ -434,10 +440,11 @@ namespace FXOverdose.AI.LLM
                 _ = llmEngine.Chat(fullPrompt,
                     (reply) => { 
                         finalReply = reply; 
-                        string streamingDialogue = PostProcessDialogue(reply);
-                        if (!string.IsNullOrEmpty(streamingDialogue))
+                        // 라이브 타이핑 중 정규식 필터링을 거치면 괄호가 닫히는 순간 텍스트가 대량 삭제되며 TMPro AutoSize가 발작하여 글씨 크기가 요동칩니다.
+                        // 파인튜닝이 정상화되어 이상한 괄호를 뱉지 않으므로, 원본 텍스트를 그대로 스트리밍하여 글씨 크기 튀는 현상을 원천 차단합니다.
+                        if (!string.IsNullOrEmpty(reply))
                         {
-                            OnDialogueStreamingWithCategory?.Invoke(category, streamingDialogue);
+                            OnDialogueStreamingWithCategory?.Invoke(category, reply);
                         }
                     },
                     () => { isCompleted = true; },
@@ -617,22 +624,15 @@ namespace FXOverdose.AI.LLM
             }
         }
 
-        // 대사 후처리 (단어/문장 생략, 시스템 로그/프롬프트 에코 태그 전면 제거 및 순수 대사 추출)
+        // 대사 후처리 (최종 출력 로그용)
         private string PostProcessDialogue(string text)
         {
             if (string.IsNullOrEmpty(text)) return "";
             text = text.Trim();
 
-            // 1. <think> ... </think> 블록 제거 (DeepSeek / Qwen 추론 과정 제거)
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"<think>[\s\S]*?</think>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            // 2. 프롬프트 헤더 및 괄호/대괄호/별표 지문 묘사 제거 (예: [현재 인게임 상태], (호가창을 바라보며), *초조하게 손톱을 물어뜯으며* 등)
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]\s*", "");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"\([^\)]*\)\s*", "");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"\*[^*]*\*\s*", "");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"^상황 설명:\s*", "");
-
-            // 3. 하이픈(-)이나 별표(*)로 시작하는 시스템 상태 텍스트 줄(Prompt Echo) 및 서두 태그 제거
+            // 라이브 타이핑 폰트 발작의 원인이었던 괄호/별표 정규식 삭제 (이제 파인튜닝 모델이 알아서 괄호 없이 깔끔하게 출력함)
+            
+            // 시스템 로그/프롬프트 에코 태그 전면 제거 및 순수 대사 추출
             var lines = text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
             var cleanLines = new System.Collections.Generic.List<string>();
             foreach (var line in lines)
@@ -672,31 +672,9 @@ namespace FXOverdose.AI.LLM
 
             text = string.Join(" ", cleanLines).Trim();
 
-            // 4. "오빠" 피로도 대폭 감소 및 중복 제거
-            // 4. "오빠" 피로도 대폭 감소 및 중복 제거
-            // 모든 문장에 "오빠"가 들어가면 읽기 피로하므로, 60% 확률로 "오빠"라는 단어 자체를 아예 생략합니다.
-            bool skipOppaEntirely = UnityEngine.Random.value > 0.4f;
-            int oppaCount = 0;
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"오빠[,.!~?\s]*", match => {
-                if (skipOppaEntirely) return " "; // 이번 대사에서는 "오빠"를 아예 안 부름
-                oppaCount++;
-                return oppaCount == 1 ? match.Value : " "; // 부르더라도 첫 번째만 남기고 나머지는 공백 처리
-            });
 
-            // 4-2. 너무 반복되는 특정 데이터셋 템플릿 강제 억제 및 변형
-            if (text.Contains("요미만 믿고 따라와"))
-            {
-                // 랜덤하게 다른 대사로 치환하거나 삭제 (3인칭 요미 유지 + 자연스러운 어미)
-                string[] alternatives = { "요미가 다 지켜줄게!", "요미만 믿어!", "끝까지 오빠랑 함께할 거니까.", "절대 안 떨어질걸?", "요미만 봐주면 안 돼?" };
-                text = text.Replace("요미만 믿고 따라와!", alternatives[UnityEngine.Random.Range(0, alternatives.Length)]);
-                text = text.Replace("요미만 믿고 따라와", alternatives[UnityEngine.Random.Range(0, alternatives.Length)]);
-            }
 
-            if (text.Contains("롱 쳤는데 왜 음봉 꽂히고 있어"))
-            {
-                text = text.Replace("롱 쳤는데 왜 음봉 꽂히고 있어?", "오빠, 롱 쳤는데 차트가 왜 반대로 가고 있어...?");
-                text = text.Replace("롱 쳤는데 왜 음봉 꽂히고 있어", "오빠, 롱 쳤는데 차트가 왜 반대로 가고 있어...?");
-            }
+
 
             // 5. 0.5B 모델 특유의 중국어/일본어 한자 할루시네이션(노이즈) 강제 제거
             text = System.Text.RegularExpressions.Regex.Replace(text, @"[\u4e00-\u9fa5\u3040-\u30ff\u31f0-\u31ff]+", "");
@@ -708,17 +686,11 @@ namespace FXOverdose.AI.LLM
                 return ""; // 트레이딩 필수 용어가 아닌 정체불명의 알파벳 찌꺼기는 무조건 삭제
             });
 
-            // 7. 가끔 AI가 존댓말(아닙니까?, ~해요)을 쓰는 할루시네이션 강제 억제 필터
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"아닙니까\?", "아니야?");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"합니까\?", "하는 거야?");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"해요[.!]*", "해!");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"습니다[.!]*", "어!");
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"합니다[.!]*", "해!");
+
 
             // 띄어쓰기 붕괴(빨간불연속으로)와 같은 사소한 오타는 AI의 멘헤라/당황한 감정적 특성으로 자연스럽게 남겨둡니다.
 
-            // 7. 연속으로 중복되는 문장 덩어리 제거 (예: "우리 부자 되자! 우리 부자 되자!")
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"(.{5,})(?:[ \t]*\1)+", "$1");
+
 
             // 빈 공간 및 마침표 중복 정리
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
@@ -728,21 +700,7 @@ namespace FXOverdose.AI.LLM
             text = text.Replace("!.", "!").Replace("?.", "?").Replace(" .", ".");
             
 
-            
-            // 9. 포지션 방향 할루시네이션(환각) 강제 교정
-            // 0.5B 모델이 숏 포지션인데 "롱 쳤는데" 라고 잘못 말하는 현상을 현재 상태를 읽어와 물리적으로 뒤집어줍니다.
-            var tradingController = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>();
-            if (tradingController != null)
-            {
-                if (tradingController.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Short)
-                {
-                    text = text.Replace("롱 쳤", "숏 쳤").Replace("매수했", "공매도했").Replace("롱 잡", "숏 잡");
-                }
-                else if (tradingController.CurrentPosition == FXOverdose.Trading.TradingController.PositionType.Long)
-                {
-                    text = text.Replace("숏 쳤", "롱 쳤").Replace("공매도했", "매수했").Replace("숏 잡", "롱 잡");
-                }
-            }
+
 
             if (text.Length > 150)
             {

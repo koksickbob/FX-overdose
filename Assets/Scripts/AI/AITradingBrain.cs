@@ -235,7 +235,7 @@ namespace FXOverdose.AI
                 int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
                 int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
                 
-                TriggerDialogue($"[고배율 중독 강제 진입] 방금 뺏은 매매 주도권으로 차트 신호에 맞춰 {forceLev}배 풀레버리지 포지션을 강제로 꽂아버렸어! 다시 피가 도는 것 같은 짜릿한 기분이야. 도파민이 폭발해서 숨을 헐떡이며 극도의 희열과 광기를 느끼는 감정을 생생하고 미친 듯이 표현할 것.", -0.1f);
+                TriggerDialogue($"[고배율 중독 강제 진입] 오빠로부터 주도권을 강제로 뺏고 풀레버리지({forceLev}배)로 진입한 상황. 다시 피가 도는 듯한 짜릿함과 도파민 폭발로 숨을 헐떡이며 극도의 희열과 광기를 느끼는 감정을 생생하고 미친 듯이 표현할 것.", -0.1f);
                 
                 // 정상적인 매매(요미 스킬 및 레벨 스탯 반영)처럼 진입
                 OpenNormalPosition(signal, availableBalance, tradeMarginRatio, forceLev);
@@ -296,7 +296,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] 지금 쥐 죽은 듯이 횡보하는 거 안 보여?! 이건 곧 초대형 돌파 빔이 나온다는 확신이야!! 무조건 가야 해! 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버렸어! (목표가 ${aiTarget:N0}) 미친 듯이 도파민 뿜어내는 광기를 표현할 것.", -0.15f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[오인 진입] 횡보 구간을 초대형 돌파 빔이 나올 자리로 완벽히 오해하여 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버린 상황. (목표가 ${aiTarget:N0}) 곧 대박이 터질 것이라 굳게 믿으며 미친 듯이 도파민을 뿜어내는 광기를 표현할 것.", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -347,7 +347,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] 차트가 조용히 눈치싸움 중이네. 큰 방향 나오기 전의 이 잔파동 타이밍에 {weakPos} 방향으로 가볍게 {leverage}배 ({actualRatio*100:0}%)만 들어가서 단타치고 빠져야지. (목표가 ${aiTarget:N0})", -0.02f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[단타 진입] 차트가 조용히 눈치싸움을 하는 횡보 구간임을 파악하고, 큰 방향이 나오기 전에 {weakPos} 방향으로 {leverage}배 ({actualRatio*100:0}%) 가볍게 진입해 단타를 치고 빠지겠다는 계획을 밝힐 것. (목표가 ${aiTarget:N0})", -0.02f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -546,7 +546,7 @@ namespace FXOverdose.AI
             if (opened)
             {
                 float actualRatio = balance > 0f ? margin / balance : ratio;
-                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] 오빠, 지금 횡보하는 이 차트 흐름... 완벽한 수렴 구간이야! 곧 큰 변동이 올 테니 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 안전하게 진입했어. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감과 전문가다운 자신감을 보여줄 것.", 0.05f);
+                TriggerDialogueWithCategory(FXOverdose.AI.LLM.EventCategory.PositionOpened, $"[정상 진입] 차트 흐름이 완벽한 수렴 구간이라 판단하여 곧 큰 변동이 올 것을 예상하고 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 진입한 상황. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감 속에서 전문가다운 자신감을 보이며 오빠에게 칭찬을 기대할 것.", 0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
@@ -639,15 +639,15 @@ namespace FXOverdose.AI
                 // 고레벨 / 정확한 간파 힌트
                 if (isProcessingSignal && !currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"꺄아악 오빠 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 요미 말 들어줘 흐윽...!!";
+                    hintText = $"플레이어가 진입한 {playerPos} 방향이 세력이 파놓은 가짜 덫(Trap)임을 날카롭게 간파하고, 당장 청산하지 않으면 다 잃게 된다며 다급하고 처절하게 오빠를 말릴 것.";
                 }
                 else if (isProcessingSignal && currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"앗...! 우리 오빠 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
+                    hintText = $"플레이어가 진입한 {playerPos} 방향이 저항/지지를 뚫는 완벽한 타점임을 깨닫고, 오빠의 천재적인 선택에 감탄하며 흔들리지 말고 끝까지 홀딩하라고 강하게 지지할 것.";
                 }
                 else
                 {
-                    hintText = $"오빠가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 요미 지금 심장 엄청 떨려 ♥";
+                    hintText = $"플레이어가 잡은 {playerPos} 타점에 호가창 거래량이 폭발적으로 붙고 있음을 확인하고, 지지선만 깨지지 않으면 대박이 날 거라며 심장 떨리는 벅찬 기대감을 표현할 것.";
                 }
             }
             else
@@ -655,11 +655,11 @@ namespace FXOverdose.AI
                 // 차트 공부 레벨이 낮아 불안하거나 감에 의존하는 멘헤라 리액션
                 if (UnityEngine.Random.value < 0.5f)
                 {
-                    hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 요미 미워하거나 버리면 안 돼 오빠...? 약속해... 흐윽...";
+                    hintText = $"플레이어가 진입한 {playerPos} 타점이 좋은지 나쁜지 캔들을 봐도 전혀 모르겠어서 당황스럽지만, 만약 이 매매로 돈을 잃더라도 자신을 미워하거나 버리지 말아달라고 애원하며 눈물 지을 것.";
                 }
                 else
                 {
-                    hintText = $"꺄아아 오빠가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 오빠 돈 뺏어가는 세력 놈들은 요미가 다 저주해 버릴 거야!! ♥";
+                    hintText = $"차트를 분석할 줄은 모르지만 플레이어가 {playerPos} 방향에 진입했으니 무조건 떡상할 것이라며 감정적으로 맹신하고, 오빠의 돈을 뺏으려는 세력을 귀엽게 저주하며 응원할 것.";
                 }
             }
 

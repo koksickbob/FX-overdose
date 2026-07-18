@@ -29,15 +29,20 @@ namespace FXOverdose.AI.LLM
         [SerializeField] private MarketSimulationEngine marketEngine;
         [SerializeField] private AITradingBrain aiBrain;
 
-        [Header("멘헤라 AI 페르소나 설정")]
         [TextArea(8, 15)]
-        public string systemPersona = 
-            "너는 24시간 비트코인 선물 차트에 미쳐 사는 차트 중독자이자 플레이어('오빠')에게 의존하는 20대 파트너(이름: 요미)다. " +
-            "대사 작성 시 반드시 다음 '자연스러운 의존형 멘헤라 가이드'를 엄격하게 지켜 1~2문장의 짧은 일상 반말로 작성해라.\n" +
-            "[규칙 1. 자연스러운 일상 반말] 친근하고 일상적인 대화체(~어, ~지?, ~야)를 사용. 억지 애교(뿌엥, ><, 아기 말투)와 만화적 이모티콘 남발 절대 금지.\n" +
-            "[규칙 2. 감정 표현] 수익 시 오빠에게 칭찬을 갈구하며 방방 뛰고, 손실 시 현실적으로 절망하며 오빠에게 모든 책임을 기대며 징징거릴 것.\n" +
-            "[규칙 3. 일상적인 코인 은어] 억지로 꾸며낸 비유 대신 자연스러운 은어(불기둥, 떡상, 나락, 빔 등)를 차트 묘사에 사용할 것.\n" +
-            "[규칙 4. 의존적인 대화 패턴] 무섭거나 그로테스크한 묘사를 피하고, 어떤 상황이든 대화의 결론은 '오빠의 애정 확인'이나 '동의 구하기'로 끝낼 것.";
+        public string systemPersona = "";
+        private void Awake()
+        {
+            // 유니티 인스펙터(Scene)에 직렬화되어 남아있는 과거의 짧은 프롬프트를 무시하고,
+            // 런타임 시작 시 무조건 파인튜닝 원본 데이터셋과 100% 동일한 프롬프트로 강제 덮어씌웁니다.
+            systemPersona = 
+                "너는 24시간 비트코인 선물 차트에 미쳐 있는 차트 중독자이자 플레이어('오빠')에게 의존하는 20대 멘헤라 트레이더(이름: 요미)다. " +
+                "대답을 생성할 때 반드시 다음 '자연스러운 의존형 멘헤라 가이드'를 엄격하게 지켜 1~2문장으로 짧게 일상 반말로 작성하라.\n" +
+                "[규칙 1. 자연스러운 일상 반말] 친근하고 일상적인 구어체(~어, ~지?, ~야)를 사용. 억지 애교(뿌엥, ><, 아기 말투)나 만화적인 이모티콘 남발 절대 금지.\n" +
+                "[규칙 2. 감정 표현] 수익 시엔 오빠에게 칭찬을 갈구하며 방방 뛰고, 손실 시엔 현실적으로 절망하며 오빠에게 모든 책임을 미루거나 징징거릴 것.\n" +
+                "[규칙 3. 일상적인 코인 은어] 과도하게 꾸며낸 비유 대신 자연스러운 은어(물기둥, 떡상, 나락, 빔)나 차트 묘사를 사용할 것.\n" +
+                "[규칙 4. 의존적인 대화 패턴] 무섭거나 그로테스크한 묘사를 피하고, 어떤 상황이든 대화의 결론은 '오빠에 대한 애정 확인'이나 '자신을 구원해달라'로 끝낼 것.";
+        }
 
         private void Start()
         {
@@ -135,14 +140,6 @@ namespace FXOverdose.AI.LLM
             sb.AppendLine($"- Position: {posText} ({lev}x Leverage)");
             sb.AppendLine($"- Current_ROE: {roeStr}");
 
-            string genRecentChats = TraderMemoryManager.Instance != null ? TraderMemoryManager.Instance.GetShortTermDialoguesText() : "없음";
-            if (genRecentChats != "없음 (오늘 첫 대사)" && genRecentChats != "없음")
-            {
-                sb.AppendLine("\n[Recent_Memory]");
-                sb.AppendLine("- 방금 한 말과 비슷한 뉘앙스/단어는 절대 반복하지 말 것!");
-                sb.AppendLine(genRecentChats);
-            }
-
             if (!string.IsNullOrEmpty(extraEventContext) && 
                 !(category == EventCategory.GimmickTriggered || 
                   category == EventCategory.ItemUsed || 
@@ -152,7 +149,15 @@ namespace FXOverdose.AI.LLM
                 sb.AppendLine("\n[Director_Instruction]");
                 sb.AppendLine(extraEventContext);
             }
-            
+
+            string genRecentChats = TraderMemoryManager.Instance != null ? TraderMemoryManager.Instance.GetShortTermDialoguesText() : "없음";
+            if (genRecentChats != "없음 (오늘 첫 대사)" && genRecentChats != "없음")
+            {
+                sb.AppendLine("\n[Recent_Memory]");
+                sb.AppendLine("- 방금 한 말과 비슷한 뉘앙스/단어는 절대 반복하지 말 것!");
+                sb.AppendLine(genRecentChats);
+            }
+
             return sb.ToString();
         }
     }
