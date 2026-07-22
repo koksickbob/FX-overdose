@@ -34,7 +34,20 @@ public static class TitleScreenSceneInstaller
 
         Scene scene = SceneManager.GetActiveScene();
         if (!scene.IsValid() || scene.name != "TitleScene") return;
-        if (GameObject.Find("Canvas_MainMenu") != null && Object.FindAnyObjectByType<Camera>() != null) return;
+
+        GameObject existingCanvas = GameObject.Find("Canvas_MainMenu");
+        if (existingCanvas != null && Object.FindAnyObjectByType<Camera>() != null)
+        {
+            // 기존 타이틀 UI는 보존하고, 새 버전에 필요한 모드 선택 창만 증분 설치합니다.
+            if (existingCanvas.transform.Find("GameModePanel") == null)
+            {
+                TitleScreenBuilder.EnsureGameModePanel(existingCanvas.transform);
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log("[TitleScreenSceneInstaller] GameModePanel 증분 설치 완료");
+            }
+            return;
+        }
 
         TitleScreenBuilder.BuildForCurrentScene();
         EditorSceneManager.MarkSceneDirty(scene);

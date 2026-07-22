@@ -112,6 +112,8 @@ public class GameManager : MonoBehaviour
             // 새 게임 시작
             StartNewGame();
         }
+
+        EnsureDayTimeBackgroundController();
     }
 
     // 게임 실행 중 매 프레임 호출
@@ -179,6 +181,12 @@ public class GameManager : MonoBehaviour
         if (FXOverdose.Core.DynamicTimeRegulator.Instance != null) return;
         var regulator = GetComponent<FXOverdose.Core.DynamicTimeRegulator>();
         if (regulator == null) gameObject.AddComponent<FXOverdose.Core.DynamicTimeRegulator>();
+    }
+
+    private void EnsureDayTimeBackgroundController()
+    {
+        if (GetComponent<FXOverdose.UI.DayTimeBackgroundController>() == null)
+            gameObject.AddComponent<FXOverdose.UI.DayTimeBackgroundController>();
     }
 
     public void FinishLoadingAndStartPlaying()

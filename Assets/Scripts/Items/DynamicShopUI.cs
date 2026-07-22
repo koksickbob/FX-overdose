@@ -440,7 +440,8 @@ public class DynamicShopUI : MonoBehaviour
 
         TMP_Text owned = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
         owned.color = MutedText;
-        SetRect(owned.rectTransform, new Vector2(0.52f, 0.28f), new Vector2(0.95f, 0.37f), Vector2.zero, Vector2.zero);
+        // 우측 정렬 글리프가 카드 끝에 붙어 잘려 보이지 않도록 안전 여백을 둡니다.
+        SetRect(owned.rectTransform, new Vector2(0.52f, 0.28f), new Vector2(0.95f, 0.37f), Vector2.zero, new Vector2(-14f, 0f));
 
         RectTransform purchaseBar = GetOrCreateRect(card.transform, "PurchaseBar");
         SetRect(purchaseBar, new Vector2(0.52f, 0.07f), new Vector2(0.95f, 0.27f), Vector2.zero, Vector2.zero);

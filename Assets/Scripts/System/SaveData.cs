@@ -8,7 +8,10 @@ namespace FXOverdose.Core
     [Serializable]
     public class SaveData
     {
-        public string Version = "1.1.0"; // 1.1.0: 일일 정산 기준 자산 저장 추가
+        public string Version = "1.2.0"; // 1.2.0: 게임 모드 저장 추가
+
+        // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
+        public GameMode GameMode = GameMode.Story;
 
         // --- GameManager 데이터 ---
         public float Balance;

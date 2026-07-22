@@ -17,6 +17,9 @@ public class SettingsMenuController : MonoBehaviour
     private TMP_Text floatingModeText;
     private Image popupModeImage;
     private Image floatingModeImage;
+    private Button popupModeButton;
+    private Button floatingModeButton;
+    private Button saveMenuButton;
 
     [Header("오디오 설정 UI (UI 담당자 할당)")]
     [SerializeField] private Slider bgmVolumeSlider;
@@ -67,19 +70,43 @@ public class SettingsMenuController : MonoBehaviour
     private void UpdateModeButtonVisuals()
     {
         var controller = FXOverdose.Trading.TradingController.Instance;
-        if (controller == null) return;
+        var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+        bool isChallenge = saveManager != null && saveManager.CurrentGameMode == FXOverdose.Core.GameMode.Challenge;
+        bool canSave = saveManager == null || saveManager.AllowsSaving;
 
-        bool isAuto = controller.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.AI_Auto;
-        string popupLabel = isAuto ? "모드: ⚡ AI 자동" : "모드: 🎮 수동 매매";
-        string floatLabel = isAuto ? "AI" : "USER";
-        Color btnColor = isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
+        bool isAuto = !isChallenge && controller != null &&
+                      controller.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.AI_Auto;
+        string popupLabel = isChallenge
+            ? "CHALLENGE: USER ONLY"
+            : isAuto ? "모드: AI 자동" : "모드: USER 수동";
+        string floatLabel = isChallenge ? "USER" : isAuto ? "AI" : "USER";
+        Color btnColor = isChallenge
+            ? new Color(0.48f, 0.16f, 0.24f, 1f)
+            : isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
 
         if (popupModeText != null) popupModeText.text = popupLabel;
         if (floatingModeText != null) floatingModeText.text = floatLabel;
         if (popupModeImage != null) popupModeImage.color = btnColor;
         if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
         if (floatingModeText != null)
-            floatingModeText.color = isAuto ? new Color32(207, 250, 254, 255) : new Color32(234, 179, 8, 255);
+            floatingModeText.color = isChallenge
+                ? new Color32(255, 114, 142, 255)
+                : isAuto ? new Color32(207, 250, 254, 255) : new Color32(234, 179, 8, 255);
+
+        if (popupModeButton != null) popupModeButton.interactable = !isChallenge;
+        if (floatingModeButton != null) floatingModeButton.interactable = !isChallenge;
+
+        if (saveMenuButton != null)
+        {
+            saveMenuButton.interactable = canSave;
+            TMP_Text saveLabel = saveMenuButton.GetComponentInChildren<TMP_Text>();
+            if (saveLabel != null)
+            {
+                saveLabel.text = canSave
+                    ? $"SAVE STORY {Mathf.Clamp((saveManager?.ActiveStorySlotIndex ?? 0) + 1, 1, 3):00}"
+                    : "STORY MODE ONLY";
+            }
+        }
     }
 
     private void CreateFloatingModeToggleButton()
@@ -105,8 +132,8 @@ public class SettingsMenuController : MonoBehaviour
         outline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
         outline.effectDistance = UIStrokeStyle.EffectDistance;
 
-        Button btn = go.GetComponent<Button>();
-        btn.targetGraphic = floatingModeImage;
+        floatingModeButton = go.GetComponent<Button>();
+        floatingModeButton.targetGraphic = floatingModeImage;
 
         floatingModeText = CreateText(go.transform, "Label", "AI", 13f, TextAlignmentOptions.Center);
         floatingModeText.textWrappingMode = TextWrappingModes.NoWrap;
@@ -117,11 +144,13 @@ public class SettingsMenuController : MonoBehaviour
         floatingModeText.outlineColor = new Color32(11, 15, 25, 255);
         Stretch(floatingModeText.rectTransform);
 
-        btn.onClick.AddListener(() => {
+        floatingModeButton.onClick.AddListener(() => {
             FXOverdose.Trading.TradingController.Instance?.ToggleTradingMode();
             UpdateModeButtonVisuals();
         });
 
+        // 로딩 직후 Time.timeScale이 0이어도 Challenge 잠금 상태가 한 프레임도 잘못 보이지 않게 즉시 반영합니다.
+        UpdateModeButtonVisuals();
         Invoke(nameof(UpdateModeButtonVisuals), 0.2f);
         StartCoroutine(SyncFloatingButtonLayoutCoroutine());
     }
@@ -223,6 +252,7 @@ public class SettingsMenuController : MonoBehaviour
 
         previousTimeScale = Time.timeScale;
         Time.timeScale = 0f;
+        UpdateModeButtonVisuals();
         overlay.SetActive(true);
         overlay.transform.SetAsLastSibling();
     }
@@ -237,9 +267,9 @@ public class SettingsMenuController : MonoBehaviour
     {
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
         {
-            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveGame(0);
+            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
             Debug.Log(saved
-                ? "[SettingsMenuController] 게임 저장 완료 (Slot 0)"
+                ? $"[SettingsMenuController] 스토리 저장 완료 (Slot {FXOverdose.Core.SaveLoadManager.Instance.ActiveStorySlotIndex + 1})"
                 : "[SettingsMenuController] 열린 포지션 또는 시스템 상태로 인해 저장하지 못했습니다.");
             
             Transform saveBtnObj = overlay.transform.Find("SettingsPanel/InnerFrame/SaveButton");
@@ -248,7 +278,9 @@ public class SettingsMenuController : MonoBehaviour
                 var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
                 if (tmpText != null)
                 {
-                    tmpText.text = saved ? "SAVED!" : "CLOSE POSITION";
+                    tmpText.text = saved
+                        ? "SAVED!"
+                        : FXOverdose.Core.SaveLoadManager.Instance.AllowsSaving ? "CLOSE POSITION" : "STORY MODE ONLY";
                     Invoke(nameof(ResetSaveButtonText), 2f);
                 }
             }
@@ -262,7 +294,13 @@ public class SettingsMenuController : MonoBehaviour
         if (saveBtnObj != null)
         {
             var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
-            if (tmpText != null) tmpText.text = "SAVE GAME";
+            if (tmpText != null)
+            {
+                var manager = FXOverdose.Core.SaveLoadManager.Instance;
+                tmpText.text = manager == null || manager.AllowsSaving
+                    ? $"SAVE STORY {Mathf.Clamp((manager?.ActiveStorySlotIndex ?? 0) + 1, 1, 3):00}"
+                    : "STORY MODE ONLY";
+            }
         }
     }
 
@@ -326,24 +364,24 @@ public class SettingsMenuController : MonoBehaviour
         SetRect(paused.rectTransform, new Vector2(0.08f, 0.62f), new Vector2(0.92f, 0.75f));
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
-        Button modeSwitchButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: ⚡ AI 자동", new Color(0.12f, 0.48f, 0.72f, 1f));
-        SetRect(modeSwitchButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.50f), new Vector2(0.74f, 0.58f));
-        popupModeImage = modeSwitchButton.GetComponent<Image>();
-        popupModeText = modeSwitchButton.GetComponentInChildren<TMP_Text>();
+        popupModeButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: AI 자동", new Color(0.12f, 0.48f, 0.72f, 1f));
+        SetRect(popupModeButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.50f), new Vector2(0.74f, 0.58f));
+        popupModeImage = popupModeButton.GetComponent<Image>();
+        popupModeText = popupModeButton.GetComponentInChildren<TMP_Text>();
         if (popupModeText != null)
         {
             popupModeText.fontSize = 17f;
             popupModeText.fontSizeMin = 13f;
             popupModeText.fontSizeMax = 17f;
         }
-        modeSwitchButton.onClick.AddListener(() => {
+        popupModeButton.onClick.AddListener(() => {
             FXOverdose.Trading.TradingController.Instance?.ToggleTradingMode();
             UpdateModeButtonVisuals();
         });
 
-        Button saveButton = CreateButton(inner.transform, "SaveButton", "SAVE GAME", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.34f), new Vector2(0.87f, 0.45f));
-        saveButton.onClick.AddListener(SaveGame);
+        saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.34f), new Vector2(0.87f, 0.45f));
+        saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
         SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.19f), new Vector2(0.87f, 0.30f));
@@ -353,6 +391,7 @@ public class SettingsMenuController : MonoBehaviour
         SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.04f), new Vector2(0.87f, 0.15f));
         quitButton.onClick.AddListener(QuitGame);
 
+        UpdateModeButtonVisuals();
         overlay.SetActive(false);
     }
 

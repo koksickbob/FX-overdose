@@ -13,6 +13,15 @@ namespace FXOverdose.Core
 
         public SaveData CurrentData { get; private set; }
 
+        /// <summary>현재 타이틀에서 선택해 실행 중인 게임 모드입니다.</summary>
+        public GameMode CurrentGameMode { get; private set; } = GameMode.Story;
+
+        /// <summary>스토리 모드에서 현재 사용 중인 저장 슬롯입니다.</summary>
+        public int ActiveStorySlotIndex { get; private set; }
+
+        public bool AllowsAITrading => CurrentGameMode != GameMode.Challenge;
+        public bool AllowsSaving => CurrentGameMode == GameMode.Story;
+
         // 로드 진행 후 GameScene 진입 시 상태를 복원해야 하는지 여부 플래그
         public bool IsPendingLoad { get; private set; }
 
@@ -40,6 +49,15 @@ namespace FXOverdose.Core
 
         public bool SaveGame(int slotIndex)
         {
+            if (!AllowsSaving)
+            {
+                Debug.LogWarning($"[SaveLoadManager] {CurrentGameMode} 모드는 저장을 지원하지 않습니다. 스토리 모드에서만 저장할 수 있습니다.");
+                return false;
+            }
+
+            slotIndex = Mathf.Clamp(slotIndex, 0, 2);
+            ActiveStorySlotIndex = slotIndex;
+
             var gm = FindAnyObjectByType<GameManager>();
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
@@ -69,6 +87,8 @@ namespace FXOverdose.Core
 
             SaveData data = new SaveData
             {
+                GameMode = CurrentGameMode,
+
                 // GameManager
                 Balance = gm.CurrentBalance,
                 CurrentDay = gm.CurrentDay,
@@ -101,6 +121,12 @@ namespace FXOverdose.Core
             File.WriteAllText(GetSaveFilePath(slotIndex), json);
             Debug.Log($"[SaveLoadManager] 슬롯 {slotIndex}에 게임 저장 완료:\n{GetSaveFilePath(slotIndex)}");
             return true;
+        }
+
+        /// <summary>스토리 시작/불러오기에서 선택한 슬롯에 저장합니다.</summary>
+        public bool SaveCurrentGame()
+        {
+            return SaveGame(ActiveStorySlotIndex);
         }
 
         private void ExtractMemoryData(TraderMemoryManager memory, SaveData data)
@@ -143,25 +169,62 @@ namespace FXOverdose.Core
             }
         }
 
-        public void PrepareLoadGame(int slotIndex)
+        public bool PrepareLoadGame(int slotIndex)
         {
+            slotIndex = Mathf.Clamp(slotIndex, 0, 2);
             string path = GetSaveFilePath(slotIndex);
             if (!File.Exists(path))
             {
                 Debug.LogWarning($"[SaveLoadManager] 슬롯 {slotIndex}에 세이브 파일이 존재하지 않습니다.");
-                return;
+                return false;
             }
 
-            string json = File.ReadAllText(path);
-            CurrentData = JsonUtility.FromJson<SaveData>(json);
+            try
+            {
+                string json = File.ReadAllText(path);
+                CurrentData = JsonUtility.FromJson<SaveData>(json);
+                if (CurrentData == null)
+                {
+                    Debug.LogError($"[SaveLoadManager] 슬롯 {slotIndex}의 저장 데이터를 읽지 못했습니다.");
+                    IsPendingLoad = false;
+                    return false;
+                }
+            }
+            catch (Exception exception)
+            {
+                CurrentData = null;
+                IsPendingLoad = false;
+                Debug.LogError($"[SaveLoadManager] 슬롯 {slotIndex} 로드 실패: {exception.Message}");
+                return false;
+            }
+
+            // 현재 저장 슬롯은 스토리 전용입니다. GameMode 필드가 없던 기존 세이브도 Story(0)입니다.
+            CurrentData.GameMode = GameMode.Story;
+            CurrentGameMode = GameMode.Story;
+            ActiveStorySlotIndex = slotIndex;
             IsPendingLoad = true;
-            Debug.Log($"[SaveLoadManager] 데이터 로드 대기 중 (GameScene 진입 시 복원 예정)");
+            Debug.Log($"[SaveLoadManager] 스토리 슬롯 {slotIndex + 1} 데이터 로드 대기 중 (GameScene 진입 시 복원 예정)");
+            return true;
         }
 
         public void PrepareNewGame()
         {
+            PrepareNewGame(GameMode.Story, 0);
+        }
+
+        public void PrepareNewGame(GameMode mode, int storySlotIndex = 0)
+        {
+            if (!Enum.IsDefined(typeof(GameMode), mode))
+                mode = GameMode.Story;
+
+            CurrentGameMode = mode;
+            ActiveStorySlotIndex = mode == GameMode.Story
+                ? Mathf.Clamp(storySlotIndex, 0, 2)
+                : 0;
             CurrentData = null;
             IsPendingLoad = false;
+            Debug.Log($"[SaveLoadManager] 새 게임 준비: {CurrentGameMode}" +
+                      (CurrentGameMode == GameMode.Story ? $" / Slot {ActiveStorySlotIndex + 1}" : string.Empty));
         }
 
         public void ApplyLoadedDataToGame()

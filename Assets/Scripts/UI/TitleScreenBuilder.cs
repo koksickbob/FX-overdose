@@ -30,11 +30,15 @@ namespace FXOverdose.UI
                 return;
 
             EnsureTitleCamera();
-
-            if (GameObject.Find("Canvas_MainMenu") != null)
-                return;
-
             EnsureSystems();
+
+            GameObject existingCanvas = GameObject.Find("Canvas_MainMenu");
+            if (existingCanvas != null)
+            {
+                EnsureGameModePanel(existingCanvas.transform);
+                return;
+            }
+
             Canvas canvas = CreateCanvas();
             BuildBackground(canvas.transform);
             BuildHeader(canvas.transform);
@@ -49,7 +53,8 @@ namespace FXOverdose.UI
 
             GameObject loadPanel = BuildLoadPanel(canvas.transform, controller);
             GameObject settingsPanel = BuildSettingsPanel(canvas.transform);
-            controller.Configure(newGame, loadGame, settings, quit, loadPanel, settingsPanel);
+            GameObject modePanel = EnsureGameModePanel(canvas.transform);
+            controller.Configure(newGame, loadGame, settings, quit, loadPanel, settingsPanel, modePanel);
 
             CreateText(canvas.transform, "VersionText", "EARLY ACCESS  /  BUILD 0.1", 16f, Muted,
                 new Vector2(0.055f, 0.025f), new Vector2(0.42f, 0.075f), TextAlignmentOptions.Left);
@@ -155,6 +160,99 @@ namespace FXOverdose.UI
             CreateText(image.transform, "Arrow", ">", 30f, index == 0 ? Cyan : Muted,
                 new Vector2(0.86f, 0.15f), new Vector2(0.96f, 0.85f), TextAlignmentOptions.Center);
             return button;
+        }
+
+        /// <summary>
+        /// 기존 TitleScene UI를 삭제하지 않고 누락된 게임 모드 선택 창만 안전하게 추가합니다.
+        /// 직렬화된 타이틀 씬과 런타임 생성 타이틀 양쪽에서 함께 사용합니다.
+        /// </summary>
+        public static GameObject EnsureGameModePanel(Transform parent)
+        {
+            if (parent == null) return null;
+
+            Transform existing = parent.Find("GameModePanel");
+            if (existing != null) return existing.gameObject;
+
+            GameObject overlay = CreateModalOverlay(parent, "GameModePanel");
+            Image window = CreateWindow(overlay.transform, "ModalWindow", new Vector2(0.15f, 0.14f), new Vector2(0.85f, 0.86f));
+            CreateModalTitle(window.transform, "SELECT GAME MODE", "플레이할 규칙을 선택하세요");
+
+            CreateModeCard(
+                window.transform,
+                "Btn_StoryMode",
+                "01  STORY",
+                "SAVE SLOT",
+                "저장된 이야기를 이어가거나\n빈 슬롯에서 새로 시작",
+                new Vector2(0.055f, 0.25f),
+                new Vector2(0.325f, 0.70f),
+                Cyan);
+
+            CreateModeCard(
+                window.transform,
+                "Btn_EndlessMode",
+                "02  ENDLESS",
+                "AI ENABLED",
+                "끝없이 이어지는 시장\nAI 자동매매 사용 가능",
+                new Vector2(0.365f, 0.25f),
+                new Vector2(0.635f, 0.70f),
+                new Color32(74, 201, 112, 255));
+
+            CreateModeCard(
+                window.transform,
+                "Btn_ChallengeMode",
+                "03  CHALLENGE",
+                "USER ONLY",
+                "AI 자동매매 금지\n플레이어 수동매매 고정",
+                new Vector2(0.675f, 0.25f),
+                new Vector2(0.945f, 0.70f),
+                Pink);
+
+            CreateText(window.transform, "RuleHint", "CHALLENGE에서는 캐릭터 대사용 LLM은 유지되고, AI 자동매매만 잠깁니다.", 14f, Muted,
+                new Vector2(0.08f, 0.175f), new Vector2(0.92f, 0.225f), TextAlignmentOptions.Center);
+
+            CreateSmallButton(window.transform, "Btn_Close", "BACK", new Vector2(0.39f, 0.07f), new Vector2(0.61f, 0.16f));
+            overlay.SetActive(false);
+            return overlay;
+        }
+
+        private static void CreateModeCard(
+            Transform parent,
+            string name,
+            string title,
+            string badge,
+            string description,
+            Vector2 min,
+            Vector2 max,
+            Color32 accent)
+        {
+            Image card = CreateImage(parent, name, new Color32(13, 31, 52, 255), min, max);
+            Button button = card.gameObject.AddComponent<Button>();
+            button.targetGraphic = card;
+            button.colors = CreateButtonColors();
+
+            Outline outline = card.gameObject.AddComponent<Outline>();
+            outline.effectColor = accent;
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            Image accentLine = CreateImage(card.transform, "AccentLine", accent,
+                new Vector2(0.07f, 0.83f), new Vector2(0.93f, 0.855f));
+            accentLine.raycastTarget = false;
+
+            TMP_Text titleText = CreateText(card.transform, "Title", title, 27f, Text,
+                new Vector2(0.07f, 0.67f), new Vector2(0.93f, 0.82f), TextAlignmentOptions.Left);
+            titleText.fontStyle = FontStyles.Bold;
+
+            TMP_Text badgeText = CreateText(card.transform, "Badge", badge, 18f, accent,
+                new Vector2(0.07f, 0.48f), new Vector2(0.93f, 0.63f), TextAlignmentOptions.Left);
+            badgeText.fontStyle = FontStyles.Bold;
+
+            TMP_Text descriptionText = CreateText(card.transform, "Description", description, 16f, Muted,
+                new Vector2(0.07f, 0.18f), new Vector2(0.93f, 0.45f), TextAlignmentOptions.TopLeft);
+            descriptionText.textWrappingMode = TextWrappingModes.Normal;
+            descriptionText.overflowMode = TextOverflowModes.Overflow;
+
+            CreateText(card.transform, "Arrow", ">", 26f, accent,
+                new Vector2(0.79f, 0.03f), new Vector2(0.94f, 0.17f), TextAlignmentOptions.Center).fontStyle = FontStyles.Bold;
         }
 
         private static GameObject BuildLoadPanel(Transform parent, MainMenuController controller)

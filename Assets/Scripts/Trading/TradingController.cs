@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using FXOverdose.Core;
 
 namespace FXOverdose.Trading
 {
@@ -39,18 +40,46 @@ namespace FXOverdose.Trading
         [SerializeField] private TradingMode activeTradingMode = TradingMode.AI_Auto;
         public TradingMode ActiveTradingMode => activeTradingMode;
         public event Action<TradingMode> OnTradingModeChanged;
+
+        /// <summary>챌린지 모드는 AI 자동매매를 허용하지 않습니다.</summary>
+        public bool IsAITradingLockedByGameMode =>
+            SaveLoadManager.Instance != null && !SaveLoadManager.Instance.AllowsAITrading;
         
         public bool IsManualModeLockedByYomi { get; private set; } = false;
-        public void LockManualMode() { IsManualModeLockedByYomi = true; }
+        public void LockManualMode()
+        {
+            // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
+            if (IsAITradingLockedByGameMode) return;
+            IsManualModeLockedByYomi = true;
+        }
         public void UnlockManualMode() { IsManualModeLockedByYomi = false; }
 
         private void Awake()
         {
             Instance = this;
+
+            if (IsAITradingLockedByGameMode)
+            {
+                activeTradingMode = TradingMode.Player_Manual;
+                IsManualModeLockedByYomi = false;
+                Debug.Log("[TradingController] CHALLENGE 모드: USER 수동매매로 고정합니다.");
+            }
         }
 
         public void SetTradingMode(TradingMode mode)
         {
+            if (IsAITradingLockedByGameMode && mode == TradingMode.AI_Auto)
+            {
+                if (activeTradingMode != TradingMode.Player_Manual)
+                {
+                    activeTradingMode = TradingMode.Player_Manual;
+                    OnTradingModeChanged?.Invoke(activeTradingMode);
+                }
+                IsManualModeLockedByYomi = false;
+                Debug.LogWarning("[TradingController] CHALLENGE 모드에서는 AI 자동매매를 사용할 수 없습니다.");
+                return;
+            }
+
             if (activeTradingMode == mode) return;
 
             if (mode == TradingMode.Player_Manual && IsManualModeLockedByYomi)
@@ -111,6 +140,12 @@ namespace FXOverdose.Trading
 
         public void ToggleTradingMode()
         {
+            if (IsAITradingLockedByGameMode)
+            {
+                SetTradingMode(TradingMode.AI_Auto);
+                return;
+            }
+
             SetTradingMode(activeTradingMode == TradingMode.AI_Auto ? TradingMode.Player_Manual : TradingMode.AI_Auto);
         }
 
@@ -720,7 +755,7 @@ namespace FXOverdose.Trading
         }
 
         // 포지션 진입 (AI가 방향, 레버리지, 목표가 TargetPrice를 독자적으로 결정하여 호출)
-        public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f, bool isEmergencyTrade = false, float customEntryPrice = 0f)
+        public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f, bool isEmergencyTrade = false, float customEntryPrice = 0f, bool isPlayerDirectedTrade = false)
         {
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
@@ -728,6 +763,15 @@ namespace FXOverdose.Trading
 
             if (gameManager == null || marketEngine == null || type == PositionType.None)
             {
+                return false;
+            }
+
+            // 챌린지에서는 AI 일반/폭주/기믹 매매를 모두 막습니다.
+            // 단, 플레이어가 돌발 이벤트에서 직접 방향을 선택한 결과만 플레이어 입력으로 인정합니다.
+            bool isPlayerDirectedEvent = isEmergencyTrade && isPlayerDirectedTrade;
+            if (IsAITradingLockedByGameMode && !isPlayerDirectedEvent)
+            {
+                Debug.LogWarning("[TradingController] CHALLENGE 모드 규칙으로 AI 포지션 진입을 차단했습니다.");
                 return false;
             }
 
@@ -771,7 +815,7 @@ namespace FXOverdose.Trading
             leverage = Mathf.Clamp(leverage, 1, 125);
 
             currentPosition = type;
-            currentOwner = OwnerType.AI;
+            currentOwner = isPlayerDirectedTrade ? OwnerType.Player : OwnerType.AI;
             entryPrice = customEntryPrice > 0f ? customEntryPrice : marketEngine.CurrentPrice;
             marginAmount = margin;
             currentLeverage = leverage;
@@ -1130,6 +1174,12 @@ namespace FXOverdose.Trading
 
         public void TriggerOverdoseTrade()
         {
+            if (IsAITradingLockedByGameMode)
+            {
+                Debug.Log("[TradingController] CHALLENGE 모드: Overdose AI 강제매매를 건너뜁니다.");
+                return;
+            }
+
             if (gameManager == null || marketEngine == null) return;
             
             // ⭐ [AI 통제권 강제 탈환] Overdose 상태 진입 시 플레이어 수동 조작 상태여도 AI가 통제권을 강제로 빼앗음
@@ -1205,6 +1255,12 @@ namespace FXOverdose.Trading
             if (posType == PositionType.None && leverage <= 0)
             {
                 CloseAllPositions();
+                return;
+            }
+
+            if (IsAITradingLockedByGameMode && !isPlayerChoice)
+            {
+                Debug.Log("[TradingController] CHALLENGE 모드: AI/기믹의 강제 포지션 진입을 건너뜁니다.");
                 return;
             }
 
@@ -1292,7 +1348,8 @@ namespace FXOverdose.Trading
                     maxObservedEventROE = 0f;
                     lastReportedROEBasket = 0;
 
-                    OpenPosition(posType, forcedMargin, Mathf.Clamp(leverage, 1, 125), aiTarget, aiStop, true);
+                    OpenPosition(posType, forcedMargin, Mathf.Clamp(leverage, 1, 125), aiTarget, aiStop, true,
+                        isPlayerDirectedTrade: isPlayerChoice);
                     Debug.Log($"[TradingController] ⚡ ExecuteEmergencyTrade (돌발 이벤트 강제 진입) 완료: {posType} / 증거금 ${forcedMargin:N0} / 레버리지 {leverage}배 ({protectDuration}초 이벤트 쉴드 가동, 모드: {handlingMode}, 플레이어선택: {isPlayerChoice}, 진위: {isTrueSignal})");
                 }
             }

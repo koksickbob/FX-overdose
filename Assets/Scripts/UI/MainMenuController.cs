@@ -15,8 +15,11 @@ namespace FXOverdose.UI
         [SerializeField] private Button btnQuitGame;
 
         [Header("팝업 패널 (필수 할당)")]
+        [SerializeField] private GameObject gameModePanel;
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
+
+        private bool allowCreatingStorySlot;
 
         /// <summary>런타임 타이틀 빌더가 생성한 UI를 컨트롤러에 연결합니다.</summary>
         public void Configure(
@@ -25,7 +28,8 @@ namespace FXOverdose.UI
             Button settings,
             Button quitGame,
             GameObject loadPanel,
-            GameObject settingsPopup)
+            GameObject settingsPopup,
+            GameObject modePanel = null)
         {
             btnNewGame = newGame;
             btnLoadGame = loadGame;
@@ -33,10 +37,13 @@ namespace FXOverdose.UI
             btnQuitGame = quitGame;
             loadGamePanel = loadPanel;
             settingsPanel = settingsPopup;
+            gameModePanel = modePanel;
         }
 
         private void Start()
         {
+            EnsureGameModePanel();
+
             // 이벤트 리스너 연결
             if (btnNewGame != null) btnNewGame.onClick.AddListener(OnClickNewGame);
             if (btnLoadGame != null) btnLoadGame.onClick.AddListener(OnClickLoadGame);
@@ -46,29 +53,54 @@ namespace FXOverdose.UI
             BindPopupControls();
 
             // 초기 팝업 비활성화
+            if (gameModePanel != null) gameModePanel.SetActive(false);
             if (loadGamePanel != null) loadGamePanel.SetActive(false);
             if (settingsPanel != null) settingsPanel.SetActive(false);
         }
 
         public void OnClickNewGame()
         {
-            Debug.Log("[MainMenuController] 새 게임 시작");
-            if (SaveLoadManager.Instance != null)
+            Debug.Log("[MainMenuController] 게임 모드 선택 팝업 오픈");
+            EnsureGameModePanel();
+            BindGameModePanelControls();
+            if (gameModePanel != null)
             {
-                SaveLoadManager.Instance.PrepareNewGame();
+                if (loadGamePanel != null) loadGamePanel.SetActive(false);
+                if (settingsPanel != null) settingsPanel.SetActive(false);
+                gameModePanel.SetActive(true);
+                gameModePanel.transform.SetAsLastSibling();
+                return;
             }
-            
-            LoadGameFlow();
+
+            // 런타임 UI 생성에 실패한 예외 상황에서는 기존처럼 스토리 새 게임으로 안전하게 진입합니다.
+            StartNewMode(GameMode.Story, 0);
         }
 
         public void OnClickLoadGame()
         {
-            Debug.Log("[MainMenuController] 불러오기 팝업 오픈");
-            if (loadGamePanel != null)
-            {
-                BindLoadPanelControls();
-                loadGamePanel.SetActive(true);
-            }
+            Debug.Log("[MainMenuController] 스토리 불러오기 팝업 오픈");
+            allowCreatingStorySlot = false;
+            OpenStorySlotPanel();
+        }
+
+        public void OnClickStoryMode()
+        {
+            Debug.Log("[MainMenuController] 스토리 모드 선택");
+            allowCreatingStorySlot = true;
+            if (gameModePanel != null) gameModePanel.SetActive(false);
+            OpenStorySlotPanel();
+        }
+
+        public void OnClickEndlessMode()
+        {
+            Debug.Log("[MainMenuController] 무한 모드 선택 (AI 자동매매 사용 가능)");
+            StartNewMode(GameMode.Endless);
+        }
+
+        public void OnClickChallengeMode()
+        {
+            Debug.Log("[MainMenuController] 챌린지 모드 선택 (USER 수동매매 고정)");
+            StartNewMode(GameMode.Challenge);
         }
 
         public void OnClickSettings()
@@ -76,13 +108,21 @@ namespace FXOverdose.UI
             Debug.Log("[MainMenuController] 설정 팝업 오픈");
             if (settingsPanel != null)
             {
+                if (gameModePanel != null) gameModePanel.SetActive(false);
+                if (loadGamePanel != null) loadGamePanel.SetActive(false);
                 settingsPanel.SetActive(true);
+                settingsPanel.transform.SetAsLastSibling();
             }
         }
 
         public void CloseLoadGamePanel()
         {
             if (loadGamePanel != null) loadGamePanel.SetActive(false);
+        }
+
+        public void CloseGameModePanel()
+        {
+            if (gameModePanel != null) gameModePanel.SetActive(false);
         }
 
         public void CloseSettingsPanel()
@@ -93,13 +133,51 @@ namespace FXOverdose.UI
 
         private void BindPopupControls()
         {
+            BindGameModePanelControls();
             BindLoadPanelControls();
             BindSettingsPanelControls();
+        }
+
+        private void EnsureGameModePanel()
+        {
+            if (gameModePanel != null) return;
+
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas == null) return;
+            gameModePanel = TitleScreenBuilder.EnsureGameModePanel(canvas.transform);
+        }
+
+        private void BindGameModePanelControls()
+        {
+            if (gameModePanel == null) return;
+
+            BindButton(gameModePanel.transform, "ModalWindow/Btn_StoryMode", OnClickStoryMode);
+            BindButton(gameModePanel.transform, "ModalWindow/Btn_EndlessMode", OnClickEndlessMode);
+            BindButton(gameModePanel.transform, "ModalWindow/Btn_ChallengeMode", OnClickChallengeMode);
+            BindButton(gameModePanel.transform, "ModalWindow/Btn_Close", CloseGameModePanel);
+        }
+
+        private static void BindButton(Transform root, string path, UnityEngine.Events.UnityAction action)
+        {
+            Button button = root.Find(path)?.GetComponent<Button>();
+            if (button == null) return;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(action);
         }
 
         private void BindLoadPanelControls()
         {
             if (loadGamePanel == null) return;
+
+            TMP_Text title = loadGamePanel.transform.Find("ModalWindow/Txt_Title")?.GetComponent<TMP_Text>();
+            TMP_Text subtitle = loadGamePanel.transform.Find("ModalWindow/Txt_Subtitle")?.GetComponent<TMP_Text>();
+            if (title != null) title.text = allowCreatingStorySlot ? "STORY MODE" : "CONTINUE";
+            if (subtitle != null)
+            {
+                subtitle.text = allowCreatingStorySlot
+                    ? "저장 슬롯을 선택하세요. 빈 슬롯에서는 새 이야기가 시작됩니다."
+                    : "이어서 플레이할 스토리 저장 기록을 선택하세요.";
+            }
 
             Button close = loadGamePanel.transform.Find("ModalWindow/Btn_Close")?.GetComponent<Button>();
             if (close != null)
@@ -119,13 +197,29 @@ namespace FXOverdose.UI
                 if (button != null)
                 {
                     button.onClick.RemoveAllListeners();
-                    button.interactable = hasSave;
+                    button.interactable = hasSave || allowCreatingStorySlot;
                     button.onClick.AddListener(() => OnClickLoadSlot(slotIndex));
                 }
 
                 TMP_Text state = slot.Find("State")?.GetComponent<TMP_Text>();
-                if (state != null) state.text = hasSave ? "DATA FOUND" : "EMPTY SLOT";
+                if (state != null)
+                {
+                    state.text = hasSave
+                        ? "CONTINUE"
+                        : allowCreatingStorySlot ? "NEW STORY" : "EMPTY SLOT";
+                }
             }
+        }
+
+        private void OpenStorySlotPanel()
+        {
+            if (gameModePanel != null) gameModePanel.SetActive(false);
+            if (settingsPanel != null) settingsPanel.SetActive(false);
+            if (loadGamePanel == null) return;
+
+            BindLoadPanelControls();
+            loadGamePanel.SetActive(true);
+            loadGamePanel.transform.SetAsLastSibling();
         }
 
         private void BindSettingsPanelControls()
@@ -155,13 +249,45 @@ namespace FXOverdose.UI
 
         public void OnClickLoadSlot(int slotIndex)
         {
-            if (SaveLoadManager.Instance == null || !SaveLoadManager.Instance.HasSave(slotIndex))
+            if (SaveLoadManager.Instance == null)
+            {
+                Debug.LogWarning("[MainMenuController] SaveLoadManager를 찾지 못했습니다.");
+                return;
+            }
+
+            if (SaveLoadManager.Instance.HasSave(slotIndex))
+            {
+                if (!SaveLoadManager.Instance.PrepareLoadGame(slotIndex))
+                    return;
+            }
+            else if (allowCreatingStorySlot)
+            {
+                SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, slotIndex);
+            }
+            else
             {
                 Debug.LogWarning($"[MainMenuController] 슬롯 {slotIndex + 1}에 저장 데이터가 없습니다.");
                 return;
             }
 
-            SaveLoadManager.Instance.PrepareLoadGame(slotIndex);
+            LoadGameFlow();
+        }
+
+        private static void StartNewMode(GameMode mode, int storySlotIndex = 0)
+        {
+            SaveLoadManager manager = SaveLoadManager.Instance;
+            if (manager == null)
+            {
+                manager = new GameObject("SaveLoadManager").AddComponent<SaveLoadManager>();
+            }
+
+            if (manager == null)
+            {
+                Debug.LogError($"[MainMenuController] {mode} 모드 세션을 준비하지 못해 씬 전환을 중단합니다.");
+                return;
+            }
+
+            manager.PrepareNewGame(mode, storySlotIndex);
             LoadGameFlow();
         }
 

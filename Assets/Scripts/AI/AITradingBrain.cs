@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using FXOverdose.Trading;
+using FXOverdose.Core;
 
 namespace FXOverdose.AI
 {
@@ -224,6 +225,12 @@ namespace FXOverdose.AI
                 TriggerDialogue("증거금이 바닥났어... 남은 시드가 이것밖에 안 남다니 말도 안 돼...", -0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
+            }
+
+            // 챌린지에서는 이전 프레임에 예약된 강제 AI 매매까지 폐기합니다.
+            if (SaveLoadManager.Instance != null && !SaveLoadManager.Instance.AllowsAITrading)
+            {
+                ForceNextTradeHighLeverage = false;
             }
 
             // 💡 [고배율 중독 강제 매매] 요미가 주도권을 뺏고 강제로 고배율 매매를 실행하는 상태
