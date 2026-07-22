@@ -62,6 +62,9 @@ public class Inventory : MonoBehaviour
     // UI가 아이템 개수 변경을 감지할 때 구독할 이벤트입니다.
     public event Action<ItemData, int> QuantityChanged;
 
+    // 실제 아이템 사용/소비가 성공했을 때만 발생하는 연출용 이벤트입니다.
+    public event Action<ItemData> ItemConsumed;
+
     public IReadOnlyList<InventorySlot> Slots => slots;
 
     private void Awake()
@@ -137,6 +140,7 @@ public class Inventory : MonoBehaviour
 
         slot.RemoveOne();
         QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
+        ItemConsumed?.Invoke(item);
         Debug.Log($"[Inventory] {item.ItemName} 사용 완료, 남은 수량 {slot?.Quantity ?? 0}개");
         return true;
     }
@@ -151,6 +155,7 @@ public class Inventory : MonoBehaviour
         if (slot == null || slot.Quantity < amount) return false;
         slot.RemoveAmount(amount);
         QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
+        ItemConsumed?.Invoke(item);
         Debug.Log($"[Inventory] {item.ItemName} {amount}개 소비 완료, 남은 수량 {slot?.Quantity ?? 0}개");
         return true;
     }

@@ -44,6 +44,7 @@ namespace FXOverdose.AI
         [SerializeField] private TradingController tradingController;
         [SerializeField] private AITradingBrain aiBrain;
         [SerializeField] private LocalLLMService llmService;
+        [SerializeField] private Inventory inventory;
 
         [Header("비주얼 및 애니메이터")]
         [SerializeField] private Animator characterAnimator;
@@ -66,7 +67,10 @@ namespace FXOverdose.AI
         [Header("현재 상태 (읽기 전용)")]
         [SerializeField] private TraderEmotion currentEmotion = TraderEmotion.Focused;
         private readonly Dictionary<TraderEmotion, Sprite> emotionSprites = new Dictionary<TraderEmotion, Sprite>();
+        private readonly Dictionary<string, Sprite> itemUseSprites = new Dictionary<string, Sprite>();
         private float emotionOverrideUntil;
+        private bool isItemUseVisualActive;
+        private float itemUseVisualUntil;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
@@ -84,9 +88,11 @@ namespace FXOverdose.AI
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
             if (llmService == null) llmService = LocalLLMService.Instance;
+            if (inventory == null) inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
 
             ResolveCharacterImage();
             LoadEmotionSprites();
+            LoadItemUseSprites();
             ApplyEmotion(currentEmotion, true);
 
             ApplyDialogueTextStyle();
@@ -101,6 +107,12 @@ namespace FXOverdose.AI
                 // 중복 호출 방지를 위해 카테고리 정보가 포함된 이벤트만 단일 구독
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
                 llmService.OnDialogueGeneratedWithCategory += HandleLLMDialogueGeneratedWithCategory;
+            }
+
+            if (inventory != null)
+            {
+                inventory.ItemConsumed -= HandleItemConsumed;
+                inventory.ItemConsumed += HandleItemConsumed;
             }
 
             if (dialogueBalloonPanel != null) dialogueBalloonPanel.SetActive(false);
@@ -161,6 +173,10 @@ namespace FXOverdose.AI
             {
                 llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
             }
+            if (inventory != null)
+            {
+                inventory.ItemConsumed -= HandleItemConsumed;
+            }
         }
 
         private void Update()
@@ -171,13 +187,22 @@ namespace FXOverdose.AI
         // 실시간 수익률 및 멘탈 상태를 기반으로 감정을 도출하고 표정 상태로 매핑
         private void UpdateExpressionState()
         {
+            // 아이템 사용 포즈는 게임 일시정지 여부와 관계없이 실제 시간 기준 약 1초간 최우선 표시합니다.
+            if (isItemUseVisualActive)
+            {
+                if (Time.unscaledTime < itemUseVisualUntil) return;
+
+                isItemUseVisualActive = false;
+                ApplyEmotion(currentEmotion, true);
+            }
+
             if (traderStatus == null) return;
 
             if (Time.unscaledTime < emotionOverrideUntil) return;
 
             float roe = CalculateCurrentRoe();
 
-            TraderEmotion currentEmotion = TraderEmotionEvaluator.Evaluate(
+            TraderEmotion evaluatedEmotion = TraderEmotionEvaluator.Evaluate(
                 roe, 
                 traderStatus.CurrentMentalState, 
                 traderStatus.HealthRatio, 
@@ -185,7 +210,7 @@ namespace FXOverdose.AI
                 ""
             );
 
-            ApplyEmotion(currentEmotion);
+            ApplyEmotion(evaluatedEmotion);
         }
 
         private float CalculateCurrentRoe()
@@ -226,10 +251,66 @@ namespace FXOverdose.AI
             }
         }
 
+        private void LoadItemUseSprites()
+        {
+            itemUseSprites.Clear();
+            LoadItemUseSprite("energy_drink", "EnergyDrink");
+            LoadItemUseSprite("dessert", "Dessert");
+            LoadItemUseSprite("supplement", "Supplement");
+            LoadItemUseSprite("sedative", "Sedative");
+        }
+
+        private void LoadItemUseSprite(string itemId, string resourceName)
+        {
+            Sprite sprite = Resources.Load<Sprite>($"Characters/ItemUse/{resourceName}");
+            if (sprite != null)
+            {
+                itemUseSprites[itemId] = sprite;
+            }
+            else
+            {
+                Debug.LogWarning($"[AIVisualController] 아이템 사용 스프라이트를 찾지 못했습니다: {itemId}", this);
+            }
+        }
+
+        /// <summary>아이템 사용 포즈를 실제 시간 기준으로 잠시 표시합니다.</summary>
+        public void ShowItemUse(string itemId, float duration = 1f)
+        {
+            if (string.IsNullOrWhiteSpace(itemId)) return;
+            if (itemUseSprites.Count == 0) LoadItemUseSprites();
+
+            if (!itemUseSprites.TryGetValue(itemId, out Sprite sprite) || sprite == null)
+            {
+                Debug.LogWarning($"[AIVisualController] 지원하지 않는 아이템 사용 연출입니다: {itemId}", this);
+                return;
+            }
+
+            ResolveCharacterImage();
+            if (characterImage == null) return;
+
+            isItemUseVisualActive = true;
+            itemUseVisualUntil = Time.unscaledTime + Mathf.Max(0.1f, duration);
+            characterImage.sprite = sprite;
+            characterImage.preserveAspect = true;
+        }
+
+        private void HandleItemConsumed(ItemData item)
+        {
+            if (item != null) ShowItemUse(item.ItemId, 1f);
+        }
+
         /// <summary>이벤트나 연출 코드에서 19종 감정을 직접 표시할 때 사용합니다.</summary>
         public void ShowEmotion(TraderEmotion emotion, float duration = 4f)
         {
             emotionOverrideUntil = Time.unscaledTime + Mathf.Max(0f, duration);
+
+            // 대사 감정은 최신 상태로 기록하되, 진행 중인 1초 아이템 포즈를 덮어쓰지는 않습니다.
+            if (isItemUseVisualActive)
+            {
+                currentEmotion = emotion;
+                return;
+            }
+
             ApplyEmotion(emotion, true);
         }
 

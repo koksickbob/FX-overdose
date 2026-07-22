@@ -2,14 +2,19 @@
 using UnityEditor;
 using UnityEngine;
 
-/// <summary>19종 감정 이미지를 UI용 단일 픽셀 스프라이트로 통일해 임포트합니다.</summary>
+/// <summary>감정 및 아이템 사용 이미지를 UI용 단일 픽셀 스프라이트로 통일해 임포트합니다.</summary>
 public sealed class EmotionSpriteImporter : AssetPostprocessor
 {
     private const string EmotionFolder = "Assets/Resources/Characters/Emotions/";
+    private const string ItemUseFolder = "Assets/Resources/Characters/ItemUse/";
 
     private void OnPreprocessTexture()
     {
-        if (!assetPath.StartsWith(EmotionFolder, System.StringComparison.Ordinal) ||
+        bool isCharacterSprite =
+            assetPath.StartsWith(EmotionFolder, System.StringComparison.Ordinal) ||
+            assetPath.StartsWith(ItemUseFolder, System.StringComparison.Ordinal);
+
+        if (!isCharacterSprite ||
             !assetPath.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase))
         {
             return;
