@@ -68,7 +68,6 @@ public static class PFStardustGlobalFontApplicator
             if (text.font == font) continue;
             if (!EditorApplication.isPlaying) Undo.RecordObject(text, "Apply PF Stardust Font");
             text.font = font;
-            text.fontSharedMaterial = font.material;
             if (!EditorApplication.isPlaying) EditorUtility.SetDirty(text);
             changed++;
         }

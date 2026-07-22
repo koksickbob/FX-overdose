@@ -85,13 +85,16 @@ public class SettingsMenuController : MonoBehaviour
             : isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
 
         if (popupModeText != null) popupModeText.text = popupLabel;
-        if (floatingModeText != null) floatingModeText.text = floatLabel;
-        if (popupModeImage != null) popupModeImage.color = btnColor;
-        if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
         if (floatingModeText != null)
+        {
+            floatingModeText.text = floatLabel;
             floatingModeText.color = isChallenge
                 ? new Color32(255, 114, 142, 255)
                 : isAuto ? new Color32(207, 250, 254, 255) : new Color32(234, 179, 8, 255);
+            GlobalPFStardustFont.RefreshCompactHudText(floatingModeText);
+        }
+        if (popupModeImage != null) popupModeImage.color = btnColor;
+        if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
 
         if (popupModeButton != null) popupModeButton.interactable = !isChallenge;
         if (floatingModeButton != null) floatingModeButton.interactable = !isChallenge;
@@ -136,12 +139,8 @@ public class SettingsMenuController : MonoBehaviour
         floatingModeButton.targetGraphic = floatingModeImage;
 
         floatingModeText = CreateText(go.transform, "Label", "AI", 13f, TextAlignmentOptions.Center);
-        floatingModeText.textWrappingMode = TextWrappingModes.NoWrap;
-        floatingModeText.fontSizeMin = 8f;
-        floatingModeText.fontSizeMax = 13f;
-        floatingModeText.fontStyle = FontStyles.Bold;
-        floatingModeText.outlineWidth = 0.18f;
         floatingModeText.outlineColor = new Color32(11, 15, 25, 255);
+        GlobalPFStardustFont.ConfigureCompactHudText(floatingModeText, font, 13f, 0.05f);
         Stretch(floatingModeText.rectTransform);
 
         floatingModeButton.onClick.AddListener(() => {
@@ -428,7 +427,7 @@ public class SettingsMenuController : MonoBehaviour
         text.text = value;
         text.fontSize = size;
         text.enableAutoSizing = true;
-        text.fontSizeMin = Mathf.Max(14f, size - 8f);
+        text.fontSizeMin = Mathf.Max(8f, size - 8f);
         text.fontSizeMax = size;
         text.fontStyle = FontStyles.Bold;
         text.alignment = alignment;

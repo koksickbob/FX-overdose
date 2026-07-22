@@ -101,11 +101,12 @@ public sealed class TraderLevelUIController : MonoBehaviour
         levelText = CreateText(hud.transform, "LevelText", "LV.1", 19f, TextAlignmentOptions.Center);
         SetRect(levelText.rectTransform, new Vector2(0.035f, 0.16f), new Vector2(0.27f, 0.84f));
         levelText.color = new Color32(207, 250, 254, 255); // #CFFAFE
-        levelText.fontStyle = FontStyles.Bold;
+        GlobalPFStardustFont.ConfigureCompactHudText(levelText, null, 19f, 0.04f);
 
         expText = CreateText(hud.transform, "ExpText", "EXP  0 / 100", 13f, TextAlignmentOptions.Center);
         SetRect(expText.rectTransform, new Vector2(0.31f, 0.52f), new Vector2(0.94f, 0.82f));
         expText.color = new Color32(207, 250, 254, 255); // #CFFAFE
+        GlobalPFStardustFont.ConfigureCompactHudText(expText, null, 13f);
 
         expSlider = CreateExperienceBar(hud.transform);
         SetRect(expSlider.GetComponent<RectTransform>(), new Vector2(0.31f, 0.25f), new Vector2(0.94f, 0.47f));
@@ -157,6 +158,8 @@ public sealed class TraderLevelUIController : MonoBehaviour
         float maxExp = levelSystem.GetMaxProtagonistEXP(levelSystem.ProtagonistLevel);
         levelText.text = $"LV.{levelSystem.ProtagonistLevel}";
         expText.text = $"EXP  {levelSystem.ProtagonistEXP:N0} / {maxExp:N0}";
+        GlobalPFStardustFont.RefreshCompactHudText(levelText);
+        GlobalPFStardustFont.RefreshCompactHudText(expText);
         expSlider.minValue = 0f;
         expSlider.maxValue = Mathf.Max(1f, maxExp);
         expSlider.value = levelSystem.ProtagonistEXP;

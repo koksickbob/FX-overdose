@@ -109,11 +109,10 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         SetRect(icon.rectTransform, new Vector2(0.10f, 0.10f), new Vector2(0.90f, 0.90f));
 
         TMP_Text levelBadge = CreateText(go.transform, "LevelBadge", "LV.1", 11f, TextAlignmentOptions.BottomRight);
-        SetRect(levelBadge.rectTransform, new Vector2(0.40f, 0.02f), new Vector2(0.96f, 0.31f));
+        SetRect(levelBadge.rectTransform, new Vector2(0.30f, 0.02f), new Vector2(0.96f, 0.31f));
         levelBadge.color = new Color32(207, 250, 254, 255);
-        levelBadge.fontStyle = FontStyles.Bold;
-        levelBadge.outlineWidth = 0.2f;
         levelBadge.outlineColor = new Color32(11, 15, 25, 255);
+        GlobalPFStardustFont.ConfigureCompactHudText(levelBadge, null, 11f, 0.05f);
 
         Button button = go.GetComponent<Button>();
         button.targetGraphic = background;
@@ -290,7 +289,11 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         {
             Transform button = skillRow.Find($"SkillButton_{type}");
             TMP_Text badge = button?.Find("LevelBadge")?.GetComponent<TMP_Text>();
-            if (badge != null) badge.text = $"LV.{levelSystem.GetSkillLevel(type)}";
+            if (badge != null)
+            {
+                badge.text = $"LV.{levelSystem.GetSkillLevel(type)}";
+                GlobalPFStardustFont.RefreshCompactHudText(badge);
+            }
         }
     }
 
@@ -343,7 +346,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         text.alignment = alignment;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.enableAutoSizing = true;
-        text.fontSizeMin = 12f;
+        text.fontSizeMin = Mathf.Max(8f, size - 4f);
         text.fontSizeMax = size;
         text.raycastTarget = false;
         return text;
