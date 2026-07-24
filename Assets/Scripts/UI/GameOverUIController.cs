@@ -1,6 +1,5 @@
 using System.Collections;
 using FXOverdose.AI;
-using FXOverdose.AI.LLM;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -304,9 +303,6 @@ namespace FXOverdose.UI
 
             isReturningToTitle = true;
             returnTitleButton.interactable = false;
-
-            LocalLLMService llmService = FindAnyObjectByType<LocalLLMService>(FindObjectsInactive.Include);
-            llmService?.CancelGameOverSpiralLoop();
 
             if (presentationCoroutine != null)
             {

@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FXOverdose.Trading;
-using FXOverdose.AI.LLM;
 
 namespace FXOverdose.AI
 {
@@ -15,6 +14,20 @@ namespace FXOverdose.AI
         Normal = 1,  // 포지션 진입/종료, 아이템 복용, 멘탈 변화 -> 큐 대기 후 순차 출력
         High = 2,    // 스킬 업그레이드, 중요 상태 등 -> 일반 대사 가로채기(Preempt)
         Critical = 3 // 강제 청산, 오버도즈 폭주, 돌발 기믹, 극단적 차트 변동 -> High 포함 모든 진행 중 대사 즉시 가로채기
+    }
+
+    public enum EventCategory
+    {
+        General = 0,
+        ChartMovement = 1,
+        MentalChange = 2,
+        HealthChange = 3,
+        GimmickTriggered = 4,
+        ItemUsed = 5,
+        PositionOpened = 6,
+        PositionClosed = 7,
+        SkillUpgraded = 8,
+        DailySettlement = 9
     }
 
     public class AIVisualController : MonoBehaviour
@@ -43,7 +56,6 @@ namespace FXOverdose.AI
         [SerializeField] private TraderStatus traderStatus;
         [SerializeField] private TradingController tradingController;
         [SerializeField] private AITradingBrain aiBrain;
-        [SerializeField] private LocalLLMService llmService;
         [SerializeField] private Inventory inventory;
 
         [Header("비주얼 및 애니메이터")]
@@ -87,7 +99,6 @@ namespace FXOverdose.AI
             if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
-            if (llmService == null) llmService = LocalLLMService.Instance;
             if (inventory == null) inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
 
             ResolveCharacterImage();
@@ -100,13 +111,6 @@ namespace FXOverdose.AI
             if (aiBrain != null)
             {
                 aiBrain.OnAIDecisionMade += HandleAIDecisionMade;
-            }
-
-            if (llmService != null)
-            {
-                // 중복 호출 방지를 위해 카테고리 정보가 포함된 이벤트만 단일 구독
-                llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
-                llmService.OnDialogueGeneratedWithCategory += HandleLLMDialogueGeneratedWithCategory;
             }
 
             if (inventory != null)
@@ -169,10 +173,6 @@ namespace FXOverdose.AI
         private void OnDestroy()
         {
             if (aiBrain != null) aiBrain.OnAIDecisionMade -= HandleAIDecisionMade;
-            if (llmService != null)
-            {
-                llmService.OnDialogueGeneratedWithCategory -= HandleLLMDialogueGeneratedWithCategory;
-            }
             if (inventory != null)
             {
                 inventory.ItemConsumed -= HandleItemConsumed;
@@ -349,40 +349,7 @@ namespace FXOverdose.AI
             DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, EventCategory.General);
         }
 
-        private void HandleLLMDialogueGenerated(string dialogue)
-        {
-            // 하위 호환
-            DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, EventCategory.General);
-        }
 
-        private void HandleLLMDialogueGeneratedWithCategory(EventCategory category, string dialogue)
-        {
-            // 일일 정산 대사는 전용 DAILY LEDGER 안에서 표시하므로 메인 말풍선에 중복 출력하지 않습니다.
-            if (category == EventCategory.DailySettlement)
-            {
-                return;
-            }
-
-            DialoguePriority priority = DialoguePriority.Normal;
-            if (category == EventCategory.SkillUpgraded)
-            {
-                priority = DialoguePriority.High;
-            }
-            else if (traderStatus != null && (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose || traderStatus.HealthRatio <= 0.05f))
-            {
-                priority = DialoguePriority.Critical;
-            }
-            else if (category == EventCategory.GimmickTriggered || (traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Danger))
-            {
-                priority = DialoguePriority.Critical;
-            }
-            else if (category == EventCategory.ChartMovement || category == EventCategory.General)
-            {
-                priority = DialoguePriority.Low;
-            }
-
-            DisplayDialogueBalloon(dialogue, priority, category);
-        }
 
         public void DisplayDialogueBalloon(string text)
         {

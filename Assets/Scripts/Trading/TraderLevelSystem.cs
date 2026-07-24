@@ -413,11 +413,7 @@ namespace FXOverdose.Trading
                 _ => $"[스킬 업그레이드 완료 LV.{currentLevel}] 트레이딩 실력이 성장하여 더 똑똑해졌다!"
             };
 
-            var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
-            if (llm != null)
-            {
-                llm.RequestDialogue(FXOverdose.AI.LLM.EventCategory.SkillUpgraded, contextString);
-            }
+            
 
             return true;
         }
@@ -435,3 +431,5 @@ namespace FXOverdose.Trading
         }
     }
 }
+
+

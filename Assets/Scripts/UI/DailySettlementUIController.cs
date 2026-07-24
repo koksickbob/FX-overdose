@@ -1,6 +1,5 @@
 using System.Collections;
 using FXOverdose.AI;
-using FXOverdose.AI.LLM;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -33,7 +32,6 @@ namespace FXOverdose.UI
         private static readonly Color NeutralGold = new Color32(234, 179, 8, 255);      // #EAB308
 
         private GameManager gameManager;
-        private LocalLLMService llmService;
         private GameObject overlayRoot;
         private CanvasGroup overlayCanvasGroup;
         private RectTransform modalRect;
@@ -103,15 +101,6 @@ namespace FXOverdose.UI
                 gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             }
 
-            if (llmService == null)
-            {
-                llmService = FindAnyObjectByType<LocalLLMService>(FindObjectsInactive.Include);
-            }
-
-            if (llmService == null)
-            {
-                llmService = LocalLLMService.Instance;
-            }
         }
 
         private void BindEvents()
@@ -124,12 +113,7 @@ namespace FXOverdose.UI
                 gameManager.OnDayEnded += HandleDayEnded;
             }
 
-            if (llmService != null)
-            {
-                llmService.OnDialogueGeneratedWithCategory -= HandleDialogueGenerated;
-                llmService.OnDialogueGeneratedWithCategory += HandleDialogueGenerated;
             }
-        }
 
         private void UnbindEvents()
         {
@@ -138,11 +122,7 @@ namespace FXOverdose.UI
                 gameManager.OnDayEnded -= HandleDayEnded;
             }
 
-            if (llmService != null)
-            {
-                llmService.OnDialogueGeneratedWithCategory -= HandleDialogueGenerated;
             }
-        }
 
         private void HandleDayEnded()
         {
@@ -297,52 +277,18 @@ namespace FXOverdose.UI
 
         private void RequestSettlementDialogue()
         {
-            ResolveSystems();
-
             if (dialogueTimeoutCoroutine != null)
             {
                 StopCoroutine(dialogueTimeoutCoroutine);
             }
             dialogueTimeoutCoroutine = StartCoroutine(UnlockProceedAfterTimeout());
 
-            if (llmService == null)
-            {
-                settlementRequestActive = false;
-                reactionStatusText.text = "OFFLINE SUMMARY";
-                SetProceedInteractable(true);
-                return;
-            }
-
-            string context =
-                $"정산 일차: {gameManager.CurrentDay} / " +
-                $"집계 기준: {(gameManager.IsDailyPnlPartial ? "이어하기 이후" : "당일 09:00 이후")} / " +
-                $"당일 손익: {FormatSignedCurrency(currentDailyPnl)} / " +
-                $"수익률: {FormatSignedPercent(currentDailyReturn)} / " +
-                $"총 자산: ${currentTotalEquity:N2}";
-
-            // 오프라인 모드는 이 호출 안에서 동기적으로 응답하므로 반드시 구독과 상태 설정을 먼저 마칩니다.
-            llmService.RequestDialogue(EventCategory.DailySettlement, context);
-        }
-
-        private void HandleDialogueGenerated(EventCategory category, string dialogue)
-        {
-            if (category != EventCategory.DailySettlement || !settlementRequestActive || string.IsNullOrWhiteSpace(dialogue))
-            {
-                return;
-            }
-
-            reactionText.text = $"“{dialogue.Trim()}”";
-            reactionStatusText.text = "YOMI COMMENT RECEIVED";
             settlementRequestActive = false;
-
-            if (dialogueTimeoutCoroutine != null)
-            {
-                StopCoroutine(dialogueTimeoutCoroutine);
-                dialogueTimeoutCoroutine = null;
-            }
-
+            reactionStatusText.text = "LOCAL SUMMARY READY";
             SetProceedInteractable(true);
         }
+
+
 
         private IEnumerator UnlockProceedAfterTimeout()
         {

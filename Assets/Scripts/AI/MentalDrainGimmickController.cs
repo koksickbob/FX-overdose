@@ -42,18 +42,18 @@ namespace FXOverdose.AI
         private float missedSignalTimer = 0f;
 
         private bool isInitialized = false;
-        private FXOverdose.AI.LLM.LocalLLMService llmService;
+        
 
         private void TriggerGimmickDialogue(string gimmickContext, string fallbackDialogue = "")
         {
-            if (llmService == null) llmService = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            
             if (llmService != null)
             {
-                llmService.RequestDialogue(FXOverdose.AI.LLM.EventCategory.GimmickTriggered, gimmickContext);
+                llmService.RequestDialogue(FXOverdose.AI.EventCategory.GimmickTriggered, gimmickContext);
             }
             else if (!string.IsNullOrEmpty(fallbackDialogue) && visualController != null)
             {
-                visualController.DisplayDialogueBalloon(fallbackDialogue, DialoguePriority.Normal, FXOverdose.AI.LLM.EventCategory.GimmickTriggered);
+                visualController.DisplayDialogueBalloon(fallbackDialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
             }
         }
 
@@ -65,7 +65,7 @@ namespace FXOverdose.AI
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
             if (visualController == null) visualController = FindAnyObjectByType<AIVisualController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
-            if (llmService == null) llmService = FXOverdose.AI.LLM.LocalLLMService.Instance;
+            
         }
 
         private void Start()
@@ -551,3 +551,5 @@ namespace FXOverdose.AI
         }
     }
 }
+
+

@@ -3,7 +3,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using FXOverdose.AI.LLM;
 using FXOverdose.Trading;
 
 namespace FXOverdose.UI
@@ -43,8 +42,6 @@ namespace FXOverdose.UI
 
         private IEnumerator LoadAndPrepareGame()
         {
-            LocalLLMService.DeferGameStartToLoadingScreen = true;
-
             if (canvasGroup != null)
             {
                 canvasGroup.alpha = 0f;
@@ -81,15 +78,9 @@ namespace FXOverdose.UI
                 }
             }
 
-            LocalLLMService llm = LocalLLMService.Instance;
-            while (!AreGameSystemsReady(llm))
+            while (!AreChartSystemsPresent())
             {
-                float llmProgress = llm != null && llm.IsLLMReady ? 1f : 0.35f;
-                float startupProgress = llm != null && llm.IsStartupSequenceReady ? 1f : 0f;
-                float systemProgress = AreChartSystemsPresent() ? 1f : 0f;
-                float preparation = (llmProgress + startupProgress + systemProgress) / 3f;
-                string message = llm != null && llm.IsLLMReady ? "PREPARING CHART" : "WARMING UP LLM";
-                SetProgress(0.65f + preparation * 0.34f, message);
+                SetProgress(0.9f, "PREPARING CHART");
                 yield return null;
             }
 
@@ -108,11 +99,8 @@ namespace FXOverdose.UI
             Time.timeScale = timeScaleBeforeFreeze;
             ownsPostFadeFreeze = false;
 
-            // 정지 구간이 끝난 다음 LLM 첫 대사, 게임 시간과 시장을 시작합니다.
-            LocalLLMService.DeferGameStartToLoadingScreen = false;
+            // 정지 구간이 끝난 다음 게임 시간과 시장을 시작합니다.
             yield return null;
-
-            // LocalLLMService는 DontDestroyOnLoad이므로 두 번째 게임 진입에서는 Start 코루틴이 다시 실행되지 않습니다.
             // 매 진입마다 현재 GameScene의 매니저와 시장을 명시적으로 개장해 Loading 상태 고착을 방지합니다.
             GameManager gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             gameManager?.FinishLoadingAndStartPlaying();
@@ -124,12 +112,9 @@ namespace FXOverdose.UI
                 SceneManager.UnloadSceneAsync(loadingScene);
         }
 
-        private static bool AreGameSystemsReady(LocalLLMService llm)
+        private static bool AreGameSystemsReady()
         {
-            return llm != null
-                && llm.IsLLMReady
-                && llm.IsStartupSequenceReady
-                && AreChartSystemsPresent();
+            return AreChartSystemsPresent();
         }
 
         private static bool AreChartSystemsPresent()
@@ -171,9 +156,7 @@ namespace FXOverdose.UI
                 Time.timeScale = timeScaleBeforeFreeze;
                 ownsPostFadeFreeze = false;
             }
-
-            if (LocalLLMService.DeferGameStartToLoadingScreen)
-                LocalLLMService.DeferGameStartToLoadingScreen = false;
         }
     }
 }
+

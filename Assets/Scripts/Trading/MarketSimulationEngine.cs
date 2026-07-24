@@ -164,8 +164,7 @@ namespace FXOverdose.Trading
 
         private void HandleFastForwardEnded()
         {
-            var llm = FXOverdose.AI.LLM.LocalLLMService.Instance;
-            if (llm != null) llm.ClearQueueExceptSkillUpgraded();
+
 
             var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
