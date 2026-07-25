@@ -39,7 +39,7 @@ namespace FXOverdose.AI.Dialogue
         /// <summary>
         /// 새로운 상태에 기반해 가장 적절한 대사를 반환합니다.
         /// </summary>
-        public string GetDialogue(string position, string marketTrend, string mentalState, DirectionTag currentDirection, bool isProfit)
+        public string GetDialogue(string position, string marketTrend, string mentalState, DirectionTag currentDirection, bool isProfit, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel)
         {
             if (Time.time - lastDialogueTime < dialogueCooldown)
             {
@@ -62,7 +62,7 @@ namespace FXOverdose.AI.Dialogue
             }
 
             // 2. 조건부 스코어링
-            var scoredList = candidates.Select(c => new { Entry = c, Score = CalculateScore(c, mentalState, currentDirection, isProfit, position) })
+            var scoredList = candidates.Select(c => new { Entry = c, Score = CalculateScore(c, mentalState, currentDirection, isProfit, position, currentLeverage, currentMarginRatio, heroLevel, skillLevel) })
                                        .OrderByDescending(x => x.Score)
                                        .ToList();
 
@@ -97,7 +97,21 @@ namespace FXOverdose.AI.Dialogue
             return bestMatch.text;
         }
 
-        private int CalculateScore(YomiDialogueEntry entry, string currentMentalState, DirectionTag currentDirection, bool isProfit, string position)
+        /// <summary>
+        /// 이벤트 카테고리(예: SkillUpgraded)에 해당하는 대사를 반환합니다.
+        /// </summary>
+        public string GetEventDialogue(string eventCategory)
+        {
+            if (database == null) return null;
+            var candidates = database.GetEventCandidates(eventCategory);
+            if (candidates == null || candidates.Count == 0) return null;
+            
+            // 이벤트 대사도 랜덤하게 하나 선택 (간단히)
+            int r = Random.Range(0, candidates.Count);
+            return candidates[r].text;
+        }
+
+        private int CalculateScore(YomiDialogueEntry entry, string currentMentalState, DirectionTag currentDirection, bool isProfit, string position, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel)
         {
             int score = 0;
 
@@ -129,6 +143,37 @@ namespace FXOverdose.AI.Dialogue
             if (entry.mentalState == currentMentalState)
             {
                 score += 40;
+            }
+
+            // --- 추가 가중치 1: 레버리지 매칭 ---
+            if (entry.requiredLeverage > 0 && currentLeverage > 0)
+            {
+                // 레버리지 차이가 적을수록 높은 점수 부여 (최대 30점)
+                int diff = Mathf.Abs(entry.requiredLeverage - currentLeverage);
+                score += Mathf.Max(0, 30 - diff);
+            }
+
+            // --- 추가 가중치 2: 마진 리스크(풀매수) 매칭 ---
+            // 대사가 하이리스크를 가정하고, 현재 플레이어의 마진 비율이 0.7(70%) 이상이면 가점
+            if (entry.isHighMarginRisk && currentMarginRatio >= 0.7f)
+            {
+                score += 35;
+            }
+            else if (!entry.isHighMarginRisk && currentMarginRatio < 0.5f)
+            {
+                score += 15; // 로우리스크 대사인데 마진이 적으면 약간의 가점
+            }
+
+            // --- 추가 가중치 3: 짬바(레벨) 매칭 ---
+            if (entry.requiredHeroLevel > 0)
+            {
+                int diff = Mathf.Abs(entry.requiredHeroLevel - heroLevel);
+                score += Mathf.Max(0, 20 - (diff * 2)); // 차이가 적을수록 높은 점수
+            }
+            if (entry.requiredSkillLevel > 0)
+            {
+                int diff = Mathf.Abs(entry.requiredSkillLevel - skillLevel);
+                score += Mathf.Max(0, 20 - (diff * 2));
             }
 
             return score;

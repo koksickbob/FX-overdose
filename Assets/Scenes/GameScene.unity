@@ -879,7 +879,7 @@ MonoBehaviour:
   traderStatus: {fileID: 33821698}
   tradingController: {fileID: 33821697}
   aiBrain: {fileID: 33821701}
-  llmService: {fileID: 0}
+  inventory: {fileID: 0}
   characterAnimator: {fileID: 0}
   characterImage: {fileID: 0}
   dangerAuraEffect: {fileID: 0}
@@ -7906,6 +7906,52 @@ MonoBehaviour:
   m_FlexibleWidth: 0
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!1 &689305096
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 689305098}
+  - component: {fileID: 689305097}
+  m_Layer: 0
+  m_Name: YomiDialogueMatcher
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &689305097
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 689305096}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9749aa7f605b4929afb885b63ced064, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.AI.Dialogue.YomiDialogueMatcher
+  database: {fileID: 11400000, guid: 5fdf38d150fd5fe42b335ff392460ef0, type: 2}
+  dialogueCooldown: 5
+--- !u!4 &689305098
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 689305096}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 503.36548, y: 261.017, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &729306697
 GameObject:
   m_ObjectHideFlags: 0
@@ -24692,3 +24738,4 @@ SceneRoots:
   - {fileID: 33821696}
   - {fileID: 1021043941}
   - {fileID: 802092277}
+  - {fileID: 689305098}

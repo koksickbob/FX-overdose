@@ -319,12 +319,6 @@ public class TraderStatus : MonoBehaviour
         }
     }
 
-    private void TriggerLLMDialogue(FXOverdose.AI.EventCategory cat, string ctx)
-    {
-        
-        var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include); if (visual != null) visual.DisplayDialogueBalloon(ctx, FXOverdose.AI.DialoguePriority.Normal, cat);
-    }
-
     // 체력을 증가하거나 감소시키는 함수
     public void ChangeHealth(float amount)
     {
@@ -352,11 +346,9 @@ public class TraderStatus : MonoBehaviour
 
             if (prevRatio > 0.5f && currRatio <= 0.5f)
             {
-                TriggerLLMDialogue(FXOverdose.AI.EventCategory.HealthChange, "체력 50% 이하 과로 상태 진입, 눈 앞이 흐려지고 예민해짐");
             }
             else if (prevRatio > 0.2f && currRatio <= 0.2f)
             {
-                TriggerLLMDialogue(FXOverdose.AI.EventCategory.HealthChange, "체력 20% 이하 탈진 임박 상태, 머리가 깨질 듯한 극심한 수면 부족 및 두통 호소");
             }
         }
 
@@ -429,7 +421,6 @@ public class TraderStatus : MonoBehaviour
             if (currentMentalState != MentalState.Overdose)
             {
                 currentMentalState = MentalState.Overdose;
-                TriggerLLMDialogue(FXOverdose.AI.EventCategory.MentalChange, "멘탈 0 도달, 통제 불능 및 Overdose 폭주 상태");
 
                 // [슬로우 모션 기믹] 오버도즈 폭주 발동 순간 슬로우 모션 (5초간 2.5배 감속)
                 if (FXOverdose.Core.DynamicTimeRegulator.Instance != null)
@@ -461,7 +452,6 @@ public class TraderStatus : MonoBehaviour
             if (currentMentalState != MentalState.Danger)
             {
                 currentMentalState = MentalState.Danger;
-                TriggerLLMDialogue(FXOverdose.AI.EventCategory.MentalChange, "멘탈 25점 이하 경고 (Danger 상태 진입, 극심한 공포와 자책)");
 
                 if (tradingController != null && UnityEngine.Random.value < 0.4f)
                 {
@@ -477,7 +467,6 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Anxious;
                 if (lastTrackedMentalState == MentalState.Stable)
                 {
-                    TriggerLLMDialogue(FXOverdose.AI.EventCategory.MentalChange, "멘탈 50점 이하 (Anxious 불안 상태 진입)");
                 }
             }
         }
@@ -488,7 +477,6 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Stable;
                 if (lastTrackedMentalState != MentalState.Stable)
                 {
-                    TriggerLLMDialogue(FXOverdose.AI.EventCategory.MentalChange, "멘탈 50점 이상 회복 (Stable 평온 상태 회복)");
                 }
             }
         }

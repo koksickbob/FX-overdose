@@ -146,42 +146,6 @@ namespace FXOverdose.AI
             }
         }
 
-        // 4. LLM 프롬프트 주입용 최적화된 장기 기억 컨텍스트 가공
-        public string GetFormattedMemoryContextForPrompt()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            // (1) 과거 일일 요약본 중 최근 3일치 주입
-            if (dailySummaries.Count > 0)
-            {
-                sb.AppendLine("<과거 일자별 압축 기억 요약>");
-                var recentDays = dailySummaries.OrderByDescending(kvp => kvp.Key).Take(3);
-                foreach (var kvp in recentDays.Reverse())
-                {
-                    sb.AppendLine($"- {kvp.Value}");
-                }
-            }
-
-            // (2) 충격량이 컸던 핵심 트라우마 / 대박 경험 Top 3 주입
-            var topTraumas = longTermMemories
-                .Where(m => m.ImportanceScore >= 7)
-                .OrderByDescending(m => m.ImportanceScore)
-                .Take(3)
-                .ToList();
-
-            if (topTraumas.Count > 0)
-            {
-                sb.AppendLine("<각인된 강렬한 핵심 기억/트라우마>");
-                foreach (var m in topTraumas)
-                {
-                    sb.AppendLine($"- {m.ToString()}");
-                }
-            }
-
-            string result = sb.ToString().TrimEnd();
-            return string.IsNullOrEmpty(result) ? "아직 특별히 각인된 과거 기억이나 충격적인 사건은 없습니다." : result;
-        }
-
         // 새 게임 시작 시 전체 리셋
         public void ResetAll()
         {

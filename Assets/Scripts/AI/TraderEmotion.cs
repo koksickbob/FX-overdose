@@ -2,7 +2,7 @@ namespace FXOverdose.AI
 {
     /// <summary>
     /// 주인공 AI 트레이더의 정형화된 감정 표현 라벨.
-    /// LLM 프롬프트, 스프라이트 애니메이션, Fallback 대사 등 모든 시스템에서 공통으로 사용.
+    /// 대사 매칭, 스프라이트 애니메이션 등 모든 시스템에서 공통으로 사용.
     /// </summary>
     public enum TraderEmotion
     {

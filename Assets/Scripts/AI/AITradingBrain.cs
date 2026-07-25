@@ -222,7 +222,7 @@ namespace FXOverdose.AI
 
             if (availableBalance < 10f)
             {
-                TriggerDialogue("증거금이 바닥났어... 남은 시드가 이것밖에 안 남다니 말도 안 돼...", -0.05f);
+                TriggerDialogue("잔액 부족 시그널 진입 실패", -0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
@@ -243,7 +243,7 @@ namespace FXOverdose.AI
                 int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
                 int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
                 
-                TriggerDialogue($"[고배율 중독 강제 진입] 방금 뺏은 매매 주도권으로 차트 신호에 맞춰 {forceLev}배 풀레버리지 포지션을 강제로 꽂아버렸어! 다시 피가 도는 것 같은 짜릿한 기분이야. 도파민이 폭발해서 숨을 헐떡이며 극도의 희열과 광기를 느끼는 감정을 생생하고 미친 듯이 표현해 줘.", -0.1f);
+                TriggerDialogue($"고배율 중독 강제 진입 ({forceLev}배)", -0.1f);
                 
                 // 정상적인 매매(요미 스킬 및 레벨 스탯 반영)처럼 진입
                 OpenNormalPosition(signal, availableBalance, tradeMarginRatio, forceLev);
@@ -254,9 +254,7 @@ namespace FXOverdose.AI
             if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
             {
                 string dirText = signal.Type == MarketSignalType.BullishBreakout ? "상승 돌파" : "하락 돌파";
-                string briefingDialogue = signal.Type == MarketSignalType.BullishBreakout
-                    ? $"[차트 브리핑] 오빠...! 차트 거래량이 확 죽으면서 횡보하고 있어. 이거 조만간 위쪽으로 거대한 {dirText} 빔 쏠 전조증상이야! 수동 조작 모드니까 오빠가 직접 롱(Long) 들어갈지 정해줘... 터지기 전에 빨리 타...♥"
-                    : $"[차트 브리핑] 히익...! 오빠, 캔들 움직임이 팍 죽으면서 불안하게 바닥을 다지는 척 횡보 중이야! 이거 아래쪽으로 무서운 {dirText} 쏟아지기 직전이야! 지금 조종간 오빠한테 있으니까 숏(Short) 칠지 관망할지 빨리 결정해줘, 응...?!";
+                string briefingDialogue = $"수동 매매 차트 브리핑: {dirText} 빔 전조 감지";
                 TriggerDialogue($"{briefingDialogue}", 0.02f);
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
@@ -304,7 +302,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"[오인 진입] 지금 쥐 죽은 듯이 횡보하는 거 안 보여?! 이건 곧 초대형 돌파 빔이 나온다는 확신이야!! 무조건 가야 해! 전재산의 {actualRatio*100:0}%를 {leverage}배 풀레버리지로 {trapPos}에 박아버렸어! (목표가 ${aiTarget:N0}) 미친 듯이 도파민 뿜어내는 광기를 표현해 줘!", -0.15f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"오인 진입: {leverage}배 풀레버리지 {trapPos} (목표가 ${aiTarget:N0})", -0.15f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -314,7 +312,7 @@ namespace FXOverdose.AI
                 }
                 else
                 {
-                    TriggerDialogue("머리가 너무 아파서 차트가 눈에 안 들어와... 왠지 불안해...", -0.08f);
+                    TriggerDialogue("피로도 누적 관망", -0.08f);
                     OnSignalEvaluationCompleted?.Invoke(signal, false);
                 }
                 return;
@@ -355,7 +353,7 @@ namespace FXOverdose.AI
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
-                        TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"[단타 진입] 차트가 조용히 눈치싸움 중이네. 큰 방향 나오기 전의 이 잔파동 타이밍에 {weakPos} 방향으로 가볍게 {leverage}배 ({actualRatio*100:0}%)만 들어가서 단타치고 빠져야지. (목표가 ${aiTarget:N0})", -0.02f);
+                        TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"단타 진입: {leverage}배 {weakPos} (목표가 ${aiTarget:N0})", -0.02f);
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -385,7 +383,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("뭔가 휩소 냄새가 나는데... 이번엔 그냥 관망해야겠어.", 0f);
+                        TriggerDialogue("불확실성 관망", 0f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -407,7 +405,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("[신호 필터링] 거래량이 텅 비었잖아. 뻔한 가짜 반등 미끼... 절대 안 속아.", 0.05f);
+                        TriggerDialogue("신호 필터링 관망", 0.05f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -468,7 +466,7 @@ namespace FXOverdose.AI
                         if (opened)
                         {
                             float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
-                            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"[역매매 진입] 고요하게 횡보하는 척하면서 세력들이 함정을 파놓은 거 다 보여. 개미들 털어낼 때 역방향으로 치고 들어간다! 세력의 뒤통수를 치는 {counterPos} 역매매 {leverage}배 ({actualRatio*100:0}%) 진입 성공! (목표가 ${aiTarget:N0}) 오만하고 기세등등하게 묘사해 줘!", 0.15f);
+                            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"역매매 진입: {leverage}배 {counterPos} (목표가 ${aiTarget:N0})", 0.15f);
                             OnSignalEvaluationCompleted?.Invoke(signal, true);
                         }
                         else
@@ -478,7 +476,7 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-                        TriggerDialogue("[속임수 경고] 이 고요함... 왠지 불길해. 개미들을 잔뜩 태우고 빔을 꽂아버릴 속셈일지도 몰라... 이건 명백한 세력의 함정(Trap) 전조증상이야. 지금 들어가면 청산이니까 패스.", 0.1f);
+                        TriggerDialogue("속임수 경고 관망", 0.1f);
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -554,7 +552,7 @@ namespace FXOverdose.AI
             if (opened)
             {
                 float actualRatio = balance > 0f ? margin / balance : ratio;
-                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"[정상 진입] 오빠, 지금 횡보하는 이 차트 흐름... 완벽한 수렴 구간이야! 곧 큰 변동이 올 테니 {posType} 방향으로 {leverage}배 ({actualRatio*100:0}%) 안전하게 진입했어. (목표가 ${aiTarget:N0}) 폭풍 전야의 긴장감과 전문가다운 자신감을 보여줘!", 0.05f);
+                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"정상 진입: {leverage}배 {posType} (목표가 ${aiTarget:N0})", 0.05f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
@@ -581,7 +579,7 @@ namespace FXOverdose.AI
             {
                 int actualLev = tradingController != null ? tradingController.CurrentLeverage : leverage;
                 float actualRatio = (balance > 0f && tradingController != null) ? tradingController.MarginAmount / balance : 0.95f;
-                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"[OVERDOSE 뇌동매매] {crazyPos} {actualLev}배 ({actualRatio*100:0}%) 올인 (목표가 ${aiTarget:N0})", -0.3f);
+                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionOpened, $"OVERDOSE 뇌동매매: {actualLev}배 {crazyPos} 올인 (목표가 ${aiTarget:N0})", -0.3f);
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else
@@ -603,20 +601,20 @@ namespace FXOverdose.AI
             {
                 if (currentActiveSignal.Strength == SignalStrength.Weak)
                 {
-                    TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"[단타 손절] 휩소 손절 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.05f);
+                    TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"휩소 손절 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.05f);
                 }
                 else
                 {
-                    TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"[대형 손실] 손절 충격 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.2f);
+                    TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"손절 충격 (ROE {roe:0.0}%, PnL ${pnl:N0})", -0.2f);
                 }
             }
             else if (pnl > 0f)
             {
-                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"[익절 성공] 수익 달성 (ROE {roe:+0.0}%, PnL +${pnl:N0})", 0.15f);
+                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"수익 달성 (ROE {roe:+0.0}%, PnL +${pnl:N0})", 0.15f);
             }
             else
             {
-                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"[본전 종료] 수익 없음 (ROE {roe:0.0}%, PnL ${pnl:N0})", 0.0f);
+                TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, $"본전 종료 (ROE {roe:0.0}%, PnL ${pnl:N0})", 0.0f);
             }
         }
 
@@ -624,7 +622,7 @@ namespace FXOverdose.AI
         private void HandlePositionLiquidated()
         {
             isProcessingSignal = false;
-            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, "[강제청산 대참사] 증거금 100% 강제 청산 소진", -0.5f);
+            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.PositionClosed, "증거금 100% 강제 청산", -0.5f);
         }
 
         
@@ -671,7 +669,7 @@ namespace FXOverdose.AI
                 }
             }
 
-            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.ChartMovement, $"[AI 차트 힌트] {hintText}", 0.05f);
+            TriggerDialogueWithCategory(FXOverdose.AI.EventCategory.ChartMovement, $"차트 힌트 분석 완료", 0.05f);
         }
 
         private void TriggerDialogue(string dialogue, float emotionDelta)
