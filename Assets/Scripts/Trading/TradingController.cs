@@ -1345,7 +1345,7 @@ OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, prompt, FXOverdos
                 }
             }
         }
-    }
+
         private void OutputYomiDialogue(FXOverdose.AI.EventCategory cat, string fallbackText, FXOverdose.AI.DialoguePriority priority = FXOverdose.AI.DialoguePriority.Normal)
         {
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include);
@@ -1357,7 +1357,22 @@ OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, prompt, FXOverdos
             string matchedDialogue = "";
             if (FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance != null)
             {
-                matchedDialogue = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance.GetDialogue(roe, posStr);
+                var mentalState = TraderStatus.CanonicalInstance != null
+                    ? TraderStatus.CanonicalInstance.CurrentMentalState.ToString()
+                    : TraderStatus.MentalState.Stable.ToString();
+
+                FXOverdose.AI.Dialogue.DirectionTag direction = FXOverdose.AI.Dialogue.DirectionTag.None;
+                if (currentPosition == PositionType.Long)
+                    direction = roe >= 0f ? FXOverdose.AI.Dialogue.DirectionTag.Up : FXOverdose.AI.Dialogue.DirectionTag.Down;
+                else if (currentPosition == PositionType.Short)
+                    direction = roe >= 0f ? FXOverdose.AI.Dialogue.DirectionTag.Down : FXOverdose.AI.Dialogue.DirectionTag.Up;
+
+                string marketTrend = direction == FXOverdose.AI.Dialogue.DirectionTag.Up
+                    ? "Bull"
+                    : direction == FXOverdose.AI.Dialogue.DirectionTag.Down ? "Bear" : "Sideways";
+
+                matchedDialogue = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance.GetDialogue(
+                    posStr, marketTrend, mentalState, direction, roe >= 0f);
             }
             
             string finalText = string.IsNullOrEmpty(matchedDialogue) ? CleanPrompt(fallbackText) : matchedDialogue;

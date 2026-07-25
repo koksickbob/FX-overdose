@@ -52,6 +52,7 @@ public class TraderStatus : MonoBehaviour
 
     [Header("현재 상태")]
     [SerializeField] private MentalState currentMentalState;
+    private MentalState lastTrackedMentalState = MentalState.Stable;
 
     // 멘탈 감소/증가 시 원인과 함께 알리는 이벤트
     public event System.Action<float, string> OnMentalChangedWithReason;
@@ -614,4 +615,3 @@ public class TraderStatus : MonoBehaviour
         return false;
     }
 }
-

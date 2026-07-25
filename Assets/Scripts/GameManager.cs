@@ -474,11 +474,6 @@ public class GameManager : MonoBehaviour
         
         // 게임 오버 이벤트 발생 (UI 연동)
         OnGameOverEvent?.Invoke(ending);
-        
-        if (FXOverdose.AI.LLM.LocalLLMService.Instance != null)
-        {
-            FXOverdose.AI.LLM.LocalLLMService.Instance.TriggerGameOverSpiralLoop(ending.ToString());
-        }
     }
 
     // 게임 일시정지
@@ -507,4 +502,3 @@ public class GameManager : MonoBehaviour
         }
     }
 }
-

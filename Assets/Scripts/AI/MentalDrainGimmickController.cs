@@ -46,14 +46,10 @@ namespace FXOverdose.AI
 
         private void TriggerGimmickDialogue(string gimmickContext, string fallbackDialogue = "")
         {
-            
-            if (llmService != null)
+            if (visualController != null)
             {
-                llmService.RequestDialogue(FXOverdose.AI.EventCategory.GimmickTriggered, gimmickContext);
-            }
-            else if (!string.IsNullOrEmpty(fallbackDialogue) && visualController != null)
-            {
-                visualController.DisplayDialogueBalloon(fallbackDialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
+                string dialogue = string.IsNullOrEmpty(fallbackDialogue) ? gimmickContext : fallbackDialogue;
+                visualController.DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
             }
         }
 
@@ -551,5 +547,4 @@ namespace FXOverdose.AI
         }
     }
 }
-
 

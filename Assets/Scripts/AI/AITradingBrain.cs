@@ -123,12 +123,12 @@ namespace FXOverdose.AI
                 if (tradingController.IsEventTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
-                    visual.DisplayDialogueBalloon("오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
-                    visual.DisplayDialogueBalloon("오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
             else
@@ -136,12 +136,12 @@ namespace FXOverdose.AI
                 if (signal.IsTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
-                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
-                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, LLM.EventCategory.ChartMovement);
+                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
         }
@@ -699,17 +699,8 @@ namespace FXOverdose.AI
 
             FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(category, dialogue, importanceScore);
 
-            
-            if (llmService != null)
-            {
-                llmService.RequestDialogue(category, dialogue);
-            }
-            else
-            {
-                OnAIDecisionMade?.Invoke(dialogue, emotionDelta);
-            }
+            OnAIDecisionMade?.Invoke(dialogue, emotionDelta);
         }
     }
 }
-
 
