@@ -96,7 +96,7 @@ namespace FXOverdose.Events
             if (maxStartMinute <= minStartMinute) maxStartMinute = minStartMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minStartMinute, maxStartMinute);
-            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 20; // 20분 전 미리 캐싱
+            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 60; // 60분 전 미리 캐싱 (시간적 여유 확보)
             cachedLLMData = null;
             activeTemplate = null;
             isFetchingLLM = false;
@@ -111,7 +111,7 @@ namespace FXOverdose.Events
             if (maxNextMinute <= minNextMinute) maxNextMinute = minNextMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minNextMinute, maxNextMinute);
-            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 20;
+            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 60; // 60분 전 미리 캐싱
             cachedLLMData = null;
             activeTemplate = null;
             isFetchingLLM = false;
@@ -181,6 +181,14 @@ namespace FXOverdose.Events
             // 3. 일일 랜덤 발생 (하루 2회 한도 & 예정된 랜덤 시간 도달 시)
             if (eventsTriggeredToday < 2 && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
             {
+                // 💡 LLM 텍스트 생성이 아직 안 끝났다면, 이벤트 발생을 10분씩 계속 뒤로 미뤄서 게임을 멈추지 않고 기다려 줍니다!
+                if (isFetchingLLM)
+                {
+                    nextRandomTriggerMinuteOfDay += 10;
+                    Debug.Log($"[ChoiceEventController] ⏳ LLM 텍스트 생성이 아직 진행 중입니다. 이벤트 발생 시간을 {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2}으로 미룹니다.");
+                    return;
+                }
+
                 eventsTriggeredToday++;
                 lastEventTriggerGameMinutes = totalGameMinutes;
                 if (eventsTriggeredToday < 2)
