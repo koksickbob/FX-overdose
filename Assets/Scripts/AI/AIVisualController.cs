@@ -81,10 +81,13 @@ namespace FXOverdose.AI
         private readonly Dictionary<TraderEmotion, Sprite> emotionSprites = new Dictionary<TraderEmotion, Sprite>();
         private readonly Dictionary<string, Sprite> itemUseSprites = new Dictionary<string, Sprite>();
         private readonly Dictionary<SkillType, Sprite> skillUpgradeSprites = new Dictionary<SkillType, Sprite>();
+        private readonly Dictionary<TradingController.PositionType, Sprite> positionSprites = new Dictionary<TradingController.PositionType, Sprite>();
         private float emotionOverrideUntil;
         private bool isItemUseVisualActive;
         private float itemUseVisualUntil;
         private bool isSkillUpgradeVisualActive;
+        private bool isPositionVisualActive;
+        private float positionVisualUntil;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
@@ -107,6 +110,7 @@ namespace FXOverdose.AI
             LoadEmotionSprites();
             LoadItemUseSprites();
             LoadSkillUpgradeSprites();
+            LoadPositionSprites();
             ApplyEmotion(currentEmotion, true);
 
             ApplyDialogueTextStyle();
@@ -191,6 +195,13 @@ namespace FXOverdose.AI
         private void UpdateExpressionState()
         {
             if (isSkillUpgradeVisualActive) return;
+
+            if (isPositionVisualActive)
+            {
+                if (Time.unscaledTime < positionVisualUntil) return;
+                isPositionVisualActive = false;
+                ApplyEmotion(currentEmotion, true);
+            }
 
             // 아이템 사용 포즈는 게임 일시정지 여부와 관계없이 실제 시간 기준 약 1초간 최우선 표시합니다.
             if (isItemUseVisualActive)
@@ -282,6 +293,15 @@ namespace FXOverdose.AI
                 Debug.LogWarning($"[AIVisualController] 스킬 연출 스프라이트를 찾지 못했습니다: {type}", this);
         }
 
+        private void LoadPositionSprites()
+        {
+            positionSprites.Clear();
+            Sprite longSprite = Resources.Load<Sprite>("Characters/Position/Long");
+            Sprite shortSprite = Resources.Load<Sprite>("Characters/Position/Short");
+            if (longSprite != null) positionSprites[TradingController.PositionType.Long] = longSprite;
+            if (shortSprite != null) positionSprites[TradingController.PositionType.Short] = shortSprite;
+        }
+
         private void LoadItemUseSprite(string itemId, string resourceName)
         {
             Sprite sprite = Resources.Load<Sprite>($"Characters/ItemUse/{resourceName}");
@@ -341,6 +361,23 @@ namespace FXOverdose.AI
             if (!isSkillUpgradeVisualActive) return;
             isSkillUpgradeVisualActive = false;
             ApplyEmotion(currentEmotion, true);
+        }
+
+        /// <summary>LONG/SHORT 진입 방향을 몸짓으로 즉시 인지시키는 짧은 전용 포즈입니다.</summary>
+        public void ShowPositionOpen(TradingController.PositionType type, float duration = 1f)
+        {
+            if (type == TradingController.PositionType.None || isSkillUpgradeVisualActive) return;
+            if (positionSprites.Count == 0) LoadPositionSprites();
+            if (!positionSprites.TryGetValue(type, out Sprite sprite) || sprite == null) return;
+
+            ResolveCharacterImage();
+            if (characterImage == null) return;
+
+            isPositionVisualActive = true;
+            isItemUseVisualActive = false;
+            positionVisualUntil = Time.unscaledTime + Mathf.Max(0.2f, duration);
+            characterImage.sprite = sprite;
+            characterImage.preserveAspect = true;
         }
 
         /// <summary>이벤트나 연출 코드에서 19종 감정을 직접 표시할 때 사용합니다.</summary>

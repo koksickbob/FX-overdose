@@ -356,7 +356,12 @@ namespace FXOverdose.UI
 
         private IEnumerator AnimateOutAndProceed()
         {
-            const float duration = 0.18f;
+            BuildDayTransitionOverlay(
+                out GameObject dayTransitionRoot,
+                out CanvasGroup dayTransitionGroup,
+                out Image sleepingYomiImage);
+
+            const float duration = 0.45f;
             float elapsed = 0f;
 
             while (elapsed < duration)
@@ -365,13 +370,105 @@ namespace FXOverdose.UI
                 float t = Mathf.Clamp01(elapsed / duration);
                 overlayCanvasGroup.alpha = 1f - t;
                 modalRect.anchoredPosition = Vector2.Lerp(Vector2.zero, new Vector2(0f, -34f), t);
+                dayTransitionGroup.alpha = t;
+                sleepingYomiImage.rectTransform.localScale = Vector3.Lerp(
+                    new Vector3(0.96f, 0.96f, 1f),
+                    Vector3.one,
+                    t);
                 yield return null;
             }
 
             HideImmediate();
+
+            dayTransitionGroup.alpha = 1f;
+            sleepingYomiImage.rectTransform.localScale = Vector3.one;
+            yield return new WaitForSecondsRealtime(2.1f);
+
+            // 화면이 완전히 가려진 상태에서 실제 날짜·차트·시장 상태를 다음 날로 전환합니다.
+            gameManager.ProceedToNextDay();
+
+            elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                dayTransitionGroup.alpha = 1f - t;
+                yield return null;
+            }
+
+            Destroy(dayTransitionRoot);
             transitionCoroutine = null;
             isClosing = false;
-            gameManager.ProceedToNextDay();
+        }
+
+        private void BuildDayTransitionOverlay(
+            out GameObject root,
+            out CanvasGroup group,
+            out Image sleepingImage)
+        {
+            Transform parent = overlayRoot != null && overlayRoot.transform.parent != null
+                ? overlayRoot.transform.parent
+                : transform;
+
+            root = new GameObject(
+                "NextDaySleepTransition",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Canvas),
+                typeof(GraphicRaycaster),
+                typeof(CanvasGroup));
+            root.transform.SetParent(parent, false);
+
+            RectTransform rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
+            root.GetComponent<Image>().color = Color.black;
+
+            Canvas canvas = root.GetComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = SettlementSortingOrder + 100;
+
+            group = root.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = true;
+            group.interactable = true;
+
+            GameObject character = new GameObject(
+                "SleepingYomi",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            character.transform.SetParent(root.transform, false);
+            sleepingImage = character.GetComponent<Image>();
+            sleepingImage.sprite = Resources.Load<Sprite>("UI/DayTransition/SleepingYomi");
+            sleepingImage.preserveAspect = true;
+            sleepingImage.raycastTarget = false;
+            RectTransform characterRect = sleepingImage.rectTransform;
+            characterRect.anchorMin = characterRect.anchorMax = new Vector2(0.5f, 0.5f);
+            characterRect.pivot = new Vector2(0.5f, 0.5f);
+            characterRect.sizeDelta = new Vector2(680f, 680f);
+            characterRect.anchoredPosition = new Vector2(0f, 18f);
+
+            GameObject captionObject = new GameObject(
+                "NightCaption",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            captionObject.transform.SetParent(root.transform, false);
+            TMP_Text caption = captionObject.GetComponent<TextMeshProUGUI>();
+            caption.font = TMP_Settings.defaultFontAsset;
+            caption.text = "YOMI IS RESTING...";
+            caption.fontSize = 24f;
+            caption.fontStyle = FontStyles.Bold;
+            caption.alignment = TextAlignmentOptions.Center;
+            caption.color = new Color32(102, 117, 143, 255);
+            caption.raycastTarget = false;
+            RectTransform captionRect = caption.rectTransform;
+            captionRect.anchorMin = captionRect.anchorMax = new Vector2(0.5f, 0.5f);
+            captionRect.sizeDelta = new Vector2(720f, 60f);
+            captionRect.anchoredPosition = new Vector2(0f, -300f);
         }
 
         private void SetProceedInteractable(bool interactable)

@@ -896,3 +896,52 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/SkillUpgrade/ChartStudy.png`
 - `Assets/Resources/Characters/SkillUpgrade/CubePatience.png`
 - `Assets/Resources/Characters/SkillUpgrade/BookJudgment.png`
+
+### 돌발 이벤트 BREAKING NEWS 사전 등장 연출
+
+- 돌발 이벤트 발생 직후 기사 선택창을 같은 프레임에 갑자기 표시하던 흐름을 개선했습니다.
+- 게임 시간을 먼저 정지하고 약 1.6초 동안 `BREAKING NEWS!`, `돌발 이벤트 등장`, 이벤트 카테고리를 전체 화면에 표시합니다.
+- 빨간 속보 강조선, 시안 이벤트 안내, 짧은 헤드라인 펄스와 페이드 인·아웃을 적용했습니다.
+- 사전 연출이 끝난 뒤 기존 `FX WIRE` 기사와 선택지를 표시합니다.
+- `Time.unscaledDeltaTime`을 사용해 이벤트로 게임이 일시정지된 상태에서도 연출이 정상 재생됩니다.
+- 이벤트 UI가 중간에 닫히거나 교체될 경우 진행 중인 코루틴과 임시 오버레이를 함께 정리합니다.
+
+관련 파일:
+
+- `Assets/Scripts/Events/ChoiceEventPopupUIController.cs`
+
+### LONG·SHORT 포지션 방향 가시성 통합 연출
+
+- 중앙에 `▲ LONG POSITION OPENED` 또는 `▼ SHORT POSITION OPENED`와 실제 레버리지를 표시합니다.
+- 진입 순간 차트에 2px 이하의 짧은 미세 충격을 적용하고 약 1초간 전용 요미 방향 포즈를 표시합니다.
+- LONG은 상승 차트를 들고 위를 가리키고, SHORT는 하락 차트를 들고 아래를 가리키는 전용 `600×1180` 투명 스프라이트를 사용합니다.
+- 포지션 보유 중 차트 외곽선, 현재가 태그, 방향 화살표와 `LONG/SHORT ×레버리지`를 항상 함께 표시합니다.
+- 진입가 위치에는 방향색 점선과 `▲ LONG ENTRY` 또는 `▼ SHORT ENTRY` 태그를 표시합니다.
+- 익절 시 LONG 픽셀은 위로, SHORT 픽셀은 아래로 흩어지며 방향·실현 손익이 중앙 배너에 표시됩니다.
+- 손절 시 화면이 잠깐 회색으로 탈색되고 진입선이 끊어지는 듯한 무채색 픽셀 파편을 표시합니다.
+- 강제청산 시 빨간 경고 점멸 3회, `LIQUIDATED` 배너와 붉은 픽셀 파편을 표시합니다.
+- 모든 방향 구분은 색상뿐 아니라 `▲/▼` 아이콘과 `LONG/SHORT` 텍스트를 함께 사용합니다.
+- 모든 전환은 `Time.unscaledDeltaTime`과 실시간 대기를 사용해 일시정지 상태에서도 마무리됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Scripts/UI/Chart/ChartUIController.cs`
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Resources/Characters/Position/Long.png`
+- `Assets/Resources/Characters/Position/Short.png`
+
+### 다음 일차 수면 페이드 전환
+
+- 일일 정산의 `PROCEED TO DAY` 버튼을 누른 직후 다음 날로 즉시 전환되던 흐름을 개선했습니다.
+- 정산창과 동시에 검은 화면이 약 0.45초 동안 페이드 인되고 중앙에 잠든 요미를 표시합니다.
+- 베개와 네이비 담요를 사용해 쉬고 있는 전환 전용 요미 스프라이트를 새로 제작했습니다.
+- 검은 화면을 약 2.1초 유지한 뒤 완전히 가려진 상태에서 실제 날짜, 차트와 시장을 다음 날 09:00으로 전환합니다.
+- 새 아침 화면으로 약 0.45초 페이드 아웃하여 전체 전환 시간이 약 3초가 되도록 구성했습니다.
+- `Time.unscaledDeltaTime`과 `WaitForSecondsRealtime`을 사용해 정산 상태에서도 연출이 정상 재생됩니다.
+- 전환 중 전체 화면 입력을 차단하여 중복 클릭이나 다른 UI 조작을 방지합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/DailySettlementUIController.cs`
+- `Assets/Resources/UI/DayTransition/SleepingYomi.png`

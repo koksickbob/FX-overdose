@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -77,6 +79,14 @@ namespace FXOverdose.UI.Chart
         private int currentSelectedLeverage = 10;
         private int currentSelectedMarginPercent = 30; // 기본 30%
         private float selectedMarginPercentage = 0.30f;
+        private TradingController.PositionType lastVisualPosition = TradingController.PositionType.None;
+        private Canvas positionFxCanvas;
+        private CanvasGroup positionFxGroup;
+        private Image positionFxDim;
+        private RectTransform positionBannerRect;
+        private Image positionBannerImage;
+        private TMP_Text positionBannerText;
+        private Coroutine positionFxCoroutine;
 
         private void Start()
         {
@@ -87,9 +97,12 @@ namespace FXOverdose.UI.Chart
             {
                 tradingController.OnPositionChanged += RefreshPanelUI;
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
+                tradingController.OnPositionOpened += HandlePositionOpened;
+                tradingController.OnPositionClosed += HandlePositionClosed;
                 tradingController.OnTradingModeChanged += (mode) => RefreshPanelUI();
             }
 
+            BuildPositionFx();
             SetupButtons();
             SelectLeverage(currentSelectedLeverage);
             SelectMarginRatio(currentSelectedMarginPercent);
@@ -103,6 +116,8 @@ namespace FXOverdose.UI.Chart
             {
                 tradingController.OnPositionChanged -= RefreshPanelUI;
                 tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
+                tradingController.OnPositionOpened -= HandlePositionOpened;
+                tradingController.OnPositionClosed -= HandlePositionClosed;
             }
         }
 
@@ -425,7 +440,227 @@ namespace FXOverdose.UI.Chart
 
         private void HandlePositionLiquidated()
         {
+            TradingController.PositionType direction = tradingController != null
+                ? tradingController.CurrentPosition
+                : lastVisualPosition;
+            PlayPositionFx(PositionFxKind.Liquidated, direction, 0f, 0);
             RefreshPanelUI();
+        }
+
+        private enum PositionFxKind
+        {
+            Open,
+            ProfitClose,
+            LossClose,
+            Liquidated
+        }
+
+        private void HandlePositionOpened(TradingController.PositionType type, float margin, int leverage)
+        {
+            lastVisualPosition = type;
+            FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include)?.ShowPositionOpen(type, 1.05f);
+            PlayPositionFx(PositionFxKind.Open, type, 0f, leverage);
+        }
+
+        private void HandlePositionClosed(float returnedAmount, float pnl)
+        {
+            PlayPositionFx(pnl >= 0f ? PositionFxKind.ProfitClose : PositionFxKind.LossClose, lastVisualPosition, pnl, 0);
+        }
+
+        private void BuildPositionFx()
+        {
+            if (positionFxCanvas != null) return;
+            Canvas hostCanvas = GetComponentInParent<Canvas>();
+            Transform parent = hostCanvas != null ? hostCanvas.rootCanvas.transform : transform.root;
+
+            GameObject root = new("PositionDirectionFX", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup));
+            root.transform.SetParent(parent, false);
+            RectTransform rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
+            positionFxCanvas = root.GetComponent<Canvas>();
+            positionFxCanvas.overrideSorting = true;
+            positionFxCanvas.sortingOrder = 145;
+            positionFxGroup = root.GetComponent<CanvasGroup>();
+            positionFxGroup.blocksRaycasts = false;
+            positionFxGroup.interactable = false;
+
+            GameObject dim = new("DirectionFlash", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dim.transform.SetParent(root.transform, false);
+            RectTransform dimRect = dim.GetComponent<RectTransform>();
+            dimRect.anchorMin = Vector2.zero;
+            dimRect.anchorMax = Vector2.one;
+            dimRect.offsetMin = dimRect.offsetMax = Vector2.zero;
+            positionFxDim = dim.GetComponent<Image>();
+            positionFxDim.raycastTarget = false;
+            positionFxDim.color = Color.clear;
+
+            GameObject banner = new("PositionBanner", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            banner.transform.SetParent(root.transform, false);
+            positionBannerRect = banner.GetComponent<RectTransform>();
+            positionBannerRect.anchorMin = positionBannerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            positionBannerRect.sizeDelta = new Vector2(660f, 104f);
+            positionBannerImage = banner.GetComponent<Image>();
+            positionBannerImage.color = new Color32(15, 23, 42, 246);
+            Outline outline = banner.GetComponent<Outline>();
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            GameObject label = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            label.transform.SetParent(banner.transform, false);
+            RectTransform labelRect = label.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(18f, 8f);
+            labelRect.offsetMax = new Vector2(-18f, -8f);
+            positionBannerText = label.GetComponent<TextMeshProUGUI>();
+            positionBannerText.font = TMP_Settings.defaultFontAsset;
+            positionBannerText.fontSize = 34f;
+            positionBannerText.alignment = TextAlignmentOptions.Center;
+            positionBannerText.fontStyle = FontStyles.Bold;
+            positionBannerText.raycastTarget = false;
+            banner.SetActive(false);
+        }
+
+        private void PlayPositionFx(PositionFxKind kind, TradingController.PositionType direction, float pnl, int leverage)
+        {
+            BuildPositionFx();
+            if (positionFxCoroutine != null) StopCoroutine(positionFxCoroutine);
+            positionFxCoroutine = StartCoroutine(PlayPositionFxRoutine(kind, direction, pnl, leverage));
+        }
+
+        private IEnumerator PlayPositionFxRoutine(PositionFxKind kind, TradingController.PositionType direction, float pnl, int leverage)
+        {
+            bool isLong = direction != TradingController.PositionType.Short;
+            Color directionColor = isLong ? bullishColor : bearishColor;
+            string arrow = isLong ? "▲" : "▼";
+            string directionName = isLong ? "LONG" : "SHORT";
+
+            positionBannerRect.gameObject.SetActive(true);
+            positionBannerRect.localScale = new Vector3(0.92f, 0.92f, 1f);
+            positionBannerImage.GetComponent<Outline>().effectColor = directionColor;
+            positionBannerText.color = kind == PositionFxKind.Liquidated ? Color.white : directionColor;
+            positionFxGroup.alpha = 1f;
+
+            if (kind == PositionFxKind.Open)
+            {
+                positionBannerText.text = $"{arrow}  {directionName} POSITION OPENED  ·  ×{leverage}";
+                StartCoroutine(ShakeChart(0.18f, 2f));
+
+                float elapsed = 0f;
+                const float duration = 0.52f;
+                while (elapsed < duration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    positionBannerRect.localScale = Vector3.one * Mathf.Lerp(0.92f, 1f, Mathf.SmoothStep(0f, 1f, t));
+                    yield return null;
+                }
+                yield return new WaitForSecondsRealtime(0.38f);
+            }
+            else if (kind == PositionFxKind.Liquidated)
+            {
+                positionBannerText.text = "⚠  LIQUIDATED  ·  POSITION LOST";
+                positionBannerImage.GetComponent<Outline>().effectColor = bearishColor;
+                for (int i = 0; i < 3; i++)
+                {
+                    positionFxDim.color = new Color(bearishColor.r, bearishColor.g, bearishColor.b, 0.30f);
+                    yield return new WaitForSecondsRealtime(0.11f);
+                    positionFxDim.color = Color.clear;
+                    yield return new WaitForSecondsRealtime(0.10f);
+                }
+                SpawnPixelParticles(bearishColor, 0);
+                yield return new WaitForSecondsRealtime(0.45f);
+            }
+            else
+            {
+                bool profit = kind == PositionFxKind.ProfitClose;
+                positionBannerText.text = profit
+                    ? $"{arrow}  {directionName} CLOSED  +${pnl:N0}"
+                    : $"{arrow}  {directionName} CLOSED  -${Mathf.Abs(pnl):N0}";
+
+                if (profit)
+                {
+                    SpawnPixelParticles(directionColor, isLong ? 1 : -1);
+                }
+                else
+                {
+                    positionFxDim.color = new Color(0.55f, 0.58f, 0.62f, 0.28f);
+                    SpawnPixelParticles(new Color32(148, 163, 184, 255), 0);
+                    yield return new WaitForSecondsRealtime(0.18f);
+                    positionFxDim.color = Color.clear;
+                }
+                yield return new WaitForSecondsRealtime(1.25f);
+            }
+
+            float fade = 0f;
+            while (fade < 0.28f)
+            {
+                fade += Time.unscaledDeltaTime;
+                positionFxGroup.alpha = 1f - Mathf.Clamp01(fade / 0.28f);
+                yield return null;
+            }
+            positionBannerRect.gameObject.SetActive(false);
+            positionFxDim.color = Color.clear;
+            positionFxGroup.alpha = 1f;
+            positionFxCoroutine = null;
+        }
+
+        private void SpawnPixelParticles(Color color, int verticalDirection)
+        {
+            if (positionFxCanvas == null) return;
+            for (int i = 0; i < 18; i++)
+            {
+                GameObject pixel = new($"DirectionPixel_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                pixel.transform.SetParent(positionFxCanvas.transform, false);
+                RectTransform rect = pixel.GetComponent<RectTransform>();
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = Vector2.one * UnityEngine.Random.Range(6f, 14f);
+                rect.anchoredPosition = new Vector2(UnityEngine.Random.Range(-260f, 260f), UnityEngine.Random.Range(-25f, 25f));
+                Image image = pixel.GetComponent<Image>();
+                image.color = color;
+                image.raycastTarget = false;
+                StartCoroutine(AnimatePixel(pixel, verticalDirection));
+            }
+        }
+
+        private static IEnumerator AnimatePixel(GameObject pixel, int verticalDirection)
+        {
+            RectTransform rect = pixel.GetComponent<RectTransform>();
+            Image image = pixel.GetComponent<Image>();
+            Vector2 start = rect.anchoredPosition;
+            float horizontal = UnityEngine.Random.Range(-150f, 150f);
+            float vertical = verticalDirection == 0
+                ? UnityEngine.Random.Range(-90f, 90f)
+                : verticalDirection * UnityEngine.Random.Range(120f, 260f);
+            float elapsed = 0f;
+            const float duration = 0.7f;
+            while (elapsed < duration && pixel != null)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                rect.anchoredPosition = start + new Vector2(horizontal, vertical) * t;
+                Color c = image.color;
+                c.a = 1f - t;
+                image.color = c;
+                yield return null;
+            }
+            if (pixel != null) Destroy(pixel);
+        }
+
+        private static IEnumerator ShakeChart(float duration, float magnitude)
+        {
+            RectTransform chart = GameObject.Find("ChartMainPanel")?.GetComponent<RectTransform>();
+            if (chart == null) yield break;
+            Vector2 origin = chart.anchoredPosition;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                chart.anchoredPosition = origin + UnityEngine.Random.insideUnitCircle * magnitude;
+                yield return null;
+            }
+            chart.anchoredPosition = origin;
         }
     }
 }

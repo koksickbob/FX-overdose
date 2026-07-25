@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -53,6 +54,8 @@ namespace FXOverdose.Events
         private Image[] optionBackgrounds = new Image[OptionCount];
         private Image[] optionAccentBars = new Image[OptionCount];
         private Outline[] optionOutlines = new Outline[OptionCount];
+        private Coroutine breakingNewsCoroutine;
+        private GameObject breakingNewsOverlay;
 
         private void Awake()
         {
@@ -191,10 +194,86 @@ namespace FXOverdose.Events
                 return;
             }
 
+            popupPanel.SetActive(false);
+            if (breakingNewsCoroutine != null) StopCoroutine(breakingNewsCoroutine);
+            breakingNewsCoroutine = StartCoroutine(ShowBreakingNewsThenArticle(category));
+        }
+
+        public void Hide()
+        {
+            CancelInvoke(nameof(HideToast));
+            if (breakingNewsCoroutine != null)
+            {
+                StopCoroutine(breakingNewsCoroutine);
+                breakingNewsCoroutine = null;
+            }
+            if (breakingNewsOverlay != null)
+            {
+                Destroy(breakingNewsOverlay);
+                breakingNewsOverlay = null;
+            }
+            currentEvent = null;
+            currentCallback = null;
+
+            if (popupPanel != null)
+            {
+                popupPanel.SetActive(false);
+            }
+        }
+
+        private IEnumerator ShowBreakingNewsThenArticle(string category)
+        {
+            Transform overlayParent = popupPanel != null ? popupPanel.transform.parent : transform;
+            breakingNewsOverlay = CreatePanel(overlayParent, "BreakingNewsArrivalOverlay", new Color32(3, 8, 20, 242), true);
+            Stretch(breakingNewsOverlay.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
+
+            Canvas overlayCanvas = breakingNewsOverlay.AddComponent<Canvas>();
+            overlayCanvas.overrideSorting = true;
+            overlayCanvas.sortingOrder = EventPopupSortingOrder + 1;
+            breakingNewsOverlay.AddComponent<GraphicRaycaster>();
+            CanvasGroup group = breakingNewsOverlay.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            GameObject alertLine = CreatePanel(breakingNewsOverlay.transform, "AlertLine", RiskRed, false);
+            RectTransform lineRect = alertLine.GetComponent<RectTransform>();
+            Fixed(lineRect, new Vector2(0.5f, 0.5f), new Vector2(760f, 5f), new Vector2(0f, 82f));
+
+            TMP_Text headline = CreateText(breakingNewsOverlay.transform, "BreakingHeadline", 68f, AiText, TextAlignmentOptions.Center);
+            Fixed(headline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(1100f, 120f), new Vector2(0f, 12f));
+            headline.text = "<color=#EF4444>BREAKING</color> NEWS!";
+            headline.fontStyle = FontStyles.Bold;
+
+            TMP_Text arrival = CreateText(breakingNewsOverlay.transform, "EventArrival", 29f, Cyan, TextAlignmentOptions.Center);
+            Fixed(arrival.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(900f, 70f), new Vector2(0f, -70f));
+            arrival.text = $"돌발 이벤트 등장  ·  {category}";
+            arrival.fontStyle = FontStyles.Bold;
+
+            TMP_Text prompt = CreateText(breakingNewsOverlay.transform, "PreparePrompt", 17f, MutedText, TextAlignmentOptions.Center);
+            Fixed(prompt.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(800f, 50f), new Vector2(0f, -122f));
+            prompt.text = "새로운 시장 속보를 확인하세요";
+
+            yield return FadeCanvasGroup(group, 0f, 1f, 0.22f);
+
+            float pulseElapsed = 0f;
+            const float holdDuration = 1.05f;
+            while (pulseElapsed < holdDuration)
+            {
+                pulseElapsed += Time.unscaledDeltaTime;
+                float pulse = 1f + Mathf.Sin(pulseElapsed * 9f) * 0.025f;
+                headline.rectTransform.localScale = new Vector3(pulse, pulse, 1f);
+                yield return null;
+            }
+
+            yield return FadeCanvasGroup(group, 1f, 0f, 0.28f);
+            Destroy(breakingNewsOverlay);
+            breakingNewsOverlay = null;
+            breakingNewsCoroutine = null;
+
+            if (popupPanel == null || currentEvent == null) yield break;
+
             popupPanel.SetActive(true);
             popupPanel.transform.SetAsLastSibling();
             EnsureOverlayPriority();
-
             Canvas.ForceUpdateCanvases();
             RefreshArticleLayout();
 
@@ -205,16 +284,16 @@ namespace FXOverdose.Events
             }
         }
 
-        public void Hide()
+        private static IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
         {
-            CancelInvoke(nameof(HideToast));
-            currentEvent = null;
-            currentCallback = null;
-
-            if (popupPanel != null)
+            float elapsed = 0f;
+            while (elapsed < duration)
             {
-                popupPanel.SetActive(false);
+                elapsed += Time.unscaledDeltaTime;
+                group.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+                yield return null;
             }
+            group.alpha = to;
         }
 
         public void ShowToastWarning(string message)

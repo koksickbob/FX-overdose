@@ -60,6 +60,13 @@ namespace FXOverdose.UI.Chart
         private float currentChartMinPrice;
         private float currentChartMaxPrice;
         private GameManager gameManager;
+        private TradingController tradingController;
+        private Outline chartDirectionOutline;
+        private GameObject entryDirectionLine;
+        private RectTransform entryDirectionLineRect;
+        private TMP_Text entryDirectionTagText;
+        private Image entryDirectionLineImage;
+        private readonly List<Image> entryDirectionDashes = new List<Image>();
 
         private void Start()
         {
@@ -71,6 +78,8 @@ namespace FXOverdose.UI.Chart
             {
                 gameManager = FindAnyObjectByType<GameManager>();
             }
+            tradingController = FindAnyObjectByType<TradingController>();
+            BuildPositionDirectionVisuals();
 
             if (marketEngine != null)
             {
@@ -176,6 +185,117 @@ namespace FXOverdose.UI.Chart
                 UpdateCurrentPriceLine(marketEngine.CurrentPrice);
             }
             RefreshChartDisplay();
+        }
+
+        private void LateUpdate()
+        {
+            UpdatePositionDirectionVisuals();
+        }
+
+        private void BuildPositionDirectionVisuals()
+        {
+            GameObject chartPanel = GameObject.Find("ChartMainPanel");
+            if (chartPanel != null)
+            {
+                chartDirectionOutline = chartPanel.GetComponent<Outline>();
+                if (chartDirectionOutline == null) chartDirectionOutline = chartPanel.AddComponent<Outline>();
+                chartDirectionOutline.effectDistance = UIStrokeStyle.EffectDistance;
+                chartDirectionOutline.useGraphicAlpha = true;
+            }
+
+            if (chartAreaTransform == null || entryDirectionLine != null) return;
+            entryDirectionLine = new GameObject("PositionEntryDirectionLine", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            entryDirectionLine.transform.SetParent(chartAreaTransform, false);
+            entryDirectionLineRect = entryDirectionLine.GetComponent<RectTransform>();
+            entryDirectionLineRect.anchorMin = new Vector2(0f, 0.5f);
+            entryDirectionLineRect.anchorMax = new Vector2(1f, 0.5f);
+            entryDirectionLineRect.sizeDelta = new Vector2(0f, 2f);
+            entryDirectionLineImage = entryDirectionLine.GetComponent<Image>();
+            entryDirectionLineImage.raycastTarget = false;
+            entryDirectionLineImage.color = Color.clear;
+
+            for (int i = 0; i < 24; i++)
+            {
+                GameObject dash = new GameObject($"EntryDash_{i:00}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                dash.transform.SetParent(entryDirectionLine.transform, false);
+                RectTransform dashRect = dash.GetComponent<RectTransform>();
+                float x = (i + 0.5f) / 24f;
+                dashRect.anchorMin = new Vector2(x, 0.5f);
+                dashRect.anchorMax = new Vector2(x, 0.5f);
+                dashRect.sizeDelta = new Vector2(18f, 2f);
+                Image dashImage = dash.GetComponent<Image>();
+                dashImage.raycastTarget = false;
+                entryDirectionDashes.Add(dashImage);
+            }
+
+            GameObject tag = new GameObject("EntryDirectionTag", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            tag.transform.SetParent(entryDirectionLine.transform, false);
+            RectTransform tagRect = tag.GetComponent<RectTransform>();
+            tagRect.anchorMin = tagRect.anchorMax = new Vector2(0f, 0.5f);
+            tagRect.pivot = new Vector2(0f, 0.5f);
+            tagRect.anchoredPosition = new Vector2(8f, 0f);
+            tagRect.sizeDelta = new Vector2(190f, 30f);
+            tag.GetComponent<Image>().color = new Color32(15, 23, 42, 242);
+            tag.transform.SetAsLastSibling();
+
+            GameObject text = new GameObject("EntryDirectionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            text.transform.SetParent(tag.transform, false);
+            RectTransform textRect = text.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(8f, 0f);
+            textRect.offsetMax = new Vector2(-8f, 0f);
+            entryDirectionTagText = text.GetComponent<TextMeshProUGUI>();
+            entryDirectionTagText.font = TMP_Settings.defaultFontAsset;
+            entryDirectionTagText.fontSize = 14f;
+            entryDirectionTagText.alignment = TextAlignmentOptions.MidlineLeft;
+            entryDirectionTagText.fontStyle = FontStyles.Bold;
+            entryDirectionTagText.raycastTarget = false;
+            entryDirectionLine.SetActive(false);
+        }
+
+        private void UpdatePositionDirectionVisuals()
+        {
+            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
+            if (entryDirectionLine == null) BuildPositionDirectionVisuals();
+            bool hasPosition = tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None;
+            if (entryDirectionLine != null) entryDirectionLine.SetActive(hasPosition);
+
+            if (!hasPosition)
+            {
+                if (chartDirectionOutline != null) chartDirectionOutline.effectColor = new Color32(59, 75, 102, 255);
+                if (currentPriceTagBackground != null) currentPriceTagBackground.color = cyanHighlight;
+                return;
+            }
+
+            bool isLong = tradingController.CurrentPosition == TradingController.PositionType.Long;
+            Color directionColor = isLong ? bullishText : bearishText;
+            string arrow = isLong ? "▲" : "▼";
+            string label = isLong ? "LONG" : "SHORT";
+            if (chartDirectionOutline != null) chartDirectionOutline.effectColor = directionColor;
+            if (currentPriceTagBackground != null) currentPriceTagBackground.color = directionColor;
+            if (currentPriceTagText != null)
+            {
+                float displayedPrice = marketEngine != null ? marketEngine.CurrentPrice : tradingController.EntryPrice;
+                currentPriceTagText.text = $"{arrow} {label} ×{tradingController.CurrentLeverage}  {displayedPrice:N1}";
+            }
+
+            float chartHeight = chartAreaTransform != null ? chartAreaTransform.rect.height : 400f;
+            float priceAreaBottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f;
+            float priceAreaTop = chartHeight - 4f;
+            float range = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
+            float y = priceAreaBottom + ((tradingController.EntryPrice - currentChartMinPrice) / range) * (priceAreaTop - priceAreaBottom);
+            y = Mathf.Clamp(y, priceAreaBottom, priceAreaTop) - chartHeight * 0.5f;
+            if (entryDirectionLineRect != null) entryDirectionLineRect.anchoredPosition = new Vector2(0f, y);
+            foreach (Image dash in entryDirectionDashes)
+            {
+                if (dash != null) dash.color = new Color(directionColor.r, directionColor.g, directionColor.b, 0.72f);
+            }
+            if (entryDirectionTagText != null)
+            {
+                entryDirectionTagText.text = $"{arrow} {label} ENTRY  ${tradingController.EntryPrice:N1}";
+                entryDirectionTagText.color = directionColor;
+            }
         }
 
         // 상단 가격 헤더 (67,842.1 및 변동률) 업데이트
