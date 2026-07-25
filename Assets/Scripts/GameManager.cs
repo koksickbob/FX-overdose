@@ -447,6 +447,8 @@ public class GameManager : MonoBehaviour
         float totalEquity = status != null ? status.GetTotalEquity() : currentBalance;
         if (totalEquity <= 0f && currentBalance <= 0f)
         {
+
+
             currentBalance = 0f;
             if (isOverdose)
             {

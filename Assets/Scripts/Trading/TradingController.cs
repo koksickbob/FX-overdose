@@ -54,6 +54,19 @@ namespace FXOverdose.Trading
         }
         public void UnlockManualMode() { IsManualModeLockedByYomi = false; }
 
+        public void LockManualModeTemporarily(float seconds)
+        {
+            if (IsAITradingLockedByGameMode) return;
+            StartCoroutine(TemporaryLockRoutine(seconds));
+        }
+
+        private System.Collections.IEnumerator TemporaryLockRoutine(float seconds)
+        {
+            IsManualModeLockedByYomi = true;
+            yield return new WaitForSecondsRealtime(seconds);
+            IsManualModeLockedByYomi = false;
+        }
+
         private void Awake()
         {
             Instance = this;
@@ -265,6 +278,7 @@ namespace FXOverdose.Trading
 
         [Header("이벤트 포지션 관리 상태 (읽기 전용)")]
         [SerializeField] private bool isEventTradeActive = false;
+        public bool IsEventTradeActive => isEventTradeActive;
         [SerializeField] private EventPositionHandlingMode currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
         [SerializeField] private float eventTargetROELimit = 0f;
         [SerializeField] private float eventStopLossROELimit = 0f;
@@ -346,6 +360,12 @@ namespace FXOverdose.Trading
 
             // 💡 [수동 조작 모드 보호] 플레이어가 수동 조작 중이고 오버도즈 상태가 아니면 AI가 비상 물타기 및 자동 청산 로직을 수행하지 않음
             if (activeTradingMode == TradingMode.Player_Manual && !isOverdoseTradeActive)
+            {
+                return;
+            }
+
+            // ⭐ [Overdose 강제 35초 쉴드 보장] 오버도즈 중에는 AI의 익절/손절/물타기 등 모든 자동 판단(StandardAuto 포함)을 중지하고 청산(CheckLiquidation) 또는 플레이어의 아이템 사용만 허용!
+            if (isOverdoseTradeActive)
             {
                 return;
             }
@@ -585,16 +605,15 @@ namespace FXOverdose.Trading
             {
                 if (traderStatus != null && traderStatus.CurrentMentalState != TraderStatus.MentalState.Overdose && traderStatus.CurrentMental > 0f)
                 {
-                    Debug.Log("[TradingController] 💊 플레이어의 멘탈 회복 아이템 사용으로 Overdose 상태 탈출 성공 -> 죽음의 올인 포지션 비상 탈출!");
-                    isOverdoseTradeActive = false;
-                    overdoseProtectionEndTime = -1f;
-                    if (marketEngine != null) marketEngine.CancelOverdoseTrapSignal();
-
-                    var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
-                    visualCtrl?.DisplayDialogueBalloon("헉...! 약 먹으니까 갑자기 머리가 맑아졌어...!! 내가 지금 무슨 미친 짓을 한 거야?! 당장 비상 탈출해!! 하아... 식은땀 나...", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
-
-                    ClosePosition();
-                    return;
+                    // 멘탈이 회복되어도 오버도즈 때 벌려둔 포지션과 차트 함정은 수동으로 청산하기 전까지 유지됩니다.
+                    if (Time.time - lastROEDialogueTime >= 5f)
+                    {
+                        lastROEDialogueTime = Time.time;
+                        Debug.Log("[TradingController] 💊 멘탈 회복! 하지만 오버도즈 함정은 포지션 종료 전까지 유지됩니다.");
+                        var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+                        visualCtrl?.DisplayDialogueBalloon("헉...! 약 먹으니까 머리가 맑아졌어...! 내가 무슨 미친 짓을 한 거야?! 이대로 두면 다 날려먹어!! 빨리 수동으로 전환해서 청산해야 해!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+                    }
+                    return; // 수동으로 청산할 때까지 AI 개입 및 함정 유지를 위해 대기
                 }
                 else if (Time.time < overdoseProtectionEndTime)
                 {
@@ -976,6 +995,7 @@ namespace FXOverdose.Trading
             eventStopLossROELimit = 0f;
             isEventPlayerChoice = false;
             isEventTrueSignal = true;
+            IsManualModeLockedByYomi = false;
             maxObservedEventROE = 0f;
             lastReportedROEBasket = 0;
             OnPositionChanged?.Invoke();
@@ -1032,11 +1052,7 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            // ⭐ [Overdose 보호] 오버도즈 폭주 상태일 때는 플레이어가 대처할 수 있도록 35초의 연출/쉴드 시간을 보장하며, 그 전에는 지하실로 처박혀도 청산을 유예함
-            if (isOverdoseTradeActive && Time.time < overdoseProtectionEndTime - 1.0f)
-            {
-                return;
-            }
+
 
             bool isLiquidated = false;
             if (currentPosition == PositionType.Long && currentPrice <= liquidationPrice)
@@ -1162,6 +1178,13 @@ namespace FXOverdose.Trading
                 forcedDirection = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? PositionType.Short : PositionType.Long;
             }
 
+            // ⭐ [최후의 발악 보증금] 기존 포지션 청산으로 잔고가 완전히 0이 되었더라도, 극적 연출과 생존 기회를 위해 최소 100달러를 강제 대출/부여하여 올인하게 만듭니다.
+            if (gameManager.CurrentBalance <= 1f)
+            {
+                gameManager.ChangeBalance(100f - gameManager.CurrentBalance);
+                Debug.LogWarning("[TradingController] 🩸 잔고가 완전히 소멸했지만, Overdose 최후의 발악을 위해 100달러를 강제 부여합니다.");
+            }
+
             // ⭐ [확실한 0원 청산 보장 All-In] 잔고의 일부가 아닌 전액 100% 올인하여 청산 시 잔고 0원(Overdose 게임오버)을 확실히 보장합니다!
             float forcedMargin = gameManager.CurrentBalance;
             int forcedLeverage = 125;
@@ -1171,20 +1194,42 @@ namespace FXOverdose.Trading
 
             if (forcedMargin > 1f)
             {
-                isOverdoseTradeActive = true;
-                overdoseProtectionEndTime = Time.time + 35f;
-
-                // 💡 [Overdose 함정 차트 및 신호 가동] 주인공이 좋은 지점으로 착각할 가짜 초대박 신호와 함께 반대 방향 죽음의 차트 가동
-                marketEngine.TriggerOverdoseTrapSignal(forcedDirection, 35);
-
-                OpenPosition(forcedDirection, forcedMargin, forcedLeverage, aiTarget, 0f, true);
-                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
-                visual?.DisplayDialogueBalloon($"크하하하!! 완벽한 진입 타점이다!! {forcedLeverage}배 풀레버리지 남은 시드 싹 다 올인!! 오늘 끝장을 보자!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+                StartCoroutine(DelayedOverdoseRoutine(forcedDirection, forcedMargin, forcedLeverage, aiTarget));
             }
         }
 
-        public void ExecuteEmergencyTrade(PositionType posType, int leverage, int durationSeconds = 30, EventPositionHandlingMode handlingMode = EventPositionHandlingMode.StandardAuto, float customTargetROE = 0f, float customStopLossROE = 0f, bool isPlayerChoice = false, bool isTrueSignal = true, float customMarginRatio = -1f)
+        private System.Collections.IEnumerator DelayedOverdoseRoutine(PositionType forcedDirection, float forcedMargin, int forcedLeverage, float aiTarget)
         {
+            LockManualModeTemporarily(2.0f);
+            var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+            visual?.DisplayDialogueBalloon($"크하하하!! 완벽한 진입 타점이다!! {forcedLeverage}배 풀레버리지 남은 시드 싹 다 올인!! 오늘 끝장을 보자!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+            
+            yield return new WaitForSecondsRealtime(2.0f);
+
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver) yield break;
+
+            if (traderStatus != null && traderStatus.CurrentMentalState != TraderStatus.MentalState.Overdose)
+            {
+                Debug.Log("[TradingController] 2초 대기 중 멘탈 회복 감지! Overdose 강제 진입을 취소합니다.");
+                yield break;
+            }
+
+            isOverdoseTradeActive = true;
+            overdoseProtectionEndTime = Time.time + 35f;
+
+            if (marketEngine != null) marketEngine.TriggerOverdoseTrapSignal(forcedDirection, 35);
+
+            OpenPosition(forcedDirection, forcedMargin, forcedLeverage, aiTarget, 0f, true);
+        }
+
+        public void ExecuteEmergencyTrade(PositionType posType, int leverage, int durationSeconds = 30, EventPositionHandlingMode handlingMode = EventPositionHandlingMode.StandardAuto, float customTargetROE = 0f, float customStopLossROE = 0f, bool isPlayerChoice = false, bool isTrueSignal = true, float customMarginRatio = -1f, float delayBeforeOpen = 0f)
+        {
+            if (delayBeforeOpen > 0f)
+            {
+                StartCoroutine(DelayedEmergencyTradeRoutine(posType, leverage, durationSeconds, handlingMode, customTargetROE, customStopLossROE, isPlayerChoice, isTrueSignal, customMarginRatio, delayBeforeOpen));
+                return;
+            }
+
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
@@ -1199,6 +1244,17 @@ namespace FXOverdose.Trading
             {
                 Debug.Log("[TradingController] CHALLENGE 모드: AI/기믹의 강제 포지션 진입을 건너뜁니다.");
                 return;
+            }
+
+            // 💡 [핵심 수정] 뇌동매매 등 기믹 폭주 발동 시, 강제로 AI 모드로 탈환합니다. (수동 조작 잠금은 해제)
+            if (!isPlayerChoice)
+            {
+                Debug.LogWarning("[TradingController] ⚡ [기믹 폭주] AI가 뇌동매매를 위해 플레이어 통제권을 강탈합니다!");
+                if (activeTradingMode != TradingMode.AI_Auto)
+                {
+                    activeTradingMode = TradingMode.AI_Auto;
+                    OnTradingModeChanged?.Invoke(activeTradingMode);
+                }
             }
 
             // ⭐ [Overdose 통수 로직] 이미 Overdose 중일 때 이벤트 선택지가 들어오면, 무조건 이벤트 신호의 반대 방향으로 풀레버리지 탕진 스위칭
@@ -1223,6 +1279,10 @@ namespace FXOverdose.Trading
 
                 if (forcedMargin > 1f)
                 {
+                    isOverdoseTradeActive = true;
+                    overdoseProtectionEndTime = Time.time + 35f;
+                    if (marketEngine != null) marketEngine.TriggerOverdoseTrapSignal(reverseDirection, 35);
+
                     OpenPosition(reverseDirection, forcedMargin, forcedLeverage, aiTarget, 0f, true);
                 }
                 return;
@@ -1290,6 +1350,19 @@ namespace FXOverdose.Trading
                     Debug.Log($"[TradingController] ⚡ ExecuteEmergencyTrade (돌발 이벤트 강제 진입) 완료: {posType} / 증거금 ${forcedMargin:N0} / 레버리지 {leverage}배 ({protectDuration}초 이벤트 쉴드 가동, 모드: {handlingMode}, 플레이어선택: {isPlayerChoice}, 진위: {isTrueSignal})");
                 }
             }
+        }
+
+        private System.Collections.IEnumerator DelayedEmergencyTradeRoutine(PositionType posType, int leverage, int durationSeconds, EventPositionHandlingMode handlingMode, float customTargetROE, float customStopLossROE, bool isPlayerChoice, bool isTrueSignal, float customMarginRatio, float delayBeforeOpen)
+        {
+            if (!isPlayerChoice)
+            {
+                LockManualModeTemporarily(delayBeforeOpen);
+            }
+            yield return new WaitForSecondsRealtime(delayBeforeOpen);
+            
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver) yield break;
+            
+            ExecuteEmergencyTrade(posType, leverage, durationSeconds, handlingMode, customTargetROE, customStopLossROE, isPlayerChoice, isTrueSignal, customMarginRatio, 0f);
         }
 
         public void CloseAllPositions(bool isZeroFee = false)
