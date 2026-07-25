@@ -73,13 +73,14 @@ namespace FXOverdose.AI.Dialogue
             for (int i = 0; i < topTake; i++)
             {
                 var cand = scoredList[i].Entry;
-                string tag = $"{cand.mentalState}_{cand.requiredDirection}";
+                // 💡 중복 방지 태그를 대사 원문 그 자체로 변경하여 감정 상태가 같아도 다양한 대사가 출력되도록 수정
+                string tag = cand.text.GetHashCode().ToString();
                 
                 if (!recentDialogueTags.Contains(tag))
                 {
                     bestMatch = cand;
                     recentDialogueTags.Add(tag);
-                    if (recentDialogueTags.Count > 5) // 히스토리 제한
+                    if (recentDialogueTags.Count > 10) // 히스토리 제한 (다양한 대사를 위해 10개로 확장)
                     {
                         recentDialogueTags.Remove(recentDialogueTags.First());
                     }
@@ -94,7 +95,13 @@ namespace FXOverdose.AI.Dialogue
             }
 
             lastDialogueTime = Time.time;
-            return bestMatch.text;
+            
+            // 💡 동적 치환 태그 적용
+            string finalDialogue = bestMatch.text;
+            finalDialogue = finalDialogue.Replace("{leverage}", currentLeverage.ToString());
+            finalDialogue = finalDialogue.Replace("{margin}", Mathf.RoundToInt(currentMarginRatio * 100).ToString());
+            
+            return finalDialogue;
         }
 
         /// <summary>

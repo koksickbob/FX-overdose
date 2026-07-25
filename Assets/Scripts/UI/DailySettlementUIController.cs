@@ -69,6 +69,10 @@ namespace FXOverdose.UI
         private float currentDailyReturn;
         private float currentTotalEquity;
 
+        private int lastPrefetchedDay = -1;
+        private string prefetchedDiary = null;
+        private bool isFetchingDiary = false;
+
         private void Awake()
         {
             ResolveSystems();
@@ -115,18 +119,56 @@ namespace FXOverdose.UI
             {
                 gameManager.OnDayEnded -= HandleDayEnded;
                 gameManager.OnDayEnded += HandleDayEnded;
+                gameManager.OnGameMinuteAdvanced -= CheckPreFetchSettlement;
+                gameManager.OnGameMinuteAdvanced += CheckPreFetchSettlement;
             }
-
-            }
+        }
 
         private void UnbindEvents()
         {
             if (gameManager != null)
             {
                 gameManager.OnDayEnded -= HandleDayEnded;
+                gameManager.OnGameMinuteAdvanced -= CheckPreFetchSettlement;
             }
+        }
 
+        private async void CheckPreFetchSettlement()
+        {
+            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing) return;
+            
+            // 23:50에 프리페치 시도
+            if (gameManager.CurrentHour == 23 && gameManager.CurrentMinute >= 50)
+            {
+                if (lastPrefetchedDay != gameManager.CurrentDay && !isFetchingDiary)
+                {
+                    lastPrefetchedDay = gameManager.CurrentDay;
+                    isFetchingDiary = true;
+                    
+                    TraderStatus status = TraderStatus.CanonicalInstance;
+                    float startingEquity = gameManager.StartOfDayEquity;
+                    if (!float.IsFinite(startingEquity) || startingEquity <= 0.001f) startingEquity = 1f; // 안전장치
+                    float totalEquity = status != null ? status.GetTotalEquity() : gameManager.CurrentBalance;
+                    float dailyPnl = totalEquity - startingEquity;
+                    float dailyReturn = startingEquity > 0.001f ? dailyPnl / startingEquity * 100f : 0f;
+                    
+                    var generator = FXOverdose.AI.LLM.LLMSafeGenerator.Instance;
+                    if (generator != null)
+                    {
+                        try
+                        {
+                            prefetchedDiary = await generator.GenerateDailySettlementAsync(dailyReturn, 0); // TODO: 청산 횟수 연동
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError($"[DailySettlementUI] 사전 일기 생성 실패: {e.Message}");
+                            prefetchedDiary = null;
+                        }
+                    }
+                    isFetchingDiary = false;
+                }
             }
+        }
 
         private void HandleDayEnded()
         {
@@ -368,12 +410,26 @@ namespace FXOverdose.UI
             if (dialogueTimeoutCoroutine != null)
             {
                 StopCoroutine(dialogueTimeoutCoroutine);
+                dialogueTimeoutCoroutine = null;
             }
-            dialogueTimeoutCoroutine = StartCoroutine(UnlockProceedAfterTimeout());
 
-            settlementRequestActive = false;
-            reactionStatusText.text = "LOCAL SUMMARY READY";
-            SetProceedInteractable(true);
+            if (!string.IsNullOrEmpty(prefetchedDiary))
+            {
+                // 사전 생성된 LLM 일기가 있다면 즉각 출력
+                reactionText.text = prefetchedDiary;
+                reactionStatusText.text = "LOCAL SUMMARY READY";
+                settlementRequestActive = false;
+                SetProceedInteractable(true);
+                prefetchedDiary = null; // 출력 후 캐시 초기화
+            }
+            else
+            {
+                // 생성 중이거나 에러가 났다면 기존의 더미 타임아웃/하드코딩 로직 수행
+                dialogueTimeoutCoroutine = StartCoroutine(UnlockProceedAfterTimeout());
+                settlementRequestActive = true; // timeout 대기
+                reactionStatusText.text = "GENERATING YOMI COMMENT...";
+                SetProceedInteractable(false);
+            }
         }
 
 

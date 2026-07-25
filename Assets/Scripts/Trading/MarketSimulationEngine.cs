@@ -315,7 +315,9 @@ namespace FXOverdose.Trading
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
                 // 2단계 확정적 주가 제어 구간: 위너 노이즈 억제 및 확정적 드리프트 주입
-                stochasticNoise *= 0.18f; // 잔파도 최소화하되 캔들 자연스러움 유지
+                // 💡 [버그 수정] 이벤트 지속 시간이 30분으로 길어지면서 분당 drift가 매우 약해졌으므로,
+                // 랜덤 워크(stochasticNoise)가 캔들 방향을 뒤집지 않도록 노이즈를 강력하게(0.02) 억제합니다.
+                stochasticNoise *= 0.02f; 
 
                 if (isExternalEventOverride && !activeSignal.IsTrueSignal)
                 {
@@ -571,14 +573,18 @@ namespace FXOverdose.Trading
             // 💡 1단계 골든타임(GraceWindow) 2분(실시간 10초) 설정으로 AI 예고 대사 및 판단 여유 보장
             int graceMins = 2;
             currentVolatility *= (isWhipsaw ? 3.0f : 1.8f);
-            minutesUntilNextRegimeChange = durationMins + graceMins;
+            
+            // TradingController의 150초(30분) 이벤트 쉴드와 아다리가 맞도록 
+            // 실제 드리프트 시간(durationMins)에서 graceMins를 빼서 총합 30분이 되도록 맞춥니다.
+            int actualDriftMins = Mathf.Max(5, durationMins - graceMins);
+            minutesUntilNextRegimeChange = actualDriftMins + graceMins;
 
             if (targetChangePercent > 0f) currentRegime = MarketRegime.Bull;
             else if (targetChangePercent < 0f) currentRegime = MarketRegime.Bear;
             else currentRegime = MarketRegime.Squeeze;
 
-            ForceInjectSignal(sigType, SignalStrength.Strong, !isWhipsaw, targetChangePercent, durationMins, graceMins);
-            Debug.Log($"[MarketEngine] ⚡ InitiateEventSignalOverride 실행! 목표 변동률: {targetChangePercent:F2}%, 지속 캔들: {durationMins}분 (골든타임 {graceMins}분, 휩소: {isWhipsaw})");
+            ForceInjectSignal(sigType, SignalStrength.Strong, !isWhipsaw, targetChangePercent, actualDriftMins, graceMins);
+            Debug.Log($"[MarketEngine] ⚡ InitiateEventSignalOverride 실행! 목표 변동률: {targetChangePercent:F2}%, 실 드리프트: {actualDriftMins}분 (골든타임 {graceMins}분, 휩소: {isWhipsaw})");
         }
 
         // 타임프레임별 과거 캔들 리스트 조회
