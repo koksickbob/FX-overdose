@@ -78,8 +78,8 @@ public class SettingsMenuController : MonoBehaviour
                       controller.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.AI_Auto;
         string popupLabel = isChallenge
             ? "CHALLENGE: USER ONLY"
-            : isAuto ? "모드: AI 자동" : "모드: USER 수동";
-        string floatLabel = isChallenge ? "USER" : isAuto ? "AI" : "USER";
+            : isAuto ? "모드: AUTO" : "모드: USER";
+        string floatLabel = isChallenge ? "USER" : isAuto ? "AUTO" : "USER";
         Color btnColor = isChallenge
             ? new Color(0.48f, 0.16f, 0.24f, 1f)
             : isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
@@ -138,7 +138,7 @@ public class SettingsMenuController : MonoBehaviour
         floatingModeButton = go.GetComponent<Button>();
         floatingModeButton.targetGraphic = floatingModeImage;
 
-        floatingModeText = CreateText(go.transform, "Label", "AI", 13f, TextAlignmentOptions.Center);
+        floatingModeText = CreateText(go.transform, "Label", "AUTO", 13f, TextAlignmentOptions.Center);
         floatingModeText.outlineColor = new Color32(11, 15, 25, 255);
         GlobalPFStardustFont.ConfigureCompactHudText(floatingModeText, font, 13f, 0.05f);
         Stretch(floatingModeText.rectTransform);
@@ -363,7 +363,7 @@ public class SettingsMenuController : MonoBehaviour
         SetRect(paused.rectTransform, new Vector2(0.08f, 0.62f), new Vector2(0.92f, 0.75f));
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
-        popupModeButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: AI 자동", new Color(0.12f, 0.48f, 0.72f, 1f));
+        popupModeButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: AUTO", new Color(0.12f, 0.48f, 0.72f, 1f));
         SetRect(popupModeButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.50f), new Vector2(0.74f, 0.58f));
         popupModeImage = popupModeButton.GetComponent<Image>();
         popupModeText = popupModeButton.GetComponentInChildren<TMP_Text>();

@@ -82,12 +82,14 @@ namespace FXOverdose.AI
         private readonly Dictionary<string, Sprite> itemUseSprites = new Dictionary<string, Sprite>();
         private readonly Dictionary<SkillType, Sprite> skillUpgradeSprites = new Dictionary<SkillType, Sprite>();
         private readonly Dictionary<TradingController.PositionType, Sprite> positionSprites = new Dictionary<TradingController.PositionType, Sprite>();
+        private Sprite overdoseStateSprite;
         private float emotionOverrideUntil;
         private bool isItemUseVisualActive;
         private float itemUseVisualUntil;
         private bool isSkillUpgradeVisualActive;
         private bool isPositionVisualActive;
         private float positionVisualUntil;
+        private bool isOverdoseStateVisualActive;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
@@ -111,6 +113,7 @@ namespace FXOverdose.AI
             LoadItemUseSprites();
             LoadSkillUpgradeSprites();
             LoadPositionSprites();
+            overdoseStateSprite = Resources.Load<Sprite>("Characters/States/Overdose");
             ApplyEmotion(currentEmotion, true);
 
             ApplyDialogueTextStyle();
@@ -214,6 +217,19 @@ namespace FXOverdose.AI
 
             if (traderStatus == null) return;
 
+            if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+            {
+                ApplyOverdoseStateVisual();
+                return;
+            }
+
+            if (isOverdoseStateVisualActive)
+            {
+                isOverdoseStateVisualActive = false;
+                // 전용 오버도즈 스프라이트에서 회복한 즉시 현재 감정 스프라이트를 다시 적용합니다.
+                ApplyEmotion(currentEmotion, true);
+            }
+
             if (Time.unscaledTime < emotionOverrideUntil) return;
 
             float roe = CalculateCurrentRoe();
@@ -300,6 +316,32 @@ namespace FXOverdose.AI
             Sprite shortSprite = Resources.Load<Sprite>("Characters/Position/Short");
             if (longSprite != null) positionSprites[TradingController.PositionType.Long] = longSprite;
             if (shortSprite != null) positionSprites[TradingController.PositionType.Short] = shortSprite;
+        }
+
+        private void ApplyOverdoseStateVisual()
+        {
+            if (isOverdoseStateVisualActive) return;
+            if (overdoseStateSprite == null)
+                overdoseStateSprite = Resources.Load<Sprite>("Characters/States/Overdose");
+            if (overdoseStateSprite == null) return;
+
+            ResolveCharacterImage();
+            if (characterImage == null) return;
+
+            isOverdoseStateVisualActive = true;
+            currentEmotion = TraderEmotion.Manic;
+            characterImage.sprite = overdoseStateSprite;
+            characterImage.preserveAspect = true;
+
+            // 전용 이미지 자체에 오오라가 포함되어 있으므로 기존 보조 오오라와 중복되지 않게 합니다.
+            if (dangerAuraEffect != null && dangerAuraEffect.activeSelf)
+                dangerAuraEffect.SetActive(false);
+
+            if (characterAnimator != null)
+            {
+                characterAnimator.SetInteger("ExpressionState", (int)TraderEmotion.Manic);
+                characterAnimator.SetTrigger("OnExpressionChanged");
+            }
         }
 
         private void LoadItemUseSprite(string itemId, string resourceName)

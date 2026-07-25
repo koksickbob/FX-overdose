@@ -917,8 +917,8 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - LONG은 상승 차트를 들고 위를 가리키고, SHORT는 하락 차트를 들고 아래를 가리키는 전용 `600×1180` 투명 스프라이트를 사용합니다.
 - 포지션 보유 중 차트 외곽선, 현재가 태그, 방향 화살표와 `LONG/SHORT ×레버리지`를 항상 함께 표시합니다.
 - 진입가 위치에는 방향색 점선과 `▲ LONG ENTRY` 또는 `▼ SHORT ENTRY` 태그를 표시합니다.
-- 익절 시 LONG 픽셀은 위로, SHORT 픽셀은 아래로 흩어지며 방향·실현 손익이 중앙 배너에 표시됩니다.
-- 손절 시 화면이 잠깐 회색으로 탈색되고 진입선이 끊어지는 듯한 무채색 픽셀 파편을 표시합니다.
+- 익절 시 포지션 방향과 관계없이 초록색 결과 배너를 표시하고, LONG 픽셀은 위로, SHORT 픽셀은 아래로 흩어집니다.
+- 손절 시 포지션 방향과 관계없이 빨간색 결과 배너·화면 플래시와 손실 픽셀 파편을 표시합니다.
 - 강제청산 시 빨간 경고 점멸 3회, `LIQUIDATED` 배너와 붉은 픽셀 파편을 표시합니다.
 - 모든 방향 구분은 색상뿐 아니라 `▲/▼` 아이콘과 `LONG/SHORT` 텍스트를 함께 사용합니다.
 - 모든 전환은 `Time.unscaledDeltaTime`과 실시간 대기를 사용해 일시정지 상태에서도 마무리됩니다.
@@ -961,3 +961,77 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Editor/TradingViewUIBuilder.cs`
 - `Assets/Scripts/Items/DynamicShopUI.cs`
 - `Assets/Scripts/Items/ShopItemButton.cs`
+
+### 일차 종료 DAY COMPLETE 사전 연출
+
+- 24:00 도달 직후 일일 정산 결과창이 갑자기 표시되던 흐름을 개선했습니다.
+- 결과창 전에 약 1.45초 동안 `DAY 01 COMPLETE`, `오늘 거래 종료 · 24:00`, `DAILY SETTLEMENT READY`를 전체 화면에 표시합니다.
+- 돌발 이벤트 `BREAKING NEWS`와 같은 인지용 전환 구조를 사용하되, 일일 마감에 맞춘 시안·골드 색상과 짧은 헤드라인 펄스를 적용했습니다.
+- 0.22초 페이드 인, 0.95초 유지, 0.28초 페이드 아웃 후 기존 `DAILY LEDGER` 결과창을 표시합니다.
+- Settlement 상태와 입력 차단을 유지하며 `Time.unscaledDeltaTime`으로 일시정지 상태에서도 정상 재생됩니다.
+- 컨트롤러 비활성화나 파괴 시 진행 중인 코루틴과 임시 오버레이를 정리합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/DailySettlementUIController.cs`
+
+### 매매 모드 AUTO·USER 표기 정리
+
+- 우측 상단 매매 모드 버튼의 `AI` 표기를 `AUTO`로 변경하고 수동 모드는 기존 `USER`를 유지합니다.
+- 설정 팝업의 `모드: AI 자동`, `모드: USER 수동`을 각각 `모드: AUTO`, `모드: USER`로 간결하게 변경했습니다.
+- 하단 거래 카드의 `AI 자동 매수 대기`, `AI 자동 매도 대기` 문구를 `자동 매수 대기`, `자동 매도 대기`로 변경했습니다.
+- 자동 포지션 보유 표기도 `(AI)`에서 `(AUTO)`로 통일했습니다.
+- 빌드에서 PF Stardust 동적 아틀라스가 초기화되어도 `AUTO`의 `T`, `O` 글리프가 미리 준비되도록 소형 HUD 글자 집합을 확장했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/SettingsMenuController.cs`
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Scripts/UI/GlobalPFStardustFont.cs`
+
+### 오버도즈 전용 멘헤라 캐릭터 스프라이트
+
+- 기존 `Manic` 감정 스프라이트를 재사용하던 오버도즈 상태에 별도 전용 요미 스프라이트를 추가했습니다.
+- 불안정한 집착 미소, 핑크·보라색 발광 동공, 붉어진 얼굴과 가슴 앞에서 긴장한 양손으로 멘헤라 분위기를 강조했습니다.
+- 캐릭터 주변에 네온 마젠타·보라 픽셀 오오라, 깨진 하트와 글리치 파편을 포함했습니다.
+- 기존 감정 스프라이트와 같은 `600×1180` 투명 캔버스와 캐릭터 기준선을 사용합니다.
+- `TraderStatus.MentalState.Overdose` 상태에서는 일반 감정 판정보다 전용 스프라이트를 우선 표시합니다.
+- 오버도즈에서 회복하면 현재 감정 스프라이트로 즉시 복귀합니다.
+- 전용 이미지 자체의 오오라와 기존 보조 오오라가 중복되지 않도록 오버도즈 표시 중 보조 오오라를 비활성화합니다.
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Resources/Characters/States/Overdose.png`
+### 요미 바니걸 코스튬 스프라이트
+
+- 기존 `Pleased` 스프라이트를 기준으로 요미의 얼굴, 장발, 아호게, 앉아 있는 기본 자세와 픽셀 아트 스타일을 유지한 바니걸 전신 스프라이트를 제작했다.
+- 검정 바니 슈트, 흰 칼라와 커프스, 마젠타 리본, 검정 스타킹 구성으로 디자인했다.
+- `Assets/Resources/Characters/Costumes/BunnyGirl.png`에 600x1180 투명 PNG로 추가했으며 Point 필터와 무압축 Sprite 임포트 설정을 적용했다.
+### 요미 Standard 비율 리뉴얼 스프라이트
+
+- 바니걸 스프라이트의 길어진 성인 등신 비율을 기준으로 요미의 기본 상태 스프라이트 한 장을 새로 제작했다.
+- 기존 요미의 흰 반팔 티셔츠, 흰 파이핑이 들어간 검정 반바지, 맨발과 앉은 자세를 유지했다.
+- `Assets/Resources/Characters/States/Standard.png`에 600x1180 투명 PNG로 추가했으며 Point 필터와 무압축 Sprite 임포트 설정을 적용했다.
+
+### 요미 전신 스프라이트 자연 비율 리뉴얼
+
+- 기존 프로젝트 요미의 남청색 머리, 청회색 하이라이트, 금빛 눈, 복숭아색 피부와 픽셀 명암을 기준으로 캐릭터 디자인을 유지했습니다.
+- 흰 반팔 티셔츠와 흰 파이핑 검정 돌핀팬츠를 공통 의상으로 사용하고, 자연스럽게 연결되는 상체·골반·하체 비율로 기본형을 교체했습니다.
+- 감정 19종, 아이템 사용 4종, 스킬 행동 3종, LONG·SHORT 포지션 2종, 오버도즈 1종을 같은 체형 기준으로 리뉴얼했습니다.
+- 팔을 접거나 소품을 드는 변형에서도 상완·전완 길이, 팔꿈치 위치와 손 크기가 급격히 변하지 않도록 보정했습니다.
+- 전체 30장을 `600×1180` RGBA 투명 PNG로 정규화했으며 기존 `.meta`를 유지해 Unity GUID와 런타임 리소스 경로를 보존했습니다.
+- 게임 화면에서 캐릭터가 지나치게 작게 보이지 않도록 투명 여백을 재조정하고, 각 스프라이트의 실제 표시 높이를 약 `1120px`로 통일했습니다.
+- 추가로 적용했던 캐릭터 UI 표시 영역 `1.25배` 확대는 화면 점유율이 과해 롤백하고, 스프라이트 내부 실제 표시 높이 약 `1120px` 확대만 유지했습니다.
+- 이후 현재 캐릭터 중심 위치를 유지한 상태에서 표시 영역만 가로·세로 `1.25배` 확대하도록 다시 조정했습니다.
+- 하단 고정 방식 대신 기존 앵커 중심을 기준으로 좌우·상하에 대칭 확장해 확대 전후 캐릭터 중심 위치가 움직이지 않습니다.
+- 교체 전 원본 PNG와 `.meta`는 `Backups/YomiSprites_PreRenewal_20260725/`에 별도로 보존했습니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/States/`
+- `Assets/Resources/Characters/Emotions/`
+- `Assets/Resources/Characters/ItemUse/`
+- `Assets/Resources/Characters/SkillUpgrade/`
+- `Assets/Resources/Characters/Position/`
+- `Backups/YomiSprites_PreRenewal_20260725/`

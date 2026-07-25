@@ -60,6 +60,8 @@ namespace FXOverdose.UI
 
         private Coroutine transitionCoroutine;
         private Coroutine dialogueTimeoutCoroutine;
+        private Coroutine dayCompleteCoroutine;
+        private GameObject dayCompleteOverlay;
         private bool settlementRequestActive;
         private bool isClosing;
         private int lastPresentedDay = -1;
@@ -86,11 +88,13 @@ namespace FXOverdose.UI
 
         private void OnDisable()
         {
+            CleanupDayCompleteAnnouncement();
             UnbindEvents();
         }
 
         private void OnDestroy()
         {
+            CleanupDayCompleteAnnouncement();
             UnbindEvents();
         }
 
@@ -132,13 +136,97 @@ namespace FXOverdose.UI
                 return;
             }
 
-            if (lastPresentedDay == gameManager.CurrentDay && overlayRoot != null && overlayRoot.activeSelf)
+            if (lastPresentedDay == gameManager.CurrentDay)
             {
                 return;
             }
 
             lastPresentedDay = gameManager.CurrentDay;
-            ShowSettlement();
+            if (dayCompleteCoroutine != null) StopCoroutine(dayCompleteCoroutine);
+            dayCompleteCoroutine = StartCoroutine(ShowDayCompleteThenSettlement(gameManager.CurrentDay));
+        }
+
+        private IEnumerator ShowDayCompleteThenSettlement(int completedDay)
+        {
+            EnsureUIBuilt();
+            Transform parent = overlayRoot != null && overlayRoot.transform.parent != null
+                ? overlayRoot.transform.parent
+                : transform;
+
+            dayCompleteOverlay = CreatePanel(parent, "DayCompleteAnnouncement", new Color32(3, 8, 20, 244), true);
+            Stretch(dayCompleteOverlay.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
+            Canvas canvas = dayCompleteOverlay.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = SettlementSortingOrder + 20;
+            dayCompleteOverlay.AddComponent<GraphicRaycaster>();
+            CanvasGroup group = dayCompleteOverlay.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            GameObject upperRule = CreatePanel(dayCompleteOverlay.transform, "UpperRule", NeutralGold, false);
+            Fixed(upperRule.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(760f, 4f), new Vector2(0f, 92f));
+
+            TMP_Text headline = CreateText(dayCompleteOverlay.transform, "DayComplete", 62f, AiText, TextAlignmentOptions.Center);
+            Fixed(headline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(1100f, 110f), new Vector2(0f, 22f));
+            headline.text = $"<color=#EAB308>DAY {completedDay:00}</color> COMPLETE";
+            headline.fontStyle = FontStyles.Bold;
+
+            TMP_Text closed = CreateText(dayCompleteOverlay.transform, "SessionClosed", 28f, Cyan, TextAlignmentOptions.Center);
+            Fixed(closed.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(900f, 64f), new Vector2(0f, -65f));
+            closed.text = "오늘 거래 종료  ·  24:00";
+            closed.fontStyle = FontStyles.Bold;
+
+            TMP_Text ready = CreateText(dayCompleteOverlay.transform, "SettlementReady", 17f, MutedText, TextAlignmentOptions.Center);
+            Fixed(ready.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(800f, 48f), new Vector2(0f, -116f));
+            ready.text = "DAILY SETTLEMENT READY";
+            ready.characterSpacing = 1.1f;
+
+            yield return FadeCanvasGroup(group, 0f, 1f, 0.22f);
+
+            float elapsed = 0f;
+            const float holdDuration = 0.95f;
+            while (elapsed < holdDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float pulse = 1f + Mathf.Sin(elapsed * 8f) * 0.018f;
+                headline.rectTransform.localScale = new Vector3(pulse, pulse, 1f);
+                yield return null;
+            }
+
+            yield return FadeCanvasGroup(group, 1f, 0f, 0.28f);
+            if (dayCompleteOverlay != null) Destroy(dayCompleteOverlay);
+            dayCompleteOverlay = null;
+            dayCompleteCoroutine = null;
+
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Settlement)
+            {
+                ShowSettlement();
+            }
+        }
+
+        private static IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                group.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+                yield return null;
+            }
+            group.alpha = to;
+        }
+
+        private void CleanupDayCompleteAnnouncement()
+        {
+            if (dayCompleteCoroutine != null)
+            {
+                StopCoroutine(dayCompleteCoroutine);
+                dayCompleteCoroutine = null;
+            }
+            if (dayCompleteOverlay != null)
+            {
+                Destroy(dayCompleteOverlay);
+                dayCompleteOverlay = null;
+            }
         }
 
         public void ShowSettlement()

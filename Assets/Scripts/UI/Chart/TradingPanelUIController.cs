@@ -363,14 +363,14 @@ namespace FXOverdose.UI.Chart
             if (longSubtitleText != null)
             {
                 longSubtitleText.text = hasPosition
-                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AI)" : "대기중"))
-                    : (isManualMode ? "LONG 수동 매수" : "AI 자동 매수 대기");
+                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AUTO)" : "대기중"))
+                    : (isManualMode ? "LONG 수동 매수" : "자동 매수 대기");
             }
             if (shortSubtitleText != null)
             {
                 shortSubtitleText.text = hasPosition
-                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AI)" : "대기중"))
-                    : (isManualMode ? "SHORT 수동 매도" : "AI 자동 매도 대기");
+                    ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AUTO)" : "대기중"))
+                    : (isManualMode ? "SHORT 수동 매도" : "자동 매도 대기");
             }
 
             // 상태 오버레이 패널 및 탭 바 표시 여부
@@ -589,18 +589,21 @@ namespace FXOverdose.UI.Chart
             else
             {
                 bool profit = kind == PositionFxKind.ProfitClose;
+                Color resultColor = profit ? bullishColor : bearishColor;
                 positionBannerText.text = profit
                     ? $"{arrow}  {directionName} CLOSED  +${pnl:N0}"
                     : $"{arrow}  {directionName} CLOSED  -${Mathf.Abs(pnl):N0}";
+                positionBannerText.color = resultColor;
+                positionBannerImage.GetComponent<Outline>().effectColor = resultColor;
 
                 if (profit)
                 {
-                    SpawnPixelParticles(directionColor, isLong ? 1 : -1);
+                    SpawnPixelParticles(resultColor, isLong ? 1 : -1);
                 }
                 else
                 {
-                    positionFxDim.color = new Color(0.55f, 0.58f, 0.62f, 0.28f);
-                    SpawnPixelParticles(new Color32(148, 163, 184, 255), 0);
+                    positionFxDim.color = new Color(resultColor.r, resultColor.g, resultColor.b, 0.20f);
+                    SpawnPixelParticles(resultColor, 0);
                     yield return new WaitForSecondsRealtime(0.18f);
                     positionFxDim.color = Color.clear;
                 }

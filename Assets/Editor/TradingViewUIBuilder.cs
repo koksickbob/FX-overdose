@@ -797,8 +797,8 @@ namespace FXOverdose.EditorTools
             GameObject charGO = CreateUIObject("ProtagonistCharacterImage", canvas.transform);
             RectTransform charRect = charGO.GetComponent<RectTransform>();
             // 우측 캐릭터 영역의 왼쪽 아래에 배치합니다.
-            charRect.anchorMin = new Vector2(0.515f, 0.060f);
-            charRect.anchorMax = new Vector2(0.775f, 0.700f);
+            charRect.anchorMin = new Vector2(0.4825f, -0.020f);
+            charRect.anchorMax = new Vector2(0.8075f, 0.780f);
             charRect.offsetMin = Vector2.zero;
             charRect.offsetMax = Vector2.zero;
 

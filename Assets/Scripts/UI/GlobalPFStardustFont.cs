@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 /// <summary>모든 런타임 TMP 텍스트에 프로젝트 기본 폰트(PF Stardust)를 적용합니다.</summary>
 public static class GlobalPFStardustFont
 {
-    private const string CompactHudCharacters = " AIUSERLV.EXP/0123456789";
+    private const string CompactHudCharacters = " AUTOUSERLV.EXP/0123456789";
     private static readonly HashSet<TMP_FontAsset> WarmedFonts = new();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
