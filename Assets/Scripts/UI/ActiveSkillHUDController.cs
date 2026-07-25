@@ -27,13 +27,20 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private TMP_Text upgradeButtonText;
     private TMP_Text upgradeFeedbackText;
     private SkillType selectedSkill;
+    private GameObject timeTransitionOverlay;
+    private CanvasGroup timeTransitionGroup;
+    private TMP_Text timeTransitionTitle;
+    private TMP_Text timeTransitionClock;
+    private bool isUpgradeSequencePlaying;
 
     private void Awake()
     {
         EnsureLevelSystem();
         BuildSkillRow();
         BuildInfoPopup();
+        BuildTimeTransitionOverlay();
         infoOverlay.SetActive(false);
+        timeTransitionOverlay.SetActive(false);
     }
 
     private void OnEnable()
@@ -205,6 +212,35 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         cornerClose.onClick.AddListener(CloseInfo);
     }
 
+    private void BuildTimeTransitionOverlay()
+    {
+        timeTransitionOverlay = CreateUIObject("SkillTimeTransitionOverlay", transform, typeof(Canvas), typeof(GraphicRaycaster), typeof(CanvasGroup));
+        Stretch(timeTransitionOverlay.GetComponent<RectTransform>());
+        // 캐릭터의 공부 포즈가 뒤에서 충분히 보이도록 반투명 딤만 적용합니다.
+        timeTransitionOverlay.GetComponent<Image>().color = new Color32(3, 8, 20, 190);
+
+        Canvas canvas = timeTransitionOverlay.GetComponent<Canvas>();
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 360;
+        timeTransitionGroup = timeTransitionOverlay.GetComponent<CanvasGroup>();
+        timeTransitionGroup.alpha = 0f;
+        timeTransitionGroup.blocksRaycasts = true;
+
+        timeTransitionTitle = CreateText(timeTransitionOverlay.transform, "Activity", "", 32f, TextAlignmentOptions.Center);
+        SetRect(timeTransitionTitle.rectTransform, new Vector2(0.2f, 0.52f), new Vector2(0.8f, 0.62f));
+        timeTransitionTitle.color = new Color32(207, 250, 254, 255);
+        timeTransitionTitle.fontStyle = FontStyles.Bold;
+
+        timeTransitionClock = CreateText(timeTransitionOverlay.transform, "TimeJump", "", 52f, TextAlignmentOptions.Center);
+        SetRect(timeTransitionClock.rectTransform, new Vector2(0.15f, 0.39f), new Vector2(0.85f, 0.52f));
+        timeTransitionClock.color = new Color32(6, 182, 212, 255);
+        timeTransitionClock.fontStyle = FontStyles.Bold;
+
+        TMP_Text hint = CreateText(timeTransitionOverlay.transform, "Hint", "시간이 흐릅니다", 17f, TextAlignmentOptions.Center);
+        SetRect(hint.rectTransform, new Vector2(0.25f, 0.33f), new Vector2(0.75f, 0.39f));
+        hint.color = new Color32(148, 163, 184, 255);
+    }
+
     private void OpenInfo(SkillType type)
     {
         selectedSkill = type;
@@ -251,28 +287,83 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         if (levelSystem == null) levelSystem = TraderLevelSystem.Instance;
         if (levelSystem == null) return;
 
-        bool upgraded = levelSystem.TryUpgradeSkillWithCost(selectedSkill);
-
-        // 비용 차감과 레벨 변경 결과를 먼저 UI 전체에 반영합니다.
-        RefreshButtonLevels();
-        RefreshInfo();
-
-        // RefreshInfo가 다음 단계의 조건 부족 메시지를 표시하더라도,
-        // 방금 실행한 업그레이드의 성공 결과를 사용자가 확인할 수 있게 마지막에 덮어씁니다.
-        if (upgraded)
+        if (isUpgradeSequencePlaying) return;
+        if (!levelSystem.CanUpgradeSkill(selectedSkill, out string reason))
         {
             if (upgradeFeedbackText != null)
             {
-                upgradeFeedbackText.text = $"{GetDisplayName(selectedSkill)} 업그레이드 완료!";
-                upgradeFeedbackText.color = new Color32(34, 197, 94, 255);
+                upgradeFeedbackText.text = reason;
+                upgradeFeedbackText.color = new Color32(239, 68, 68, 255);
             }
+            return;
         }
-        else if (upgradeFeedbackText != null)
+
+        StartCoroutine(PlayUpgradeSequence(selectedSkill));
+    }
+
+    private IEnumerator PlayUpgradeSequence(SkillType type)
+    {
+        isUpgradeSequencePlaying = true;
+        if (upgradeButton != null) upgradeButton.interactable = false;
+
+        GameManager gameManager = FindAnyObjectByType<GameManager>();
+        FXOverdose.AI.AIVisualController visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+        int timeHours = levelSystem.GetSkillTimeCostHours(type);
+        string beforeTime = FormatGameTime(gameManager);
+
+        visual?.BeginSkillUpgradeVisual(type);
+        infoOverlay.SetActive(false);
+        timeTransitionTitle.text = $"{GetDisplayName(type)} 중...";
+        timeTransitionClock.text = $"{beforeTime}  →  +{timeHours}시간";
+        timeTransitionOverlay.SetActive(true);
+        timeTransitionOverlay.transform.SetAsLastSibling();
+
+        yield return FadeTransition(0f, 1f, 0.35f);
+        yield return new WaitForSecondsRealtime(0.7f);
+
+        bool upgraded = levelSystem.TryUpgradeSkillWithCost(type);
+        timeTransitionTitle.text = upgraded ? $"{GetDisplayName(type)} 완료" : "업그레이드 중단";
+        timeTransitionClock.text = upgraded
+            ? $"{beforeTime}  →  {FormatGameTime(gameManager)}"
+            : beforeTime;
+
+        yield return new WaitForSecondsRealtime(1.1f);
+        yield return FadeTransition(1f, 0f, 0.35f);
+
+        timeTransitionOverlay.SetActive(false);
+        visual?.EndSkillUpgradeVisual();
+
+        RefreshButtonLevels();
+        OpenInfo(type);
+        if (upgradeFeedbackText != null)
         {
-            levelSystem.CanUpgradeSkill(selectedSkill, out string reason);
-            upgradeFeedbackText.text = string.IsNullOrEmpty(reason) ? "업그레이드에 실패했습니다." : reason;
-            upgradeFeedbackText.color = new Color32(239, 68, 68, 255);
+            upgradeFeedbackText.text = upgraded
+                ? $"{GetDisplayName(type)} 업그레이드 완료!  {timeHours}시간 경과"
+                : "업그레이드에 실패했습니다.";
+            upgradeFeedbackText.color = upgraded
+                ? new Color32(34, 197, 94, 255)
+                : new Color32(239, 68, 68, 255);
         }
+        isUpgradeSequencePlaying = false;
+    }
+
+    private IEnumerator FadeTransition(float from, float to, float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            timeTransitionGroup.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+        timeTransitionGroup.alpha = to;
+    }
+
+    private static string FormatGameTime(GameManager gameManager)
+    {
+        return gameManager == null
+            ? "--:--"
+            : $"{gameManager.CurrentHour:00}:{gameManager.CurrentMinute:00}";
     }
 
     private string GetEffectDescription(SkillType type) => type switch

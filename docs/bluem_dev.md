@@ -878,3 +878,21 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - PF Stardust Bold 원본 위에 중복 적용되던 합성 Bold를 제거하고 외곽선을 최대 0.05로 낮춰 작은 글자의 뭉개짐을 방지했습니다.
 - 빌드에서 동적 폰트 아틀라스가 초기화되더라도 `AI`, `USER`, `LV`, `EXP`, 숫자 글리프를 첫 사용 전에 준비합니다.
 - 씬 로딩용 전역 폰트 적용기가 개별 TMP Outline 머티리얼을 덮어쓰지 않도록 수정했습니다.
+
+### 스킬 업그레이드 시간 경과 연출
+
+- 차트 공부, 큐브 풀기, 파산 회고록 읽기에 맞춘 요미 전용 행동 스프라이트 3종을 추가했습니다.
+- 기존 감정·아이템 포즈와 같은 `600×1180` 투명 캔버스, 착석 비율, 캐릭터 기준선을 사용합니다.
+- 업그레이드 시작 시 요미가 해당 행동 포즈로 전환되고 반투명 시간 경과 화면이 페이드 인됩니다.
+- `09:00 → +3시간`으로 소모 시간을 먼저 안내하고, 실제 비용 적용 뒤 `09:00 → 12:00`처럼 변경된 시간을 표시합니다.
+- 페이드가 가장 어두운 시점에 기존 자금·HP·게임 시간 소모와 레벨 증가를 실행합니다.
+- 연출은 `Time.unscaledDeltaTime`과 `WaitForSecondsRealtime`을 사용해 게임 시간 처리 중에도 끊기지 않습니다.
+- 연출 종료 후 최신 감정 스프라이트와 스킬 정보 팝업으로 자연스럽게 복귀합니다.
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+- `Assets/Resources/Characters/SkillUpgrade/ChartStudy.png`
+- `Assets/Resources/Characters/SkillUpgrade/CubePatience.png`
+- `Assets/Resources/Characters/SkillUpgrade/BookJudgment.png`

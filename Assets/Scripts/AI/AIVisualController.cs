@@ -80,9 +80,11 @@ namespace FXOverdose.AI
         [SerializeField] private TraderEmotion currentEmotion = TraderEmotion.Focused;
         private readonly Dictionary<TraderEmotion, Sprite> emotionSprites = new Dictionary<TraderEmotion, Sprite>();
         private readonly Dictionary<string, Sprite> itemUseSprites = new Dictionary<string, Sprite>();
+        private readonly Dictionary<SkillType, Sprite> skillUpgradeSprites = new Dictionary<SkillType, Sprite>();
         private float emotionOverrideUntil;
         private bool isItemUseVisualActive;
         private float itemUseVisualUntil;
+        private bool isSkillUpgradeVisualActive;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
@@ -104,6 +106,7 @@ namespace FXOverdose.AI
             ResolveCharacterImage();
             LoadEmotionSprites();
             LoadItemUseSprites();
+            LoadSkillUpgradeSprites();
             ApplyEmotion(currentEmotion, true);
 
             ApplyDialogueTextStyle();
@@ -187,6 +190,8 @@ namespace FXOverdose.AI
         // 실시간 수익률 및 멘탈 상태를 기반으로 감정을 도출하고 표정 상태로 매핑
         private void UpdateExpressionState()
         {
+            if (isSkillUpgradeVisualActive) return;
+
             // 아이템 사용 포즈는 게임 일시정지 여부와 관계없이 실제 시간 기준 약 1초간 최우선 표시합니다.
             if (isItemUseVisualActive)
             {
@@ -260,6 +265,23 @@ namespace FXOverdose.AI
             LoadItemUseSprite("sedative", "Sedative");
         }
 
+        private void LoadSkillUpgradeSprites()
+        {
+            skillUpgradeSprites.Clear();
+            LoadSkillUpgradeSprite(SkillType.ChartStudy, "ChartStudy");
+            LoadSkillUpgradeSprite(SkillType.CubePatience, "CubePatience");
+            LoadSkillUpgradeSprite(SkillType.BookJudgment, "BookJudgment");
+        }
+
+        private void LoadSkillUpgradeSprite(SkillType type, string resourceName)
+        {
+            Sprite sprite = Resources.Load<Sprite>($"Characters/SkillUpgrade/{resourceName}");
+            if (sprite != null)
+                skillUpgradeSprites[type] = sprite;
+            else
+                Debug.LogWarning($"[AIVisualController] 스킬 연출 스프라이트를 찾지 못했습니다: {type}", this);
+        }
+
         private void LoadItemUseSprite(string itemId, string resourceName)
         {
             Sprite sprite = Resources.Load<Sprite>($"Characters/ItemUse/{resourceName}");
@@ -297,6 +319,28 @@ namespace FXOverdose.AI
         private void HandleItemConsumed(ItemData item)
         {
             if (item != null) ShowItemUse(item.ItemId, 1f);
+        }
+
+        /// <summary>시간 소모형 스킬 업그레이드가 진행되는 동안 전용 요미 포즈를 유지합니다.</summary>
+        public void BeginSkillUpgradeVisual(SkillType type)
+        {
+            if (skillUpgradeSprites.Count == 0) LoadSkillUpgradeSprites();
+            if (!skillUpgradeSprites.TryGetValue(type, out Sprite sprite) || sprite == null) return;
+
+            ResolveCharacterImage();
+            if (characterImage == null) return;
+
+            isSkillUpgradeVisualActive = true;
+            isItemUseVisualActive = false;
+            characterImage.sprite = sprite;
+            characterImage.preserveAspect = true;
+        }
+
+        public void EndSkillUpgradeVisual()
+        {
+            if (!isSkillUpgradeVisualActive) return;
+            isSkillUpgradeVisualActive = false;
+            ApplyEmotion(currentEmotion, true);
         }
 
         /// <summary>이벤트나 연출 코드에서 19종 감정을 직접 표시할 때 사용합니다.</summary>
