@@ -88,6 +88,13 @@ public class GameManager : MonoBehaviour
         secondsPerGameMinute = Mathf.Max(0.001f, newValue);
     }
 
+    private void Awake()
+    {
+        // 모든 컴포넌트의 Start보다 먼저 코스튬 관리자를 준비하여
+        // AIVisualController가 첫 프레임부터 장착 변경 이벤트를 구독할 수 있게 합니다.
+        EnsureCostumeManager();
+    }
+
     // 게임 시작 시 한 번 실행
     private void Start()
     {
@@ -102,6 +109,7 @@ public class GameManager : MonoBehaviour
             InitializeChoiceEventController();
             InitializeTraderLevelSystem();
             EnsureActiveItemEffectManager();
+            EnsureCostumeManager();
             EnsureDynamicTimeRegulator();
 
             saveManager.ApplyLoadedDataToGame();
@@ -159,6 +167,8 @@ public class GameManager : MonoBehaviour
         // 액티브 아이템 효과 및 업그레이드 초기화
         EnsureActiveItemEffectManager();
         ActiveItemEffectManager.Instance?.ResetAll();
+        EnsureCostumeManager();
+        CostumeManager.Instance?.ResetAll();
 
         // AI 장기/단기 기억 시스템 초기화
         FXOverdose.AI.TraderMemoryManager.Instance?.ResetAll();
@@ -174,6 +184,13 @@ public class GameManager : MonoBehaviour
         if (ActiveItemEffectManager.Instance != null) return;
         ActiveItemEffectManager manager = GetComponent<ActiveItemEffectManager>();
         if (manager == null) gameObject.AddComponent<ActiveItemEffectManager>();
+    }
+
+    private void EnsureCostumeManager()
+    {
+        if (CostumeManager.Instance != null) return;
+        CostumeManager manager = GetComponent<CostumeManager>();
+        if (manager == null) gameObject.AddComponent<CostumeManager>();
     }
 
     private void EnsureDynamicTimeRegulator()

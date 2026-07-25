@@ -24,12 +24,14 @@ public class DynamicShopUI : MonoBehaviour
     private static readonly Color MutedText = new Color32(102, 117, 143, 255);
     private static readonly Color SuccessGreen = new Color32(34, 197, 94, 255);
     private static readonly Color SpecialGold = new Color32(234, 179, 8, 255);
+    private static readonly Color ApparelMagenta = new Color32(217, 70, 239, 255);
 
     private enum CategoryFilter
     {
         All,
         Care,
-        ActiveGear
+        ActiveGear,
+        Apparel
     }
 
     [SerializeField] private ShopManager shopManager;
@@ -50,8 +52,8 @@ public class DynamicShopUI : MonoBehaviour
     private TMP_Text resultCountText;
     private TMP_Text emptyStateText;
     private TMP_InputField searchInput;
-    private readonly Button[] categoryButtons = new Button[3];
-    private readonly Image[] categoryButtonBackgrounds = new Image[3];
+    private readonly Button[] categoryButtons = new Button[4];
+    private readonly Image[] categoryButtonBackgrounds = new Image[4];
     private readonly List<GameObject> cards = new();
     private float lastDisplayedBalance = -1f;
     private CategoryFilter activeFilter = CategoryFilter.All;
@@ -66,8 +68,19 @@ public class DynamicShopUI : MonoBehaviour
     private void OnEnable()
     {
         if (modal == null) BuildStructure();
+        if (CostumeManager.Instance != null)
+        {
+            CostumeManager.Instance.OnCostumesChanged -= HandleCostumesChanged;
+            CostumeManager.Instance.OnCostumesChanged += HandleCostumesChanged;
+        }
         Rebuild();
         RefreshBalance();
+    }
+
+    private void OnDisable()
+    {
+        if (CostumeManager.Instance != null)
+            CostumeManager.Instance.OnCostumesChanged -= HandleCostumesChanged;
     }
 
     private void OnDestroy()
@@ -76,6 +89,8 @@ public class DynamicShopUI : MonoBehaviour
         {
             searchInput.onValueChanged.RemoveListener(HandleSearchChanged);
         }
+        if (CostumeManager.Instance != null)
+            CostumeManager.Instance.OnCostumesChanged -= HandleCostumesChanged;
     }
 
     private void Update() => RefreshBalance();
@@ -93,7 +108,7 @@ public class DynamicShopUI : MonoBehaviour
         if (targetFont != null)
         {
             System.Text.StringBuilder sb = new();
-            sb.Append("FX MARKET BALANCE $0123456789.,-+% ALL ITEMS CARE ACTIVE GEAR INSTANT DELIVERY UPGRADE OWNED x MAXED BUY LV ✓ ");
+            sb.Append("FX MARKET BALANCE $0123456789.,-+% ALL ITEMS CARE ACTIVE GEAR APPAREL INSTANT DELIVERY UPGRADE OWNED x MAXED BUY EQUIP EQUIPPED LV ✓ ");
             foreach (ItemData item in shopManager.CatalogItems)
             {
                 if (item == null) continue;
@@ -102,6 +117,14 @@ public class DynamicShopUI : MonoBehaviour
                 if (ActiveItemEffectManager.Instance != null && item.IsActiveItem)
                 {
                     sb.Append(ActiveItemEffectManager.Instance.GetItemStatusLabel(item));
+                }
+            }
+            if (CostumeManager.Instance != null)
+            {
+                foreach (CostumeManager.CostumeDefinition costume in CostumeManager.Instance.Catalog)
+                {
+                    sb.Append(costume.DisplayName);
+                    sb.Append(costume.Description);
                 }
             }
             targetFont.TryAddCharacters(sb.ToString(), out _);
@@ -113,6 +136,17 @@ public class DynamicShopUI : MonoBehaviour
             if (item == null || !ShouldShowItem(item)) continue;
             cards.Add(CreateProductCard(item));
             visibleCount++;
+        }
+
+        if (CostumeManager.Instance != null &&
+            (activeFilter == CategoryFilter.All || activeFilter == CategoryFilter.Apparel))
+        {
+            foreach (CostumeManager.CostumeDefinition costume in CostumeManager.Instance.Catalog)
+            {
+                if (!ShouldShowCostume(costume)) continue;
+                cards.Add(CreateCostumeCard(costume));
+                visibleCount++;
+            }
         }
 
         LayoutCards();
@@ -299,17 +333,18 @@ public class DynamicShopUI : MonoBehaviour
         CreateCategoryButton(bar, 0, "ALL ITEMS", CategoryFilter.All, new Vector2(0.012f, 0.12f), new Vector2(0.13f, 0.88f));
         CreateCategoryButton(bar, 1, "CARE", CategoryFilter.Care, new Vector2(0.138f, 0.12f), new Vector2(0.235f, 0.88f));
         CreateCategoryButton(bar, 2, "ACTIVE GEAR", CategoryFilter.ActiveGear, new Vector2(0.243f, 0.12f), new Vector2(0.40f, 0.88f));
+        CreateCategoryButton(bar, 3, "APPAREL", CategoryFilter.Apparel, new Vector2(0.408f, 0.12f), new Vector2(0.52f, 0.88f));
 
         resultCountText = GetOrCreateText(bar, "ResultCount", 15f, TextAlignmentOptions.MidlineLeft, true);
         resultCountText.text = "0 PRODUCTS";
         resultCountText.color = MutedText;
         resultCountText.characterSpacing = 0.8f;
-        SetRect(resultCountText.rectTransform, new Vector2(0.42f, 0f), new Vector2(0.57f, 1f), Vector2.zero, Vector2.zero);
+        SetRect(resultCountText.rectTransform, new Vector2(0.54f, 0f), new Vector2(0.67f, 1f), Vector2.zero, Vector2.zero);
 
         TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight, true);
         delivery.text = "INSTANT DELIVERY  /  BUFFS APPLY NOW";
         delivery.color = SpecialGold;
-        SetRect(delivery.rectTransform, new Vector2(0.56f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
+        SetRect(delivery.rectTransform, new Vector2(0.66f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
 
         RefreshCategoryButtonStyles();
     }
@@ -496,6 +531,125 @@ public class DynamicShopUI : MonoBehaviour
         return card;
     }
 
+    private GameObject CreateCostumeCard(CostumeManager.CostumeDefinition costume)
+    {
+        GameObject card = new($"CostumeCard_{costume.Id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        card.transform.SetParent(content, false);
+        Image frame = card.GetComponent<Image>();
+        frame.sprite = ResolveSprite(productCardSprite, ProductCardResource) ?? cardFrameSprite;
+        frame.type = frame.sprite != null && frame.sprite.border.sqrMagnitude > 0f
+            ? Image.Type.Sliced
+            : Image.Type.Simple;
+        frame.preserveAspect = false;
+        frame.color = frame.sprite != null ? Color.white : DeepBackground;
+        Outline cardOutline = card.GetComponent<Outline>();
+        cardOutline.effectColor = BorderColor;
+        cardOutline.effectDistance = UIStrokeStyle.EffectDistance;
+        cardOutline.enabled = frame.sprite == null;
+
+        RectTransform accent = GetOrCreateRect(card.transform, "CategoryAccent");
+        SetRect(accent, new Vector2(0.045f, 0.952f), new Vector2(0.955f, 0.967f), Vector2.zero, Vector2.zero);
+        GetOrAdd<Image>(accent.gameObject).color = ApparelMagenta;
+
+        RectTransform badgeRect = GetOrCreateRect(card.transform, "Badge");
+        SetRect(badgeRect, new Vector2(0.055f, 0.84f), new Vector2(0.36f, 0.935f), Vector2.zero, Vector2.zero);
+        GetOrAdd<Image>(badgeRect.gameObject).color = HeaderBackground;
+        ApplyOutline(badgeRect.gameObject, ApparelMagenta, new Vector2(2f, -2f));
+        TMP_Text badge = GetOrCreateText(badgeRect, "Label", 14f, TextAlignmentOptions.Center, true);
+        badge.text = "APPAREL";
+        badge.color = ApparelMagenta;
+        badge.fontStyle = FontStyles.Bold;
+        SetRect(badge.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
+
+        Image icon = CreateImage(card.transform, "Icon");
+        icon.sprite = Resources.Load<Sprite>(costume.IconResourcePath);
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+        SetRect(icon.rectTransform, new Vector2(0.065f, 0.13f), new Vector2(0.46f, 0.82f), new Vector2(10f, 8f), new Vector2(-10f, -8f));
+
+        TMP_Text name = CreateText(card.transform, "Name", 23f, TextAlignmentOptions.MidlineLeft);
+        name.text = costume.DisplayName;
+        name.color = Color.white;
+        name.fontStyle = FontStyles.Bold;
+        SetRect(name.rectTransform, new Vector2(0.52f, 0.75f), new Vector2(0.95f, 0.91f), Vector2.zero, Vector2.zero);
+
+        TMP_Text effect = CreateText(card.transform, "Effect", 18f, TextAlignmentOptions.MidlineLeft);
+        effect.text = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)
+            ? "CURRENT LOOK"
+            : "CHANGE YOMI LOOK";
+        effect.color = ApparelMagenta;
+        effect.fontStyle = FontStyles.Bold;
+        SetRect(effect.rectTransform, new Vector2(0.52f, 0.59f), new Vector2(0.95f, 0.73f), Vector2.zero, Vector2.zero);
+
+        TMP_Text description = CreateText(card.transform, "Description", 15f, TextAlignmentOptions.TopLeft);
+        description.text = costume.Description;
+        description.color = BodyText;
+        description.textWrappingMode = TextWrappingModes.Normal;
+        description.overflowMode = TextOverflowModes.Ellipsis;
+        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.95f, 0.58f), Vector2.zero, Vector2.zero);
+
+        bool owned = CostumeManager.Instance != null && CostumeManager.Instance.IsOwned(costume.Id);
+        bool equipped = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id);
+        TMP_Text ownedText = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
+        ownedText.text = equipped ? "EQUIPPED ✓" : owned ? "OWNED ✓" : "NOT OWNED";
+        ownedText.color = equipped ? SuccessGreen : MutedText;
+        SetRect(ownedText.rectTransform, new Vector2(0.52f, 0.28f), new Vector2(0.95f, 0.37f), Vector2.zero, new Vector2(-14f, 0f));
+
+        RectTransform purchaseBar = GetOrCreateRect(card.transform, "PurchaseBar");
+        SetRect(purchaseBar, new Vector2(0.52f, 0.07f), new Vector2(0.95f, 0.27f), Vector2.zero, Vector2.zero);
+        GetOrAdd<Image>(purchaseBar.gameObject).color = new Color32(11, 15, 25, 245);
+        ApplyOutline(purchaseBar.gameObject, BorderColor, new Vector2(2f, -2f));
+
+        TMP_Text price = CreateText(purchaseBar, "Price", 25f, TextAlignmentOptions.MidlineLeft);
+        price.text = owned ? "OWNED" : costume.Price <= 0 ? "FREE" : $"${costume.Price:N0}";
+        price.color = owned ? SuccessGreen : SpecialGold;
+        price.fontStyle = FontStyles.Bold;
+        SetRect(price.rectTransform, Vector2.zero, new Vector2(0.53f, 1f), new Vector2(12f, 0f), new Vector2(-4f, 0f));
+
+        GameObject actionObject = new("CostumeActionButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
+        actionObject.transform.SetParent(purchaseBar, false);
+        SetRect(actionObject.GetComponent<RectTransform>(), new Vector2(0.55f, 0.10f), new Vector2(0.975f, 0.90f), Vector2.zero, Vector2.zero);
+        Image actionImage = actionObject.GetComponent<Image>();
+        actionImage.color = equipped ? new Color32(22, 101, 52, 255) : new Color32(112, 26, 117, 255);
+        ApplyOutline(actionObject, equipped ? SuccessGreen : ApparelMagenta, new Vector2(2f, -2f));
+        Button action = actionObject.GetComponent<Button>();
+        action.targetGraphic = actionImage;
+        action.interactable = !equipped;
+        ColorBlock colors = action.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color32(255, 225, 255, 255);
+        colors.pressedColor = new Color32(211, 160, 216, 255);
+        colors.disabledColor = new Color32(84, 96, 116, 210);
+        action.colors = colors;
+
+        TMP_Text label = CreateText(actionObject.transform, "Label", 21f, TextAlignmentOptions.Center);
+        label.text = equipped ? "EQUIPPED" : owned ? "EQUIP" : "BUY";
+        label.color = Color.white;
+        label.fontStyle = FontStyles.Bold;
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 11f;
+        label.fontSizeMax = 21f;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.margin = new Vector4(8f, 2f, 8f, 2f);
+        SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 2f), new Vector2(-6f, -2f));
+
+        action.onClick.AddListener(() =>
+        {
+            if (shopManager == null) return;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.IsOwned(costume.Id))
+                shopManager.EquipCostume(costume.Id);
+            else
+                shopManager.BuyCostume(costume.Id);
+            Rebuild();
+            RefreshBalance();
+        });
+
+        Transform vp = modal?.Find("ProductViewport");
+        ScrollRect scroll = vp != null ? vp.GetComponent<ScrollRect>() : null;
+        if (scroll != null) ForwardScrollEvents(card, scroll);
+        return card;
+    }
+
     private void LayoutCards()
     {
         int count = cards.Count;
@@ -585,7 +739,9 @@ public class DynamicShopUI : MonoBehaviour
 
             CategoryFilter filter = (CategoryFilter)i;
             bool selected = filter == activeFilter;
-            Color accent = filter == CategoryFilter.ActiveGear ? SpecialGold : Cyan;
+            Color accent = filter == CategoryFilter.ActiveGear
+                ? SpecialGold
+                : filter == CategoryFilter.Apparel ? ApparelMagenta : Cyan;
             background.color = selected
                 ? Color.Lerp(HeaderBackground, accent, 0.28f)
                 : new Color32(11, 15, 25, 238);
@@ -625,6 +781,10 @@ public class DynamicShopUI : MonoBehaviour
         {
             return false;
         }
+        if (activeFilter == CategoryFilter.Apparel)
+        {
+            return false;
+        }
 
         if (string.IsNullOrEmpty(searchQuery))
         {
@@ -634,6 +794,20 @@ public class DynamicShopUI : MonoBehaviour
         return ContainsIgnoreCase(item.ItemName, searchQuery)
             || ContainsIgnoreCase(item.ItemId, searchQuery)
             || ContainsIgnoreCase(item.Description, searchQuery);
+    }
+
+    private bool ShouldShowCostume(CostumeManager.CostumeDefinition costume)
+    {
+        if (costume == null) return false;
+        if (string.IsNullOrEmpty(searchQuery)) return true;
+        return ContainsIgnoreCase(costume.DisplayName, searchQuery)
+            || ContainsIgnoreCase(costume.Id, searchQuery)
+            || ContainsIgnoreCase(costume.Description, searchQuery);
+    }
+
+    private void HandleCostumesChanged()
+    {
+        if (isActiveAndEnabled) Rebuild();
     }
 
     private static bool ContainsIgnoreCase(string value, string query)

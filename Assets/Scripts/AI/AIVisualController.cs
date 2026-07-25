@@ -90,6 +90,9 @@ namespace FXOverdose.AI
         private bool isPositionVisualActive;
         private float positionVisualUntil;
         private bool isOverdoseStateVisualActive;
+        private string currentItemUseId;
+        private SkillType currentSkillUpgradeType;
+        private TradingController.PositionType currentPositionVisualType;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
@@ -113,8 +116,14 @@ namespace FXOverdose.AI
             LoadItemUseSprites();
             LoadSkillUpgradeSprites();
             LoadPositionSprites();
-            overdoseStateSprite = Resources.Load<Sprite>("Characters/States/Overdose");
+            overdoseStateSprite = LoadCostumeSprite("States", "Overdose");
             ApplyEmotion(currentEmotion, true);
+
+            if (CostumeManager.Instance != null)
+            {
+                CostumeManager.Instance.OnCostumesChanged -= HandleCostumeChanged;
+                CostumeManager.Instance.OnCostumesChanged += HandleCostumeChanged;
+            }
 
             ApplyDialogueTextStyle();
 
@@ -183,6 +192,8 @@ namespace FXOverdose.AI
         private void OnDestroy()
         {
             if (aiBrain != null) aiBrain.OnAIDecisionMade -= HandleAIDecisionMade;
+            if (CostumeManager.Instance != null)
+                CostumeManager.Instance.OnCostumesChanged -= HandleCostumeChanged;
             if (inventory != null)
             {
                 inventory.ItemConsumed -= HandleItemConsumed;
@@ -275,7 +286,7 @@ namespace FXOverdose.AI
             emotionSprites.Clear();
             foreach (TraderEmotion emotion in Enum.GetValues(typeof(TraderEmotion)))
             {
-                Sprite sprite = Resources.Load<Sprite>($"Characters/Emotions/{emotion}");
+                Sprite sprite = LoadCostumeSprite("Emotions", emotion.ToString());
                 if (sprite != null)
                     emotionSprites[emotion] = sprite;
                 else
@@ -302,7 +313,7 @@ namespace FXOverdose.AI
 
         private void LoadSkillUpgradeSprite(SkillType type, string resourceName)
         {
-            Sprite sprite = Resources.Load<Sprite>($"Characters/SkillUpgrade/{resourceName}");
+            Sprite sprite = LoadCostumeSprite("SkillUpgrade", resourceName);
             if (sprite != null)
                 skillUpgradeSprites[type] = sprite;
             else
@@ -312,8 +323,8 @@ namespace FXOverdose.AI
         private void LoadPositionSprites()
         {
             positionSprites.Clear();
-            Sprite longSprite = Resources.Load<Sprite>("Characters/Position/Long");
-            Sprite shortSprite = Resources.Load<Sprite>("Characters/Position/Short");
+            Sprite longSprite = LoadCostumeSprite("Position", "Long");
+            Sprite shortSprite = LoadCostumeSprite("Position", "Short");
             if (longSprite != null) positionSprites[TradingController.PositionType.Long] = longSprite;
             if (shortSprite != null) positionSprites[TradingController.PositionType.Short] = shortSprite;
         }
@@ -322,7 +333,7 @@ namespace FXOverdose.AI
         {
             if (isOverdoseStateVisualActive) return;
             if (overdoseStateSprite == null)
-                overdoseStateSprite = Resources.Load<Sprite>("Characters/States/Overdose");
+                overdoseStateSprite = LoadCostumeSprite("States", "Overdose");
             if (overdoseStateSprite == null) return;
 
             ResolveCharacterImage();
@@ -346,7 +357,7 @@ namespace FXOverdose.AI
 
         private void LoadItemUseSprite(string itemId, string resourceName)
         {
-            Sprite sprite = Resources.Load<Sprite>($"Characters/ItemUse/{resourceName}");
+            Sprite sprite = LoadCostumeSprite("ItemUse", resourceName);
             if (sprite != null)
             {
                 itemUseSprites[itemId] = sprite;
@@ -373,6 +384,7 @@ namespace FXOverdose.AI
             if (characterImage == null) return;
 
             isItemUseVisualActive = true;
+            currentItemUseId = itemId;
             itemUseVisualUntil = Time.unscaledTime + Mathf.Max(0.1f, duration);
             characterImage.sprite = sprite;
             characterImage.preserveAspect = true;
@@ -393,6 +405,7 @@ namespace FXOverdose.AI
             if (characterImage == null) return;
 
             isSkillUpgradeVisualActive = true;
+            currentSkillUpgradeType = type;
             isItemUseVisualActive = false;
             characterImage.sprite = sprite;
             characterImage.preserveAspect = true;
@@ -416,6 +429,7 @@ namespace FXOverdose.AI
             if (characterImage == null) return;
 
             isPositionVisualActive = true;
+            currentPositionVisualType = type;
             isItemUseVisualActive = false;
             positionVisualUntil = Time.unscaledTime + Mathf.Max(0.2f, duration);
             characterImage.sprite = sprite;
@@ -465,6 +479,61 @@ namespace FXOverdose.AI
                 or TraderEmotion.Vengeful;
             if (dangerAuraEffect != null && dangerAuraEffect.activeSelf != showAura)
                 dangerAuraEffect.SetActive(showAura);
+        }
+
+        private Sprite LoadCostumeSprite(string category, string spriteName)
+        {
+            string path = CostumeManager.Instance != null
+                ? CostumeManager.Instance.GetResourcePath(category, spriteName)
+                : $"Characters/{category}/{spriteName}";
+            Sprite sprite = Resources.Load<Sprite>(path);
+            if (sprite == null && !path.StartsWith("Characters/" + category + "/", StringComparison.Ordinal))
+            {
+                sprite = Resources.Load<Sprite>($"Characters/{category}/{spriteName}");
+                Debug.LogWarning($"[AIVisualController] 코스튬 스프라이트가 없어 기본형으로 대체합니다: {path}", this);
+            }
+            return sprite;
+        }
+
+        private void HandleCostumeChanged()
+        {
+            LoadEmotionSprites();
+            LoadItemUseSprites();
+            LoadSkillUpgradeSprites();
+            LoadPositionSprites();
+            overdoseStateSprite = LoadCostumeSprite("States", "Overdose");
+
+            ResolveCharacterImage();
+            if (characterImage == null) return;
+
+            if (traderStatus != null &&
+                traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+            {
+                isOverdoseStateVisualActive = false;
+                ApplyOverdoseStateVisual();
+                return;
+            }
+
+            if (isSkillUpgradeVisualActive &&
+                skillUpgradeSprites.TryGetValue(currentSkillUpgradeType, out Sprite skillSprite))
+            {
+                characterImage.sprite = skillSprite;
+            }
+            else if (isPositionVisualActive &&
+                     positionSprites.TryGetValue(currentPositionVisualType, out Sprite positionSprite))
+            {
+                characterImage.sprite = positionSprite;
+            }
+            else if (isItemUseVisualActive &&
+                     itemUseSprites.TryGetValue(currentItemUseId, out Sprite itemSprite))
+            {
+                characterImage.sprite = itemSprite;
+            }
+            else if (emotionSprites.TryGetValue(currentEmotion, out Sprite emotionSprite))
+            {
+                characterImage.sprite = emotionSprite;
+            }
+            characterImage.preserveAspect = true;
         }
 
         private void HandleAIDecisionMade(string dialogue, float emotionDelta)

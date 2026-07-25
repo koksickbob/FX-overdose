@@ -63,6 +63,7 @@ namespace FXOverdose.Core
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            var costumes = CostumeManager.Instance;
 
             if (gm == null || status == null || levelSys == null || memory == null)
             {
@@ -109,6 +110,14 @@ namespace FXOverdose.Core
                 ChartStudyLevel = levelSys.ChartStudyLevel,
                 CubePatienceLevel = levelSys.CubePatienceLevel,
                 BookJudgmentLevel = levelSys.BookJudgmentLevel,
+
+                // Costume
+                OwnedCostumeIds = costumes != null
+                    ? costumes.GetOwnedCostumeIds()
+                    : new List<string> { CostumeManager.StandardId },
+                EquippedCostumeId = costumes != null
+                    ? costumes.EquippedCostumeId
+                    : CostumeManager.StandardId,
             };
 
             // MemoryManager
@@ -235,6 +244,7 @@ namespace FXOverdose.Core
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
+            var costumes = CostumeManager.Instance;
 
             if (gm != null)
             {
@@ -282,6 +292,11 @@ namespace FXOverdose.Core
             if (memory != null)
             {
                 RestoreMemoryData(memory, CurrentData);
+            }
+
+            if (costumes != null)
+            {
+                costumes.Restore(CurrentData.OwnedCostumeIds, CurrentData.EquippedCostumeId);
             }
 
             IsPendingLoad = false;

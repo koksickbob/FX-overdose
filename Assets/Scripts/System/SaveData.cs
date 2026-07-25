@@ -8,7 +8,7 @@ namespace FXOverdose.Core
     [Serializable]
     public class SaveData
     {
-        public string Version = "1.2.0"; // 1.2.0: 게임 모드 저장 추가
+        public string Version = "1.3.0"; // 1.3.0: 코스튬 보유 및 장착 상태 저장 추가
 
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
         public GameMode GameMode = GameMode.Story;
@@ -46,5 +46,9 @@ namespace FXOverdose.Core
 
         // --- 추가 징후 ---
         public TraderEmotion CurrentEmotion;
+
+        // --- 코스튬 데이터 ---
+        public List<string> OwnedCostumeIds = new List<string> { CostumeManager.StandardId };
+        public string EquippedCostumeId = CostumeManager.StandardId;
     }
 }

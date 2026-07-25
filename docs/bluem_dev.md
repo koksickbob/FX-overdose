@@ -1035,3 +1035,41 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/SkillUpgrade/`
 - `Assets/Resources/Characters/Position/`
 - `Backups/YomiSprites_PreRenewal_20260725/`
+
+### 상점 APPAREL 카테고리 및 코스튬 구매·장착
+
+- `FX MARKET`에 `APPAREL` 카테고리를 추가하고 일반 상품과 함께 검색·필터링할 수 있도록 확장했습니다.
+- 기본 흰 티셔츠·돌핀팬츠 코스튬은 처음부터 보유한 `STANDARD` 상품으로 표시되며 언제든 다시 장착할 수 있습니다.
+- `BUNNY GIRL` 코스튬을 `$200`에 1회 구매할 수 있도록 추가했습니다.
+- 의류 카드 버튼은 상태에 따라 `BUY`, `EQUIP`, `EQUIPPED`로 전환되며 구매와 장착을 분리했습니다.
+- 장착 시 현재 감정뿐 아니라 감정 19종, 아이템 사용 4종, 스킬 행동 3종, LONG·SHORT와 오버도즈까지 전체 스프라이트 세트가 즉시 전환됩니다.
+- 바니걸 스프라이트는 토끼 귀, 검정 바니 슈트, 리본, 양쪽 커프스, 스타킹과 구두를 공통으로 유지하며 `600×1180` RGBA 투명 PNG로 정규화했습니다.
+- 구두 외곽선이 캐릭터 표시 영역 하단에 걸려 보이지 않도록 바니걸 변형 29종을 캔버스 안에서 `24px` 상향하고 하단 투명 여백을 `54px`로 확보했습니다.
+- 보유 코스튬 ID와 현재 장착 코스튬 ID를 저장 데이터 버전 `1.3.0`에 포함했습니다.
+- 구버전 저장 데이터에는 코스튬 필드가 없어도 `STANDARD` 보유·장착 상태로 안전하게 복원됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/Items/ShopManager.cs`
+- `Assets/Scripts/Items/DynamicShopUI.cs`
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Scripts/System/SaveData.cs`
+- `Assets/Scripts/System/SaveLoadManager.cs`
+- `Assets/Scripts/GameManager.cs`
+- `Assets/Resources/Characters/Costumes/BunnyGirl/`
+
+### macOS Apple Silicon LLM 네이티브 런타임 복구
+
+- Play Mode에서 `Library libllamalib_osx-arm64_runtime.dylib not found`로 LLM 서비스가 시작되지 않던 원인을 확인했습니다.
+- 기존 `LlamaLib-v2.0.5` 설치에는 Windows x64 네이티브 파일만 있고 macOS ARM64 런타임이 누락되어 있었습니다.
+- 공식 undreamai `LlamaLib v2.0.5` 릴리스 ZIP의 SHA-256을 공개 체크섬과 대조한 뒤 `osx-arm64/native` 파일 4개만 프로젝트에 추가했습니다.
+- 런타임, CPU 가속, CPU 비가속 동적 라이브러리가 모두 Apple Silicon `arm64` Mach-O 파일임을 확인했습니다.
+- macOS에서 `runtime`과 `no-acc` 라이브러리의 `dlopen` 성공 및 CPU 아키텍처 목록 반환을 검증했습니다.
+
+관련 파일:
+
+- `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_runtime.dylib`
+- `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_acc.dylib`
+- `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_no-acc.dylib`
+- `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_runtime_static.a`

@@ -25,6 +25,7 @@ public class ShopManager : MonoBehaviour
     public IReadOnlyList<ItemData> CatalogItems => catalogItems;
     public Inventory Inventory => inventory;
     public GameManager GameManager => gameManager;
+    public CostumeManager Costumes => CostumeManager.Instance;
 
     private void Awake()
     {
@@ -146,5 +147,17 @@ public class ShopManager : MonoBehaviour
         }
 
         return true;
+    }
+
+    public bool BuyCostume(string costumeId)
+    {
+        if (!IsOpen || gameManager == null || CostumeManager.Instance == null) return false;
+        return CostumeManager.Instance.Purchase(costumeId, gameManager);
+    }
+
+    public bool EquipCostume(string costumeId)
+    {
+        if (CostumeManager.Instance == null) return false;
+        return CostumeManager.Instance.Equip(costumeId);
     }
 }
