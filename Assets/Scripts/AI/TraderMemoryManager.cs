@@ -9,7 +9,25 @@ namespace FXOverdose.AI
 {
     public class TraderMemoryManager : MonoBehaviour
     {
-        public static TraderMemoryManager Instance { get; private set; }
+        private static TraderMemoryManager _instance;
+        public static TraderMemoryManager Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = FindAnyObjectByType<TraderMemoryManager>();
+                    if (_instance == null)
+                    {
+                        var go = new GameObject("TraderMemoryManager");
+                        _instance = go.AddComponent<TraderMemoryManager>();
+                        DontDestroyOnLoad(go);
+                    }
+                }
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         [Header("단기 기억 버퍼 (최근 대사 FIFO)")]
         [SerializeField] private int maxShortTermBufferSize = 8;
@@ -25,12 +43,12 @@ namespace FXOverdose.AI
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (_instance != null && _instance != this)
             {
                 Destroy(gameObject);
                 return;
             }
-            Instance = this;
+            _instance = this;
             if (transform.parent == null)
             {
                 DontDestroyOnLoad(gameObject);
