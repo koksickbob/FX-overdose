@@ -189,13 +189,6 @@ namespace FXOverdose.Events
                     return;
                 }
 
-                eventsTriggeredToday++;
-                lastEventTriggerGameMinutes = totalGameMinutes;
-                if (eventsTriggeredToday < 2)
-                {
-                    ScheduleNextRandomTrigger(currentDayMinutes);
-                }
-                
                 // 캐싱된 LLM 데이터가 있으면 그걸 띄우고, 없으면 하드코딩 Fallback 띄움
                 if (cachedLLMData != null && activeTemplate != null)
                 {
@@ -204,6 +197,13 @@ namespace FXOverdose.Events
                 else
                 {
                     TriggerRandomEvent(EventTriggerCondition.TimeOfDay);
+                }
+
+                eventsTriggeredToday++;
+                lastEventTriggerGameMinutes = totalGameMinutes;
+                if (eventsTriggeredToday < 2)
+                {
+                    ScheduleNextRandomTrigger(currentDayMinutes);
                 }
                 return;
             }
