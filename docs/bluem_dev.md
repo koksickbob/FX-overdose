@@ -934,9 +934,9 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 ### 다음 일차 수면 페이드 전환
 
 - 일일 정산의 `PROCEED TO DAY` 버튼을 누른 직후 다음 날로 즉시 전환되던 흐름을 개선했습니다.
-- 정산창과 동시에 검은 화면이 약 0.45초 동안 페이드 인되고 중앙에 잠든 요미를 표시합니다.
+- 정산창에서 검은 수면 화면으로 즉시 전환하고 중앙에 잠든 요미를 표시합니다.
 - 베개와 네이비 담요를 사용해 쉬고 있는 전환 전용 요미 스프라이트를 새로 제작했습니다.
-- 검은 화면을 약 2.1초 유지한 뒤 완전히 가려진 상태에서 실제 날짜, 차트와 시장을 다음 날 09:00으로 전환합니다.
+- 검은 화면을 약 2.55초 유지한 뒤 완전히 가려진 상태에서 실제 날짜, 차트와 시장을 다음 날 09:00으로 전환합니다.
 - 새 아침 화면으로 약 0.45초 페이드 아웃하여 전체 전환 시간이 약 3초가 되도록 구성했습니다.
 - `Time.unscaledDeltaTime`과 `WaitForSecondsRealtime`을 사용해 정산 상태에서도 연출이 정상 재생됩니다.
 - 전환 중 전체 화면 입력을 차단하여 중복 클릭이나 다른 UI 조작을 방지합니다.
@@ -945,3 +945,19 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/DailySettlementUIController.cs`
 - `Assets/Resources/UI/DayTransition/SleepingYomi.png`
+
+### 마진·숍 동적 상태 폰트 영역 이탈 방지
+
+- 마진 비율과 금액 문자열이 자산 증가로 길어질 때 고정 150px 영역 밖으로 나가던 문제를 수정했습니다.
+- 마진 표시 폭을 190px 선호 폭과 Flexible Width 구조로 확장하고 `12~22px` Auto Size를 적용했습니다.
+- 현재 씬에 이미 생성된 마진 UI에도 런타임에서 Auto Size, 좌우 여백, NoWrap과 Ellipsis를 강제 적용합니다.
+- 숍의 `BUY`, `ACTIVE ✓`, `MAX LV ✓` 버튼 라벨에 `11~21px` Auto Size와 내부 안전 여백을 적용했습니다.
+- 액티브 장비의 `MAX LV.2 ✓` 같은 보유 상태 라벨에도 별도 Auto Size와 영역 제한을 적용했습니다.
+- 동적으로 새로 생성되는 상품 카드와 기존에 생성된 카드 갱신 경로 모두 같은 규칙을 사용합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Scripts/Items/DynamicShopUI.cs`
+- `Assets/Scripts/Items/ShopItemButton.cs`

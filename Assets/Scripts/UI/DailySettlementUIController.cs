@@ -361,37 +361,22 @@ namespace FXOverdose.UI
                 out CanvasGroup dayTransitionGroup,
                 out Image sleepingYomiImage);
 
-            const float duration = 0.45f;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                overlayCanvasGroup.alpha = 1f - t;
-                modalRect.anchoredPosition = Vector2.Lerp(Vector2.zero, new Vector2(0f, -34f), t);
-                dayTransitionGroup.alpha = t;
-                sleepingYomiImage.rectTransform.localScale = Vector3.Lerp(
-                    new Vector3(0.96f, 0.96f, 1f),
-                    Vector3.one,
-                    t);
-                yield return null;
-            }
-
-            HideImmediate();
-
+            // 요청에 따라 진입 페이드는 생략하고 즉시 검은 수면 화면으로 전환합니다.
             dayTransitionGroup.alpha = 1f;
             sleepingYomiImage.rectTransform.localScale = Vector3.one;
-            yield return new WaitForSecondsRealtime(2.1f);
+            HideImmediate();
+
+            yield return new WaitForSecondsRealtime(2.55f);
 
             // 화면이 완전히 가려진 상태에서 실제 날짜·차트·시장 상태를 다음 날로 전환합니다.
             gameManager.ProceedToNextDay();
 
-            elapsed = 0f;
-            while (elapsed < duration)
+            const float fadeOutDuration = 0.45f;
+            float elapsed = 0f;
+            while (elapsed < fadeOutDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
+                float t = Mathf.Clamp01(elapsed / fadeOutDuration);
                 dayTransitionGroup.alpha = 1f - t;
                 yield return null;
             }

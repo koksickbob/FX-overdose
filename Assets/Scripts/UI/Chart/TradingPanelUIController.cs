@@ -103,11 +103,25 @@ namespace FXOverdose.UI.Chart
             }
 
             BuildPositionFx();
+            ConfigureDynamicValueText(marginRatioDisplayText, 22f, 12f);
+            ConfigureDynamicValueText(marginAmountText, 18f, 10f);
             SetupButtons();
             SelectLeverage(currentSelectedLeverage);
             SelectMarginRatio(currentSelectedMarginPercent);
             SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
             RefreshPanelUI();
+        }
+
+        private static void ConfigureDynamicValueText(TMP_Text text, float maxSize, float minSize)
+        {
+            if (text == null) return;
+            text.enableAutoSizing = true;
+            text.fontSizeMax = maxSize;
+            text.fontSizeMin = minSize;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.margin = new Vector4(4f, 0f, 4f, 0f);
+            text.alignment = TextAlignmentOptions.Center;
         }
 
         private void OnDestroy()

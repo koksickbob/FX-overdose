@@ -669,8 +669,16 @@ namespace FXOverdose.EditorTools
             TMP_Text marDisplay = CreateTMPText("MarDisplay", marBox.transform, "30% ($3,737)", 22, Color.white);
             marDisplay.fontStyle = FontStyles.Bold;
             marDisplay.alignment = TextAlignmentOptions.Center;
+            marDisplay.enableAutoSizing = true;
+            marDisplay.fontSizeMin = 12f;
+            marDisplay.fontSizeMax = 22f;
+            marDisplay.textWrappingMode = TextWrappingModes.NoWrap;
+            marDisplay.overflowMode = TextOverflowModes.Ellipsis;
+            marDisplay.margin = new Vector4(4f, 0f, 4f, 0f);
             LayoutElement marDispElem = marDisplay.gameObject.AddComponent<LayoutElement>();
-            marDispElem.preferredWidth = 150f;
+            marDispElem.preferredWidth = 190f;
+            marDispElem.minWidth = 145f;
+            marDispElem.flexibleWidth = 1f;
             Button btnMarPlus = CreateButton("BtnMarPlus", marBox.transform, "+ 10%", 68, 42);
 
             GameObject marPresets = CreateUIObject("MarPresets", marContainer.transform);

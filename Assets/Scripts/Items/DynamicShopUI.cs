@@ -481,7 +481,13 @@ public class DynamicShopUI : MonoBehaviour
         buyLabel.text = "BUY";
         buyLabel.color = Color.white;
         buyLabel.fontStyle = FontStyles.Bold;
-        SetRect(buyLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        buyLabel.enableAutoSizing = true;
+        buyLabel.fontSizeMin = 11f;
+        buyLabel.fontSizeMax = 21f;
+        buyLabel.textWrappingMode = TextWrappingModes.NoWrap;
+        buyLabel.overflowMode = TextOverflowModes.Ellipsis;
+        buyLabel.margin = new Vector4(8f, 2f, 8f, 2f);
+        SetRect(buyLabel.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 2f), new Vector2(-6f, -2f));
 
         buyObject.GetComponent<ShopItemButton>().Configure(shopManager, shopManager.Inventory, item, buy, name, price, owned);
         Transform vp = modal?.Find("ProductViewport");

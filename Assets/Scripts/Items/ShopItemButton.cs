@@ -107,6 +107,7 @@ public class ShopItemButton : MonoBehaviour
             TMP_Text buttonLabel = button.GetComponentInChildren<TMP_Text>();
             if (buttonLabel != null)
             {
+                ConfigureContainedLabel(buttonLabel, 21f, 11f, 8f);
                 if (isMax)
                 {
                     buttonLabel.text = item.MaxLevel <= 1 ? "ACTIVE ✓" : "MAX LV ✓";
@@ -137,6 +138,7 @@ public class ShopItemButton : MonoBehaviour
 
         if (ownedText != null)
         {
+            ConfigureContainedLabel(ownedText, 15f, 9f, 4f);
             if (isActive && ActiveItemEffectManager.Instance != null)
             {
                 ownedText.text = ActiveItemEffectManager.Instance.GetItemStatusLabel(item);
@@ -147,6 +149,16 @@ public class ShopItemButton : MonoBehaviour
                 ownedText.text = $"OWNED x{owned}";
             }
         }
+    }
+
+    private static void ConfigureContainedLabel(TMP_Text text, float maxSize, float minSize, float horizontalMargin)
+    {
+        text.enableAutoSizing = true;
+        text.fontSizeMax = maxSize;
+        text.fontSizeMin = minSize;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.margin = new Vector4(horizontalMargin, 1f, horizontalMargin, 1f);
     }
 
     private void BuyItem()
