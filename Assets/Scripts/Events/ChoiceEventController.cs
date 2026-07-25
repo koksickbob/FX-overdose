@@ -125,6 +125,12 @@ namespace FXOverdose.Events
                 return;
             }
 
+            // ⭐ [Overdose 보호] Overdose 상태일 때는 돌발 이벤트를 발생시키지 않고 무시합니다.
+            if (traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+            {
+                return;
+            }
+
             int day = gameManager.CurrentDay;
             int hour = gameManager.CurrentHour;
             int minute = gameManager.CurrentMinute;
