@@ -78,14 +78,6 @@ namespace FXOverdose.Core
                 return false;
             }
 
-            // 현재 저장 포맷은 포지션/증거금을 직렬화하지 않습니다. 열린 포지션을 현금만 저장하면
-            // 불러오기 후 증거금이 사라지고 일일 손익도 왜곡되므로 안전하게 저장을 막습니다.
-            if (trading != null && trading.IsActive)
-            {
-                Debug.LogWarning("[SaveLoadManager] 열린 포지션이 있어 저장하지 않았습니다. 포지션을 정리한 뒤 다시 저장해 주세요.");
-                return false;
-            }
-
             SaveData data = new SaveData
             {
                 GameMode = CurrentGameMode,
@@ -119,6 +111,17 @@ namespace FXOverdose.Core
                     ? costumes.EquippedCostumeId
                     : CostumeManager.StandardId,
             };
+
+            if (trading != null && trading.IsActive)
+            {
+                data.HasActivePosition = true;
+                data.PositionType = trading.CurrentPosition;
+                data.EntryPrice = trading.EntryPrice;
+                data.MarginAmount = trading.MarginAmount;
+                data.CurrentLeverage = trading.CurrentLeverage;
+                data.TargetPrice = trading.TargetPrice;
+                data.StopLossPrice = trading.StopLossPrice;
+            }
 
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
@@ -245,6 +248,7 @@ namespace FXOverdose.Core
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
             var costumes = CostumeManager.Instance;
+            var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
 
             if (gm != null)
             {
@@ -297,6 +301,11 @@ namespace FXOverdose.Core
             if (costumes != null)
             {
                 costumes.Restore(CurrentData.OwnedCostumeIds, CurrentData.EquippedCostumeId);
+            }
+
+            if (trading != null && CurrentData.HasActivePosition)
+            {
+                trading.RestorePosition(CurrentData);
             }
 
             IsPendingLoad = false;

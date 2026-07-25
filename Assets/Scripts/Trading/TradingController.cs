@@ -254,6 +254,32 @@ namespace FXOverdose.Trading
             }
         }
 
+        public void RestorePosition(FXOverdose.Core.SaveData data)
+        {
+            if (data == null || !data.HasActivePosition) return;
+            
+            currentPosition = data.PositionType;
+            entryPrice = data.EntryPrice;
+            marginAmount = data.MarginAmount;
+            currentLeverage = data.CurrentLeverage;
+            targetPrice = data.TargetPrice;
+            stopLossPrice = data.StopLossPrice;
+            currentOwner = OwnerType.AI; // 기본적으로 AI 주도권으로 재시작
+
+            const float maintenanceMarginRate = 0.005f;
+            if (currentPosition == PositionType.Long)
+            {
+                liquidationPrice = entryPrice * (1f - (1f / currentLeverage) + maintenanceMarginRate);
+            }
+            else if (currentPosition == PositionType.Short)
+            {
+                liquidationPrice = entryPrice * (1f + (1f / currentLeverage) - maintenanceMarginRate);
+            }
+
+            OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
+            OnPositionChanged?.Invoke();
+        }
+
         private void OnDestroy()
         {
             if (marketEngine != null)
