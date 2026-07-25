@@ -16,11 +16,19 @@ namespace FXOverdose.Events
 
         [Header("이벤트 데이터 풀")]
         [SerializeField] private List<ChoiceEventSO> allEvents = new();
+        [Header("LLM 이벤트 논리 템플릿 풀")]
+        [SerializeField] private List<EventLogicTemplateSO> logicTemplates = new();
 
-        private ChoiceEventSO currentActiveEvent;
+        private ChoiceEventSO currentActiveEvent; // 하드코딩 Fallback용 및 동적 생성용 공용
+        private ChoiceEventSO dynamicEventInstance; // 메모리 릭 방지용 추적
+        private EventLogicTemplateSO activeTemplate; // LLM 템플릿용
+        private FXOverdose.AI.LLM.GeneratedChoiceEventData cachedLLMData;
+
         private bool pausedByChoiceEvent;
         private int lastTriggerDay = -1;
         private int nextRandomTriggerMinuteOfDay = -1;
+        private int preFetchMinuteOfDay = -1;
+        private bool isFetchingLLM = false;
         private long lastEventTriggerGameMinutes = -999999L;
         private int eventsTriggeredToday = 0;
         private float lastMentalTriggerTime = -999f;
@@ -88,7 +96,11 @@ namespace FXOverdose.Events
             if (maxStartMinute <= minStartMinute) maxStartMinute = minStartMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minStartMinute, maxStartMinute);
-            Debug.Log($"[ChoiceEventController] 📅 {day}일차 첫 돌발 선택 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2}");
+            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 20; // 20분 전 미리 캐싱
+            cachedLLMData = null;
+            activeTemplate = null;
+            isFetchingLLM = false;
+            Debug.Log($"[ChoiceEventController] 📅 {day}일차 첫 돌발 선택 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2} (사전 생성: {preFetchMinuteOfDay / 60:D2}:{preFetchMinuteOfDay % 60:D2})");
         }
 
         private void ScheduleNextRandomTrigger(int currentDayMinutes)
@@ -99,6 +111,10 @@ namespace FXOverdose.Events
             if (maxNextMinute <= minNextMinute) maxNextMinute = minNextMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minNextMinute, maxNextMinute);
+            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 20;
+            cachedLLMData = null;
+            activeTemplate = null;
+            isFetchingLLM = false;
             Debug.Log($"[ChoiceEventController] 📅 다음 랜덤 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2} (최소 1시간 쿨다운 적용)");
         }
 
@@ -153,6 +169,15 @@ namespace FXOverdose.Events
                 return;
             }
 
+            // 2.5. 이벤트 발생 20분 전 사전 텍스트 생성 시작
+            if (eventsTriggeredToday < 2 && currentDayMinutes >= preFetchMinuteOfDay && currentDayMinutes < nextRandomTriggerMinuteOfDay)
+            {
+                if (!isFetchingLLM && cachedLLMData == null)
+                {
+                    StartPreFetchingLLMEvent();
+                }
+            }
+
             // 3. 일일 랜덤 발생 (하루 2회 한도 & 예정된 랜덤 시간 도달 시)
             if (eventsTriggeredToday < 2 && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
             {
@@ -162,7 +187,16 @@ namespace FXOverdose.Events
                 {
                     ScheduleNextRandomTrigger(currentDayMinutes);
                 }
-                TriggerRandomEvent(EventTriggerCondition.TimeOfDay);
+                
+                // 캐싱된 LLM 데이터가 있으면 그걸 띄우고, 없으면 하드코딩 Fallback 띄움
+                if (cachedLLMData != null && activeTemplate != null)
+                {
+                    ShowLLMChoiceDialog(activeTemplate, cachedLLMData);
+                }
+                else
+                {
+                    TriggerRandomEvent(EventTriggerCondition.TimeOfDay);
+                }
                 return;
             }
 
@@ -220,39 +254,128 @@ namespace FXOverdose.Events
             }
         }
 
+        public async void StartPreFetchingLLMEvent()
+        {
+            if (logicTemplates.Count == 0)
+            {
+                EventLogicTemplateSO[] loaded = Resources.LoadAll<EventLogicTemplateSO>("Events/Templates");
+                if (loaded != null && loaded.Length > 0) logicTemplates.AddRange(loaded);
+                else return; // 템플릿이 없으면 프리페치 포기 (하드코딩 Fallback으로 넘어감)
+            }
+
+            isFetchingLLM = true;
+            activeTemplate = logicTemplates[UnityEngine.Random.Range(0, logicTemplates.Count)];
+            string marketContext = marketEngine != null ? $"현재 시장 상황: 주가 ${marketEngine.CurrentPrice:F1} (최고 ${marketEngine.Current24hHigh:F1} / 최저 ${marketEngine.Current24hLow:F1}), 상태: {marketEngine.CurrentRegime}" : "Unknown";
+
+            var generator = FXOverdose.AI.LLM.LLMSafeGenerator.Instance;
+            if (generator != null)
+            {
+                try
+                {
+                    cachedLLMData = await generator.GenerateChoiceEventAsync(activeTemplate.ThemeTag, marketContext);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[ChoiceEventController] 사전 텍스트 생성 실패: {e.Message}");
+                    cachedLLMData = null;
+                }
+            }
+            isFetchingLLM = false;
+        }
+
         private void ShowChoiceDialog(ChoiceEventSO eventData)
         {
             if (eventData == null || uiController == null) return;
             currentActiveEvent = eventData;
+            activeTemplate = null; // LLM 템플릿 초기화
 
-            // 이벤트가 발생할 때마다 마지막 인게임 시간 기록
+            PrepareGamePause();
+            uiController.Show(eventData, OnOptionSelected);
+        }
+
+        private void ShowLLMChoiceDialog(EventLogicTemplateSO template, FXOverdose.AI.LLM.GeneratedChoiceEventData llmData)
+        {
+            if (template == null || llmData == null || uiController == null) return;
+            activeTemplate = template;
+
+            PrepareGamePause();
+            
+            // 기존에 만들었던 동적 인스턴스가 있다면 삭제
+            if (dynamicEventInstance != null) Destroy(dynamicEventInstance);
+            
+            dynamicEventInstance = ScriptableObject.CreateInstance<ChoiceEventSO>();
+            dynamicEventInstance.EventID = template.TemplateID;
+            dynamicEventInstance.ScenarioTitle = llmData.ScenarioTitle;
+            dynamicEventInstance.ScenarioDescription = llmData.ScenarioDescription;
+            dynamicEventInstance.Options = new ChoiceOptionData[3];
+            
+            // 옵션 A
+            dynamicEventInstance.Options[0] = ConvertTemplateOption(template.LogicOptions[0]);
+            dynamicEventInstance.Options[0].OptionTitle = llmData.OptionATitle;
+            dynamicEventInstance.Options[0].Description = llmData.OptionADesc;
+
+            // 옵션 B
+            dynamicEventInstance.Options[1] = ConvertTemplateOption(template.LogicOptions[1]);
+            dynamicEventInstance.Options[1].OptionTitle = llmData.OptionBTitle;
+            dynamicEventInstance.Options[1].Description = llmData.OptionBDesc;
+
+            // 옵션 C
+            dynamicEventInstance.Options[2] = ConvertTemplateOption(template.LogicOptions[2]);
+            dynamicEventInstance.Options[2].OptionTitle = llmData.OptionCTitle;
+            dynamicEventInstance.Options[2].Description = llmData.OptionCDesc;
+
+            currentActiveEvent = dynamicEventInstance;
+            uiController.Show(dynamicEventInstance, OnOptionSelected);
+            
+            // 캐시 비우기
+            cachedLLMData = null;
+        }
+
+        private ChoiceOptionData ConvertTemplateOption(EventLogicOptionData logicOption)
+        {
+            ChoiceOptionData opt = new ChoiceOptionData();
+            if (logicOption == null) return opt;
+            opt.OptionType = logicOption.OptionType;
+            opt.RequiredItemId = logicOption.RequiredItemId;
+            opt.RequiredItemCount = logicOption.RequiredItemCount;
+            opt.OverrideSignalProbTrue = logicOption.OverrideSignalProbTrue;
+            opt.OverrideBeamPercent = logicOption.OverrideBeamPercent;
+            opt.OverrideDurationSeconds = logicOption.OverrideDurationSeconds;
+            opt.MentalChangeAmount = logicOption.MentalChangeAmount;
+            opt.HealthChangeAmount = logicOption.HealthChangeAmount;
+            opt.ForceLeverage = logicOption.ForceLeverage;
+            opt.ForcePosition = logicOption.ForcePosition;
+            opt.PositionHandlingMode = logicOption.PositionHandlingMode;
+            opt.CustomTargetROELimit = logicOption.CustomTargetROELimit;
+            opt.CustomStopLossROELimit = logicOption.CustomStopLossROELimit;
+            return opt;
+        }
+
+        private void PrepareGamePause()
+        {
             if (gameManager != null)
             {
                 int currentMinuteOfDay = gameManager.CurrentHour * 60 + gameManager.CurrentMinute;
                 lastEventTriggerGameMinutes = (long)gameManager.CurrentDay * 1440L + currentMinuteOfDay;
             }
-            
-            // 🚀 [현실 시간 쿨타임] 고속 스킵 중 이벤트가 연속으로 터지는 것을 방지
             lastEventTriggerRealTime = Time.unscaledTime;
 
-            // 💡 [핵심: 상점 시간정지 동기화] 선택지 창이 떠있는 동안 상점과 완전히 동일하게 PauseGame()
             if (gameManager != null)
             {
                 pausedByChoiceEvent = gameManager.CurrentState == GameManager.GameState.Playing;
                 if (pausedByChoiceEvent)
                 {
                     gameManager.PauseGame();
-                    Debug.Log($"[ChoiceEventController] ⏸️ 돌발 선택 이벤트({eventData.EventID}) 발생으로 인게임 시간 정지");
+                    Debug.Log($"[ChoiceEventController] ⏸️ 돌발 선택 이벤트 발생으로 인게임 시간 정지");
                 }
             }
-
-            uiController.Show(eventData, OnOptionSelected);
         }
 
         public void OnOptionSelected(int optionIndex)
         {
             if (currentActiveEvent == null || optionIndex < 0 || optionIndex >= currentActiveEvent.Options.Length) return;
             ChoiceOptionData option = currentActiveEvent.Options[optionIndex];
+
             if (option == null) return;
 
             // 1. 특수 아이템 개입 요구 검증 및 차감
