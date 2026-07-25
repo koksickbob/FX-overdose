@@ -139,7 +139,7 @@ public class GameManager : MonoBehaviour
         currentHour = 9;
         currentMinute = 0;
 
-        // 게임 상태 초기화 -> 초기에는 LLM 로딩 및 개장 준비 상태(Loading)로 대기
+        // 게임 상태 초기화 -> 초기에는 차트 개장 준비 상태(Loading)로 대기
         currentState = GameState.Loading;
         currentEnding = EndingType.None;
 
@@ -166,7 +166,7 @@ public class GameManager : MonoBehaviour
         // 주인공 및 스킬 레벨 시스템 초기화
         FXOverdose.Trading.TraderLevelSystem.Instance?.ResetLevels();
 
-        Debug.Log("새 게임 시작 (LLM 예열 및 차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
+        Debug.Log("새 게임 시작 (차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
     }
 
     private void EnsureActiveItemEffectManager()
@@ -194,7 +194,7 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.Loading)
         {
             currentState = GameState.Playing;
-            Debug.Log("[GameManager] LLM 및 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+            Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
         }
     }
 

@@ -69,6 +69,10 @@ namespace FXOverdose.Editor
                 if (positionInfo.Contains("Long")) position = "Long";
                 else if (positionInfo.Contains("Short")) position = "Short";
 
+                int lev = 0;
+                Match levMatch = Regex.Match(positionInfo, @"(\d+)x Leverage");
+                if (levMatch.Success) int.TryParse(levMatch.Groups[1].Value, out lev);
+
                 string roeStr = ExtractValue(line, "Current_ROE"); // e.g. "-47.6%"
                 bool isProfit = false;
                 if (!string.IsNullOrEmpty(roeStr) && roeStr.Contains("+"))
@@ -76,14 +80,25 @@ namespace FXOverdose.Editor
                     isProfit = true;
                 }
 
+                string heroStr = ExtractValue(line, "Hero_Level");
+                int heroLv = 0;
+                if (!string.IsNullOrEmpty(heroStr)) int.TryParse(heroStr, out heroLv);
+                
+                string skillStr = ExtractValue(line, "Skill_Level");
+                int skillLv = 0;
+                if (!string.IsNullOrEmpty(skillStr)) int.TryParse(skillStr, out skillLv);
+                
+                string evCategory = ExtractValue(line, "Event_Category");
+
                 // Assistant 대사 추출
                 string dialogue = ExtractAssistantContent(line);
                 if (string.IsNullOrEmpty(dialogue)) continue; // 대사가 없으면 건너뜀
 
-                // Auto-Tagging 단기 방향성
+                // Auto-Tagging 단기 방향성 및 하이 리스크 태깅
                 DirectionTag dir = AutoTagDirection(dialogue);
+                bool isHighRisk = dialogue.Contains("풀시드") || dialogue.Contains("전재산") || dialogue.Contains("청산") || dialogue.Contains("몰빵");
 
-                YomiDialogueEntry entry = new YomiDialogueEntry(dialogue, marketTrend, mentalState, position, dir, isProfit);
+                YomiDialogueEntry entry = new YomiDialogueEntry(dialogue, marketTrend, mentalState, position, dir, isProfit, lev, heroLv, skillLv, isHighRisk, evCategory);
                 db.entries.Add(entry);
                 count++;
             }

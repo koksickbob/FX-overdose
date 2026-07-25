@@ -207,7 +207,7 @@ namespace FXOverdose.UI
                 new Vector2(0.945f, 0.70f),
                 Pink);
 
-            CreateText(window.transform, "RuleHint", "CHALLENGE에서는 캐릭터 대사용 LLM은 유지되고, AI 자동매매만 잠깁니다.", 14f, Muted,
+            CreateText(window.transform, "RuleHint", "CHALLENGE에서는 캐릭터 대사는 유지되고, AI 자동매매만 잠깁니다.", 14f, Muted,
                 new Vector2(0.08f, 0.175f), new Vector2(0.92f, 0.225f), TextAlignmentOptions.Center);
 
             CreateSmallButton(window.transform, "Btn_Close", "BACK", new Vector2(0.39f, 0.07f), new Vector2(0.61f, 0.16f));

@@ -7,7 +7,7 @@ using FXOverdose.Trading;
 
 namespace FXOverdose.UI
 {
-    /// <summary>게임 씬과 LLM/차트 시스템을 준비한 뒤 페이드로 게임을 개시합니다.</summary>
+    /// <summary>게임 씬과 차트 시스템을 준비한 뒤 페이드로 게임을 개시합니다.</summary>
     public class LoadingScreenController : MonoBehaviour
     {
         [Header("로딩 UI")]
@@ -67,7 +67,7 @@ namespace FXOverdose.UI
                 SceneManager.SetActiveScene(gameScene);
 
             // 💡 [중복 경고 스팸 방지] GameScene이 Additive로 로드되면서 GameScene의 AudioListener가 활성화됩니다.
-            // 이후 LLM을 기다리는 동안 두 씬이 모두 켜져 있어 AudioListener가 2개가 되어 로그가 폭주하는 것을 막기 위해,
+            // 이후 씬 로딩을 기다리는 동안 두 씬이 모두 켜져 있어 AudioListener가 2개가 되어 로그가 폭주하는 것을 막기 위해,
             // 이전 씬(로딩 씬)의 AudioListener를 찾아서 즉시 꺼줍니다.
             AudioListener[] listeners = Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude);
             foreach (var listener in listeners)

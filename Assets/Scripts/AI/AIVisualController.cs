@@ -346,7 +346,48 @@ namespace FXOverdose.AI
 
         private void HandleAIDecisionMade(string dialogue, float emotionDelta)
         {
-            DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, EventCategory.General);
+            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
+            if (matcher == null) matcher = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.Dialogue.YomiDialogueMatcher>(UnityEngine.FindObjectsInactive.Include);
+            
+            var tc = tradingController;
+            if (tc == null) tc = UnityEngine.Object.FindAnyObjectByType<TradingController>(UnityEngine.FindObjectsInactive.Include);
+
+            if (tc != null && matcher != null)
+            {
+                float roe = CalculateCurrentRoe();
+                string posStr = tc.CurrentPosition.ToString();
+                var mentalState = traderStatus != null ? traderStatus.CurrentMentalState.ToString() : TraderStatus.MentalState.Stable.ToString();
+
+                FXOverdose.AI.Dialogue.DirectionTag direction = FXOverdose.AI.Dialogue.DirectionTag.None;
+                if (tc.CurrentPosition == TradingController.PositionType.Long)
+                    direction = roe >= 0f ? FXOverdose.AI.Dialogue.DirectionTag.Up : FXOverdose.AI.Dialogue.DirectionTag.Down;
+                else if (tc.CurrentPosition == TradingController.PositionType.Short)
+                    direction = roe >= 0f ? FXOverdose.AI.Dialogue.DirectionTag.Down : FXOverdose.AI.Dialogue.DirectionTag.Up;
+
+                string marketTrend = direction == FXOverdose.AI.Dialogue.DirectionTag.Up
+                    ? "Bull"
+                    : direction == FXOverdose.AI.Dialogue.DirectionTag.Down ? "Bear" : "Sideways";
+
+                int currentLeverage = tc.CurrentLeverage;
+                var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>(UnityEngine.FindObjectsInactive.Include);
+                float marginRatio = 0f;
+                if (gm != null && gm.CurrentBalance + tc.MarginAmount > 0f)
+                {
+                    marginRatio = tc.MarginAmount / (tc.MarginAmount + gm.CurrentBalance);
+                }
+
+                var levelSystem = FXOverdose.Trading.TraderLevelSystem.Instance;
+                int heroLevel = levelSystem != null ? levelSystem.ProtagonistLevel : 1;
+                int skillLevel = levelSystem != null ? Mathf.Max(levelSystem.ChartStudyLevel, levelSystem.CubePatienceLevel, levelSystem.BookJudgmentLevel) : 1;
+
+                string matchedDialogue = matcher.GetDialogue(
+                    posStr, marketTrend, mentalState, direction, roe >= 0f, currentLeverage, marginRatio, heroLevel, skillLevel);
+
+                if (!string.IsNullOrEmpty(matchedDialogue))
+                {
+                    DisplayDialogueBalloon(matchedDialogue, DialoguePriority.Normal, EventCategory.General);
+                }
+            }
         }
 
 

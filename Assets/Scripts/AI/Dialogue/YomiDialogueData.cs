@@ -27,8 +27,16 @@ namespace FXOverdose.AI.Dialogue
         
         // 수익 여부 요구치 (수치 자체보다 부호를 중요시)
         public bool isProfit;          // Current_ROE가 0보다 컸는가?
+
+        // --- 새로 추가된 정밀 매칭용 필드 ---
+        public int requiredLeverage;     // e.g. 10, 50, 100
+        public int requiredHeroLevel;    // e.g. 1 ~ 10
+        public int requiredSkillLevel;   // e.g. 1 ~ 10
+        public bool isHighMarginRisk;    // 대사가 풀시드/전재산 배팅 상황을 가정하는지 여부
+        public string eventCategory;     // e.g. "SkillUpgraded", "Gimmick_Musk", "" (일반 대사)
         
-        public YomiDialogueEntry(string t, string trend, string mental, string pos, DirectionTag dir, bool profit)
+        public YomiDialogueEntry(string t, string trend, string mental, string pos, DirectionTag dir, bool profit, 
+                                 int lev = 0, int heroLv = 0, int skillLv = 0, bool risk = false, string ev = "")
         {
             text = t;
             marketTrend = trend;
@@ -36,6 +44,12 @@ namespace FXOverdose.AI.Dialogue
             position = pos;
             requiredDirection = dir;
             isProfit = profit;
+            
+            requiredLeverage = lev;
+            requiredHeroLevel = heroLv;
+            requiredSkillLevel = skillLv;
+            isHighMarginRisk = risk;
+            eventCategory = ev;
         }
     }
 }
