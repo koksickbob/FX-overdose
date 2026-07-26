@@ -252,8 +252,7 @@ namespace FXOverdose.Core
                 var topBar = FindAnyObjectByType<FXOverdose.UI.TopBar.TopStatusBarUIController>();
                 if (topBar != null && topBar.TutorialBalanceHighlightTarget != null)
                 {
-                    Transform targetBg = FindCardByName(topBar.TutorialBalanceHighlightTarget);
-                    balanceHighlight = CreateHighlightOverlay(targetBg);
+                    balanceHighlight = CreateHighlightOverlay(topBar.TutorialBalanceHighlightTarget);
                 }
             }
 
@@ -279,8 +278,7 @@ namespace FXOverdose.Core
                 var vitals = FindAnyObjectByType<VitalsValueUI>();
                 if (vitals != null && vitals.TutorialMentalHighlightTarget != null)
                 {
-                    Transform targetBg = FindCardByName(vitals.TutorialMentalHighlightTarget);
-                    mentalHighlight = CreateHighlightOverlay(targetBg);
+                    mentalHighlight = CreateHighlightOverlay(vitals.TutorialMentalHighlightTarget);
                 }
             }
 
@@ -301,25 +299,7 @@ namespace FXOverdose.Core
             }
         }
 
-        private Transform FindCardByName(Transform start)
-        {
-            Transform current = start.parent;
-            // 뎁스 제한 없이 위로 계속 올라가며 'Card', 'Panel', 'Bg' 등의 이름을 가진 진짜 카드 컨테이너를 찾습니다.
-            while (current != null)
-            {
-                string lowerName = current.name.ToLower();
-                if (lowerName.Contains("card") || lowerName.Contains("panel") || lowerName.Contains("bg") || lowerName.Contains("background"))
-                {
-                    return current;
-                }
-                
-                // Canvas에 도달하면 탐색 중단
-                if (current.GetComponent<Canvas>() != null) break;
-                
-                current = current.parent;
-            }
-            return start.parent != null ? start.parent : start;
-        }
+
 
         private GameObject CreateHighlightOverlay(Transform target)
         {
@@ -745,14 +725,33 @@ namespace FXOverdose.Core
                 // 튜토리얼에서는 LLM 생성 상태와 무관하게 내용이 완성된 고정 이벤트를 사용합니다.
                 choiceController.TriggerSpecificEvent("EVENT_01_FSC_ETF");
                 
-                // 이벤트가 활성화되어 있는 동안 대기
+                // 이벤트가 활성화되어 있는 동안 대기 (팝업 떠있는 상태)
                 while (choiceController.IsEventActive)
                 {
                     yield return null;
                 }
                 
-                // 이벤트 종료 후 다시 클릭 방지
+                // 이벤트 팝업 종료 후 다시 클릭 방지
                 if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = true;
+
+                // [NEW] 선택 완료 후 요미의 자연스러운 확인 및 시간 가속 처리
+                yield return StartCoroutine(PlayDialogueAndWait("어때? 돌발 이벤트에 어떻게 대처해야 할지 감이 좀 와?"));
+                yield return StartCoroutine(PlayDialogueAndWait("오빠의 선택이 시장에 어떤 결과를 가져오는지 빠르게 시간을 돌려볼게!"));
+                
+                var gameManager = FindAnyObjectByType<GameManager>();
+                if (gameManager != null)
+                {
+                    // 이벤트 지속시간 150분 고속 경과
+                    gameManager.AdvanceGameMinutes(150);
+                    
+                    // 빨리 감기가 끝날 때까지 대기
+                    while (gameManager.IsFastForwardingTime)
+                    {
+                        yield return null;
+                    }
+                }
+                
+                yield return StartCoroutine(PlayDialogueAndWait("결과 확인 완료! 돌발 이벤트 대응도 완벽하네!"));
             }
             else
             {

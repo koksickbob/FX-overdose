@@ -6,8 +6,28 @@ using UnityEngine.UI;
 /// <summary>HP와 MENTAL 슬라이더 값을 0~100 숫자로 표시하고, 멘탈 감소 시 플로팅 UI를 표시합니다.</summary>
 public class VitalsValueUI : MonoBehaviour
 {
-    public RectTransform TutorialMentalHighlightTarget =>
-        mentalSlider != null ? mentalSlider.GetComponent<RectTransform>() : null;
+    [Header("Tutorial Targets")]
+    public RectTransform mentalHighlightTarget;
+
+    public RectTransform TutorialMentalHighlightTarget
+    {
+        get
+        {
+            if (mentalHighlightTarget != null) return mentalHighlightTarget;
+
+            foreach (RectTransform child in GetComponentsInChildren<RectTransform>(true))
+            {
+                if (child.name.IndexOf("HighlightTarget", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    child.name.IndexOf("MentalHighlight", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    child.name.IndexOf("TutorialHighlight", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return child;
+                }
+            }
+
+            return mentalSlider != null ? mentalSlider.GetComponent<RectTransform>() : null;
+        }
+    }
 
     [SerializeField] private Slider healthSlider;
     [SerializeField] private Slider mentalSlider;

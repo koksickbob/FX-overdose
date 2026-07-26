@@ -14,8 +14,29 @@ namespace FXOverdose.UI.TopBar
         private const float DayTimeCardWidth = 330f;
         private const int DayTimeHorizontalPadding = 24;
 
-        public RectTransform TutorialBalanceHighlightTarget =>
-            balanceValueLabel != null ? balanceValueLabel.rectTransform : null;
+        [Header("Tutorial Targets")]
+        public RectTransform balanceHighlightTarget;
+
+        public RectTransform TutorialBalanceHighlightTarget
+        {
+            get
+            {
+                if (balanceHighlightTarget != null) return balanceHighlightTarget;
+
+                // 인수인계 문서에 따라 이름으로 Fallback 탐색
+                foreach (RectTransform child in GetComponentsInChildren<RectTransform>(true))
+                {
+                    if (child.name.IndexOf("HighlightTarget", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        child.name.IndexOf("BalanceHighlight", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        child.name.IndexOf("TutorialHighlight", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return child;
+                    }
+                }
+
+                return balanceValueLabel != null ? balanceValueLabel.rectTransform : null;
+            }
+        }
 
         [Header("시스템 및 렌더러 연결")]
         [SerializeField] private GameManager gameManager;
