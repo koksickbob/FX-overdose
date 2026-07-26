@@ -1073,3 +1073,15 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_acc.dylib`
 - `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_no-acc.dylib`
 - `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native/libllamalib_osx-arm64_runtime_static.a`
+
+### 요미 블랙 비키니 코스튬
+
+- 요미의 기존 얼굴, 장발, 색상, 체형과 감정·행동별 포즈를 유지한 블랙 비키니 코스튬을 추가했습니다.
+- 삼각 홀터 상의와 중앙 금색 링, 양옆 크로스 스트랩 및 금색 링이 들어간 하의를 공통 디자인으로 사용합니다.
+- 의류 상점의 `BLACK BIKINI` 상품으로 등록했으며 가격은 `$400`입니다.
+- 구매 후 `EQUIP`, 장착 후 `EQUIPPED`로 전환되는 기존 코스튬 구매·장착·저장 흐름을 그대로 사용합니다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Resources/Characters/Costumes/Bikini/`
