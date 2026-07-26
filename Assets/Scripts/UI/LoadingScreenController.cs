@@ -10,6 +10,9 @@ namespace FXOverdose.UI
     /// <summary>게임 씬과 차트 시스템을 준비한 뒤 페이드로 게임을 개시합니다.</summary>
     public class LoadingScreenController : MonoBehaviour
     {
+        /// <summary>LoadingScene 진입 전에 이 값을 설정하면 해당 씬으로 로딩합니다. 로딩 시작 후 자동으로 GameScene으로 초기화됩니다.</summary>
+        public static string TargetSceneToLoad = "GameScene";
+
         [Header("로딩 UI")]
         [SerializeField] private Slider progressBar;
         [SerializeField] private TMP_Text progressText;
@@ -36,6 +39,12 @@ namespace FXOverdose.UI
 
         private void Start()
         {
+            if (!string.IsNullOrEmpty(TargetSceneToLoad))
+            {
+                targetSceneName = TargetSceneToLoad;
+                TargetSceneToLoad = "GameScene"; // 기본값으로 복원
+            }
+
             SetProgress(0f, "INITIALIZING");
             StartCoroutine(LoadAndPrepareGame());
         }

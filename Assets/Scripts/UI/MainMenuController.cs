@@ -328,7 +328,12 @@ namespace FXOverdose.UI
             if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
             SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex);
             
-            if (Application.CanStreamedLevelBeLoaded("tutorial"))
+            if (Application.CanStreamedLevelBeLoaded("LoadingScene") && Application.CanStreamedLevelBeLoaded("tutorial"))
+            {
+                LoadingScreenController.TargetSceneToLoad = "tutorial";
+                SceneManager.LoadScene("LoadingScene");
+            }
+            else if (Application.CanStreamedLevelBeLoaded("tutorial"))
             {
                 SceneManager.LoadScene("tutorial");
             }
@@ -366,6 +371,8 @@ namespace FXOverdose.UI
 
         private static void LoadGameFlow()
         {
+            LoadingScreenController.TargetSceneToLoad = "GameScene";
+
             if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
             {
                 SceneManager.LoadScene("LoadingScene");
