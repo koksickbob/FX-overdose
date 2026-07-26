@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da15e56082f95ba40b3436d71366a1ca, type: 3}
+  m_Name: EVENT_29_MEME_SPASM
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
+  EventID: EVENT_29_MEME_SPASM
+  ScenarioTitle: "\uBC08\uCF54\uC778 '\uD398\uD398\uB3C4\uC9C0(PepeDoge)' 1\uBD84
+    \uB9CC\uC5D0 10\uB9CC\uBC30 \uD3ED\uB4F1 \uD6C4 \uC0C1\uD3D0"
+  ScenarioDescription: "\uC544\uBB34 \uAC00\uCE58\uB3C4 \uC5C6\uB294 \uC7A1\uCF54\uC778
+    '\uD398\uD398\uB3C4\uC9C0'\uAC00 \uC624\uB958\uB85C \uC778\uD574 1\uBD84 \uB9CC\uC5D0
+    10\uB9CC \uBC30\uAC00 \uC62C\uB790\uB2E4\uAC00 \uC989\uC2DC \uC0C1\uC7A5\uD3D0\uC9C0\uB418\uB294
+    \uBBF8\uCE5C \uC0AC\uAC74\uC774 \uBC1C\uC0DD\uD558\uBA70 \uBD07\uB4E4\uC774 \uC624\uC791\uB3D9\uC744
+    \uC77C\uC73C\uD0B5\uB2C8\uB2E4."
+  AIMonologue: "10\uB9CC \uBC30... 10\uB9CC \uBC30\uB77C\uACE0?! \uC800\uAC78 \uD0D4\uC5B4\uC57C
+    \uD588\uB294\uB370!! \uB0B4 \uC778\uC0DD\uC740 \uC4F0\uB808\uAE30\uC57C!! \uBD07\uB4E4\uC774
+    \uBBF8\uCCD0 \uB0A0\uB6F0\uACE0 \uC788\uC5B4, \uB098\uB3C4 \uC544\uBB34\uAC70\uB098
+    \uD480\uB9E4\uC218 \uD560\uB798!!"
+  TriggerCondition: 2
+  Options:
+  - OptionType: 0
+    OptionTitle: "\uB3C4\uBC15\uD310\uC5D0\uC11C \uC2DC\uC120\uC744 \uAC70\uB454\uB2E4.
+      \uAC15\uC81C \uD734\uC2DD."
+    Description: "FOMO\uB97C \uC5B5\uB204\uB974\uBA70 \uBA58\uD0C8 \uC548\uC815\uD654.
+      \uBA58\uD0C8 +25."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 25
+    HealthChangeAmount: 0
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    OptionTitle: "\uB098\uB3C4 10\uB9CC \uBC30 \uBA39\uC744\uB798!! 125\uBC30 \uD480\uB9E4\uC218!!"
+    Description: "\uC798\uBABB\uB41C \uBD07 \uC624\uC791\uB3D9\uC5D0 \uD718\uB9D0\uB824
+      \uC2EC\uAC01\uD55C \uC190\uC2E4 \uBE54(-15%). \uBA58\uD0C8 -50."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 0.1
+    OverrideBeamPercent: -15
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: -50
+    HealthChangeAmount: 0
+    ForceLeverage: 125
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    OptionTitle: "[\uC544\uBE44\uD2B8\uB77C\uC9C0 \uCC28\uC775 \uC2E4\uD604] (\uC5D0\uB108\uC9C0
+      \uB4DC\uB9C1\uD06C 1\uAC1C \uC18C\uBAA8)"
+    Description: "\uBD07\uB4E4\uC758 \uC624\uC791\uB3D9 \uC0AC\uC774\uC5D0\uC11C
+      \uBB34\uC704\uD5D8 \uCC28\uC775(Arbitrage) \uC54C\uACE0\uB9AC\uC998\uC744 \uAC00\uB3D9\uD558\uC5EC
+      25\uBC30 \uD655\uC815 \uC218\uC775 \uB2EC\uC131."
+    RequiredItemId: energy_drink
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 10
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 25
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

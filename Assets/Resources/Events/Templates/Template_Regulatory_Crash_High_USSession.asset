@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Regulatory_Crash_High_USSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Regulatory_Crash_High_USSession
+  ThemeTag: "[Regulatory_Crash_High_USSession] \uBBF8\uAD6D\uC7A5 \uC2DC\uAC04\uB300
+    \uAC1C\uC7A5 \uC9C1\uD6C4, \uADF9\uB3C4\uC758 \uCE58\uBA85\uC801\uC778 \uAC01\uAD6D
+    \uC815\uBD80\uC758 \uD06C\uB9BD\uD1A0 \uADDC\uC81C \uB610\uB294 \uC138\uAE08
+    \uBC95\uC548 \uBC1C\uD45C\uB85C \uC778\uD55C \uACF5\uD3EC\uC758 \uC5F0\uC1C4
+    \uD558\uB77D(\uD328\uB2C9\uC140/\uBE45\uC20F) \uBE54 \uD3ED\uB77D \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: -3.7991898
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 19
+    HealthChangeAmount: 11
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 4
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.5253745
+    OverrideBeamPercent: -27.108696
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -51
+    HealthChangeAmount: 0
+    ForceLeverage: 122
+    ForcePosition: 2
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: energy_drink
+    RequiredItemCount: 2
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 21.569042
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 32
+    HealthChangeAmount: 11
+    ForceLeverage: 26
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

@@ -154,7 +154,7 @@ public class SettingsMenuController : MonoBehaviour
         StartCoroutine(SyncFloatingButtonLayoutCoroutine());
     }
 
-    private System.Collections.IEnumerator SyncFloatingButtonLayoutCoroutine()
+    private global::System.Collections.IEnumerator SyncFloatingButtonLayoutCoroutine()
     {
         yield return null;
         Canvas.ForceUpdateCanvases();

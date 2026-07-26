@@ -60,7 +60,7 @@ namespace FXOverdose.Trading
             StartCoroutine(TemporaryLockRoutine(seconds));
         }
 
-        private System.Collections.IEnumerator TemporaryLockRoutine(float seconds)
+        private global::System.Collections.IEnumerator TemporaryLockRoutine(float seconds)
         {
             IsManualModeLockedByYomi = true;
             yield return new WaitForSecondsRealtime(seconds);
@@ -1224,7 +1224,7 @@ namespace FXOverdose.Trading
             }
         }
 
-        private System.Collections.IEnumerator DelayedOverdoseRoutine(PositionType forcedDirection, float forcedMargin, int forcedLeverage, float aiTarget)
+        private global::System.Collections.IEnumerator DelayedOverdoseRoutine(PositionType forcedDirection, float forcedMargin, int forcedLeverage, float aiTarget)
         {
             LockManualModeTemporarily(2.0f);
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
@@ -1378,7 +1378,7 @@ namespace FXOverdose.Trading
             }
         }
 
-        private System.Collections.IEnumerator DelayedEmergencyTradeRoutine(PositionType posType, int leverage, int durationSeconds, EventPositionHandlingMode handlingMode, float customTargetROE, float customStopLossROE, bool isPlayerChoice, bool isTrueSignal, float customMarginRatio, float delayBeforeOpen)
+        private global::System.Collections.IEnumerator DelayedEmergencyTradeRoutine(PositionType posType, int leverage, int durationSeconds, EventPositionHandlingMode handlingMode, float customTargetROE, float customStopLossROE, bool isPlayerChoice, bool isTrueSignal, float customMarginRatio, float delayBeforeOpen)
         {
             if (!isPlayerChoice)
             {

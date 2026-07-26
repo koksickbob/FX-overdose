@@ -215,6 +215,27 @@ namespace FXOverdose.UI
             return overlay;
         }
 
+        public static GameObject EnsureTutorialPromptPanel(Transform parent)
+        {
+            if (parent == null) return null;
+
+            Transform existing = parent.Find("TutorialPromptPanel");
+            if (existing != null) return existing.gameObject;
+
+            GameObject overlay = CreateModalOverlay(parent, "TutorialPromptPanel");
+            Image window = CreateWindow(overlay.transform, "ModalWindow", new Vector2(0.25f, 0.35f), new Vector2(0.75f, 0.65f));
+            CreateModalTitle(window.transform, "TUTORIAL", "튜토리얼을 진행하시겠습니까?");
+
+            CreateText(window.transform, "Desc", "처음 오셨다면 튜토리얼을 통해\n게임의 기초 시스템을 배우는 것을 권장합니다.", 18f, Muted,
+                new Vector2(0.05f, 0.40f), new Vector2(0.95f, 0.70f), TextAlignmentOptions.Center);
+
+            CreateSmallButton(window.transform, "Btn_Yes", "예 (진행)", new Vector2(0.15f, 0.15f), new Vector2(0.45f, 0.30f));
+            CreateSmallButton(window.transform, "Btn_No", "아니오 (건너뛰기)", new Vector2(0.55f, 0.15f), new Vector2(0.85f, 0.30f));
+
+            overlay.SetActive(false);
+            return overlay;
+        }
+
         private static void CreateModeCard(
             Transform parent,
             string name,

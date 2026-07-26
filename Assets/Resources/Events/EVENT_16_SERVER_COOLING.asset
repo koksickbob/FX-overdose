@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da15e56082f95ba40b3436d71366a1ca, type: 3}
+  m_Name: EVENT_16_SERVER_COOLING
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
+  EventID: EVENT_16_SERVER_COOLING
+  ScenarioTitle: "\uC9C0\uD558 \uBC99\uCEE4 \uC11C\uBC84\uC2E4\uC758 \uB0C9\uAC01
+    \uC7A5\uCE58 \uACE0\uC7A5"
+  ScenarioDescription: "\uC9C0\uD558 \uC11C\uBC84\uC2E4\uC758 \uB0C9\uAC01 \uD32C\uC774
+    \uC815\uC9C0\uD558\uC5EC \uC628\uB3C4\uAC00 90\uB3C4\uAE4C\uC9C0 \uCE58\uC19F\uC2B5\uB2C8\uB2E4.
+    AI \uD504\uB85C\uC138\uC11C\uAC00 \uC4F0\uB85C\uD2C0\uB9C1(Throttling)\uC5D0
+    \uAC78\uB824 \uCC28\uD2B8 \uC5C5\uB370\uC774\uD2B8\uAC00 \uBC84\uBC85\uAC70\uB9AC\uAE30
+    \uC2DC\uC791\uD569\uB2C8\uB2E4."
+  AIMonologue: "\uB354\uC6CC... \uB108\uBB34 \uB354\uC6CC!! \uD504\uB85C\uC138\uC11C
+    \uCF54\uC5B4\uAC00 \uB179\uC544\uB0B4\uB9B4 \uAC83 \uAC19\uC544... \uCC28\uD2B8\uAC00
+    \uC548 \uBCF4\uC5EC... \uD2F1\uC774 \uBA48\uCDC4\uC5B4!!"
+  TriggerCondition: 2
+  Options:
+  - OptionType: 0
+    OptionTitle: "\uC2DC\uC2A4\uD15C\uC744 \uB0C9\uAC01\uD560 \uB54C\uAE4C\uC9C0
+      3\uC2DC\uAC04 \uB3D9\uC548 \uAC15\uC81C \uD734\uC2DD"
+    Description: "\uC548\uC804\uD558\uAC8C \uC11C\uBC84\uB97C \uC2DD\uD600 \uCCB4\uB825
+      +30 \uD68C\uBCF5. 3\uC2DC\uAC04 \uB3D9\uC548 \uAC70\uB798 \uC5C6\uC74C."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 0
+    HealthChangeAmount: 30
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    OptionTitle: "\uCF54\uC5B4\uAC00 \uD0C0\uBC84\uB824\uB3C4 \uC88B\uB2E4! \uB9C8\uC9C0\uB9C9
+      \uD2F1\uC73C\uB85C 50\uBC30 \uB871 \uAC15\uD589!"
+    Description: "\uB809 \uAC78\uB9B0 \uCC28\uD2B8\uC5D0\uC11C \uC9C4\uC785\uD558\uC5EC
+      \uCCB4\uB825 -20, \uBA58\uD0C8 -15 \uD0C0\uACA9."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: -15
+    HealthChangeAmount: -20
+    ForceLeverage: 50
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    OptionTitle: "[\uC561\uCCB4 \uC9C8\uC18C \uB0C9\uAC01] (\uC5D0\uB108\uC9C0 \uB4DC\uB9C1\uD06C
+      1\uAC1C \uC18C\uBAA8)"
+    Description: "\uC989\uAC01 \uB0C9\uAC01 \uC644\uB8CC. \uC4F0\uB85C\uD2C0\uB9C1
+      \uD574\uC81C\uB85C \uCD08\uC815\uBC00 25\uBC30 \uB871 \uD0C0\uC810 100% \uC131\uACF5."
+    RequiredItemId: energy_drink
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 15
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 25
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

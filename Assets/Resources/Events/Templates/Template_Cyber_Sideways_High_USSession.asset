@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Cyber_Sideways_High_USSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Cyber_Sideways_High_USSession
+  ThemeTag: "[Cyber_Sideways_High_USSession] \uBBF8\uAD6D\uC7A5 \uC2DC\uAC04\uB300
+    \uAC1C\uC7A5 \uC9C1\uD6C4, \uADF9\uB3C4\uC758 \uCE58\uBA85\uC801\uC778 \uD574\uD0B9,
+    \uB525\uC6F9 \uCC0C\uB77C\uC2DC \uB610\uB294 AI \uC2DC\uC2A4\uD15C \uC624\uB958\uB85C
+    \uC778\uD55C \uADF9\uB3C4\uC758 \uB208\uCE58\uC2F8\uC6C0\uACFC \uC228\uB9C9\uD788\uB294
+    \uD6A1\uBCF4\uC7A5 \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 9
+    HealthChangeAmount: 5
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 3
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.69911546
+    OverrideBeamPercent: 34.74285
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -75
+    HealthChangeAmount: 0
+    ForceLeverage: 81
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: energy_drink
+    RequiredItemCount: 2
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 16.241972
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 21
+    HealthChangeAmount: 21
+    ForceLeverage: 26
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

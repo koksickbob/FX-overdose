@@ -23,6 +23,11 @@ namespace FXOverdose.Events
         private ChoiceEventSO dynamicEventInstance; // 메모리 릭 방지용 추적
         private EventLogicTemplateSO activeTemplate; // LLM 템플릿용
         private FXOverdose.AI.LLM.GeneratedChoiceEventData cachedLLMData;
+        
+        public bool IsTutorialMode { get; set; } = false;
+        
+        public bool IsEventActive => (uiController != null && uiController.IsShowing) || currentActiveEvent != null;
+        public ChoiceEventSO CurrentActiveEvent => currentActiveEvent;
 
         private bool pausedByChoiceEvent;
         private int lastTriggerDay = -1;
@@ -86,6 +91,8 @@ namespace FXOverdose.Events
 
         private void ResetDailySchedule(int day, int currentDayMinutes = 0)
         {
+            if (IsTutorialMode) return;
+            
             lastTriggerDay = day;
             eventsTriggeredToday = 0;
 
@@ -120,6 +127,8 @@ namespace FXOverdose.Events
 
         private void OnGameMinuteAdvanced()
         {
+            if (IsTutorialMode) return;
+
             if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
             {
                 return;
@@ -266,6 +275,46 @@ namespace FXOverdose.Events
             {
                 Debug.LogWarning($"[ChoiceEventController] 이벤트 ID '{eventID}'를 찾을 수 없습니다.");
             }
+        }
+
+        public void TriggerPrefetchedEvent()
+        {
+            if (cachedLLMData != null && activeTemplate != null)
+            {
+                ShowLLMChoiceDialog(activeTemplate, cachedLLMData);
+            }
+            else
+            {
+                TriggerRandomEvent(EventTriggerCondition.Any);
+            }
+        }
+
+        public void ForceGuaranteedProfitEvent()
+        {
+            if (dynamicEventInstance != null) Destroy(dynamicEventInstance);
+            
+            dynamicEventInstance = ScriptableObject.CreateInstance<ChoiceEventSO>();
+            dynamicEventInstance.EventID = "tutorial_guaranteed_profit";
+            dynamicEventInstance.ScenarioTitle = "튜토리얼 확정 수익 이벤트";
+            dynamicEventInstance.ScenarioDescription = "어느 선택지를 골라도 확정적인 수익이 발생합니다. 테스트해 보세요.";
+            dynamicEventInstance.AIMonologue = "오빠! 이 이벤트는 무조건 수익이 나도록 설정되어 있어! 마음 놓고 선택해!";
+            dynamicEventInstance.Options = new ChoiceOptionData[3];
+            
+            for (int i = 0; i < 3; i++)
+            {
+                var opt = new ChoiceOptionData();
+                opt.OptionTitle = $"선택지 {i + 1}";
+                opt.Description = "무조건 수익이 보장됩니다.";
+                opt.OptionType = i == 0 ? ChoiceOptionType.Safe : (i == 1 ? ChoiceOptionType.Aggressive : ChoiceOptionType.SpecialItem);
+                opt.OverrideSignalProbTrue = 1.0f; // 확정 성공
+                opt.OverrideBeamPercent = 10f;     // 10% 상승 빔
+                opt.ForcePosition = TradingController.PositionType.Long;
+                opt.ForceLeverage = 10;
+                opt.PositionHandlingMode = TradingController.EventPositionHandlingMode.StandardAuto;
+                dynamicEventInstance.Options[i] = opt;
+            }
+
+            ShowChoiceDialog(dynamicEventInstance);
         }
 
         public async void StartPreFetchingLLMEvent()
@@ -422,6 +471,7 @@ namespace FXOverdose.Events
                 }
             }
             pausedByChoiceEvent = false;
+            currentActiveEvent = null;
         }
 
         private void ApplyOptionEffects(ChoiceOptionData option)

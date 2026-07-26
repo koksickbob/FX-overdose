@@ -849,6 +849,14 @@ namespace FXOverdose.Trading
             OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
         }
 
+        // 튜토리얼용 확정 수익 이벤트 강제 주입
+        public void TriggerGuaranteedProfitEvent(MarketSignalType sigType)
+        {
+            float targetDelta = (sigType == MarketSignalType.BullishBreakout || sigType == MarketSignalType.BearTrap) ? 15.0f : -15.0f;
+            ForceInjectSignal(sigType, SignalStrength.Strong, true, targetDelta, 30, 2);
+            Debug.Log($"[MarketEngine] 🎓 튜토리얼용 무조건 수익 이벤트 트리거! 방향: {sigType}");
+        }
+
         // 오버도즈 상태 돌입 시 호출되어 주인공을 함정(반대 방향 죽음의 차트 빔)으로 이끄는 신호 주입 및 차트 제어
         public void TriggerOverdoseTrapSignal(TradingController.PositionType trapPosType, int durationSeconds = 35)
         {

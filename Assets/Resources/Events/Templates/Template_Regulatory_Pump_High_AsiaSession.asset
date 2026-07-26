@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Regulatory_Pump_High_AsiaSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Regulatory_Pump_High_AsiaSession
+  ThemeTag: "[Regulatory_Pump_High_AsiaSession] \uC544\uC2DC\uC544\uC7A5 \uC2DC\uAC04\uB300,
+    \uADF9\uB3C4\uC758 \uCE58\uBA85\uC801\uC778 \uAC01\uAD6D \uC815\uBD80\uC758 \uD06C\uB9BD\uD1A0
+    \uADDC\uC81C \uB610\uB294 \uC138\uAE08 \uBC95\uC548 \uBC1C\uD45C\uB85C \uC778\uD55C
+    \uAC15\uB825\uD55C \uC0C1\uC2B9(\uD3EC\uBAA8/\uBE45\uB871) \uBE54 \uD3ED\uBC1C
+    \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 3.117384
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 19
+    HealthChangeAmount: 13
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 3
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.46028265
+    OverrideBeamPercent: 20.756039
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -114
+    HealthChangeAmount: 0
+    ForceLeverage: 116
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: sedative
+    RequiredItemCount: 2
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 12.830069
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 36
+    HealthChangeAmount: 23
+    ForceLeverage: 16
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

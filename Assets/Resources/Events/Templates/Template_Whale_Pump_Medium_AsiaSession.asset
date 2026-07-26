@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Whale_Pump_Medium_AsiaSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Whale_Pump_Medium_AsiaSession
+  ThemeTag: "[Whale_Pump_Medium_AsiaSession] \uC544\uC2DC\uC544\uC7A5 \uC2DC\uAC04\uB300,
+    \uC0C1\uB2F9\uD55C \uCD08\uAC70\uB300 \uACE0\uB798 \uC9C0\uAC11\uC758 \uB300\uADDC\uBAA8
+    \uBB3C\uB7C9 \uC774\uB3D9\uC73C\uB85C \uC778\uD55C \uAC15\uB825\uD55C \uC0C1\uC2B9(\uD3EC\uBAA8/\uBE45\uB871)
+    \uBE54 \uD3ED\uBC1C \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 3.562056
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 8
+    HealthChangeAmount: 10
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 3
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.5316795
+    OverrideBeamPercent: 28.858524
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -48
+    HealthChangeAmount: 0
+    ForceLeverage: 35
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: sedative
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 19.867693
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 38
+    HealthChangeAmount: 22
+    ForceLeverage: 21
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

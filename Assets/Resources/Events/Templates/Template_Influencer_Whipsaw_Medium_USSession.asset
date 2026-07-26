@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Influencer_Whipsaw_Medium_USSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Influencer_Whipsaw_Medium_USSession
+  ThemeTag: "[Influencer_Whipsaw_Medium_USSession] \uBBF8\uAD6D\uC7A5 \uC2DC\uAC04\uB300
+    \uAC1C\uC7A5 \uC9C1\uD6C4, \uC0C1\uB2F9\uD55C \uC720\uBA85 \uC778\uD50C\uB8E8\uC5B8\uC11C\uC758
+    \uAE30\uC2B5\uC801\uC778 SNS \uBC1C\uC5B8\uC73C\uB85C \uC778\uD55C \uC704\uC544\uB798\uB85C
+    \uD06C\uAC8C \uC694\uB3D9\uCE58\uBA70 \uCCAD\uC0B0 \uB9F5\uC744 \uD130\uB294
+    \uD729\uC18C \uC7A5\uC138 \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 13
+    HealthChangeAmount: 7
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.41368303
+    OverrideBeamPercent: 31.05212
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -70
+    HealthChangeAmount: 0
+    ForceLeverage: 34
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: dessert
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 18.02184
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 37
+    HealthChangeAmount: 13
+    ForceLeverage: 29
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

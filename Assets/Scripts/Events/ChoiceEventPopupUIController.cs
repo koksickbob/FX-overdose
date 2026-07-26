@@ -57,6 +57,8 @@ namespace FXOverdose.Events
         private Coroutine breakingNewsCoroutine;
         private GameObject breakingNewsOverlay;
 
+        public bool IsShowing => popupPanel != null && popupPanel.activeInHierarchy;
+
         private void Awake()
         {
             EnsureUIBuilt();
