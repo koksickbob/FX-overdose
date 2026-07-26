@@ -1085,3 +1085,16 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/Items/CostumeManager.cs`
 - `Assets/Resources/Characters/Costumes/Bikini/`
+
+### 비키니 코스튬 흰색 디자인 전면 교체
+
+- 기존 검정 비키니 기본 이미지와 변형 스프라이트를 흰색 투피스 비키니 디자인으로 전면 교체했습니다.
+- 기본 1종, 감정 19종, 아이템 사용 4종, 스킬 행동 3종, LONG·SHORT 2종, 오버도즈 1종의 총 30장을 동일한 의상 기준으로 맞췄습니다.
+- 기존 검정 비키니 이미지는 남기지 않고 같은 리소스 경로의 PNG를 교체했으며 `.meta`를 보존해 Unity GUID와 런타임 경로가 유지됩니다.
+- 모든 결과를 `600×1180` RGBA PNG로 정규화하고 네 모서리의 완전 투명 상태를 검사했습니다.
+- 아이템·스킬 소품, 포지션 차트, 오버도즈 오라·글리치·깨진 하트 효과를 각 변형에 유지했습니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/Costumes/Bikini.png`
+- `Assets/Resources/Characters/Costumes/Bikini/`
