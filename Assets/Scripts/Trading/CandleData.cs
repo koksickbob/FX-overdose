@@ -16,7 +16,7 @@ namespace FXOverdose.Trading
     }
 
     // 단일 캔들스틱(OHLCV) 데이터를 표현하는 직렬화 가능한 클래스
-    [System.Serializable]
+    [global::System.Serializable]
     public class CandleData
     {
         [Tooltip("캔들 시작 시점 (게임 누적 분 단위)")]

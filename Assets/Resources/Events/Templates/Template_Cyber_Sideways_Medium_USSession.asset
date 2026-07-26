@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Cyber_Sideways_Medium_USSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Cyber_Sideways_Medium_USSession
+  ThemeTag: "[Cyber_Sideways_Medium_USSession] \uBBF8\uAD6D\uC7A5 \uC2DC\uAC04\uB300
+    \uAC1C\uC7A5 \uC9C1\uD6C4, \uC0C1\uB2F9\uD55C \uD574\uD0B9, \uB525\uC6F9 \uCC0C\uB77C\uC2DC
+    \uB610\uB294 AI \uC2DC\uC2A4\uD15C \uC624\uB958\uB85C \uC778\uD55C \uADF9\uB3C4\uC758
+    \uB208\uCE58\uC2F8\uC6C0\uACFC \uC228\uB9C9\uD788\uB294 \uD6A1\uBCF4\uC7A5 \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 19
+    HealthChangeAmount: 6
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 3
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.61893713
+    OverrideBeamPercent: 28.228394
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -52
+    HealthChangeAmount: 0
+    ForceLeverage: 48
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: sedative
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 18.935577
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 29
+    HealthChangeAmount: 27
+    ForceLeverage: 16
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

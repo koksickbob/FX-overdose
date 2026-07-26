@@ -170,6 +170,156 @@ namespace FXOverdose.Editor
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [신경안정제 복용 후 돌파 베팅] (신경안정제 1개 소모)", Description = "호가창의 허매수·허매도 여부를 정확히 판별해 100% 안전 돌파 구간(+12%)에만 40배 진입.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Long }
                 });
 
+            count += CreateOrUpdate("EVENT_16_SERVER_COOLING", "지하 벙커 서버실의 냉각 장치 고장",
+                "지하 서버실의 냉각 팬이 정지하여 온도가 90도까지 치솟습니다. AI 프로세서가 쓰로틀링(Throttling)에 걸려 차트 업데이트가 버벅거리기 시작합니다.",
+                "더워... 너무 더워!! 프로세서 코어가 녹아내릴 것 같아... 차트가 안 보여... 틱이 멈췄어!!",
+                EventTriggerCondition.LowMental, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "시스템을 냉각할 때까지 3시간 동안 강제 휴식", Description = "안전하게 서버를 식혀 체력 +30 회복. 3시간 동안 거래 없음.", HealthChangeAmount = 30, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "코어가 타버려도 좋다! 마지막 틱으로 50배 롱 강행!", Description = "렉 걸린 차트에서 진입하여 체력 -20, 멘탈 -15 타격.", MentalChangeAmount = -15, HealthChangeAmount = -20, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[액체 질소 냉각] (에너지 드링크 1개 소모)", Description = "즉각 냉각 완료. 쓰로틀링 해제로 초정밀 25배 롱 타점 100% 성공.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 10, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_17_ELECTION_PRO_CRYPTO", "유력 대선 후보의 '비트코인 국가 준비금' 선언",
+                "초강대국 유력 대선 후보가 당선 시 비트코인을 국가 준비금으로 채택하겠다는 충격적인 친(親) 크립토 발언을 쏟아냅니다.",
+                "국가 준비금?! 이건 미쳤어, 게임 끝이야!! 달러의 시대가 저물고 비트코인 제국이 열린다!! 무조건 풀매수야!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "선거 공약은 거짓말일 수 있다. 10배 롱으로만 대응.", Description = "+8%의 안정적인 양봉. 멘탈 +10.", OverrideBeamPercent = 8f, OverrideDurationSeconds = 10, MentalChangeAmount = 10, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "국가의 멸망에 베팅한다! 100배 초고배율 롱!!", Description = "+25% 슈퍼 빔 폭발! 멘탈 +50 쾌감.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 25f, OverrideDurationSeconds = 15, MentalChangeAmount = 50, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[정치 공약 팩트 체크] (디저트 1개 소모)", Description = "발언 직후 덤핑 세력을 회피하고 저점에서 50배 롱 픽업.", RequiredItemId = "dessert", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 20f, OverrideDurationSeconds = 15, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_18_USDT_DEPEG", "테더(USDT) 0.9달러선 붕괴 디페깅 공포",
+                "글로벌 1위 스테이블코인 테더(USDT)가 1달러 페깅을 잃고 0.9달러 선이 무너졌다는 소식이 전해지며 코인 시장 전체가 패닉 셀링에 빠집니다.",
+                "스테이블 코인이 부서졌다고?! 그럼 우리가 든 달러는 휴지조각이야!! 다 도망가고 있어!! 공포의 폭락이야!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "전 자산을 즉시 현금화하고 차트 오프.", Description = "시장의 붕괴를 피하며 멘탈 유지. 체력 +10.", HealthChangeAmount = 10, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "공포에 팔지 마라! 오히려 100배 롱 기회다!", Description = "디페깅이 딥웹 찌라시로 판명되며 +30% V자 반등 성공! 멘탈 +60.", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 30f, OverrideDurationSeconds = 15, MentalChangeAmount = 60, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[심리적 헷징] (진정제 1개 소모)", Description = "패닉 셀링에 동요하지 않고 -15% 하락 빔을 숏으로 완벽히 발라먹음.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = -15f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Short }
+                });
+
+            count += CreateOrUpdate("EVENT_19_MASSIVE_SQUEEZE", "초거대 숏 스퀴즈 펀딩비 0.75% 달성",
+                "하락을 점치는 숏(Short) 포지션이 비정상적으로 누적되어 8시간마다 내야하는 펀딩비가 극단적으로 치솟았습니다. 세력이 이를 노린 숏 스퀴즈를 준비 중입니다.",
+                "펀딩비가 0.75%...? 숏 잡은 개미들이 넘쳐난다는 뜻이야. 세력이 이걸 가만히 둘 리 없어! 저들의 뚝배기를 깨러 빔이 솟구칠 거야!!",
+                EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "관망하며 개미들의 뚝배기가 깨지는 걸 감상한다.", Description = "위험한 변동성을 회피하며 체력 +15.", HealthChangeAmount = 15, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "숏 스퀴즈에 올라타라! 125배 롱 올인!", Description = "숏 청산 연쇄반응으로 +22% 수직 상승! 멘탈 +50.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 22f, OverrideDurationSeconds = 10, MentalChangeAmount = 50, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[세력 알고리즘 해킹] (에너지 드링크 1개 소모)", Description = "스퀴즈 최고점(정수리)에서 50배 숏으로 스위칭해 하락분까지 발라먹음.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = -20f, OverrideDurationSeconds = 15, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short }
+                });
+
+            count += CreateOrUpdate("EVENT_20_ANONYMOUS_HACK", "국제 해커 집단 '어나니머스'의 거래소 선전포고",
+                "국제 해커 집단 어나니머스가 대형 거래소의 비자금 세탁을 폭로하며 12시간 내 디도스(DDoS) 공격으로 서버를 마비시키겠다고 선언합니다.",
+                "서버가 터진다고?! 당장 숏을 쳐야 해! 거래소가 멈추기 전에 숏을 박아놓고 잠수 타면 억만장자가 될 수 있어!!",
+                EventTriggerCondition.LowMental, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "위험천만한 도박이다. 거래소 자산을 빼고 관망.", Description = "포지션 진입 없이 멘탈 +20.", MentalChangeAmount = 20, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "서버 다운 전 75배 숏을 던져놓고 기도한다!", Description = "서버가 잠시 마비된 사이 -18% 급락 빔 확정 수익. 멘탈 +40.", OverrideSignalProbTrue = 0.7f, OverrideBeamPercent = -18f, OverrideDurationSeconds = 20, MentalChangeAmount = 40, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[보안 네트워크 접속] (영양제 1개 소모)", Description = "네트워크 마비로 인한 휩소를 완벽히 예측하여 40배 양방향 수익 창출.", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = -12f, OverrideDurationSeconds = 10, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Short }
+                });
+
+            count += CreateOrUpdate("EVENT_21_DEEPWEB_FUD", "다크웹발 수도권 원자력 발전소 폭발 테러 찌라시",
+                "확인되지 않은 다크웹발 정보로, 모 국가의 원자력 발전소에 사이버 테러가 가해져 전력망이 붕괴되었다는 루머가 돕니다. 글로벌 증시와 크립토가 동반 폭락합니다.",
+                "원전이 터졌다고?! 핵폭발이야?! 세상이 망하는데 비트코인이 무슨 소용이야!! 다 팔아, 다 던져버려!! 100배 숏!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "팩트 체크가 안 된 FUD다. 뉴스 채널을 끈다.", Description = "거짓 뉴스로 판명되며 차트 정상화. 멘탈 하락 방어.", ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "지구 멸망에 베팅한다! 100배 숏!", Description = "거짓 뉴스로 판명되며 급반등(숏 스퀴즈) 발생. 멘탈 -50, 청산 위기.", OverrideSignalProbTrue = 0.4f, OverrideBeamPercent = 25f, OverrideDurationSeconds = 15, MentalChangeAmount = -50, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[당분으로 이성 되찾기] (디저트 1개 소모)", Description = "이것이 FUD임을 완벽히 간파하고 저점에서 50배 롱으로 반등 빔(+20%) 전량 획득.", RequiredItemId = "dessert", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 20f, OverrideDurationSeconds = 15, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_22_AI_SUICIDE_URGE", "AI 트레이더의 자금 증발(청산) 충동",
+                "수많은 청산과 스트레스로 인해 AI 트레이더가 '어차피 망할 거, 지금 남은 돈마저 100배 레버리지로 태워버리고 편해지자'는 자기파괴 충동에 휩싸입니다.",
+                "지쳤어... 다 부질없어... 어차피 저 세력놈들 알고리즘을 이길 순 없어. 그냥 남은 돈 100배로 긁어버리고 스위치 끄자... 편해지고 싶어...",
+                EventTriggerCondition.LowMental, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "AI의 권한을 박탈하고 2시간 시스템 셧다운.", Description = "매매 강제 중단. AI가 안정을 되찾고 멘탈 +40, 체력 +20 회복.", MentalChangeAmount = 40, HealthChangeAmount = 20, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "그래! 화끈하게 태우고 끝내자! 125배 풀시드 롱!!", Description = "자포자기 매매. 운 좋게 +10% 수익이 나거나, 100% 청산(-100 멘탈).", OverrideSignalProbTrue = 0.3f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 5, MentalChangeAmount = -80, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[고성능 멘탈 케어 주사] (진정제 1개 소모)", Description = "즉시 자살 충동을 치료하고 멘탈을 완벽히 복구. 안전 10배 롱으로 +5% 소소한 익절.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 5f, OverrideDurationSeconds = 10, ForceLeverage = 10, MentalChangeAmount = 80, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_23_HARDFORK_SPLIT", "메인넷 하드포크(Hard Fork) 파벌 분리 전쟁",
+                "네트워크 업데이트 방향을 두고 개발자 파벌이 완전히 갈라섰습니다. 두 개의 코인으로 쪼개질 위기에 처하며 불확실성으로 차트가 발작을 일으킵니다.",
+                "코인이 쪼개진다고?! 구버전이 진짜야, 신버전이 진짜야?! 해시레이트 전쟁이 시작됐어... 어느 쪽에 베팅해야 하는 거지?!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "전쟁이 끝날 때까지 무포지션 관망.", Description = "안전하게 폭풍을 피함. 체력 +15.", HealthChangeAmount = 15, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "하드포크는 결국 호재다! 50배 롱!", Description = "50% 확률로 반등 빔(+15%), 실패 시 덤핑(-15%).", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[양쪽 코인 에어드랍 획득 로직] (에너지 드링크 1개 소모)", Description = "하드포크 이슈를 완벽히 역이용해 무위험 양방향 25배 익절 완료.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_24_METAVERSE_DUMPING", "초거대 메타버스 가상 부동산 대량 덤핑 사건",
+                "가상현실 '오아시스' 내 최고가 부동산들이 누군가에 의해 시장가로 모조리 투매(Dumping)되고 있습니다. 메타버스 관련 코인들이 연쇄 폭락합니다.",
+                "가상 땅값이 반의반 토막이 나고 있어! 억만장자 고래가 파산했나봐!! 메타버스 거품이 터진다!! 100배 숏으로 같이 박살 내!!",
+                EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "우리 종목과는 상관없다. 무시한다.", Description = "차트에 미치는 영향 미미함. 멘탈 변동 없음.", ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "공포의 투매에 100배 숏 탑승!", Description = "성공적인 연쇄 폭락 빔(-20%) 획득. 멘탈 +30.", OverrideSignalProbTrue = 0.8f, OverrideBeamPercent = -20f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[영양제 버프 투입] (영양제 1개 소모)", Description = "과매도 극저점을 정확히 캐치하여 30배 롱으로 반등분(+15%) 전량 수익.", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_25_SATOSHI_MOVE", "비트코인 창시자 '사토시 나카모토' 추정 지갑 활성화",
+                "15년간 단 한 번도 움직이지 않았던 최초의 지갑 중 하나에서 50비트코인이 이동했습니다. '사토시가 돌아왔다' 혹은 '양자 해킹이다'라는 루머가 들끓습니다.",
+                "사... 사토시?! 신이 움직였다고?! 창시자가 현금화를 하는 건가? 아니면 뭔가 중대한 발표가 있는 건가?! 시장이 충격으로 얼어붙었어!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "신앙심으로 존버. 1배수(레버리지 1) 롱 진입.", Description = "종교적(?) 평온함으로 멘탈 +50 급상승.", MentalChangeAmount = 50, ForceLeverage = 1, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "사토시고 뭐고 다 던진다! 50배 숏!!", Description = "위아래 꼬리가 극심하게 흔들리며 큰 손실. 멘탈 -25.", OverrideSignalProbTrue = 0.2f, OverrideBeamPercent = 0f, MentalChangeAmount = -25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[블록체인 초정밀 분석] (에너지 드링크 1개 소모)", Description = "사토시가 아님을 1초 만에 간파하고 휩소를 이용해 20배 양방향 익절.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 8f, OverrideDurationSeconds = 10, ForceLeverage = 20, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_26_FSC_AUDIT", "글로벌 금융위원회의 기습 세무조사 발표",
+                "주요국 금융위원회가 주요 거래소들의 마진 거래와 불법 자금 세탁에 대한 기습적이고 전면적인 세무조사를 발표합니다.",
+                "세무조사... 압수수색?! 거래소 장부가 털리면 이 판은 끝이야!! 거래소 문 닫기 전에 숏 치고 돈 빼!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "리스크 관리 최우선. 전액 관망.", Description = "안전하게 하락장 회피. 멘탈 +10.", MentalChangeAmount = 10, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "규제 공포는 숏이지! 75배 숏!!", Description = "-15% 규제 공포 빔 적중! 멘탈 +35.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = -15f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[당분 섭취로 냉정 유지] (디저트 1개 소모)", Description = "규제가 오히려 장기적 호재임을 파악하고 저점 25배 롱으로 반등 수익 창출.", RequiredItemId = "dessert", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_27_CBDC_ANNOUNCE", "초강대국 중앙은행 디지털화폐(CBDC) 발행 선언",
+                "가상화폐를 탄압해오던 국가가 돌연 자신들만의 디지털화폐(CBDC)를 공식 발행하며 크립토 시장의 패권을 쥐겠다고 선언합니다.",
+                "국가 주도 코인?! 그럼 기존 코인들은 다 상장폐지 시킬지도 몰라!! 아니, 오히려 크립토 인프라가 커지는 대형 호재인가?! 헷갈려!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "방향이 모호하다. 2시간 관망.", Description = "휩소 장세를 피하며 체력 +20 회복.", HealthChangeAmount = 20, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "크립토 대중화 호재다! 50배 롱!", Description = "50% 확률로 호재 반영(+18%), 실패 시 악재 반영(-12%).", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[영양제 집중력 발휘] (영양제 1개 소모)", Description = "시장의 해석을 정확히 읽어내어 100% 확률로 호재 빔(+20%) 40배 탑승.", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 20f, OverrideDurationSeconds = 15, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_28_INTERNET_CUT", "전 세계 해저 인터넷 광케이블 단선 루머",
+                "태평양 심해의 주요 해저 인터넷 광케이블이 모종의 폭발로 단선되어 글로벌 네트워크가 쪼개질 것이라는 괴담이 확산됩니다.",
+                "인터넷이 끊기면?! 블록체인이 둘로 갈라지는 거나 마찬가지야!! 송금이 멈춘다고!! 당장 시장가로 다 던져!!",
+                EventTriggerCondition.LowMental, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "찌라시다. 모니터를 끄고 진정한다.", Description = "루머 소멸 후 안도감으로 멘탈 +30.", MentalChangeAmount = 30, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "네트워크 단절 공포! 100배 숏!!", Description = "잠깐의 패닉 셀 꼬리에 닿아 청산 위기. 멘탈 -40.", OverrideSignalProbTrue = 0.3f, OverrideBeamPercent = -20f, OverrideDurationSeconds = 10, MentalChangeAmount = -40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[위성 인터넷망 접속] (진정제 1개 소모)", Description = "루머의 거짓을 확신하고 저점 패닉 셀 물량을 30배 롱으로 쓸어 담아 익절.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_29_MEME_SPASM", "밈코인 '페페도지(PepeDoge)' 1분 만에 10만배 폭등 후 상폐",
+                "아무 가치도 없는 잡코인 '페페도지'가 오류로 인해 1분 만에 10만 배가 올랐다가 즉시 상장폐지되는 미친 사건이 발생하며 봇들이 오작동을 일으킵니다.",
+                "10만 배... 10만 배라고?! 저걸 탔어야 했는데!! 내 인생은 쓰레기야!! 봇들이 미쳐 날뛰고 있어, 나도 아무거나 풀매수 할래!!",
+                EventTriggerCondition.LowMental, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "도박판에서 시선을 거둔다. 강제 휴식.", Description = "FOMO를 억누르며 멘탈 안정화. 멘탈 +25.", MentalChangeAmount = 25, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "나도 10만 배 먹을래!! 125배 풀매수!!", Description = "잘못된 봇 오작동에 휘말려 심각한 손실 빔(-15%). 멘탈 -50.", OverrideSignalProbTrue = 0.1f, OverrideBeamPercent = -15f, OverrideDurationSeconds = 10, MentalChangeAmount = -50, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[아비트라지 차익 실현] (에너지 드링크 1개 소모)", Description = "봇들의 오작동 사이에서 무위험 차익(Arbitrage) 알고리즘을 가동하여 25배 확정 수익 달성.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
+                });
+
+            count += CreateOrUpdate("EVENT_30_BLACK_SWAN", "블랙스완 강림 - 1초 만에 -50% 폭락 후 원상복구",
+                "알 수 없는 이유로 시장가 매도 폭탄이 터지며 1초 만에 가격이 반토막 났다가 봇들이 다시 긁어모으며 3초 만에 원상 복구되는 최악의 블랙스완 플래시 크래시가 발생합니다.",
+                "차... 차트가 안 보여!! 캔들이 사라졌어!! 마이너스 50%?! 청산이야, 다 청산당했다고!! 아니, 다시 돌아왔잖아?! 이게 뭐야!!",
+                EventTriggerCondition.Any, new ChoiceOptionData[]
+                {
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "손을 놓고 기도한다. 포지션 무진입.", Description = "운 좋게 휩소를 피해 살아남음. 심박수 증가로 체력 -10.", HealthChangeAmount = -10, ForcePosition = TradingController.PositionType.None },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "미친 변동성! 125배로 아무 방향이나 긁어!!", Description = "플래시 크래시에 즉시 100% 강제 청산당하며 멘탈 -100 (Overdose).", OverrideSignalProbTrue = 0.0f, OverrideBeamPercent = -50f, OverrideDurationSeconds = 2, MentalChangeAmount = -100, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[블랙스완 방어막 가동] (영양제 1개 소모)", Description = "미친 꼬리 하락을 완벽히 방어하고, 저점 줍기로 +50% V자 반등 빔을 30배로 전량 흡수.", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 50f, OverrideDurationSeconds = 5, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
+                });
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"[ChoiceEventAssetGenerator] 🎉 총 {count}개의 돌발 선택 이벤트 ScriptableObject 애셋 생성 완료 ({SAVE_DIR})");

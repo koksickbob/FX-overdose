@@ -60,6 +60,12 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private Button btnPreset100x;
         [SerializeField] private Button btnPreset125x;
 
+        public Button LongButton => longButton;
+        public Button ShortButton => shortButton;
+        public Button ClosePositionButton => closePositionButton;
+        public Button BtnLeverageMinus => btnLeverageMinus;
+        public Button BtnLeveragePlus => btnLeveragePlus;
+
         [Header("실시간 포지션 상태 오버레이 (ROE & PnL)")]
         [SerializeField] private GameObject positionStatusPanel;
         [SerializeField] private TMP_Text positionTypeText;

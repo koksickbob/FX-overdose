@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da15e56082f95ba40b3436d71366a1ca, type: 3}
+  m_Name: EVENT_24_METAVERSE_DUMPING
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
+  EventID: EVENT_24_METAVERSE_DUMPING
+  ScenarioTitle: "\uCD08\uAC70\uB300 \uBA54\uD0C0\uBC84\uC2A4 \uAC00\uC0C1 \uBD80\uB3D9\uC0B0
+    \uB300\uB7C9 \uB364\uD551 \uC0AC\uAC74"
+  ScenarioDescription: "\uAC00\uC0C1\uD604\uC2E4 '\uC624\uC544\uC2DC\uC2A4' \uB0B4
+    \uCD5C\uACE0\uAC00 \uBD80\uB3D9\uC0B0\uB4E4\uC774 \uB204\uAD70\uAC00\uC5D0 \uC758\uD574
+    \uC2DC\uC7A5\uAC00\uB85C \uBAA8\uC870\uB9AC \uD22C\uB9E4(Dumping)\uB418\uACE0
+    \uC788\uC2B5\uB2C8\uB2E4. \uBA54\uD0C0\uBC84\uC2A4 \uAD00\uB828 \uCF54\uC778\uB4E4\uC774
+    \uC5F0\uC1C4 \uD3ED\uB77D\uD569\uB2C8\uB2E4."
+  AIMonologue: "\uAC00\uC0C1 \uB545\uAC12\uC774 \uBC18\uC758\uBC18 \uD1A0\uB9C9\uC774
+    \uB098\uACE0 \uC788\uC5B4! \uC5B5\uB9CC\uC7A5\uC790 \uACE0\uB798\uAC00 \uD30C\uC0B0\uD588\uB098\uBD10!!
+    \uBA54\uD0C0\uBC84\uC2A4 \uAC70\uD488\uC774 \uD130\uC9C4\uB2E4!! 100\uBC30 \uC20F\uC73C\uB85C
+    \uAC19\uC774 \uBC15\uC0B4 \uB0B4!!"
+  TriggerCondition: 1
+  Options:
+  - OptionType: 0
+    OptionTitle: "\uC6B0\uB9AC \uC885\uBAA9\uACFC\uB294 \uC0C1\uAD00\uC5C6\uB2E4.
+      \uBB34\uC2DC\uD55C\uB2E4."
+    Description: "\uCC28\uD2B8\uC5D0 \uBBF8\uCE58\uB294 \uC601\uD5A5 \uBBF8\uBBF8\uD568.
+      \uBA58\uD0C8 \uBCC0\uB3D9 \uC5C6\uC74C."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    OptionTitle: "\uACF5\uD3EC\uC758 \uD22C\uB9E4\uC5D0 100\uBC30 \uC20F \uD0D1\uC2B9!"
+    Description: "\uC131\uACF5\uC801\uC778 \uC5F0\uC1C4 \uD3ED\uB77D \uBE54(-20%)
+      \uD68D\uB4DD. \uBA58\uD0C8 +30."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 0.8
+    OverrideBeamPercent: -20
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 30
+    HealthChangeAmount: 0
+    ForceLeverage: 100
+    ForcePosition: 2
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    OptionTitle: "[\uC601\uC591\uC81C \uBC84\uD504 \uD22C\uC785] (\uC601\uC591\uC81C
+      1\uAC1C \uC18C\uBAA8)"
+    Description: "\uACFC\uB9E4\uB3C4 \uADF9\uC800\uC810\uC744 \uC815\uD655\uD788
+      \uCE90\uCE58\uD558\uC5EC 30\uBC30 \uB871\uC73C\uB85C \uBC18\uB4F1\uBD84(+15%)
+      \uC804\uB7C9 \uC218\uC775."
+    RequiredItemId: supplement
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 15
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 30
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

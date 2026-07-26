@@ -21,19 +21,15 @@ namespace FXOverdose.AI
         [Header("기믹 내부 타이머 및 누적기")]
         private float panicDialogueTimer = 0f;
         public bool isUnrealizedPnLCured = false;
+        private bool pendingImpulsiveTrade = false;
 
         public void CureMentalGimmicks()
         {
             isUnrealizedPnLCured = true;
             isTrackingMissedSignal = false;
             traderStatus.CurrentLosingStreak = 0;
-            isImpulsiveCountdownActive = false;
             Debug.Log("[MentalDrainGimmickController] 💊 멘탈 감소 기믹들이 1회성으로 치료(초기화)되었습니다.");
         }
-
-        // 4연속 손절 시 15초 카운트다운 관련
-        private bool isImpulsiveCountdownActive = false;
-        private float impulsiveTradeCountdownTimer = 0f;
 
         // 휩소 오인 및 FOMO 후회 기믹 관련
         private bool isTrackingMissedSignal = false;
@@ -53,8 +49,17 @@ namespace FXOverdose.AI
             }
         }
 
+        private static MentalDrainGimmickController instance;
+
         private void Awake()
         {
+            if (instance != null && instance != this)
+            {
+                Destroy(this);
+                return;
+            }
+            instance = this;
+
             traderStatus = TraderStatus.CanonicalInstance;
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
@@ -149,8 +154,13 @@ namespace FXOverdose.AI
 
             float dt = Time.unscaledDeltaTime;
             EvaluateUnrealizedPnLErosion(dt);
-            EvaluateLosingStreakCountdown(dt);
             EvaluateMissedOpportunityRegret(dt);
+
+            if (pendingImpulsiveTrade)
+            {
+                pendingImpulsiveTrade = false;
+                if (traderStatus != null) traderStatus.TriggerImpulsiveTrade(100);
+            }
         }
 
         // --- [기믹 1: 미실현 손실(Unrealized P&L) 실시간 침식] ---
@@ -195,6 +205,11 @@ namespace FXOverdose.AI
                 drainRate = 0.01f;
             }
 
+            if (tradingController.IsOverdoseProtected() || tradingController.IsEventTradeActive)
+            {
+                drainRate *= 0.5f;
+            }
+
             roeDrainAccumulator += deltaTime;
 
             // 1초 단위로 누적하여 한 번에 차감 (UI 스팸 방지 및 가독성 향상)
@@ -220,33 +235,7 @@ namespace FXOverdose.AI
             }
         }
 
-        // --- [기믹 2 연동 카운트다운: 4연속 손절 시 15초 내 미개입 시 강제 100배 진입] ---
-        private void EvaluateLosingStreakCountdown(float deltaTime)
-        {
-            if (!isImpulsiveCountdownActive) return;
-            if (tradingController != null && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
-            {
-                isImpulsiveCountdownActive = false;
-                impulsiveTradeCountdownTimer = 0f;
-                return;
-            }
 
-            // 플레이어가 개입하여 연속 손절이 리셋되었거나 이미 새 포지션에 들어갔다면 카운트다운 종료
-            if (traderStatus.CurrentLosingStreak < 4 || tradingController.IsActive)
-            {
-                isImpulsiveCountdownActive = false;
-                impulsiveTradeCountdownTimer = 0f;
-                return;
-            }
-
-            impulsiveTradeCountdownTimer -= deltaTime;
-            if (impulsiveTradeCountdownTimer <= 0f)
-            {
-                isImpulsiveCountdownActive = false;
-                Debug.LogWarning("[MentalDrainGimmickController] ⚡ 4연속 손절 후 5초 내 개입 없음 -> AI 100배 기믹 뇌동매매 강행!");
-                traderStatus.TriggerImpulsiveTrade(100);
-            }
-        }
 
         // --- [기믹 2: 연속 손절 콤보 (Losing Streak Multiplier) 및 기믹 4 중독 감지] ---
         private void OnPositionClosed(float returnedAmount, float realizedPnL)
@@ -316,16 +305,10 @@ namespace FXOverdose.AI
             {
                 // 수익 청산
                 traderStatus.CurrentLosingStreak = 0;
-                isImpulsiveCountdownActive = false;
             }
             else
             {
-                // 플레이어 수동 매매 모드일 때는 손절 시에도 연속 손절 콤보 멘탈 감소 및 휩소 자책 기믹을 발생시키지 않음!
-                if (isManualMode)
-                {
-                    Debug.Log("[MentalDrainGimmickController] 🛡️ 플레이어 수동 매매 중 손절 발생: 휩소 기믹 및 연속 손절 페널티를 면제합니다.");
-                    return;
-                }
+
 
                 // 손실 청산
                 traderStatus.CurrentLosingStreak++;
@@ -349,15 +332,15 @@ namespace FXOverdose.AI
                         Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x3] 3연속 손절! 극도의 자격지심 발생");
                         break;
                     default: // 4연속 이상
-                        penalty = 35.0f;
-                        isImpulsiveCountdownActive = true;
-                        impulsiveTradeCountdownTimer = 5.0f;
-                        TriggerGimmickDialogue("4연속 손절 복수심 100배 뇌동매매 카운트다운 기믹 발동 (극도의 분노와 자제력 상실)", "4연속 손절... 더는 못 참아! 5초 내에 100배로 싹 다 복구한다!!");
-                        Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x4+] 4연속 손절! 5초 카운트다운 돌입");
+                        penalty = 0.0f; // 4연속은 뇌동매매가 발동하므로 추가 페널티로 오버도즈가 겹치는 것을 방지
+                        TriggerGimmickDialogue("4연속 손절 복수심 100배 뇌동매매 기믹 발동 (극도의 분노와 자제력 상실)", "4연속 손절... 더는 못 참아! 지금 당장 100배로 싹 다 복구한다!!");
+                        Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x4+] 4연속 손절 감지! 즉시 100배 뇌동매매 돌입!");
+                        pendingImpulsiveTrade = true;
                         break;
                 }
 
-                traderStatus.ChangeMental(-penalty, false, "연속 손절 스트레스");
+                string reason = streak == 1 ? "손실 청산 스트레스" : $"{streak}연속 손절 스트레스";
+                traderStatus.ChangeMental(-penalty, false, reason);
             }
         }
 

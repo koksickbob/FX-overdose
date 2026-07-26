@@ -138,10 +138,13 @@ public class TraderStatus : MonoBehaviour
     public float GetTotalEquity()
     {
         float equity = gameManager != null ? gameManager.CurrentBalance : 0f;
-        var tradingController = Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);
-        if (tradingController != null && tradingController.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None)
+        if (this.tradingController == null)
         {
-            equity += tradingController.MarginAmount + tradingController.CalculateUnrealizedPnL();
+            this.tradingController = Object.FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);
+        }
+        if (this.tradingController != null && this.tradingController.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None)
+        {
+            equity += this.tradingController.MarginAmount + this.tradingController.CalculateUnrealizedPnL();
         }
         return equity;
     }
@@ -456,7 +459,7 @@ public class TraderStatus : MonoBehaviour
                 if (tradingController != null && UnityEngine.Random.value < 0.4f)
                 {
                     Debug.LogWarning("[TraderStatus] ⚠️ [Danger 상태 진입] AI 트레이더의 불안감이 극에 달해 뇌동매매를 시도합니다!");
-                    tradingController.TriggerOverdoseTrade();
+                    TriggerImpulsiveTrade(100);
                 }
             }
         }
@@ -552,11 +555,11 @@ public class TraderStatus : MonoBehaviour
                 allowedMarginRatio = FXOverdose.Trading.TraderLevelSystem.Instance.GetMaxAllowedMarginRatio();
             }
 
-            tradingController.ExecuteEmergencyTrade(randomPos, leverage, 30, FXOverdose.Trading.TradingController.EventPositionHandlingMode.StandardAuto, 0f, 0f, false, true, allowedMarginRatio);
+            tradingController.ExecuteEmergencyTrade(randomPos, leverage, 30, FXOverdose.Trading.TradingController.EventPositionHandlingMode.StandardAuto, 0f, 0f, false, true, allowedMarginRatio, 2.0f);
 
             var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
             visual?.DisplayDialogueBalloon("더는 못 참아!! 100배로 싹 다 복구한다!!");
-            Debug.LogWarning($"[TraderStatus] ⚠️ TriggerImpulsiveTrade 발동: {randomPos} {leverage}배 강제 진입 (마진 비율: {allowedMarginRatio:F2})");
+            Debug.LogWarning($"[TraderStatus] ⚠️ TriggerImpulsiveTrade 발동: {randomPos} {leverage}배 강제 진입 대기 시작 (마진 비율: {allowedMarginRatio:F2})");
         }
     }
 

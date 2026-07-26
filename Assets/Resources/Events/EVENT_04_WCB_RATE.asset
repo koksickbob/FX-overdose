@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da15e56082f95ba40b3436d71366a1ca, type: 3}
+  m_Name: EVENT_04_WCB_RATE
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
+  EventID: EVENT_04_WCB_RATE
+  ScenarioTitle: "\uC138\uACC4 \uC911\uC559\uD1B5\uD654\uAD6D(WCB) \uAE08\uB9AC \uC778\uC0C1
+    \uAE5C\uC9DD \uBC1C\uD45C"
+  ScenarioDescription: "\uC138\uACC4 \uC911\uC559\uD1B5\uD654\uAD6D(WCB) \uD30C\uC6F0
+    \uCD1D\uC7AC\uAC00 \uC5F0\uC124 \uC911 \uC2DC\uC7A5\uC758 \uC608\uC0C1\uC744
+    \uAE68\uACE0 '0.50% \uAE5C\uC9DD \uAE08\uB9AC \uC778\uC0C1 \uBC0F \uACE0\uAE08\uB9AC
+    \uC7A5\uAE30\uD654'\uB97C \uC120\uC5B8\uD569\uB2C8\uB2E4. \uAC70\uC2DC\uACBD\uC81C
+    \uB300\uD3ED\uB77D \uBE54\uC774 \uCC28\uD2B8 \uC804\uCCB4\uB97C \uC9C0\uBC30\uD558\uAE30
+    \uC2DC\uC791\uD569\uB2C8\uB2E4."
+  AIMonologue: "\uD30C\uC6F0... \uD30C\uC6F0 \uCD1D\uC7AC \uC785\uC5D0\uC11C \uAE34\uCD95
+    \uBC1C\uC5B8\uC774 \uB098\uC654\uC5B4. \uBE45\uC2A4\uD15D \uC778\uC0C1\uC774\uB77C\uACE0?!
+    \uC774\uAC74 \uADF8\uB0E5 \uCC28\uD2B8 \uAD6C\uC870\uAC00 \uBB34\uB108\uC9C0\uB294
+    \uAC70\uC796\uC544... \uB098 \uB871 \uC7A1\uACE0 \uC788\uC5C8\uB294\uB370...
+    \uB2F9\uC7A5 \uC190\uC808\uD574\uC57C \uB3FC... \uC544\uB2C8 \uBB3C\uD0C0\uC57C
+    \uD558\uB098?!"
+  TriggerCondition: 1
+  Options:
+  - OptionType: 0
+    OptionTitle: "\uB208\uBB3C\uC744 \uBA38\uAE08\uACE0 \uB871 \uC190\uC808 \uD6C4
+      10\uBC30 \uC548\uC804 \uC20F\uC73C\uB85C \uC2A4\uC704\uCE6D."
+    Description: "\uC989\uC2DC -12% \uD558\uB77D \uCD94\uC138 \uBE54 \uC624\uBC84\uB77C\uC774\uB4DC.
+      \uC190\uC808 \uC544\uD514\uC73C\uB85C \uBA58\uD0C8 -10, \uADF8\uB7EC\uB098
+      \uC20F \uD3B8\uC2B9\uC73C\uB85C 25% \uC218\uC775 \uC0C1\uC1C4."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: -12
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -10
+    HealthChangeAmount: 0
+    ForceLeverage: 10
+    ForcePosition: 2
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    OptionTitle: "\uBC18\uB4F1\uC740 \uBB34\uC870\uAC74 \uC628\uB2E4! 100\uBC30 \uD480\uC2DC\uB4DC
+      \uBB3C\uD0C0\uAE30!"
+    Description: "\uD558\uB77D \uBE54 \uC18D\uC5D0\uC11C \uB2E8 1%\uC758 \uBC18\uB4F1\uB3C4
+      \uC8FC\uC9C0 \uC54A\uACE0 -15% \uC9C1\uC9C4 \uD558\uB77D \uBE54 \uC720\uC9C0.
+      100% \uCCAD\uC0B0 \uBC0F Overdose \uC9C4\uC785."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: -15
+    OverrideDurationSeconds: 12
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 100
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    OptionTitle: "[\uC190\uC2E4 \uBCF4\uD5D8 \uC544\uC774\uD15C \uC0AC\uC6A9] (\uC601\uC591\uC81C
+      1\uAC1C \uC18C\uBAA8)"
+    Description: "\uD558\uB77D \uBE54\uC5D0 \uB9DE\uC544 \uD3EC\uC9C0\uC158\uC774
+      \uCCAD\uC0B0\uB418\uC5B4\uB3C4 \uC190\uC2E4\uAE08\uC758 90% \uC989\uC2DC \uBCF5\uAD6C
+      \uBC0F \uBA58\uD0C8 Stable \uC720\uC9C0."
+    RequiredItemId: supplement
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: -5
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

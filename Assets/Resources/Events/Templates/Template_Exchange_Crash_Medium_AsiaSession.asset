@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Exchange_Crash_Medium_AsiaSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Exchange_Crash_Medium_AsiaSession
+  ThemeTag: "[Exchange_Crash_Medium_AsiaSession] \uC544\uC2DC\uC544\uC7A5 \uC2DC\uAC04\uB300,
+    \uC0C1\uB2F9\uD55C \uAE00\uB85C\uBC8C \uB300\uD615 \uAC70\uB798\uC18C\uC758 \uBCF4\uC548/\uBC45\uD06C\uB7F0
+    \uC774\uC288\uB85C \uC778\uD55C \uACF5\uD3EC\uC758 \uC5F0\uC1C4 \uD558\uB77D(\uD328\uB2C9\uC140/\uBE45\uC20F)
+    \uBE54 \uD3ED\uB77D \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: -5.097576
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 6
+    HealthChangeAmount: 5
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 4
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.67106915
+    OverrideBeamPercent: -31.869707
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -80
+    HealthChangeAmount: 0
+    ForceLeverage: 31
+    ForcePosition: 2
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: energy_drink
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 25.488756
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 29
+    HealthChangeAmount: 11
+    ForceLeverage: 16
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

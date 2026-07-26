@@ -47,6 +47,15 @@ namespace FXOverdose.Core
         // --- 추가 징후 ---
         public TraderEmotion CurrentEmotion;
 
+        // --- 활성 포지션 유지 데이터 ---
+        public bool HasActivePosition;
+        public TradingController.PositionType PositionType;
+        public float EntryPrice;
+        public float MarginAmount;
+        public int CurrentLeverage;
+        public float TargetPrice;
+        public float StopLossPrice;
+
         // --- 코스튬 데이터 ---
         public List<string> OwnedCostumeIds = new List<string> { CostumeManager.StandardId };
         public string EquippedCostumeId = CostumeManager.StandardId;

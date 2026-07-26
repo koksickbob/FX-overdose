@@ -1,0 +1,752 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using FXOverdose.AI;
+using FXOverdose.Trading;
+using FXOverdose.Core;
+
+namespace FXOverdose.Core
+{
+    public enum TutorialState
+    {
+        Welcome,
+        WaitToOpenPosition,
+        WaitToClosePosition,
+        AITradingDemo,
+        LeverageAndMargin,
+        MentalExplanation,
+        ShopExplanation,
+        LevelSystem,
+        SuddenEventDemo,
+        DailySettlement,
+        Graduation
+    }
+
+    public class TutorialManager : MonoBehaviour
+    {
+        public static TutorialManager Instance { get; private set; }
+
+        [Header("상태")]
+        public TutorialState CurrentState = TutorialState.Welcome;
+        
+        public bool AllowAITrading { get; set; } = false;
+
+        [Header("UI 컨트롤 차단 설정")]
+        [SerializeField] private GraphicRaycaster canvasRaycaster; // 메인 캔버스 광범위 차단 시 사용 (필요에 따라)
+        [SerializeField] private CanvasGroup fullScreenBlocker; // 투명한 전체화면 패널 (모든 클릭 차단용)
+
+        // 각 단계별 허용할 특정 UI 요소들 (Inspector 할당 필요)
+        [Header("허용 대상 UI (Inspector 연결)")]
+        [SerializeField] private Button btnLong;
+        [SerializeField] private Button btnShort;
+        [SerializeField] private Button btnClose;
+        [SerializeField] private Button btnIncreaseLeverage;
+        [SerializeField] private Button btnDecreaseLeverage;
+        [SerializeField] private Button btnShop;
+        [SerializeField] private Button btnEndTutorial;
+
+        [Header("오브젝트 하이라이트")]
+        [SerializeField] private GameObject chartHighlight;
+        [SerializeField] private GameObject balanceHighlight;
+        [SerializeField] private GameObject marginHighlight;
+        [SerializeField] private GameObject mentalHighlight;
+        [SerializeField] private GameObject levelHighlight;
+
+        [Header("시스템 참조")]
+        private TradingController tradingController;
+        private AIVisualController aiVisualController;
+        private MarketSimulationEngine marketEngine;
+
+        private void Awake()
+        {
+            if (Instance == null) Instance = this;
+            else Destroy(gameObject);
+        }
+
+        private IEnumerator Start()
+        {
+            // 의존성 찾기
+            tradingController = FindAnyObjectByType<TradingController>();
+            aiVisualController = FindAnyObjectByType<AIVisualController>();
+            marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
+
+            // 동적 UI 바인딩
+            var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
+            if (panelUI != null)
+            {
+                btnLong = panelUI.LongButton;
+                btnShort = panelUI.ShortButton;
+                btnClose = panelUI.ClosePositionButton;
+                btnIncreaseLeverage = panelUI.BtnLeveragePlus;
+                btnDecreaseLeverage = panelUI.BtnLeverageMinus;
+            }
+
+            var shopFollower = FindAnyObjectByType<ShopButtonInventoryFollower>();
+            if (shopFollower != null)
+            {
+                btnShop = shopFollower.GetComponent<Button>();
+            }
+
+            // 돌발 이벤트 랜덤 발생 차단
+            var choiceCtrl = FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
+            if (choiceCtrl != null)
+            {
+                choiceCtrl.IsTutorialMode = true;
+            }
+
+            // 기존 요미의 일반 대사(트레이딩, 기믹 등) 차단
+            if (aiVisualController != null)
+            {
+                aiVisualController.SuppressNormalDialogues = true;
+            }
+
+            // 동적 튜토리얼 블로커 캔버스 생성
+            GameObject blockerGo = new GameObject("TutorialBlockerCanvas");
+            Canvas c = blockerGo.AddComponent<Canvas>();
+            c.renderMode = RenderMode.ScreenSpaceOverlay;
+            c.sortingOrder = 999; // 최상단
+            blockerGo.AddComponent<GraphicRaycaster>();
+            
+            GameObject bgGo = new GameObject("BlockerPanel");
+            bgGo.transform.SetParent(blockerGo.transform, false);
+            Image bgImg = bgGo.AddComponent<Image>();
+            bgImg.color = new Color(0, 0, 0, 0f); // 투명 차단
+            RectTransform bgRect = bgGo.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+            
+            fullScreenBlocker = bgGo.AddComponent<CanvasGroup>();
+            fullScreenBlocker.blocksRaycasts = true;
+            fullScreenBlocker.alpha = 0f;
+
+            // 유니티 UI LayoutGroup 사이즈 강제 계산
+            yield return new WaitForEndOfFrame();
+            Canvas.ForceUpdateCanvases();
+
+            AutoBindHighlights();
+
+            // 만약 유저가 인스펙터에 하이라이트 오버레이가 아닌 대상(UI) 자체를 넣었다면, 대상을 숨기지 않도록 오버레이를 생성해서 덮어씌웁니다.
+            if (levelHighlight != null && levelHighlight.name != "TutorialHighlight")
+            {
+                levelHighlight = CreateHighlightOverlay(levelHighlight.transform);
+            }
+
+            SetButtonsInteractable(false);
+            DisableAllHighlights();
+
+            // 튜토리얼 진입 시 장 개장 (GameManager 상태 변경 및 차트 개시)
+            var gm = FindAnyObjectByType<GameManager>();
+            if (gm != null)
+            {
+                gm.FinishLoadingAndStartPlaying();
+            }
+            var market = FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
+            if (market != null)
+            {
+                market.OpenMarketAfterLoading();
+            }
+
+            // 1단계: 환영 및 UI 소개 (게임 시작 대기)
+            yield return new WaitForSeconds(1.0f); // 씬 진입 후 살짝 대기
+            yield return StartCoroutine(Step1_Welcome());
+
+            // 2단계: 수동 매매 진입
+            yield return StartCoroutine(Step2_ManualTrading());
+
+            // 3단계: 포지션 청산
+            yield return StartCoroutine(Step3_ClosePosition());
+
+            // 4단계: 요미 자동매매 시연
+            yield return StartCoroutine(Step4_AITradingDemo());
+            yield return StartCoroutine(Step4_5_AIBoast());
+
+            // 5단계: 레버리지와 증거금
+            yield return StartCoroutine(Step5_LeverageMargin());
+
+            // 6단계: 멘탈 시스템
+            yield return StartCoroutine(Step6_Mental());
+
+            // 7단계: 상점 시스템
+            yield return StartCoroutine(Step7_Shop());
+
+            // 8단계: 레벨 시스템
+            yield return StartCoroutine(Step8_LevelSystem());
+
+            // 9단계: 돌발 이벤트
+            yield return StartCoroutine(Step9_SuddenEvent());
+
+            // 10단계: 정산 및 졸업
+            yield return StartCoroutine(Step10_Graduation());
+        }
+
+        private void SetButtonsInteractable(bool interactableState, Button specificBtn = null)
+        {
+            // 초기화
+            if (btnLong != null) ResetToNormal(btnLong);
+            if (btnShort != null) ResetToNormal(btnShort);
+            if (btnClose != null) ResetToNormal(btnClose);
+            if (btnIncreaseLeverage != null) ResetToNormal(btnIncreaseLeverage);
+            if (btnDecreaseLeverage != null) ResetToNormal(btnDecreaseLeverage);
+            if (btnShop != null) ResetToNormal(btnShop);
+            if (btnEndTutorial != null) ResetToNormal(btnEndTutorial);
+
+            // 차단 또는 허용
+            if (fullScreenBlocker != null) 
+            {
+                fullScreenBlocker.blocksRaycasts = !interactableState;
+            }
+
+            if (specificBtn != null)
+            {
+                BringToFront(specificBtn);
+            }
+        }
+
+        private void BringToFront(Button btn)
+        {
+            if (btn == null) return;
+            var canvas = btn.gameObject.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = btn.gameObject.AddComponent<Canvas>();
+                btn.gameObject.AddComponent<GraphicRaycaster>();
+            }
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 1000;
+        }
+
+        private void ResetToNormal(Button btn)
+        {
+            if (btn == null) return;
+            var canvas = btn.gameObject.GetComponent<Canvas>();
+            if (canvas != null && canvas.overrideSorting && canvas.sortingOrder == 1000)
+            {
+                Destroy(btn.gameObject.GetComponent<GraphicRaycaster>());
+                Destroy(canvas);
+            }
+        }
+
+        private void AutoBindHighlights()
+        {
+            // 1. Chart
+            if (chartHighlight == null)
+            {
+                var chart = FindAnyObjectByType<FXOverdose.UI.Chart.ChartUIController>();
+                if (chart != null) chartHighlight = CreateHighlightOverlay(chart.transform);
+            }
+
+            // 2. Balance
+            if (balanceHighlight == null)
+            {
+                var topBar = FindAnyObjectByType<FXOverdose.UI.TopBar.TopStatusBarUIController>();
+                if (topBar != null)
+                {
+                    var field = topBar.GetType().GetField("balanceValueLabel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (field != null)
+                    {
+                        var tmp = field.GetValue(topBar) as Component;
+                        if (tmp != null) 
+                        {
+                            Transform targetBg = FindCardByName(tmp.transform);
+                            balanceHighlight = CreateHighlightOverlay(targetBg);
+                        }
+                    }
+                }
+            }
+
+            // 3. Margin
+            if (marginHighlight == null)
+            {
+                var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
+                if (panelUI != null)
+                {
+                    var field = panelUI.GetType().GetField("marginRatioControlContainer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (field != null)
+                    {
+                        var go = field.GetValue(panelUI) as GameObject;
+                        if (go != null) marginHighlight = CreateHighlightOverlay(go.transform);
+                    }
+                }
+            }
+
+            // 4. Mental
+            if (mentalHighlight == null)
+            {
+                var vitals = FindAnyObjectByType<VitalsValueUI>();
+                if (vitals != null)
+                {
+                    var field = vitals.GetType().GetField("mentalSlider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (field != null)
+                    {
+                        var slider = field.GetValue(vitals) as Component;
+                        if (slider != null) 
+                        {
+                            Transform targetBg = FindCardByName(slider.transform);
+                            mentalHighlight = CreateHighlightOverlay(targetBg);
+                        }
+                    }
+                }
+            }
+        }
+
+        private Transform FindCardByName(Transform start)
+        {
+            Transform current = start.parent;
+            // 뎁스 제한 없이 위로 계속 올라가며 'Card', 'Panel', 'Bg' 등의 이름을 가진 진짜 카드 컨테이너를 찾습니다.
+            while (current != null)
+            {
+                string lowerName = current.name.ToLower();
+                if (lowerName.Contains("card") || lowerName.Contains("panel") || lowerName.Contains("bg") || lowerName.Contains("background"))
+                {
+                    return current;
+                }
+                
+                // Canvas에 도달하면 탐색 중단
+                if (current.GetComponent<Canvas>() != null) break;
+                
+                current = current.parent;
+            }
+            return start.parent != null ? start.parent : start;
+        }
+
+        private GameObject CreateHighlightOverlay(Transform target)
+        {
+            if (target == null) return null;
+            GameObject overlay = new GameObject("TutorialHighlight");
+            overlay.transform.SetParent(target, false);
+            overlay.transform.SetAsLastSibling();
+            
+            RectTransform rt = overlay.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(-6, -6);
+            rt.offsetMax = new Vector2(6, 6);
+            
+            var canvasGroup = overlay.AddComponent<CanvasGroup>();
+            canvasGroup.alpha = 1f;
+            canvasGroup.blocksRaycasts = false;
+            
+            Color borderColor = new Color(1f, 0.85f, 0.1f, 1f); // 선명한 노란색
+            float thickness = 4f;
+
+            CreateBorderLine(overlay.transform, "Top", new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -thickness), Vector2.zero, borderColor);
+            CreateBorderLine(overlay.transform, "Bottom", new Vector2(0, 0), new Vector2(1, 0), Vector2.zero, new Vector2(0, thickness), borderColor);
+            CreateBorderLine(overlay.transform, "Left", new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(thickness, 0), borderColor);
+            CreateBorderLine(overlay.transform, "Right", new Vector2(1, 0), new Vector2(1, 1), new Vector2(-thickness, 0), Vector2.zero, borderColor);
+            
+            overlay.SetActive(false);
+            return overlay;
+        }
+
+        private void CreateBorderLine(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax, Color color)
+        {
+            GameObject line = new GameObject(name);
+            line.transform.SetParent(parent, false);
+            RectTransform rt = line.AddComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = offsetMin;
+            rt.offsetMax = offsetMax;
+            Image img = line.AddComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+        }
+
+        private void DisableAllHighlights()
+        {
+            if (chartHighlight != null) chartHighlight.SetActive(false);
+            if (balanceHighlight != null) balanceHighlight.SetActive(false);
+            if (marginHighlight != null) marginHighlight.SetActive(false);
+            if (mentalHighlight != null) mentalHighlight.SetActive(false);
+            if (levelHighlight != null) levelHighlight.SetActive(false);
+        }
+
+        private Coroutine pulseCoroutine;
+
+        private void SetHighlight(GameObject highlightObj, bool state)
+        {
+            if (highlightObj == null) return;
+            highlightObj.SetActive(state);
+            
+            if (state)
+            {
+                if (pulseCoroutine != null) StopCoroutine(pulseCoroutine);
+                pulseCoroutine = StartCoroutine(PulseHighlightEffect(highlightObj));
+            }
+            else
+            {
+                if (pulseCoroutine != null) StopCoroutine(pulseCoroutine);
+                // Reset alpha
+                var canvasGroup = highlightObj.GetComponent<CanvasGroup>();
+                if (canvasGroup != null) canvasGroup.alpha = 1f;
+                else 
+                {
+                    var img = highlightObj.GetComponent<Image>();
+                    if (img != null) {
+                        var c = img.color;
+                        c.a = 1f;
+                        img.color = c;
+                    }
+                }
+            }
+        }
+
+        private IEnumerator PulseHighlightEffect(GameObject target)
+        {
+            var canvasGroup = target.GetComponent<CanvasGroup>();
+            Image img = null;
+            if (canvasGroup == null)
+            {
+                img = target.GetComponent<Image>();
+                if (img == null) yield break;
+            }
+
+            float speed = 5f;
+            while (true)
+            {
+                float alpha = (Mathf.Sin(Time.time * speed) + 1f) / 2f * 0.7f + 0.3f; // 0.3 ~ 1.0
+                
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = alpha;
+                }
+                else if (img != null)
+                {
+                    var c = img.color;
+                    c.a = alpha;
+                    img.color = c;
+                }
+                yield return null;
+            }
+        }
+
+        private IEnumerator PlayDialogueAndWait(string text, DialoguePriority priority = DialoguePriority.Critical)
+        {
+            if (aiVisualController != null)
+            {
+                aiVisualController.DisplayDialogueBalloon(text, priority, FXOverdose.AI.EventCategory.Tutorial);
+                
+                // 최소 대기 시간 (실수 연타 방지)
+                yield return new WaitForSeconds(0.5f);
+                
+                // 플레이어가 클릭(터치)할 때까지 무한 대기
+                while (true)
+                {
+                    bool clicked = false;
+#if ENABLE_INPUT_SYSTEM
+                    if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
+                    {
+                        clicked = true;
+                    }
+#else
+                    if (Input.GetMouseButtonDown(0)) clicked = true;
+#endif
+                    if (clicked) break;
+                    
+                    yield return null;
+                }
+                
+                // 클릭 직후 약간의 유예 시간
+                yield return new WaitForSeconds(0.1f);
+            }
+            else
+            {
+                yield return new WaitForSeconds(3.0f);
+            }
+        }
+
+        private IEnumerator Step1_Welcome()
+        {
+            CurrentState = TutorialState.Welcome;
+            
+            yield return StartCoroutine(PlayDialogueAndWait("안녕? 난 오빠의 트레이딩 파트너 요미야."));
+            
+            if (chartHighlight != null) SetHighlight(chartHighlight, true);
+            yield return StartCoroutine(PlayDialogueAndWait("여긴 오빠가 돈을 벌(혹은 날릴) 차트고,"));
+            if (chartHighlight != null) SetHighlight(chartHighlight, false);
+
+            if (balanceHighlight != null) SetHighlight(balanceHighlight, true);
+            yield return StartCoroutine(PlayDialogueAndWait("위쪽이 오빠의 잔고야."));
+            if (balanceHighlight != null) SetHighlight(balanceHighlight, false);
+
+            yield return StartCoroutine(PlayDialogueAndWait("자, 이제 트레이딩의 기본부터 알려줄게."));
+        }
+
+        private FXOverdose.Trading.TradingController.PositionType playerTutorialPosition;
+
+        private IEnumerator Step2_ManualTrading()
+        {
+            CurrentState = TutorialState.WaitToOpenPosition;
+            
+            // 수동 매매로 전환
+            if (tradingController != null)
+            {
+                tradingController.UnlockManualMode(); // 락 해제 후
+                tradingController.SetTradingMode(TradingController.TradingMode.Player_Manual);
+                tradingController.LockManualMode();   // 다시 강제 락 (요미 외 전환 불가)
+            }
+
+            yield return StartCoroutine(PlayDialogueAndWait("일단 오빠의 실력 좀 볼까? 수동 매매 모드로 바꿨으니까, 차트를 보고 상승(Long)이든 하락(Short)이든 버튼을 눌러서 포지션을 잡아봐!"));
+
+            // 롱/숏 버튼만 앞으로 가져오고 활성화
+            SetButtonsInteractable(false);
+            BringToFront(btnLong);
+            BringToFront(btnShort);
+
+            // 포지션 잡을 때까지 무한 대기
+            while (tradingController != null && tradingController.CurrentPosition == TradingController.PositionType.None)
+            {
+                yield return null;
+            }
+
+            if (tradingController != null)
+            {
+                playerTutorialPosition = tradingController.CurrentPosition;
+            }
+
+            // 진입 성공 시 다시 전역 차단
+            SetButtonsInteractable(false);
+        }
+
+        private IEnumerator Step3_ClosePosition()
+        {
+            CurrentState = TutorialState.WaitToClosePosition;
+            
+            yield return new WaitForSeconds(2.0f); // 가격 변동 대기
+            yield return StartCoroutine(PlayDialogueAndWait("좋아, 포지션이 잡혔어! 손익(ROE)이 움직이는 거 보이지? 적당할 때 '포지션 매도' 버튼을 눌러서 수익을 확정(또는 손절)해봐."));
+
+            SetButtonsInteractable(false);
+            BringToFront(btnClose);
+
+            // 포지션 청산할 때까지 무한 대기
+            while (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+            {
+                yield return null;
+            }
+
+            SetButtonsInteractable(false);
+        }
+
+        private IEnumerator Step4_AITradingDemo()
+        {
+            CurrentState = TutorialState.AITradingDemo;
+            AllowAITrading = true; // 이 단계에서만 요미 매매 허용
+            
+            yield return StartCoroutine(PlayDialogueAndWait("음, 나쁘지 않네. 하지만 진정한 수익은 내 완벽한 알고리즘에서 나오지! 이제는 요미가 직접 매매 해볼게. 요미가 어떻게 타점을 잡는지 잘 봐."));
+
+            if (tradingController != null)
+            {
+                tradingController.UnlockManualMode();
+                tradingController.SetTradingMode(TradingController.TradingMode.AI_Auto);
+                tradingController.LockManualMode();
+            }
+
+            // 확정적 주가 제어 트리거 (MarketEngine 등에 구현 필요)
+            // 요미가 무조건 포지션을 잡고 수익을 내도록 MarketEngine의 빔 이벤트를 고정
+            if (marketEngine != null)
+            {
+                // 플레이어의 선택과 무관하게 차트에 상승/하락 랜덤 신호를 발생시킵니다.
+                var randomSignal = UnityEngine.Random.value > 0.5f 
+                    ? FXOverdose.Trading.MarketSignalType.BullishBreakout 
+                    : FXOverdose.Trading.MarketSignalType.BearishBreakout;
+                
+                marketEngine.TriggerGuaranteedProfitEvent(randomSignal);
+            }
+
+            // AI가 포지션을 잡을 때까지 대기
+            while (tradingController != null && tradingController.CurrentPosition == TradingController.PositionType.None)
+            {
+                yield return null;
+            }
+
+            // 수익이 나서 스스로 청산할 때까지 대기
+            while (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+            {
+                yield return null;
+            }
+            
+            AllowAITrading = false; // 매매 시연 종료 후 다시 차단
+        }
+
+        private IEnumerator Step4_5_AIBoast()
+        {
+            yield return StartCoroutine(PlayDialogueAndWait("봐봐! 요미의 완벽한 예측으로 이렇게 쉽게 돈을 벌 수 있다니까? 오빠는 요미만 믿고 맡기기만 해도 된다구!"));
+            yield return new WaitForSeconds(2.0f);
+        }
+
+        private IEnumerator Step5_LeverageMargin()
+        {
+            CurrentState = TutorialState.LeverageAndMargin;
+
+            if (marginHighlight != null) SetHighlight(marginHighlight, true);
+
+            yield return StartCoroutine(PlayDialogueAndWait("트레이딩의 꽃은 역시 레버리지지! 적은 돈으로 큰 돈을 굴릴 수 있게 해줘."));
+            yield return StartCoroutine(PlayDialogueAndWait("여기 이 증거금(Margin)이 오빠가 한 번의 거래에 실제로 투입하는 판돈이야. 시드의 몇 퍼센트를 투입할지 신중하게 결정해."));
+            
+            if (marginHighlight != null) SetHighlight(marginHighlight, false);
+
+            yield return StartCoroutine(PlayDialogueAndWait("레버리지를 높이면 증거금 대비 수익도 배가 되지만, 조금만 빗나가도 증거금을 순식간에 다 날려버리니까(청산) 조심해야 해!"));
+            
+            // 레버리지 조작 버튼 하이라이트
+            SetButtonsInteractable(false);
+            BringToFront(btnIncreaseLeverage);
+            BringToFront(btnDecreaseLeverage);
+            
+            yield return new WaitForSeconds(2.0f);
+            SetButtonsInteractable(false);
+        }
+
+        private IEnumerator Step6_Mental()
+        {
+            CurrentState = TutorialState.MentalExplanation;
+            
+            yield return StartCoroutine(PlayDialogueAndWait("아, 중요한 걸 잊을 뻔했네."));
+            
+            if (mentalHighlight != null) SetHighlight(mentalHighlight, true);
+            yield return StartCoroutine(PlayDialogueAndWait("오른쪽 위에 멘탈 게이지 보여?"));
+            yield return StartCoroutine(PlayDialogueAndWait("포지션 때문에 스트레스를 너무 받으면 오빠가 요미를 통제할 수 없을지도 몰라!"));
+            yield return StartCoroutine(PlayDialogueAndWait("낮아진 체력과 멘탈은 아이템을 사용하여 회복할 수 있어."));
+            if (mentalHighlight != null) SetHighlight(mentalHighlight, false);
+        }
+
+        private IEnumerator Step7_Shop()
+        {
+            CurrentState = TutorialState.ShopExplanation;
+            
+            yield return StartCoroutine(PlayDialogueAndWait("여기는 요미가 평소에 밥을 먹거나 여러 가지 서포트 아이템을 사는 상점이야."));
+            yield return StartCoroutine(PlayDialogueAndWait("매매에 도움을 주는 유용한 아이템들이나, 요미의 밥과 음료수들을 살 수 있어."));
+            yield return StartCoroutine(PlayDialogueAndWait("오빠가 번 돈은 요미를 위해 아낌없이 쓰라구!"));
+            
+            SetButtonsInteractable(false);
+            BringToFront(btnShop);
+            yield return new WaitForSeconds(2.0f);
+            SetButtonsInteractable(false);
+        }
+
+        private IEnumerator Step8_LevelSystem()
+        {
+            CurrentState = TutorialState.LevelSystem;
+            
+            // 다가올 9단계 돌발 이벤트를 위해 백그라운드에서 LLM 생성 시작 (예열)
+            FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>()?.StartPreFetchingLLMEvent();
+
+            if (levelHighlight != null) SetHighlight(levelHighlight, true);
+            yield return StartCoroutine(PlayDialogueAndWait("오빠가 성공적으로 매매를 이어갈수록 레벨이 오를 거야!"));
+            yield return StartCoroutine(PlayDialogueAndWait("레벨이 오르면 요미의 차트 분석력이나 멘탈, 인내력 같은 스킬들을 직접 업그레이드할 수 있어."));
+            yield return StartCoroutine(PlayDialogueAndWait("투자를 통해 요미를 최고의 파트너로 키워줘!"));
+            if (levelHighlight != null) SetHighlight(levelHighlight, false);
+        }
+
+        private IEnumerator Step9_SuddenEvent()
+        {
+            CurrentState = TutorialState.SuddenEventDemo;
+            
+            var playWait = StartCoroutine(PlayDialogueAndWait("앗! 방금 중대한 뉴스가 떴어!\n시장에는 예상치 못한 돌발 이벤트가 발생하기도 해.\n어떻게 대처할지 오빠의 선택에 따라 시장이 요동칠 테니까 신중하게 결정해!"));
+            
+            // 대사 출력 및 클릭(넘김) 완료 대기
+            yield return playWait;
+
+            // 돌발 이벤트 팝업 띄우기 (미리 예열된 LLM 데이터 사용)
+            var choiceController = FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
+            if (choiceController != null)
+            {
+                // 이벤트 팝업을 클릭할 수 있도록 전체 화면 클릭 방지 임시 해제
+                if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = false;
+                
+                choiceController.TriggerPrefetchedEvent();
+                
+                // 이벤트가 활성화되어 있는 동안 대기
+                while (choiceController.IsEventActive)
+                {
+                    yield return null;
+                }
+                
+                // 이벤트 종료 후 다시 클릭 방지
+                if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = true;
+            }
+            else
+            {
+                yield return new WaitForSeconds(3.0f); // Fallback
+            }
+        }
+
+        private IEnumerator Step10_Graduation()
+        {
+            CurrentState = TutorialState.Graduation;
+
+            yield return StartCoroutine(PlayDialogueAndWait("게임 시간은 계속 흘러서 24:00이 되면 하루가 끝나고 그 날의 모든 포지션이 강제 정산돼. 그 전에 깔끔하게 포지션을 정리하는 게 좋아. 자, 이제 진짜 실전으로 가볼까?"));
+
+            // 튜토리얼 종료 버튼 활성화
+            SetButtonsInteractable(false);
+            
+            if (btnEndTutorial == null)
+            {
+                EnsureEndTutorialButton();
+            }
+
+            BringToFront(btnEndTutorial);
+            if (btnEndTutorial != null) 
+            {
+                btnEndTutorial.interactable = true;
+                btnEndTutorial.gameObject.SetActive(true);
+                btnEndTutorial.onClick.RemoveAllListeners();
+                btnEndTutorial.onClick.AddListener(EndTutorial);
+            }
+        }
+
+        private void EnsureEndTutorialButton()
+        {
+            if (fullScreenBlocker == null) return;
+            
+            GameObject btnGo = new GameObject("Btn_EndTutorial");
+            btnGo.transform.SetParent(fullScreenBlocker.transform.parent, false);
+            
+            Image btnImg = btnGo.AddComponent<Image>();
+            btnImg.color = new Color(0.2f, 0.6f, 1f, 1f);
+            
+            btnEndTutorial = btnGo.AddComponent<Button>();
+            
+            RectTransform rect = btnGo.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.4f, 0.45f);
+            rect.anchorMax = new Vector2(0.6f, 0.55f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            
+            GameObject txtGo = new GameObject("Text");
+            txtGo.transform.SetParent(btnGo.transform, false);
+            var txt = txtGo.AddComponent<UnityEngine.UI.Text>();
+            txt.text = "튜토리얼 종료";
+            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txt.color = Color.white;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.resizeTextForBestFit = true;
+            
+            RectTransform txtRect = txtGo.GetComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = new Vector2(10, 10);
+            txtRect.offsetMax = new Vector2(-10, -10);
+            
+            btnGo.SetActive(false);
+        }
+
+        public void EndTutorial()
+        {
+            Debug.Log("[TutorialManager] 튜토리얼 종료 버튼 클릭 -> LoadingScene -> GameScene 이동");
+            if (btnEndTutorial != null) btnEndTutorial.interactable = false;
+            
+            if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
+            {
+                SceneManager.LoadScene("LoadingScene");
+            }
+            else
+            {
+                SceneManager.LoadScene("GameScene");
+            }
+        }
+    }
+}

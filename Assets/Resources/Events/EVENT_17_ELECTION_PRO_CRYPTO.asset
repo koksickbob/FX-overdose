@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da15e56082f95ba40b3436d71366a1ca, type: 3}
+  m_Name: EVENT_17_ELECTION_PRO_CRYPTO
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
+  EventID: EVENT_17_ELECTION_PRO_CRYPTO
+  ScenarioTitle: "\uC720\uB825 \uB300\uC120 \uD6C4\uBCF4\uC758 '\uBE44\uD2B8\uCF54\uC778
+    \uAD6D\uAC00 \uC900\uBE44\uAE08' \uC120\uC5B8"
+  ScenarioDescription: "\uCD08\uAC15\uB300\uAD6D \uC720\uB825 \uB300\uC120 \uD6C4\uBCF4\uAC00
+    \uB2F9\uC120 \uC2DC \uBE44\uD2B8\uCF54\uC778\uC744 \uAD6D\uAC00 \uC900\uBE44\uAE08\uC73C\uB85C
+    \uCC44\uD0DD\uD558\uACA0\uB2E4\uB294 \uCDA9\uACA9\uC801\uC778 \uCE5C(\u89AA)
+    \uD06C\uB9BD\uD1A0 \uBC1C\uC5B8\uC744 \uC3DF\uC544\uB0C5\uB2C8\uB2E4."
+  AIMonologue: "\uAD6D\uAC00 \uC900\uBE44\uAE08?! \uC774\uAC74 \uBBF8\uCCE4\uC5B4,
+    \uAC8C\uC784 \uB05D\uC774\uC57C!! \uB2EC\uB7EC\uC758 \uC2DC\uB300\uAC00 \uC800\uBB3C\uACE0
+    \uBE44\uD2B8\uCF54\uC778 \uC81C\uAD6D\uC774 \uC5F4\uB9B0\uB2E4!! \uBB34\uC870\uAC74
+    \uD480\uB9E4\uC218\uC57C!!"
+  TriggerCondition: 0
+  Options:
+  - OptionType: 0
+    OptionTitle: "\uC120\uAC70 \uACF5\uC57D\uC740 \uAC70\uC9D3\uB9D0\uC77C \uC218
+      \uC788\uB2E4. 10\uBC30 \uB871\uC73C\uB85C\uB9CC \uB300\uC751."
+    Description: "+8%\uC758 \uC548\uC815\uC801\uC778 \uC591\uBD09. \uBA58\uD0C8 +10."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 8
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 10
+    HealthChangeAmount: 0
+    ForceLeverage: 10
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 1
+    OptionTitle: "\uAD6D\uAC00\uC758 \uBA78\uB9DD\uC5D0 \uBCA0\uD305\uD55C\uB2E4!
+      100\uBC30 \uCD08\uACE0\uBC30\uC728 \uB871!!"
+    Description: "+25% \uC288\uD37C \uBE54 \uD3ED\uBC1C! \uBA58\uD0C8 +50 \uCF8C\uAC10."
+    RequiredItemId: 
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 25
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 50
+    HealthChangeAmount: 0
+    ForceLeverage: 100
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    OptionTitle: "[\uC815\uCE58 \uACF5\uC57D \uD329\uD2B8 \uCCB4\uD06C] (\uB514\uC800\uD2B8
+      1\uAC1C \uC18C\uBAA8)"
+    Description: "\uBC1C\uC5B8 \uC9C1\uD6C4 \uB364\uD551 \uC138\uB825\uC744 \uD68C\uD53C\uD558\uACE0
+      \uC800\uC810\uC5D0\uC11C 50\uBC30 \uB871 \uD53D\uC5C5."
+    RequiredItemId: dessert
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 20
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 0
+    HealthChangeAmount: 0
+    ForceLeverage: 50
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

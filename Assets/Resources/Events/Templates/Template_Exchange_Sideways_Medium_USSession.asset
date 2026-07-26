@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39e0ce48fc36e6148bcb9df931e5b118, type: 3}
+  m_Name: Template_Exchange_Sideways_Medium_USSession
+  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.EventLogicTemplateSO
+  TemplateID: Exchange_Sideways_Medium_USSession
+  ThemeTag: "[Exchange_Sideways_Medium_USSession] \uBBF8\uAD6D\uC7A5 \uC2DC\uAC04\uB300
+    \uAC1C\uC7A5 \uC9C1\uD6C4, \uC0C1\uB2F9\uD55C \uAE00\uB85C\uBC8C \uB300\uD615
+    \uAC70\uB798\uC18C\uC758 \uBCF4\uC548/\uBC45\uD06C\uB7F0 \uC774\uC288\uB85C \uC778\uD55C
+    \uADF9\uB3C4\uC758 \uB208\uCE58\uC2F8\uC6C0\uACFC \uC228\uB9C9\uD788\uB294 \uD6A1\uBCF4\uC7A5
+    \uC0C1\uD669"
+  LogicOptions:
+  - OptionType: 0
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0
+    OverrideBeamPercent: 0
+    OverrideDurationSeconds: 10
+    MentalChangeAmount: 8
+    HealthChangeAmount: 10
+    ForceLeverage: 0
+    ForcePosition: 0
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 3
+    RequiredItemId: 
+    RequiredItemCount: 0
+    OverrideSignalProbTrue: 0.6870864
+    OverrideBeamPercent: 54.54893
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: -80
+    HealthChangeAmount: 0
+    ForceLeverage: 55
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0
+  - OptionType: 2
+    RequiredItemId: sedative
+    RequiredItemCount: 1
+    OverrideSignalProbTrue: 1
+    OverrideBeamPercent: 30.566866
+    OverrideDurationSeconds: 15
+    MentalChangeAmount: 26
+    HealthChangeAmount: 29
+    ForceLeverage: 19
+    ForcePosition: 1
+    PositionHandlingMode: 0
+    CustomTargetROELimit: 0
+    CustomStopLossROELimit: 0

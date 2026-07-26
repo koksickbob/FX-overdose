@@ -87,6 +87,12 @@ namespace FXOverdose.AI
             }
             if (marketEngine != null && !marketEngine.IsMarketOpen) return;
 
+            // 튜토리얼 진행 중에는 요미가 직접 거래하는 단계(Step4)를 제외하고는 거래를 진행하지 않음
+            if (FXOverdose.Core.TutorialManager.Instance != null && !FXOverdose.Core.TutorialManager.Instance.AllowAITrading)
+            {
+                return;
+            }
+
             // 💡 [이벤트/Overdose 오버라이드 능동적 반응 처리 및 방해 차단]
             if (tradingController != null && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
             {
@@ -497,7 +503,8 @@ namespace FXOverdose.AI
             };
 
             // 💡 [차트 공부 귀속] 정확도 검증: 차트 공부 레벨이 낮아 오판 시 정상 신호에서도 반대 방향으로 역진입(Error Entry)
-            if (levelSystem != null && signal.IsTrueSignal)
+            // 단, 튜토리얼 등 확정적 이벤트(IsExternalEventOverride) 진행 중에는 요미가 완벽하게 맞추도록 오판 로직을 무시합니다.
+            if (levelSystem != null && signal.IsTrueSignal && !(marketEngine != null && marketEngine.IsExternalEventOverride))
             {
                 float accuracy = levelSystem.GetSignalAccuracy();
                 if (UnityEngine.Random.value > accuracy)

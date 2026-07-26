@@ -18,8 +18,10 @@ namespace FXOverdose.UI
         [SerializeField] private GameObject gameModePanel;
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
+        [SerializeField] private GameObject tutorialPromptPanel;
 
         private bool allowCreatingStorySlot;
+        private int pendingSlotIndex = -1;
 
         /// <summary>런타임 타이틀 빌더가 생성한 UI를 컨트롤러에 연결합니다.</summary>
         public void Configure(
@@ -136,15 +138,23 @@ namespace FXOverdose.UI
             BindGameModePanelControls();
             BindLoadPanelControls();
             BindSettingsPanelControls();
+            BindTutorialPromptControls();
         }
 
         private void EnsureGameModePanel()
         {
-            if (gameModePanel != null) return;
-
             Canvas canvas = GetComponentInParent<Canvas>();
             if (canvas == null) return;
-            gameModePanel = TitleScreenBuilder.EnsureGameModePanel(canvas.transform);
+
+            if (gameModePanel == null)
+            {
+                gameModePanel = TitleScreenBuilder.EnsureGameModePanel(canvas.transform);
+            }
+
+            if (tutorialPromptPanel == null)
+            {
+                tutorialPromptPanel = TitleScreenBuilder.EnsureTutorialPromptPanel(canvas.transform);
+            }
         }
 
         private void BindGameModePanelControls()
@@ -204,9 +214,14 @@ namespace FXOverdose.UI
                 TMP_Text state = slot.Find("State")?.GetComponent<TMP_Text>();
                 if (state != null)
                 {
-                    state.text = hasSave
-                        ? "CONTINUE"
-                        : allowCreatingStorySlot ? "NEW STORY" : "EMPTY SLOT";
+                    if (allowCreatingStorySlot)
+                    {
+                        state.text = hasSave ? "OVERWRITE" : "NEW STORY";
+                    }
+                    else
+                    {
+                        state.text = hasSave ? "CONTINUE" : "EMPTY SLOT";
+                    }
                 }
             }
         }
@@ -247,6 +262,26 @@ namespace FXOverdose.UI
             slider.onValueChanged.AddListener(value => PlayerPrefs.SetFloat(key, value));
         }
 
+        private void BindTutorialPromptControls()
+        {
+            if (tutorialPromptPanel == null) return;
+
+            Button btnYes = tutorialPromptPanel.transform.Find("ModalWindow/Btn_Yes")?.GetComponent<Button>();
+            Button btnNo = tutorialPromptPanel.transform.Find("ModalWindow/Btn_No")?.GetComponent<Button>();
+
+            if (btnYes != null)
+            {
+                btnYes.onClick.RemoveAllListeners();
+                btnYes.onClick.AddListener(OnClickTutorialYes);
+            }
+
+            if (btnNo != null)
+            {
+                btnNo.onClick.RemoveAllListeners();
+                btnNo.onClick.AddListener(OnClickTutorialNo);
+            }
+        }
+
         public void OnClickLoadSlot(int slotIndex)
         {
             if (SaveLoadManager.Instance == null)
@@ -255,21 +290,59 @@ namespace FXOverdose.UI
                 return;
             }
 
-            if (SaveLoadManager.Instance.HasSave(slotIndex))
+            if (allowCreatingStorySlot)
             {
-                if (!SaveLoadManager.Instance.PrepareLoadGame(slotIndex))
-                    return;
-            }
-            else if (allowCreatingStorySlot)
-            {
-                SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, slotIndex);
+                // 새 게임 모드 (빈 슬롯이거나 기존 세이브 덮어쓰기)
+                pendingSlotIndex = slotIndex;
+                if (loadGamePanel != null) loadGamePanel.SetActive(false);
+                
+                if (tutorialPromptPanel != null)
+                {
+                    tutorialPromptPanel.SetActive(true);
+                    tutorialPromptPanel.transform.SetAsLastSibling();
+                }
+                else
+                {
+                    OnClickTutorialNo();
+                }
             }
             else
             {
-                Debug.LogWarning($"[MainMenuController] 슬롯 {slotIndex + 1}에 저장 데이터가 없습니다.");
-                return;
+                // 이어하기 모드 (반드시 세이브 파일이 있어야 함)
+                if (SaveLoadManager.Instance.HasSave(slotIndex))
+                {
+                    if (!SaveLoadManager.Instance.PrepareLoadGame(slotIndex))
+                        return;
+                    LoadGameFlow();
+                }
+                else
+                {
+                    Debug.LogWarning($"[MainMenuController] 슬롯 {slotIndex + 1}에 저장 데이터가 없습니다.");
+                    return;
+                }
             }
+        }
 
+        private void OnClickTutorialYes()
+        {
+            if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
+            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex);
+            
+            if (Application.CanStreamedLevelBeLoaded("tutorial"))
+            {
+                SceneManager.LoadScene("tutorial");
+            }
+            else
+            {
+                Debug.LogWarning("[MainMenuController] tutorial 씬을 찾을 수 없어 GameScene으로 진입합니다.");
+                LoadGameFlow();
+            }
+        }
+
+        private void OnClickTutorialNo()
+        {
+            if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
+            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex);
             LoadGameFlow();
         }
 
