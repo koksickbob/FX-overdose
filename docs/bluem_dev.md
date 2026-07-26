@@ -1098,3 +1098,16 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Resources/Characters/Costumes/Bikini.png`
 - `Assets/Resources/Characters/Costumes/Bikini/`
+
+### 지뢰계 패션 코스튬 상점 연동
+
+- 완성된 트윈테일 지뢰계 패션 스프라이트 세트를 의류 상점의 `JIRAI KEI` 상품으로 등록했습니다.
+- 판매 가격은 `$600`이며 기존 코스튬과 동일한 구매·장착·저장 흐름을 사용합니다.
+- 기본 이미지와 감정 19종, 아이템 사용 4종, 스킬 행동 3종, LONG·SHORT 2종, 오버도즈 1종이 장착 상태에 따라 함께 전환됩니다.
+- 흰색으로 교체된 기존 비키니 상품의 상점 이름과 설명도 실제 디자인에 맞게 수정했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`

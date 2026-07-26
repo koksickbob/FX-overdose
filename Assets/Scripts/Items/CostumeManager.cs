@@ -8,6 +8,7 @@ public class CostumeManager : MonoBehaviour
     public const string StandardId = "standard";
     public const string BunnyGirlId = "bunny_girl";
     public const string BikiniId = "bikini";
+    public const string JiraiKeiId = "jirai_kei";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -43,11 +44,20 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = BikiniId,
-            DisplayName = "BLACK BIKINI",
-            Description = "Black halter bikini with gold rings and strappy bottoms.",
+            DisplayName = "WHITE BIKINI",
+            Description = "White two-piece bikini with a clean summer look.",
             Price = 400,
             IconResourcePath = "Characters/Costumes/Bikini",
             SpriteRoot = "Characters/Costumes/Bikini"
+        },
+        new()
+        {
+            Id = JiraiKeiId,
+            DisplayName = "JIRAI KEI",
+            Description = "Black-and-pink jirai-kei dress with twin tails and ribbon bows.",
+            Price = 600,
+            IconResourcePath = "Characters/Costumes/JiraiKei_TwinTails",
+            SpriteRoot = "Characters/Costumes/JiraiKei_TwinTails"
         }
     };
 
