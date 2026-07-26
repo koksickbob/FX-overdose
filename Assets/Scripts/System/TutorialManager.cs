@@ -28,6 +28,9 @@ namespace FXOverdose.Core
 
     public class TutorialManager : MonoBehaviour
     {
+        private const int TutorialOverlaySortingOrder = 32000;
+        private const int InteractiveControlSortingOrder = 32001;
+
         public static TutorialManager Instance { get; private set; }
 
         [Header("상태")]
@@ -119,7 +122,7 @@ namespace FXOverdose.Core
                 typeof(GraphicRaycaster));
             highlightCanvas = blockerGo.GetComponent<Canvas>();
             highlightCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            highlightCanvas.sortingOrder = 999; // 최상단
+            highlightCanvas.sortingOrder = TutorialOverlaySortingOrder; // 다른 동적 HUD보다 항상 위
             highlightRoot = blockerGo.GetComponent<RectTransform>();
             
             GameObject bgGo = new GameObject("BlockerPanel");
@@ -140,7 +143,9 @@ namespace FXOverdose.Core
             yield return new WaitForEndOfFrame();
             Canvas.ForceUpdateCanvases();
 
-            AutoBindHighlights();
+            // 동적 HUD의 Awake/Start 생성 순서가 튜토리얼보다 늦어도 모든 대상을 찾을 수 있도록
+            // 한 프레임짜리 단발 바인딩 대신 여러 프레임 동안 재시도합니다.
+            yield return StartCoroutine(BindHighlightsWhenReady());
 
             SetButtonsInteractable(false);
             DisableAllHighlights();
@@ -223,14 +228,16 @@ namespace FXOverdose.Core
                 btn.gameObject.AddComponent<GraphicRaycaster>();
             }
             canvas.overrideSorting = true;
-            canvas.sortingOrder = 1000;
+            canvas.sortingOrder = InteractiveControlSortingOrder;
         }
 
         private void ResetToNormal(Button btn)
         {
             if (btn == null) return;
             var canvas = btn.gameObject.GetComponent<Canvas>();
-            if (canvas != null && canvas.overrideSorting && canvas.sortingOrder == 1000)
+            if (canvas != null &&
+                canvas.overrideSorting &&
+                canvas.sortingOrder == InteractiveControlSortingOrder)
             {
                 Destroy(btn.gameObject.GetComponent<GraphicRaycaster>());
                 Destroy(canvas);
@@ -252,7 +259,8 @@ namespace FXOverdose.Core
                 var topBar = FindAnyObjectByType<FXOverdose.UI.TopBar.TopStatusBarUIController>();
                 if (topBar != null && topBar.TutorialBalanceHighlightTarget != null)
                 {
-                    balanceHighlight = CreateHighlightOverlay(topBar.TutorialBalanceHighlightTarget);
+                    Transform targetBg = topBar.TutorialBalanceHighlightTarget.parent;
+                    balanceHighlight = CreateHighlightOverlay(targetBg);
                 }
             }
 
@@ -299,7 +307,56 @@ namespace FXOverdose.Core
             }
         }
 
+        private IEnumerator BindHighlightsWhenReady()
+        {
+            const int maxBindFrames = 60;
+            for (int frame = 0; frame < maxBindFrames; frame++)
+            {
+                AutoBindHighlights();
+                if (AreAllHighlightsBound()) yield break;
 
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+            }
+
+            Debug.LogWarning(
+                $"[TutorialManager] 일부 하이라이트 대상 바인딩 지연: " +
+                $"chart={chartHighlight != null}, balance={balanceHighlight != null}, " +
+                $"margin={marginHighlight != null}, leverage={leverageHighlight != null}, " +
+                $"mental={mentalHighlight != null}, shop={shopHighlight != null}, level={levelHighlight != null}",
+                this);
+        }
+
+        private bool AreAllHighlightsBound()
+        {
+            return chartHighlight != null &&
+                   balanceHighlight != null &&
+                   marginHighlight != null &&
+                   leverageHighlight != null &&
+                   mentalHighlight != null &&
+                   shopHighlight != null &&
+                   levelHighlight != null;
+        }
+
+        private Transform FindCardByName(Transform start)
+        {
+            Transform current = start.parent;
+            // 뎁스 제한 없이 위로 계속 올라가며 'Card', 'Panel', 'Bg' 등의 이름을 가진 진짜 카드 컨테이너를 찾습니다.
+            while (current != null)
+            {
+                string lowerName = current.name.ToLower();
+                if (lowerName.Contains("card") || lowerName.Contains("panel") || lowerName.Contains("bg") || lowerName.Contains("background"))
+                {
+                    return current;
+                }
+                
+                // Canvas에 도달하면 탐색 중단
+                if (current.GetComponent<Canvas>() != null) break;
+                
+                current = current.parent;
+            }
+            return start.parent != null ? start.parent : start;
+        }
 
         private GameObject CreateHighlightOverlay(Transform target)
         {
@@ -339,6 +396,13 @@ namespace FXOverdose.Core
 
         private void LateUpdate()
         {
+            // 머지나 동적 UI 생성 순서 변화로 초기 바인딩을 놓쳐도 실행 중 자동 복구합니다.
+            if (Time.frameCount % 30 == 0 && !AreAllHighlightsBound())
+            {
+                Canvas.ForceUpdateCanvases();
+                AutoBindHighlights();
+            }
+
             foreach (KeyValuePair<GameObject, RectTransform> pair in highlightTargets)
             {
                 if (pair.Key == null || !pair.Key.activeSelf || pair.Value == null) continue;
@@ -366,9 +430,7 @@ namespace FXOverdose.Core
                 if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                         highlightRoot,
                         screenPoint,
-                        highlightCanvas != null && highlightCanvas.renderMode != RenderMode.ScreenSpaceOverlay
-                            ? highlightCanvas.worldCamera
-                            : null,
+                        null,
                         out Vector2 localPoint))
                 {
                     continue;
@@ -380,7 +442,7 @@ namespace FXOverdose.Core
 
             if (float.IsInfinity(min.x) || float.IsInfinity(min.y)) return;
 
-            const float padding = 8f;
+            const float padding = 4f;
             RectTransform overlayRect = overlay.GetComponent<RectTransform>();
             overlayRect.anchoredPosition = (min + max) * 0.5f;
             overlayRect.sizeDelta = max - min + Vector2.one * padding * 2f;
