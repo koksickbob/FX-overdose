@@ -8,8 +8,10 @@ using FXOverdose.Trading;
 /// <summary>캐릭터 머리 위에 주인공 레벨과 경험치만 간결하게 표시합니다.</summary>
 public sealed class TraderLevelUIController : MonoBehaviour
 {
+    public RectTransform TutorialLevelHighlightTarget => levelHudRect;
+
     private const float BaseHudWidth = 280f;
-    private const float BaseHudHeight = 46f;
+    private const float BaseHudHeight = UIStrokeStyle.CompactHudHeight;
     private const float HudWidthScale = 1.3f;
     private const float VerticalExpansionPerSide = 0f;
 
@@ -137,7 +139,7 @@ public sealed class TraderLevelUIController : MonoBehaviour
         const float gap = 10f;
         const float edgeMargin = 10f;
         const float hudWidth = BaseHudWidth * HudWidthScale;
-        float hudHeight = Mathf.Max(1f, modeRect.rect.height) + VerticalExpansionPerSide * 2f;
+        float hudHeight = UIStrokeStyle.CompactHudHeight + VerticalExpansionPerSide * 2f;
         levelHudRect.anchorMin = levelHudRect.anchorMax = new Vector2(0.5f, 0.5f);
         levelHudRect.pivot = new Vector2(0f, 1f);
         levelHudRect.sizeDelta = new Vector2(hudWidth, hudHeight);
@@ -237,7 +239,7 @@ public sealed class TraderLevelUIController : MonoBehaviour
     }
 }
 
-/// <summary>GameScene의 캐릭터 이미지에 소형 레벨 HUD를 자동 부착합니다.</summary>
+/// <summary>게임 및 튜토리얼 씬의 캐릭터 이미지에 소형 레벨 HUD를 자동 부착합니다.</summary>
 public static class TraderLevelUIBootstrap
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -249,7 +251,12 @@ public static class TraderLevelUIBootstrap
 
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != "GameScene") return;
+        if (scene.name != "GameScene" &&
+            !string.Equals(scene.name, "tutorial", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         Install(scene);
     }
 

@@ -28,10 +28,19 @@ public class DynamicInventoryUI : MonoBehaviour
     private TMP_Text activeBuffsText;
     private int lastSlotCount = -1;
 
+    // 바깥 배경은 투명도 5%, 겹치는 내부 카드와 헤더 면은 불투명하게 유지합니다.
+    private static readonly Color PanelBackground = new(0.025f, 0.045f, 0.085f, 0.95f);
+    private static readonly Color InnerSurface = new(0.045f, 0.075f, 0.13f, 1f);
+    private static readonly Color HeaderSurface = new(0.075f, 0.12f, 0.20f, 1f);
+    private static readonly Color BorderColor = new(0.22f, 0.34f, 0.48f, 1f);
+    private static readonly Color DividerColor = new(0.15f, 0.25f, 0.36f, 1f);
+    private static readonly Color AccentColor = new(0.02f, 0.72f, 0.84f, 1f);
+
     private void Awake()
     {
         panelRect = GetComponent<RectTransform>();
         if (inventory == null) inventory = FindAnyObjectByType<Inventory>();
+        CreateBackgroundDesign();
         CreateTitleIfNeeded();
         HideLegacyButtons();
         Rebuild();
@@ -179,6 +188,8 @@ public class DynamicInventoryUI : MonoBehaviour
         titleText = existing != null ? existing.GetComponent<TMP_Text>() : CreateText(transform, "CareItemsTitle", 25f, TextAlignmentOptions.MidlineLeft);
         titleText.text = "CARE ITEMS";
         titleText.fontStyle = FontStyles.Bold;
+        titleText.color = new Color(0.82f, 0.97f, 1f, 1f);
+        titleText.characterSpacing = 1.5f;
         SetAnchors(titleText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(22f, -44f), new Vector2(-12f, -4f));
 
         Transform existingBuffs = transform.Find("ActiveBuffsSummary");
@@ -190,6 +201,59 @@ public class DynamicInventoryUI : MonoBehaviour
         {
             activeBuffsText.text = ActiveItemEffectManager.Instance.GetSummaryText();
         }
+    }
+
+    private void CreateBackgroundDesign()
+    {
+        Image background = GetComponent<Image>();
+        if (background == null) background = gameObject.AddComponent<Image>();
+        background.sprite = null;
+        background.type = Image.Type.Simple;
+        background.color = PanelBackground;
+
+        Outline outline = GetComponent<Outline>();
+        if (outline == null) outline = gameObject.AddComponent<Outline>();
+        outline.effectColor = BorderColor;
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
+
+        Image inner = CreateOrGetBackgroundLayer("InventoryInnerSurface");
+        SetAnchors(inner.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 6f), new Vector2(-6f, -6f));
+        inner.color = InnerSurface;
+        inner.transform.SetSiblingIndex(0);
+
+        Image header = CreateOrGetBackgroundLayer("InventoryHeaderSurface");
+        SetAnchors(header.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -48f), new Vector2(-6f, -6f));
+        header.color = HeaderSurface;
+        header.transform.SetSiblingIndex(1);
+
+        Image accent = CreateOrGetBackgroundLayer("InventoryTopAccent");
+        SetAnchors(accent.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -5f), new Vector2(-6f, -2f));
+        accent.color = AccentColor;
+        accent.transform.SetSiblingIndex(2);
+
+        Image divider = CreateOrGetBackgroundLayer("InventoryHeaderDivider");
+        SetAnchors(divider.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(14f, -49f), new Vector2(-14f, -47f));
+        divider.color = DividerColor;
+        divider.transform.SetSiblingIndex(3);
+
+    }
+
+    private Image CreateOrGetBackgroundLayer(string objectName)
+    {
+        Transform existing = transform.Find(objectName);
+        Image image = existing != null ? existing.GetComponent<Image>() : null;
+        if (image == null)
+        {
+            GameObject go = new(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(transform, false);
+            image = go.GetComponent<Image>();
+        }
+
+        image.sprite = null;
+        image.type = Image.Type.Simple;
+        image.raycastTarget = false;
+        return image;
     }
 
     private void HideLegacyButtons()

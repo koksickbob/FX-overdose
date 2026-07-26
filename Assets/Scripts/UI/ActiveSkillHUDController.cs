@@ -8,6 +8,10 @@ using FXOverdose.Trading;
 /// <summary>우측 상단의 3개 스킬 버튼과 스킬 정보 팝업을 관리합니다.</summary>
 public sealed class ActiveSkillHUDController : MonoBehaviour
 {
+    private const float SkillButtonSize = UIStrokeStyle.CompactHudHeight;
+    private const float SkillButtonGap = 12f;
+    private const float InventoryRightMargin = 24f;
+
     private static readonly SkillType[] SkillOrder =
     {
         SkillType.ChartStudy,
@@ -51,8 +55,9 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private IEnumerator InitializeAfterLayout()
     {
         yield return null;
+        yield return new WaitForEndOfFrame();
         Canvas.ForceUpdateCanvases();
-        LayoutBelowSettings();
+        LayoutBelowTopBar();
 
         levelSystem = TraderLevelSystem.Instance;
         if (levelSystem != null)
@@ -84,7 +89,9 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         skillRow = row.GetComponent<RectTransform>();
         skillRow.anchorMin = skillRow.anchorMax = new Vector2(0.5f, 0.5f);
         skillRow.pivot = new Vector2(1f, 1f);
-        skillRow.sizeDelta = new Vector2(66f, 222f);
+        skillRow.sizeDelta = new Vector2(
+            SkillButtonSize * SkillOrder.Length + SkillButtonGap * (SkillOrder.Length - 1),
+            SkillButtonSize);
 
         for (int i = 0; i < SkillOrder.Length; i++)
         {
@@ -93,8 +100,8 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
             RectTransform rect = button.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(66f, 66f);
-            rect.anchoredPosition = new Vector2(0f, -i * 78f);
+            rect.sizeDelta = new Vector2(SkillButtonSize, SkillButtonSize);
+            rect.anchoredPosition = new Vector2(i * (SkillButtonSize + SkillButtonGap), 0f);
         }
     }
 
@@ -132,28 +139,32 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         return button;
     }
 
-    private void LayoutBelowSettings()
+    private void LayoutBelowTopBar()
     {
-        Canvas canvas = GetComponent<Canvas>();
+        if (skillRow == null) return;
+
+        const float topBarHeight = 108f;
+        const float topBarGap = 12f;
+
+        // 루트 캔버스의 우측 상단 앵커만 사용해 Canvas Scaler나 서로 다른 UI 계층의
+        // localPosition 좌표가 섞이면서 화면 밖으로 밀리는 문제를 방지합니다.
+        skillRow.anchorMin = skillRow.anchorMax = new Vector2(1f, 1f);
+        skillRow.pivot = new Vector2(1f, 1f);
+        float alignedY = -(topBarHeight + topBarGap);
+
         RectTransform canvasRect = GetComponent<RectTransform>();
-        RectTransform settingsRect = GameObject.Find("SettingsIcon")?.GetComponent<RectTransform>();
-        if (canvas == null || canvasRect == null || settingsRect == null || skillRow == null) return;
+        RectTransform modeRect = GameObject.Find("Temp_TradingModeToggleBtn")?.GetComponent<RectTransform>();
+        if (canvasRect != null && modeRect != null)
+        {
+            Vector3[] modeCorners = new Vector3[4];
+            modeRect.GetWorldCorners(modeCorners);
+            Vector3 modeTopRight = canvasRect.InverseTransformPoint(modeCorners[2]);
+            alignedY = modeTopRight.y - canvasRect.rect.yMax;
+        }
 
-        Vector3[] corners = new Vector3[4];
-        settingsRect.GetWorldCorners(corners);
-        Vector3 settingsBottomRight = canvas.transform.InverseTransformPoint(corners[3]);
-
-        // 차트 좌측 외곽 여백(ChartReferenceStyler의 12px)과 동일하게 맞춥니다.
-        const float rightMargin = 12f;
-        const float settingsGap = 24f;
-        Rect bounds = canvasRect.rect;
-        // 화면 우측에 딱 붙이고, 첫 스킬 버튼은 설정 버튼 아래에서 별도 여백을 둡니다.
-        float x = bounds.xMax - rightMargin;
-        float y = Mathf.Clamp(
-            settingsBottomRight.y - settingsGap,
-            bounds.yMin + skillRow.sizeDelta.y + rightMargin,
-            bounds.yMax - rightMargin);
-        skillRow.localPosition = new Vector3(x, y, 0f);
+        skillRow.anchoredPosition = new Vector2(
+            -InventoryRightMargin,
+            alignedY);
         skillRow.SetAsLastSibling();
     }
 
@@ -479,7 +490,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     }
 }
 
-/// <summary>GameScene의 메인 Canvas에 액티브 스킬 HUD를 자동 설치합니다.</summary>
+/// <summary>게임 및 튜토리얼 씬의 메인 Canvas에 액티브 스킬 HUD를 자동 설치합니다.</summary>
 public static class ActiveSkillHUDBootstrap
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -491,7 +502,12 @@ public static class ActiveSkillHUDBootstrap
 
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != "GameScene") return;
+        if (scene.name != "GameScene" &&
+            !string.Equals(scene.name, "tutorial", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         Install(scene);
     }
 
@@ -510,6 +526,6 @@ public static class ActiveSkillHUDBootstrap
 
         if (target == null || target.GetComponent<ActiveSkillHUDController>() != null) return;
         target.gameObject.AddComponent<ActiveSkillHUDController>();
-        Debug.Log("[ActiveSkillHUD] GameScene 메인 Canvas에 스킬 UI 복구 완료");
+        Debug.Log($"[ActiveSkillHUD] {gameScene.name} 메인 Canvas에 스킬 UI 복구 완료");
     }
 }

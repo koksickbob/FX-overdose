@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 using FXOverdose.Trading;
 
 #pragma warning disable CS0649
@@ -10,6 +11,12 @@ namespace FXOverdose.UI.TopBar
 {
     public class TopStatusBarUIController : MonoBehaviour
     {
+        private const float DayTimeCardWidth = 330f;
+        private const int DayTimeHorizontalPadding = 24;
+
+        public RectTransform TutorialBalanceHighlightTarget =>
+            balanceValueLabel != null ? balanceValueLabel.rectTransform : null;
+
         [Header("시스템 및 렌더러 연결")]
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TradingController tradingController;
@@ -41,6 +48,7 @@ namespace FXOverdose.UI.TopBar
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (sparklineRenderer == null) sparklineRenderer = GetComponentInChildren<SparklineRenderer>();
+            ConfigureDayTimeCardLayout();
 
             if (gameManager != null)
             {
@@ -53,6 +61,28 @@ namespace FXOverdose.UI.TopBar
             equityHistory.Add(initialEquity);
 
             UpdateDayTimeUI();
+        }
+
+        private void ConfigureDayTimeCardLayout()
+        {
+            Transform dayTimeCard = dayLabel != null ? dayLabel.transform.parent : transform.Find("DayTimeCard");
+            if (dayTimeCard == null) return;
+
+            LayoutElement layout = dayTimeCard.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                layout.minWidth = DayTimeCardWidth;
+                layout.preferredWidth = DayTimeCardWidth;
+            }
+
+            HorizontalLayoutGroup horizontal = dayTimeCard.GetComponent<HorizontalLayoutGroup>();
+            if (horizontal != null)
+            {
+                RectOffset padding = horizontal.padding;
+                padding.left = DayTimeHorizontalPadding;
+                padding.right = DayTimeHorizontalPadding;
+                horizontal.padding = padding;
+            }
         }
 
         private void OnDestroy()

@@ -35,6 +35,7 @@ namespace FXOverdose.AI
     {
         private const float DialogueContentPadding = 52f;
         private const float DialogueTailCenterOffset = 6f;
+        private const float CharacterDialogueVerticalOffset = 36f;
 
         public enum ExpressionState
         {
@@ -98,8 +99,12 @@ namespace FXOverdose.AI
         private TradingController.PositionType currentPositionVisualType;
         private Coroutine typewriterCoroutine;
         private Coroutine hideBalloonCoroutine;
+        private Coroutine tutorialAdvanceIndicatorCoroutine;
+        private RectTransform tutorialAdvanceIndicator;
+        private CanvasGroup tutorialAdvanceIndicatorGroup;
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
         private EventCategory currentDisplayCategory = EventCategory.General;
+        private bool visualLayoutOffsetApplied;
 
         // 우선순위 큐 및 쿨타임/Lock 관리 제어부
         private Queue<DialogueRequest> dialogueQueue = new Queue<DialogueRequest>();
@@ -115,6 +120,7 @@ namespace FXOverdose.AI
             if (inventory == null) inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
 
             ResolveCharacterImage();
+            ApplyCharacterDialogueVerticalOffset();
             LoadEmotionSprites();
             LoadItemUseSprites();
             LoadSkillUpgradeSprites();
@@ -129,6 +135,8 @@ namespace FXOverdose.AI
             }
 
             ApplyDialogueTextStyle();
+            EnsureTutorialAdvanceIndicator();
+            SetTutorialAdvanceIndicator(false);
 
             if (aiBrain != null)
             {
@@ -282,6 +290,22 @@ namespace FXOverdose.AI
             GameObject characterObject = GameObject.Find("ProtagonistCharacterImage");
             if (characterObject != null)
                 characterImage = characterObject.GetComponent<Image>();
+        }
+
+        private void ApplyCharacterDialogueVerticalOffset()
+        {
+            if (visualLayoutOffsetApplied) return;
+
+            RectTransform characterRect = characterImage != null ? characterImage.rectTransform : null;
+            RectTransform balloonRect = dialogueBalloonPanel != null
+                ? dialogueBalloonPanel.GetComponent<RectTransform>()
+                : null;
+
+            if (characterRect == null || balloonRect == null) return;
+
+            characterRect.anchoredPosition += Vector2.up * CharacterDialogueVerticalOffset;
+            balloonRect.anchoredPosition += Vector2.up * CharacterDialogueVerticalOffset;
+            visualLayoutOffsetApplied = true;
         }
 
         private void LoadEmotionSprites()
@@ -743,6 +767,7 @@ namespace FXOverdose.AI
             if (hideBalloonCoroutine != null) StopCoroutine(hideBalloonCoroutine);
 
             ApplyDialogueTextStyle();
+            SetTutorialAdvanceIndicator(false);
             dialogueBalloonPanel.SetActive(true);
             currentDisplayPriority = priority;
             currentDisplayCategory = category;
@@ -786,6 +811,11 @@ namespace FXOverdose.AI
                 yield return new WaitForSeconds(typewriterCharDelay);
             }
 
+            if (currentDisplayCategory == EventCategory.Tutorial)
+            {
+                SetTutorialAdvanceIndicator(true);
+            }
+
             // 출력 완료 후 최소 읽기 보장 시간 및 displayDuration 대기
             hideBalloonCoroutine = StartCoroutine(HideBalloonOrProcessQueueAfterDelay(displayDuration));
         }
@@ -822,7 +852,101 @@ namespace FXOverdose.AI
                 // 만료된 경우 무시하고 while 루프 계속 (다음 대사 확인)
             }
 
+            SetTutorialAdvanceIndicator(false);
             if (dialogueBalloonPanel != null) dialogueBalloonPanel.SetActive(false);
+        }
+
+        private void EnsureTutorialAdvanceIndicator()
+        {
+            if (tutorialAdvanceIndicator != null || dialogueBalloonPanel == null) return;
+
+            GameObject indicator = new(
+                "TutorialAdvanceIndicator",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            indicator.transform.SetParent(dialogueBalloonPanel.transform, false);
+
+            tutorialAdvanceIndicator = indicator.GetComponent<RectTransform>();
+            tutorialAdvanceIndicator.anchorMin = tutorialAdvanceIndicator.anchorMax = new Vector2(1f, 0f);
+            tutorialAdvanceIndicator.pivot = new Vector2(0.5f, 0.5f);
+            tutorialAdvanceIndicator.anchoredPosition = new Vector2(
+                -DialogueContentPadding - 13f,
+                DialogueContentPadding + 10f);
+            tutorialAdvanceIndicator.sizeDelta = new Vector2(28f, 28f);
+
+            tutorialAdvanceIndicatorGroup = indicator.GetComponent<CanvasGroup>();
+            tutorialAdvanceIndicatorGroup.blocksRaycasts = false;
+            tutorialAdvanceIndicatorGroup.interactable = false;
+
+            Color arrowColor = new Color32(103, 232, 249, 255);
+            CreateTutorialArrowStroke(indicator.transform, "UpperStroke", new Vector2(-2f, 5f), -45f, arrowColor);
+            CreateTutorialArrowStroke(indicator.transform, "LowerStroke", new Vector2(-2f, -5f), 45f, arrowColor);
+            indicator.SetActive(false);
+        }
+
+        private static void CreateTutorialArrowStroke(
+            Transform parent,
+            string name,
+            Vector2 anchoredPosition,
+            float rotation,
+            Color color)
+        {
+            GameObject stroke = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            stroke.transform.SetParent(parent, false);
+            RectTransform rect = stroke.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(17f, 4f);
+            rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+
+            Image image = stroke.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+        }
+
+        public void SetTutorialAdvanceIndicator(bool visible)
+        {
+            EnsureTutorialAdvanceIndicator();
+            if (tutorialAdvanceIndicator == null) return;
+
+            if (tutorialAdvanceIndicatorCoroutine != null)
+            {
+                StopCoroutine(tutorialAdvanceIndicatorCoroutine);
+                tutorialAdvanceIndicatorCoroutine = null;
+            }
+
+            tutorialAdvanceIndicator.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                tutorialAdvanceIndicator.anchoredPosition = new Vector2(
+                    -DialogueContentPadding - 13f,
+                    DialogueContentPadding + 10f);
+                if (tutorialAdvanceIndicatorGroup != null) tutorialAdvanceIndicatorGroup.alpha = 1f;
+                return;
+            }
+
+            tutorialAdvanceIndicator.transform.SetAsLastSibling();
+            tutorialAdvanceIndicatorCoroutine = StartCoroutine(PulseTutorialAdvanceIndicator());
+        }
+
+        private IEnumerator PulseTutorialAdvanceIndicator()
+        {
+            Vector2 basePosition = new(
+                -DialogueContentPadding - 13f,
+                DialogueContentPadding + 10f);
+
+            while (tutorialAdvanceIndicator != null && tutorialAdvanceIndicator.gameObject.activeSelf)
+            {
+                float pulse = (Mathf.Sin(Time.unscaledTime * 6f) + 1f) * 0.5f;
+                tutorialAdvanceIndicator.anchoredPosition =
+                    basePosition + new Vector2(pulse * 6f, 0f);
+                if (tutorialAdvanceIndicatorGroup != null)
+                    tutorialAdvanceIndicatorGroup.alpha = Mathf.Lerp(0.35f, 1f, pulse);
+                yield return null;
+            }
+
+            tutorialAdvanceIndicatorCoroutine = null;
         }
 
         public void ClearQueueExceptSkillUpgraded()

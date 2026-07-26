@@ -1,8 +1,10 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using TMPro;
 using FXOverdose.AI;
 using FXOverdose.Trading;
 using FXOverdose.Core;
@@ -53,6 +55,13 @@ namespace FXOverdose.Core
         [SerializeField] private GameObject marginHighlight;
         [SerializeField] private GameObject mentalHighlight;
         [SerializeField] private GameObject levelHighlight;
+        private GameObject leverageHighlight;
+        private GameObject shopHighlight;
+        private GameObject endTutorialPanel;
+
+        private Canvas highlightCanvas;
+        private RectTransform highlightRoot;
+        private readonly Dictionary<GameObject, RectTransform> highlightTargets = new();
 
         [Header("시스템 참조")]
         private TradingController tradingController;
@@ -103,11 +112,15 @@ namespace FXOverdose.Core
             }
 
             // 동적 튜토리얼 블로커 캔버스 생성
-            GameObject blockerGo = new GameObject("TutorialBlockerCanvas");
-            Canvas c = blockerGo.AddComponent<Canvas>();
-            c.renderMode = RenderMode.ScreenSpaceOverlay;
-            c.sortingOrder = 999; // 최상단
-            blockerGo.AddComponent<GraphicRaycaster>();
+            GameObject blockerGo = new GameObject(
+                "TutorialBlockerCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(GraphicRaycaster));
+            highlightCanvas = blockerGo.GetComponent<Canvas>();
+            highlightCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            highlightCanvas.sortingOrder = 999; // 최상단
+            highlightRoot = blockerGo.GetComponent<RectTransform>();
             
             GameObject bgGo = new GameObject("BlockerPanel");
             bgGo.transform.SetParent(blockerGo.transform, false);
@@ -128,12 +141,6 @@ namespace FXOverdose.Core
             Canvas.ForceUpdateCanvases();
 
             AutoBindHighlights();
-
-            // 만약 유저가 인스펙터에 하이라이트 오버레이가 아닌 대상(UI) 자체를 넣었다면, 대상을 숨기지 않도록 오버레이를 생성해서 덮어씌웁니다.
-            if (levelHighlight != null && levelHighlight.name != "TutorialHighlight")
-            {
-                levelHighlight = CreateHighlightOverlay(levelHighlight.transform);
-            }
 
             SetButtonsInteractable(false);
             DisableAllHighlights();
@@ -243,53 +250,54 @@ namespace FXOverdose.Core
             if (balanceHighlight == null)
             {
                 var topBar = FindAnyObjectByType<FXOverdose.UI.TopBar.TopStatusBarUIController>();
-                if (topBar != null)
+                if (topBar != null && topBar.TutorialBalanceHighlightTarget != null)
                 {
-                    var field = topBar.GetType().GetField("balanceValueLabel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (field != null)
-                    {
-                        var tmp = field.GetValue(topBar) as Component;
-                        if (tmp != null) 
-                        {
-                            Transform targetBg = FindCardByName(tmp.transform);
-                            balanceHighlight = CreateHighlightOverlay(targetBg);
-                        }
-                    }
+                    Transform targetBg = FindCardByName(topBar.TutorialBalanceHighlightTarget);
+                    balanceHighlight = CreateHighlightOverlay(targetBg);
                 }
+            }
+
+            // 3-1. Leverage
+            if (leverageHighlight == null)
+            {
+                var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
+                if (panelUI != null && panelUI.TutorialLeverageHighlightTarget != null)
+                    leverageHighlight = CreateHighlightOverlay(panelUI.TutorialLeverageHighlightTarget);
             }
 
             // 3. Margin
             if (marginHighlight == null)
             {
                 var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
-                if (panelUI != null)
-                {
-                    var field = panelUI.GetType().GetField("marginRatioControlContainer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (field != null)
-                    {
-                        var go = field.GetValue(panelUI) as GameObject;
-                        if (go != null) marginHighlight = CreateHighlightOverlay(go.transform);
-                    }
-                }
+                if (panelUI != null && panelUI.TutorialMarginHighlightTarget != null)
+                    marginHighlight = CreateHighlightOverlay(panelUI.TutorialMarginHighlightTarget);
             }
 
             // 4. Mental
             if (mentalHighlight == null)
             {
                 var vitals = FindAnyObjectByType<VitalsValueUI>();
-                if (vitals != null)
+                if (vitals != null && vitals.TutorialMentalHighlightTarget != null)
                 {
-                    var field = vitals.GetType().GetField("mentalSlider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (field != null)
-                    {
-                        var slider = field.GetValue(vitals) as Component;
-                        if (slider != null) 
-                        {
-                            Transform targetBg = FindCardByName(slider.transform);
-                            mentalHighlight = CreateHighlightOverlay(targetBg);
-                        }
-                    }
+                    Transform targetBg = FindCardByName(vitals.TutorialMentalHighlightTarget);
+                    mentalHighlight = CreateHighlightOverlay(targetBg);
                 }
+            }
+
+            // 5. Shop
+            if (shopHighlight == null && btnShop != null)
+            {
+                shopHighlight = CreateHighlightOverlay(btnShop.transform);
+            }
+
+            // 6. Level / EXP
+            if (levelHighlight == null)
+            {
+                var levelUI = FindAnyObjectByType<TraderLevelUIController>();
+                RectTransform levelHud = levelUI != null
+                    ? levelUI.TutorialLevelHighlightTarget
+                    : GameObject.Find("CharacterLevelExpHUD")?.GetComponent<RectTransform>();
+                if (levelHud != null) levelHighlight = CreateHighlightOverlay(levelHud);
             }
         }
 
@@ -315,20 +323,25 @@ namespace FXOverdose.Core
 
         private GameObject CreateHighlightOverlay(Transform target)
         {
-            if (target == null) return null;
-            GameObject overlay = new GameObject("TutorialHighlight");
-            overlay.transform.SetParent(target, false);
+            if (target == null || highlightRoot == null) return null;
+            RectTransform targetRect = target as RectTransform ?? target.GetComponent<RectTransform>();
+            if (targetRect == null) return null;
+
+            GameObject overlay = new GameObject(
+                $"TutorialHighlight_{target.name}",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            overlay.transform.SetParent(highlightRoot, false);
             overlay.transform.SetAsLastSibling();
             
-            RectTransform rt = overlay.AddComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(-6, -6);
-            rt.offsetMax = new Vector2(6, 6);
+            RectTransform rt = overlay.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
             
-            var canvasGroup = overlay.AddComponent<CanvasGroup>();
+            var canvasGroup = overlay.GetComponent<CanvasGroup>();
             canvasGroup.alpha = 1f;
             canvasGroup.blocksRaycasts = false;
+            canvasGroup.interactable = false;
             
             Color borderColor = new Color(1f, 0.85f, 0.1f, 1f); // 선명한 노란색
             float thickness = 4f;
@@ -338,8 +351,59 @@ namespace FXOverdose.Core
             CreateBorderLine(overlay.transform, "Left", new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(thickness, 0), borderColor);
             CreateBorderLine(overlay.transform, "Right", new Vector2(1, 0), new Vector2(1, 1), new Vector2(-thickness, 0), Vector2.zero, borderColor);
             
+            highlightTargets[overlay] = targetRect;
+            UpdateHighlightBounds(overlay, targetRect);
             overlay.SetActive(false);
             return overlay;
+        }
+
+        private void LateUpdate()
+        {
+            foreach (KeyValuePair<GameObject, RectTransform> pair in highlightTargets)
+            {
+                if (pair.Key == null || !pair.Key.activeSelf || pair.Value == null) continue;
+                UpdateHighlightBounds(pair.Key, pair.Value);
+            }
+        }
+
+        private void UpdateHighlightBounds(GameObject overlay, RectTransform target)
+        {
+            if (overlay == null || target == null || highlightRoot == null) return;
+
+            Canvas targetCanvas = target.GetComponentInParent<Canvas>();
+            Camera targetCamera = targetCanvas != null && targetCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? targetCanvas.worldCamera
+                : null;
+
+            Vector3[] worldCorners = new Vector3[4];
+            target.GetWorldCorners(worldCorners);
+            Vector2 min = new(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new(float.NegativeInfinity, float.NegativeInfinity);
+
+            foreach (Vector3 worldCorner in worldCorners)
+            {
+                Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(targetCamera, worldCorner);
+                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        highlightRoot,
+                        screenPoint,
+                        highlightCanvas != null && highlightCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                            ? highlightCanvas.worldCamera
+                            : null,
+                        out Vector2 localPoint))
+                {
+                    continue;
+                }
+
+                min = Vector2.Min(min, localPoint);
+                max = Vector2.Max(max, localPoint);
+            }
+
+            if (float.IsInfinity(min.x) || float.IsInfinity(min.y)) return;
+
+            const float padding = 8f;
+            RectTransform overlayRect = overlay.GetComponent<RectTransform>();
+            overlayRect.anchoredPosition = (min + max) * 0.5f;
+            overlayRect.sizeDelta = max - min + Vector2.one * padding * 2f;
         }
 
         private void CreateBorderLine(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax, Color color)
@@ -361,7 +425,9 @@ namespace FXOverdose.Core
             if (chartHighlight != null) chartHighlight.SetActive(false);
             if (balanceHighlight != null) balanceHighlight.SetActive(false);
             if (marginHighlight != null) marginHighlight.SetActive(false);
+            if (leverageHighlight != null) leverageHighlight.SetActive(false);
             if (mentalHighlight != null) mentalHighlight.SetActive(false);
+            if (shopHighlight != null) shopHighlight.SetActive(false);
             if (levelHighlight != null) levelHighlight.SetActive(false);
         }
 
@@ -450,6 +516,8 @@ namespace FXOverdose.Core
                     yield return null;
                 }
                 
+                aiVisualController.SetTutorialAdvanceIndicator(false);
+
                 // 클릭 직후 약간의 유예 시간
                 yield return new WaitForSeconds(0.1f);
             }
@@ -582,6 +650,9 @@ namespace FXOverdose.Core
         {
             CurrentState = TutorialState.LeverageAndMargin;
 
+            var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
+            panelUI?.ShowMarginControlsForTutorial();
+            yield return null;
             if (marginHighlight != null) SetHighlight(marginHighlight, true);
 
             yield return StartCoroutine(PlayDialogueAndWait("트레이딩의 꽃은 역시 레버리지지! 적은 돈으로 큰 돈을 굴릴 수 있게 해줘."));
@@ -589,6 +660,9 @@ namespace FXOverdose.Core
             
             if (marginHighlight != null) SetHighlight(marginHighlight, false);
 
+            panelUI?.ShowLeverageControlsForTutorial();
+            yield return null;
+            if (leverageHighlight != null) SetHighlight(leverageHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("레버리지를 높이면 증거금 대비 수익도 배가 되지만, 조금만 빗나가도 증거금을 순식간에 다 날려버리니까(청산) 조심해야 해!"));
             
             // 레버리지 조작 버튼 하이라이트
@@ -597,6 +671,7 @@ namespace FXOverdose.Core
             BringToFront(btnDecreaseLeverage);
             
             yield return new WaitForSeconds(2.0f);
+            if (leverageHighlight != null) SetHighlight(leverageHighlight, false);
             SetButtonsInteractable(false);
         }
 
@@ -616,7 +691,11 @@ namespace FXOverdose.Core
         private IEnumerator Step7_Shop()
         {
             CurrentState = TutorialState.ShopExplanation;
-            
+
+            if (shopHighlight == null && btnShop != null)
+                shopHighlight = CreateHighlightOverlay(btnShop.transform);
+            if (shopHighlight != null) SetHighlight(shopHighlight, true);
+
             yield return StartCoroutine(PlayDialogueAndWait("여기는 요미가 평소에 밥을 먹거나 여러 가지 서포트 아이템을 사는 상점이야."));
             yield return StartCoroutine(PlayDialogueAndWait("매매에 도움을 주는 유용한 아이템들이나, 요미의 밥과 음료수들을 살 수 있어."));
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 번 돈은 요미를 위해 아낌없이 쓰라구!"));
@@ -624,16 +703,22 @@ namespace FXOverdose.Core
             SetButtonsInteractable(false);
             BringToFront(btnShop);
             yield return new WaitForSeconds(2.0f);
+            if (shopHighlight != null) SetHighlight(shopHighlight, false);
             SetButtonsInteractable(false);
         }
 
         private IEnumerator Step8_LevelSystem()
         {
             CurrentState = TutorialState.LevelSystem;
-            
-            // 다가올 9단계 돌발 이벤트를 위해 백그라운드에서 LLM 생성 시작 (예열)
-            FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>()?.StartPreFetchingLLMEvent();
 
+            if (levelHighlight == null)
+            {
+                var levelUI = FindAnyObjectByType<TraderLevelUIController>();
+                RectTransform levelHud = levelUI != null
+                    ? levelUI.TutorialLevelHighlightTarget
+                    : GameObject.Find("CharacterLevelExpHUD")?.GetComponent<RectTransform>();
+                if (levelHud != null) levelHighlight = CreateHighlightOverlay(levelHud);
+            }
             if (levelHighlight != null) SetHighlight(levelHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 성공적으로 매매를 이어갈수록 레벨이 오를 거야!"));
             yield return StartCoroutine(PlayDialogueAndWait("레벨이 오르면 요미의 차트 분석력이나 멘탈, 인내력 같은 스킬들을 직접 업그레이드할 수 있어."));
@@ -657,7 +742,8 @@ namespace FXOverdose.Core
                 // 이벤트 팝업을 클릭할 수 있도록 전체 화면 클릭 방지 임시 해제
                 if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = false;
                 
-                choiceController.TriggerPrefetchedEvent();
+                // 튜토리얼에서는 LLM 생성 상태와 무관하게 내용이 완성된 고정 이벤트를 사용합니다.
+                choiceController.TriggerSpecificEvent("EVENT_01_FSC_ETF");
                 
                 // 이벤트가 활성화되어 있는 동안 대기
                 while (choiceController.IsEventActive)
@@ -688,6 +774,7 @@ namespace FXOverdose.Core
                 EnsureEndTutorialButton();
             }
 
+            if (endTutorialPanel != null) endTutorialPanel.SetActive(true);
             BringToFront(btnEndTutorial);
             if (btnEndTutorial != null) 
             {
@@ -702,36 +789,157 @@ namespace FXOverdose.Core
         {
             if (fullScreenBlocker == null) return;
             
-            GameObject btnGo = new GameObject("Btn_EndTutorial");
-            btnGo.transform.SetParent(fullScreenBlocker.transform.parent, false);
-            
-            Image btnImg = btnGo.AddComponent<Image>();
-            btnImg.color = new Color(0.2f, 0.6f, 1f, 1f);
-            
-            btnEndTutorial = btnGo.AddComponent<Button>();
-            
-            RectTransform rect = btnGo.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.4f, 0.45f);
-            rect.anchorMax = new Vector2(0.6f, 0.55f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            
-            GameObject txtGo = new GameObject("Text");
-            txtGo.transform.SetParent(btnGo.transform, false);
-            var txt = txtGo.AddComponent<UnityEngine.UI.Text>();
-            txt.text = "튜토리얼 종료";
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txt.color = Color.white;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.resizeTextForBestFit = true;
-            
-            RectTransform txtRect = txtGo.GetComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(10, 10);
-            txtRect.offsetMax = new Vector2(-10, -10);
-            
-            btnGo.SetActive(false);
+            Transform root = fullScreenBlocker.transform.parent;
+            endTutorialPanel = new GameObject(
+                "TutorialCompletePanel",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Outline));
+            endTutorialPanel.transform.SetParent(root, false);
+
+            RectTransform panelRect = endTutorialPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.35f, 0.34f);
+            panelRect.anchorMax = new Vector2(0.65f, 0.64f);
+            panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
+
+            Image panelImage = endTutorialPanel.GetComponent<Image>();
+            panelImage.color = new Color32(9, 16, 31, 248);
+            panelImage.raycastTarget = true;
+            Outline panelOutline = endTutorialPanel.GetComponent<Outline>();
+            panelOutline.effectColor = new Color32(6, 182, 212, 255);
+            panelOutline.effectDistance = new Vector2(3f, -3f);
+
+            CreateTutorialPanelImage(
+                endTutorialPanel.transform,
+                "TopAccent",
+                new Vector2(0f, 0.965f),
+                Vector2.one,
+                new Color32(34, 211, 238, 255));
+
+            TMP_Text badge = CreateTutorialPanelText(
+                endTutorialPanel.transform,
+                "CompleteBadge",
+                "TUTORIAL  COMPLETE",
+                14f,
+                new Vector2(0.08f, 0.75f),
+                new Vector2(0.92f, 0.91f),
+                new Color32(103, 232, 249, 255));
+            badge.fontStyle = FontStyles.Bold;
+            badge.characterSpacing = 3f;
+
+            TMP_Text title = CreateTutorialPanelText(
+                endTutorialPanel.transform,
+                "CompleteTitle",
+                "READY FOR THE MARKET?",
+                25f,
+                new Vector2(0.07f, 0.52f),
+                new Vector2(0.93f, 0.75f),
+                Color.white);
+            title.fontStyle = FontStyles.Bold;
+
+            CreateTutorialPanelText(
+                endTutorialPanel.transform,
+                "CompleteSubtitle",
+                "튜토리얼을 마쳤어. 이제 실전 트레이딩을 시작해!",
+                15f,
+                new Vector2(0.08f, 0.39f),
+                new Vector2(0.92f, 0.54f),
+                new Color32(148, 163, 184, 255));
+
+            GameObject btnGo = new(
+                "Btn_EndTutorial",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(Outline));
+            btnGo.transform.SetParent(endTutorialPanel.transform, false);
+
+            RectTransform buttonRect = btnGo.GetComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0.09f, 0.10f);
+            buttonRect.anchorMax = new Vector2(0.91f, 0.34f);
+            buttonRect.offsetMin = buttonRect.offsetMax = Vector2.zero;
+
+            Image buttonImage = btnGo.GetComponent<Image>();
+            buttonImage.color = new Color32(8, 126, 151, 255);
+            Outline buttonOutline = btnGo.GetComponent<Outline>();
+            buttonOutline.effectColor = new Color32(103, 232, 249, 255);
+            buttonOutline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            btnEndTutorial = btnGo.GetComponent<Button>();
+            btnEndTutorial.targetGraphic = buttonImage;
+            ColorBlock colors = btnEndTutorial.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color32(207, 250, 254, 255);
+            colors.pressedColor = new Color32(103, 232, 249, 255);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color32(71, 85, 105, 180);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            btnEndTutorial.colors = colors;
+
+            TMP_Text buttonLabel = CreateTutorialPanelText(
+                btnGo.transform,
+                "Label",
+                "START TRADING   >",
+                19f,
+                Vector2.zero,
+                Vector2.one,
+                Color.white);
+            buttonLabel.fontStyle = FontStyles.Bold;
+            buttonLabel.characterSpacing = 1.5f;
+
+            endTutorialPanel.SetActive(false);
+        }
+
+        private static Image CreateTutorialPanelImage(
+            Transform parent,
+            string name,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Color color)
+        {
+            GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            Image image = go.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static TMP_Text CreateTutorialPanelText(
+            Transform parent,
+            string name,
+            string value,
+            float fontSize,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Color color)
+        {
+            GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+
+            TMP_Text text = go.GetComponent<TMP_Text>();
+            text.text = value;
+            text.fontSize = fontSize;
+            text.color = color;
+            text.alignment = TextAlignmentOptions.Center;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = Mathf.Max(10f, fontSize - 6f);
+            text.fontSizeMax = fontSize;
+            text.raycastTarget = false;
+            GlobalPFStardustFont.ConfigureCompactHudText(text, null, fontSize);
+            return text;
         }
 
         public void EndTutorial()

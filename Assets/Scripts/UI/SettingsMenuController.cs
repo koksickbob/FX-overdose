@@ -5,6 +5,9 @@ using UnityEngine.UI;
 /// <summary>우측 상단 설정 버튼, 일시정지 팝업, 게임 종료를 관리합니다.</summary>
 public class SettingsMenuController : MonoBehaviour
 {
+    private const float FloatingModeButtonWidth = 92f;
+    private const float FloatingModeButtonHeight = UIStrokeStyle.CompactHudHeight;
+
     [SerializeField] private Button settingsButton;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private TMP_FontAsset font;
@@ -124,7 +127,7 @@ public class SettingsMenuController : MonoBehaviour
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.sizeDelta = new Vector2(92f, 46f);
+        rect.sizeDelta = new Vector2(FloatingModeButtonWidth, FloatingModeButtonHeight);
         rect.anchoredPosition = new Vector2(-15f, -65f);
 
         floatingModeImage = go.GetComponent<Image>();
@@ -192,8 +195,8 @@ public class SettingsMenuController : MonoBehaviour
         const float edgeGap = 10f;
         const float chartGap = 10f; // 2px Outline을 제외한 실제 보이는 간격은 상단 카드와 같은 8px
         const float chartTopInset = 0f;
-        const float buttonWidth = 92f;
-        const float buttonHeight = 46f;
+        const float buttonWidth = FloatingModeButtonWidth;
+        const float buttonHeight = FloatingModeButtonHeight;
 
         // 차트 오른쪽 + P&L 아래의 교차 영역에 배치합니다.
         // 세로 위치는 chartTopInset으로 직접 조정하고, 가로는 외곽선을 고려한 시각 간격을 유지합니다.
@@ -223,7 +226,7 @@ public class SettingsMenuController : MonoBehaviour
 
         myRect.anchorMin = myRect.anchorMax = new Vector2(0.5f, 0.5f);
         myRect.pivot = new Vector2(1f, 1f);
-        myRect.sizeDelta = new Vector2(92f, 46f);
+        myRect.sizeDelta = new Vector2(FloatingModeButtonWidth, FloatingModeButtonHeight);
         myRect.localPosition = localBottomRight + new Vector3(0f, -8f, 0f);
     }
 

@@ -363,6 +363,16 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Img/Generated_image_1-removebg-preview.png`
 - `Assets/Scripts/AI/AIVisualController.cs`
+
+### DAY·TIME 카드 가로폭과 좌우 여백 조정
+
+- 상단 `DAY/TIME` 카드의 가로폭을 310px에서 330px로 조금 확장했습니다.
+- 카드 내부 좌우 패딩을 각각 24px로 통일해 날짜와 시간 영역의 양쪽 여백이 균형 있게 보이도록 했습니다.
+- 게임과 튜토리얼 씬이 공통으로 사용하는 상단바 컨트롤러에서 배치를 적용합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
 - `Assets/Editor/TradingViewUIBuilder.cs`
 
 ---
@@ -417,6 +427,60 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/UIStrokeStyle.cs`
 - `Assets/Scripts/UI/SettingsMenuController.cs`
+
+### 스킬 레벨 버튼 가로 정렬
+
+- 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.
+- 옆 레벨·EXP HUD의 현재 세로 크기와 동일한 `69×69` 정사각형 버튼을 12px 간격으로 배치합니다.
+- 루트 캔버스 우측 상단 앵커를 기준으로 상단바 높이 108px와 간격 12px 아래에 정렬합니다.
+- `AUTO`·`USER` 버튼의 폭과 간격을 확보하고, 인벤토리 UI와 동일한 우측 마진 `24px`을 적용했습니다.
+- 서로 다른 UI 계층의 로컬 좌표를 혼용하지 않아 Canvas Scaler 설정에 따라 화면 밖으로 사라지던 문제를 해결했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+
+### 요미·말풍선 세로 위치 상향
+
+- 요미 캐릭터와 대화 말풍선을 기존 위치에서 36px 위로 함께 이동했습니다.
+- 대화 텍스트와 튜토리얼 진행 화살표는 말풍선의 자식 배치를 유지하므로 내부 여백을 바꾸지 않고 함께 이동합니다.
+- 게임과 튜토리얼에서 동일한 `AIVisualController` 배치 보정을 사용하며 중복 적용을 방지합니다.
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+
+### 스킬 버튼 행 우측 정렬
+
+- 스킬 버튼의 `69×69` 크기와 `AUTO`·`USER` 버튼 기준 상하선 정렬은 유지했습니다.
+- 스킬 버튼 행의 우측 끝을 화면 우측에서 24px 떨어진 위치로 이동해 인벤토리 UI와 같은 우측 마진에 맞췄습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+
+### 상단 컴팩트 HUD 상하선 정렬
+
+- 스킬 버튼 행이 상단바 고정 좌표가 아니라 `AUTO`·`USER` 버튼의 실제 상단 좌표를 읽어 배치되도록 수정했습니다.
+- 세 UI가 동일한 69px 높이를 사용하면서 스킬 버튼, 모드 버튼, 레벨·EXP HUD의 윗선과 아랫선이 정확히 일치합니다.
+- 모드 버튼의 동적 배치가 끝난 프레임 이후 좌표를 계산해 초기 위치로 정렬되는 타이밍 문제를 방지했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+
+### 상단 컴팩트 HUD 세로 크기 통일
+
+- `UIStrokeStyle.CompactHudHeight` 공통 규격을 `69px`로 정의했습니다.
+- `AUTO`·`USER` 모드 버튼, 레벨·EXP HUD, 스킬 버튼이 모두 같은 공통 높이를 직접 사용합니다.
+- 레벨 HUD가 생성 직후 46px로 보였다가 나중에 늘어나거나, 모드 버튼 탐색 실패 시 작은 크기로 남는 문제를 제거했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/UIStrokeStyle.cs`
+- `Assets/Scripts/UI/SettingsMenuController.cs`
+- `Assets/Scripts/UI/TraderLevelUIController.cs`
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
 - `Assets/Scripts/UI/ActiveSkillHUDController.cs`
 - `Assets/Scripts/UI/TraderLevelUIController.cs`
 - `Assets/Scripts/Items/DynamicInventoryUI.cs`
@@ -565,6 +629,40 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 관련 파일:
 
 - `Assets/Scripts/UI/SettingsMenuController.cs`
+
+### 인벤토리 UI 배경 카드 리디자인
+
+- 기존 단색 인벤토리 배경을 짙은 네이비 외곽 프레임, 안쪽 카드 면, 분리된 헤더 영역으로 재구성했습니다.
+- 상단에는 청록색 포인트 라인과 헤더 구분선을 추가하고, 하단에는 짧은 포인트 바를 배치해 게임 HUD의 시각 언어와 통일했습니다.
+- `CARE ITEMS` 제목의 색상과 자간을 보정했으며, 기존 슬롯 크기·배치와 상점 버튼 추적 동작은 그대로 유지했습니다.
+- 배경 요소는 런타임에 한 번만 생성되며 일반 게임과 튜토리얼 인벤토리에 동일하게 적용됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/DynamicInventoryUI.cs`
+
+### 인벤토리 배경 투명도 조정
+
+- 인벤토리 아래쪽의 짧은 하늘색 장식선을 제거했습니다.
+- 내부 카드와 헤더 배경 레이어를 다시 적용하고 두 면은 완전히 불투명하게 유지했습니다.
+- 바깥 배경은 투명도 5%로 조정해 옅게 보이지 않도록 했습니다.
+- 제목, 버프 요약, 아이템 슬롯과 상단 포인트 라인은 기존 선명도를 유지합니다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/DynamicInventoryUI.cs`
+
+### 인벤토리 숍 버튼 리디자인
+
+- 인벤토리 위의 숍 버튼을 `210×70`에서 `260×86`으로 확대해 클릭 영역과 가시성을 높였습니다.
+- 원본 픽셀 프레임과 쇼핑백 이미지를 다시 사용하면서 청록색 외곽선과 확대된 버튼 규격을 유지했습니다.
+- `ITEM SHOP` 문구에서 `ITEM`을 제거하고, 쇼핑백 이미지 오른쪽에 `SHOP`만 표시되도록 정렬했습니다.
+- `SHOP` 문구를 쇼핑백 쪽으로 당기고 콘텐츠 묶음의 좌우 끝 여백을 동일하게 조정했습니다.
+- 인벤토리와의 간격 및 화면 우측 24px 정렬은 그대로 유지됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ShopButtonInventoryFollower.cs`
 
 ---
 
@@ -1111,3 +1209,56 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/Items/CostumeManager.cs`
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
+
+### 튜토리얼 UI 하이라이트 화면 좌표 추적
+
+- 대상 UI의 자식으로 테두리를 생성하던 방식을 제거하고, 최상단 튜토리얼 캔버스에서 대상의 화면 좌표를 매 프레임 추적하도록 변경했습니다.
+- Canvas Scaler, Layout Group, 마스크, 서로 다른 UI 부모 구조와 관계없이 하이라이트가 실제 컨트롤 외곽에 맞춰집니다.
+- 잔고, 증거금, 레버리지, 멘탈, 상점, 레벨·EXP UI를 명시적인 튜토리얼 대상으로 연결했습니다.
+- 증거금 설명에서는 Margin 탭, 레버리지 설명에서는 Leverage 탭을 자동으로 표시해 숨겨진 컨테이너를 강조하던 문제를 해결했습니다.
+- 기존에 테두리가 없던 상점 단계와 자동 바인딩이 빠져 있던 레벨 단계에도 하이라이트를 적용했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/TutorialManager.cs`
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+- `Assets/Scripts/UI/VitalsValueUI.cs`
+- `Assets/Scripts/UI/TraderLevelUIController.cs`
+
+### 튜토리얼 대화 진행 화살표
+
+- 튜토리얼 대사의 타이핑이 끝나면 요미 말풍선 우측 하단에 청록색 진행 화살표가 표시됩니다.
+- 화살표는 밝기와 좌우 위치가 반복적으로 점멸해 화면 클릭으로 다음 대사를 진행할 수 있음을 안내합니다.
+- 특정 폰트의 화살표 글리프에 의존하지 않도록 두 개의 UI 선으로 화살표를 동적 생성합니다.
+- 일반 게임 대사에는 표시하지 않으며, 튜토리얼 대사를 클릭하거나 말풍선이 닫히면 즉시 숨깁니다.
+
+관련 파일:
+
+- `Assets/Scripts/AI/AIVisualController.cs`
+- `Assets/Scripts/System/TutorialManager.cs`
+
+### 튜토리얼 레벨 HUD·고정 이벤트·완료 화면 보완
+
+- 레벨·EXP HUD와 차트 공부·큐브·독서 스킬 레벨 HUD의 자동 설치 대상을 `GameScene`뿐 아니라 `tutorial` 씬까지 확장했습니다.
+- 튜토리얼 돌발 이벤트에서 비동기 LLM 사전 생성을 제거하고, 내용과 선택지가 완성된 `EVENT_01_FSC_ETF` 이벤트를 항상 표시하도록 고정했습니다.
+- 기존 단색 사각형 종료 버튼을 `TUTORIAL COMPLETE` 완료 카드, 안내 문구, 청록색 `START TRADING` 버튼으로 구성된 전용 UI로 교체했습니다.
+- 완료 버튼에는 게임 UI와 동일한 외곽선, PF Stardust 폰트, 호버·클릭 색상 피드백을 적용했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TraderLevelUIController.cs`
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+- `Assets/Scripts/System/TutorialManager.cs`
+- `Assets/Resources/Events/EVENT_01_FSC_ETF.asset`
+
+### AUTO·USER 모드 버튼 세로 확장
+
+- 우측 상단 `AUTO`·`USER` 모드 전환 버튼의 크기를 `92×46`에서 `92×69`로 변경해 높이를 1.5배 확장했습니다.
+- 상단 기준 위치는 유지하고 버튼이 아래 방향으로만 늘어나도록 기존 상단 피벗 배치를 보존했습니다.
+- 일반 동적 배치와 설정 버튼 기준 예비 배치에 동일한 크기 상수를 사용해 화면 구성에 따른 크기 차이를 제거했습니다.
+- 인접한 레벨·EXP HUD는 모드 버튼의 변경된 높이를 읽어 같은 높이로 자동 정렬됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/SettingsMenuController.cs`
