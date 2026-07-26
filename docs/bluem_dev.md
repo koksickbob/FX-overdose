@@ -1246,6 +1246,18 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png.meta`
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
 
+### 지뢰계 캐릭터 표시 크기 통일
+
+- 지뢰계 스프라이트가 기본 캐릭터보다 약 `8~17%` 작게 보이던 크기 차이를 수정했습니다.
+- 기본·감정·아이템·포지션·스킬·오버도즈 30장을 각각 대응하는 기본 캐릭터 스프라이트의 알파 높이와 하단 위치에 맞춰 개별 확대했습니다.
+- `600×1180` 캔버스와 전체 Sprite Rect를 유지하고, 확대된 양갈래가 좌우 경계를 넘지 않도록 중앙 정렬했습니다.
+- 표정, 포즈, 의상과 소품은 변경하지 않고 픽셀 크기만 보정했습니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
+
 ### 튜토리얼 UI 하이라이트 화면 좌표 추적
 
 - 대상 UI의 자식으로 테두리를 생성하던 방식을 제거하고, 최상단 튜토리얼 캔버스에서 대상의 화면 좌표를 매 프레임 추적하도록 변경했습니다.
@@ -1261,6 +1273,29 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
 - `Assets/Scripts/UI/VitalsValueUI.cs`
 - `Assets/Scripts/UI/TraderLevelUIController.cs`
+
+### 튜토리얼 하이라이트 동적 바인딩 복구
+
+- 머지 이후 동적 HUD 생성보다 하이라이트 단발 바인딩이 먼저 실행되어 전체 대상이 비어 있을 수 있는 타이밍 문제를 수정했습니다.
+- 튜토리얼 시작 시 최대 60프레임 동안 차트·잔고·증거금·레버리지·멘탈·상점·레벨 대상을 재탐색합니다.
+- 실행 중에도 누락된 대상이 있으면 30프레임 간격으로 자동 복구하며, 바인딩 지연 시 대상별 상태를 경고 로그로 남깁니다.
+- 하이라이트 Canvas의 정렬 순위를 `32000`으로 높이고 화면 좌표를 매 프레임 추적해 서로 다른 UI 계층에서도 정확한 외곽 크기를 유지합니다.
+- 내부 점등 면은 제거하고 4px 여백의 노란색 테두리만 표시합니다.
+- 잔고는 `BalanceCard`, 멘탈은 HP까지 포함한 상위 패널이 아닌 실제 Mental Rect를 직접 강조하도록 대상을 좁혔습니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/TutorialManager.cs`
+
+### 튜토리얼 수동매매 버튼 클릭 복구
+
+- 하이라이트·블로커 Canvas를 `32000`으로 올린 뒤 롱·숏 허용 버튼이 기존 정렬 순위 `1000`에 남아 투명 블로커가 클릭을 가로채던 문제를 수정했습니다.
+- 튜토리얼에서 조작을 허용하는 롱·숏·청산·레버리지·상점 버튼을 블로커보다 높은 `32001`로 올립니다.
+- 단계가 끝나면 추가 Canvas와 Raycaster를 제거해 일반 UI 정렬 상태로 복원합니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/TutorialManager.cs`
 
 ### 튜토리얼 대화 진행 화살표
 
