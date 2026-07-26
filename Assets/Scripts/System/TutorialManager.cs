@@ -947,6 +947,8 @@ namespace FXOverdose.Core
             Debug.Log("[TutorialManager] 튜토리얼 종료 버튼 클릭 -> LoadingScene -> GameScene 이동");
             if (btnEndTutorial != null) btnEndTutorial.interactable = false;
             
+            FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "GameScene";
+            
             if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
             {
                 SceneManager.LoadScene("LoadingScene");
