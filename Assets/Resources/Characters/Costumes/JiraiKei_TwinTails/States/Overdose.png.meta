@@ -54,7 +54,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 0
+  spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
@@ -148,10 +148,10 @@ TextureImporter:
       name: Overdose_0
       rect:
         serializedVersion: 2
-        x: 58
-        y: 29
-        width: 498
-        height: 1122
+        x: 0
+        y: 0
+        width: 600
+        height: 1180
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -170,10 +170,10 @@ TextureImporter:
       name: Overdose_1
       rect:
         serializedVersion: 2
-        x: 546
-        y: 600
-        width: 11
-        height: 12
+        x: 0
+        y: 0
+        width: 600
+        height: 1180
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -192,10 +192,10 @@ TextureImporter:
       name: Overdose_2
       rect:
         serializedVersion: 2
-        x: 42
-        y: 567
-        width: 13
-        height: 15
+        x: 0
+        y: 0
+        width: 600
+        height: 1180
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

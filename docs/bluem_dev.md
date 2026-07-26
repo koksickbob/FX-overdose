@@ -1210,6 +1210,42 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
 - `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
 
+### 지뢰계 스프라이트 누끼·크기 보정
+
+- 지뢰계 기본·감정·아이템·포지션·스킬·오버도즈 스프라이트 30장의 초록색 크로마 잔여물을 제거했습니다.
+- 캐릭터 높이를 약 `846px`에서 `996px`로 확대하고 `600×1180` 캔버스의 중앙과 하단 기준을 통일했습니다.
+- 기존 표정, 의상, 포즈와 소품 픽셀은 유지하며 투명 가장자리만 정리했습니다.
+- 기존 `.meta`와 Unity GUID는 그대로 보존해 상점 및 코스튬 연결이 유지됩니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
+
+### 지뢰계 트윈테일 잘림 복원
+
+- 사용자 검수 완료된 기본·감정·아이템·포지션·스킬·오버도즈 시안 30장을 실제 지뢰계 코스튬 리소스에 적용했습니다.
+- 각 스프라이트마다 양쪽에서 잘린 위치를 개별 판단해 트윈테일 끝이 자연스럽게 가늘어지도록 복원했습니다.
+- 표정, 포즈, 의상, 아이템, 스킬 소품과 오버도즈 효과를 유지하고 배경을 투명하게 정리했습니다.
+- 기존 파일명과 `.meta`를 보존해 Unity GUID 및 런타임 리소스 경로가 유지됩니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
+
+### 지뢰계 스프라이트 Full Rect 임포트
+
+- 지뢰계 PNG 자체에는 좌우 투명 여백이 있었지만 변형 29장의 Sprite Rect가 교체 전 캐릭터 폭으로 남아 양갈래 머리를 실제로 잘라내던 원인을 수정했습니다.
+- 변형 Sprite Rect를 텍스처 전체 규격인 `x=0, y=0, 600×1180`으로 확장했습니다.
+- 전체 지뢰계 스프라이트의 Mesh Type도 `Full Rect`로 통일했습니다.
+- 이미지와 GUID는 변경하지 않고 Unity 임포트 설정만 조정했습니다.
+
+관련 파일:
+
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails.png.meta`
+- `Assets/Resources/Characters/Costumes/JiraiKei_TwinTails/`
+
 ### 튜토리얼 UI 하이라이트 화면 좌표 추적
 
 - 대상 UI의 자식으로 테두리를 생성하던 방식을 제거하고, 최상단 튜토리얼 캔버스에서 대상의 화면 좌표를 매 프레임 추적하도록 변경했습니다.
