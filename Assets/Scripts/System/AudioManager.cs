@@ -48,6 +48,7 @@ namespace FXOverdose.Core
         private const string OverdoseBgmPath = "Audio/BGM/bgm_overdose";
         private const string ProfitLayerPath = "Audio/BGM/layer_profit";
         private const string DangerLayerPath = "Audio/BGM/layer_danger";
+        private const string TitleBgmPath = "Audio/BGM/bgm_title";
 
         private static readonly Dictionary<AudioCue, string> CuePaths = new()
         {
@@ -195,7 +196,7 @@ namespace FXOverdose.Core
 
             bool isGameplay = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include) != null;
             if (isGameplay) StartNormalMusic();
-            else StopMusic();
+            else StartTitleMusic();
         }
 
         private void RebindMissingSystems()
@@ -381,6 +382,14 @@ namespace FXOverdose.Core
             PlayLoop(profitLayerSource, ProfitLayerPath, 0f);
             PlayLoop(dangerLayerSource, DangerLayerPath, 0f);
             SyncLayerPlayback();
+        }
+
+        private void StartTitleMusic()
+        {
+            overdoseActive = false;
+            PlayLoop(bgmSource, TitleBgmPath, bgmVolume * masterVolume);
+            profitLayerSource.Stop();
+            dangerLayerSource.Stop();
         }
 
         private void StopMusic()
