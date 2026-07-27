@@ -32,6 +32,12 @@ public class ItemUser : MonoBehaviour
             return false;
         }
 
+        if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+        {
+            Debug.LogWarning("[ItemUser] 오버도즈 상태에서는 아이템을 사용할 수 없습니다.", this);
+            return false;
+        }
+
         if (item == null)
         {
             Debug.LogWarning("[ItemUser] 사용할 ItemData가 없습니다.", this);

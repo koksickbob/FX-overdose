@@ -227,6 +227,12 @@ namespace FXOverdose.Events
             // 4. AI 트레이더 멘탈 위기(LowMental) 비상 트리거 판정
             if (traderStatus != null && traderStatus.MentalRatio <= 0.15f)
             {
+                if (gameManager != null && gameManager.IsFastForwardingTime)
+                {
+                    // 고속 스킵(스킬 학습 등) 중에는 이벤트 팝업이 난입하여 스킵을 방해하지 못하도록 발생을 지연(무시)합니다.
+                    return;
+                }
+
                 if (Time.time - lastMentalTriggerTime > 180f) // 실시간 3분 쿨다운
                 {
                     lastMentalTriggerTime = Time.time;
@@ -242,6 +248,11 @@ namespace FXOverdose.Events
 
         public void TriggerRandomEvent(EventTriggerCondition preferredCondition = EventTriggerCondition.Any)
         {
+            if (traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+            {
+                return;
+            }
+
             if (allEvents.Count == 0) LoadAllEventAssets();
             if (allEvents.Count == 0) return;
 
@@ -477,6 +488,23 @@ namespace FXOverdose.Events
             currentActiveEvent = null;
         }
 
+        public int GetDynamicEventLeverage(int baseLeverage)
+        {
+            if (baseLeverage <= 0) return 0;
+            
+            int playerMax = TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMaxAllowedLeverage() : 10;
+            int currentDay = gameManager != null ? gameManager.CurrentDay : 1;
+            
+            // 일차별 해금 캡: 플레이어 최대치 + (일차 * 7)
+            int dayCap = playerMax + (currentDay * 7);
+            
+            // 최종 이벤트 레버리지 계산
+            int dynamicLeverage = Mathf.Min(baseLeverage, dayCap);
+            
+            // 하드캡 125배 적용
+            return Mathf.Min(dynamicLeverage, 125);
+        }
+
         private void ApplyOptionEffects(ChoiceOptionData option)
         {
             if (option == null) return;
@@ -513,7 +541,8 @@ namespace FXOverdose.Events
                 }
                 else if (option.ForceLeverage > 0 || option.ForcePosition != TradingController.PositionType.None)
                 {
-                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, option.ForceLeverage > 0 ? option.ForceLeverage : 10, 150, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
+                    int dynamicLeverage = GetDynamicEventLeverage(option.ForceLeverage > 0 ? option.ForceLeverage : 10);
+                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, dynamicLeverage, 150, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
                 }
             }
 
@@ -549,7 +578,8 @@ namespace FXOverdose.Events
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             if (tradingController != null)
             {
-                tradingController.ExecuteEmergencyTrade(playerChosenPos, option.ForceLeverage > 0 ? option.ForceLeverage : 100, 150, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isSuccess);
+                int dynamicLeverage = GetDynamicEventLeverage(option.ForceLeverage > 0 ? option.ForceLeverage : 100);
+                tradingController.ExecuteEmergencyTrade(playerChosenPos, dynamicLeverage, 150, handlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isSuccess);
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 트랩/빔 처리 중단

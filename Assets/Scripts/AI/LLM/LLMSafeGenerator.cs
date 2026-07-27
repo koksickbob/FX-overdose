@@ -154,7 +154,11 @@ namespace FXOverdose.AI.LLM
                 hint += "모든 포지션 청산 및 관망. ";
 
             if (option.ForceLeverage > 0)
-                hint += $"레버리지 {option.ForceLeverage}배 강제 적용. ";
+            {
+                var choiceCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
+                int dynamicLeverage = choiceCtrl != null ? choiceCtrl.GetDynamicEventLeverage(option.ForceLeverage) : option.ForceLeverage;
+                hint += $"레버리지 {dynamicLeverage}배 강제 적용. ";
+            }
 
             if (Mathf.Abs(option.OverrideBeamPercent) > 0.01f)
             {
