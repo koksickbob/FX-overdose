@@ -61,6 +61,10 @@ public static class GlobalPFStardustFont
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.overflowMode = TextOverflowModes.Overflow;
         text.outlineWidth = Mathf.Clamp(outlineWidth, 0f, 0.05f);
+        CompactHudTextStabilizer stabilizer = text.GetComponent<CompactHudTextStabilizer>();
+        if (stabilizer == null)
+            stabilizer = text.gameObject.AddComponent<CompactHudTextStabilizer>();
+        stabilizer.RequestRefresh();
         RefreshCompactHudText(text);
     }
 
@@ -68,6 +72,8 @@ public static class GlobalPFStardustFont
     public static void RefreshCompactHudText(TMP_Text text)
     {
         if (text == null) return;
+        CompactHudTextStabilizer stabilizer = text.GetComponent<CompactHudTextStabilizer>();
+        if (stabilizer != null) stabilizer.RequestRefresh();
         text.SetAllDirty();
         text.ForceMeshUpdate(true, true);
     }
@@ -79,5 +85,56 @@ public static class GlobalPFStardustFont
 
         if (!font.TryAddCharacters(CompactHudCharacters, out string missing) && !string.IsNullOrEmpty(missing))
             Debug.LogWarning($"[GlobalPFStardustFont] 소형 HUD 글리프 준비 실패: {missing}", font);
+    }
+}
+
+/// <summary>
+/// 동적 TMP 아틀라스가 같은 프레임에 변경되더라도 소형 HUD 글리프가 깨지지 않도록
+/// 값 변경 후 여러 렌더 프레임에 걸쳐 메쉬와 머티리얼을 다시 확정합니다.
+/// </summary>
+[DisallowMultipleComponent]
+public sealed class CompactHudTextStabilizer : MonoBehaviour
+{
+    private const int StabilizationFrames = 3;
+
+    private TMP_Text target;
+    private string lastText;
+    private TMP_FontAsset lastFont;
+    private int pendingFrames;
+
+    private void Awake()
+    {
+        target = GetComponent<TMP_Text>();
+        RequestRefresh();
+    }
+
+    private void OnEnable()
+    {
+        RequestRefresh();
+    }
+
+    public void RequestRefresh()
+    {
+        pendingFrames = StabilizationFrames;
+    }
+
+    private void LateUpdate()
+    {
+        if (target == null) target = GetComponent<TMP_Text>();
+        if (target == null) return;
+
+        if (lastText != target.text || lastFont != target.font || target.havePropertiesChanged)
+        {
+            lastText = target.text;
+            lastFont = target.font;
+            pendingFrames = StabilizationFrames;
+        }
+
+        if (pendingFrames <= 0) return;
+
+        target.SetAllDirty();
+        target.ForceMeshUpdate(true, true);
+        target.UpdateVertexData(TMP_VertexDataUpdateFlags.All);
+        pendingFrames--;
     }
 }
