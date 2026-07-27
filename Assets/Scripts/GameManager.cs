@@ -225,10 +225,84 @@ public class GameManager : MonoBehaviour
             gameObject.AddComponent<FXOverdose.UI.DayTimeBackgroundController>();
     }
 
+    private System.Collections.Generic.List<string> day1Monologue = new System.Collections.Generic.List<string> {
+        "알바에서도 짤리고... 내 수중엔 단돈 4,000달러뿐. 20일 안에 100만 달러를 만들지 못하면 끝장이야!",
+        "일단 레버리지는 5배밖에 안 되니까, 조심스럽게 소액 익절을 반복해서 경험치를 쌓고 레벨부터 올려야 해.",
+        "5일 뒤엔 밀린 월세도 내야 하니까 방심하지 말자!"
+    };
+
+    private System.Collections.Generic.List<string> day6Monologue = new System.Collections.Generic.List<string> {
+        "하아... 이런 푼돈 단타로는 20일 안에 절대 100만 달러를 못 만들어! 더 큰 돈을 벌려면 레버리지 배율을 높여야 해.",
+        "부지런히 거래해서 경험치를 쌓고 레벨을 올려야만 중고배율 레버리지가 해금된다고!",
+        "지금부터는 어떻게든 레벨을 올려서 자산을 공격적으로 뻥튀기해야만 살아남을 수 있어. 가자!"
+    };
+
+    private System.Collections.Generic.List<string> day16Monologue = new System.Collections.Generic.List<string> {
+        "말도 안 돼... 10만 달러 배상 청구 폭탄이라니!! 잔고가 박살나고 멘탈이 부서질 것 같지만, 여기서 포기할 순 없어.",
+        "단숨에 복구하려면 '100배 풀레버리지'가 반드시 필요해. 아직 해금을 못했다면 어떻게든 최고 레벨(LV.9)까지 올려야 해!",
+        "남은 시간은 단 5일. 모 아니면 도다. 가즈아아아!!!"
+    };
+
+    private System.Collections.IEnumerator PlayStoryMonologueAndWait(System.Collections.Generic.List<string> lines, System.Action onComplete)
+    {
+        var aiVisual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+        if (aiVisual != null)
+        {
+            foreach (var line in lines)
+            {
+                aiVisual.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Critical, FXOverdose.AI.EventCategory.Tutorial);
+                
+                yield return new WaitForSeconds(0.5f);
+                
+                while (true)
+                {
+                    bool clicked = false;
+#if ENABLE_INPUT_SYSTEM
+                    if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
+                        clicked = true;
+#else
+                    if (Input.GetMouseButtonDown(0)) clicked = true;
+#endif
+                    if (clicked) break;
+                    yield return null;
+                }
+                
+                aiVisual.SetTutorialAdvanceIndicator(false);
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(1.0f);
+        }
+        
+        onComplete?.Invoke();
+    }
+
     public void FinishLoadingAndStartPlaying()
     {
         if (currentState == GameState.Loading)
         {
+            if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
+            {
+                if (currentDay == 1)
+                {
+                    var introEvent = storyEvents.Find(e => e.triggerDay == 1);
+                    if (introEvent != null && introEvent.comicPanels != null && introEvent.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+                    {
+                        currentState = GameState.Paused; // 시간 흐름 정지
+                        Debug.Log("[GameManager] 1일차 오프닝 컷씬 시작 (시간 정지)");
+                        FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(introEvent.comicPanels, () => {
+                            StartCoroutine(PlayStoryMonologueAndWait(day1Monologue, () => {
+                                currentState = GameState.Playing;
+                                Debug.Log("[GameManager] 오프닝 컷씬 및 독백 종료. 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+                            }));
+                        });
+                        return;
+                    }
+                }
+            }
+
             currentState = GameState.Playing;
             Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
         }
@@ -316,28 +390,39 @@ public class GameManager : MonoBehaviour
 
         TodayEvent = storyEvents.Find(e => e.triggerDay == currentDay);
 
-        // 페널티 적용
-        if (TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
+        // Day 1은 게임 시작 시 이미 재생했으므로 24:00에는 패스
+        if (currentDay == 1)
         {
-            currentBalance -= TodayEvent.penaltyAmount; // TrySpendBalance 안 쓰고 강제 차감
+            Debug.Log($"[GameManager] 1일차 24:00 종료. 일일 정산 대기 상태 진입.");
+            OnDayEnded?.Invoke();
+            return;
+        }
+
+        // 페널티 적용 (Day 16 페널티는 아침으로 이동했으므로 예외)
+        if (currentDay != 16 && TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
+        {
+            currentBalance -= TodayEvent.penaltyAmount; 
             if (TraderStatus.CanonicalInstance != null)
                 TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(TodayEvent.penaltyAmount);
             Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
         }
 
         // 컷툰 재생 또는 바로 정산
-        if (TodayEvent != null && TodayEvent.comicPanels != null && TodayEvent.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+        if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
         {
-            FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(TodayEvent.comicPanels, () => {
-                Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
-                OnDayEnded?.Invoke();
-            });
+            // Day 6, Day 16 컷씬은 아침으로 이동했으므로 예외
+            if (currentDay != 6 && currentDay != 16 && TodayEvent != null && TodayEvent.comicPanels != null && TodayEvent.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+            {
+                FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(TodayEvent.comicPanels, () => {
+                    Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
+                    OnDayEnded?.Invoke();
+                });
+                return;
+            }
         }
-        else
-        {
-            Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
-            OnDayEnded?.Invoke();
-        }
+
+        Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
+        OnDayEnded?.Invoke();
     }
 
     // 일일 정산 화면에서 '다음날 진행하기' 호출 시 실행
@@ -402,7 +487,55 @@ public class GameManager : MonoBehaviour
             marketEngine.OpenMarketAfterLoading();
         }
 
-        currentState = GameState.Playing;
+        bool hasStoryMorningEvent = false;
+        System.Action storyMorningAction = null;
+
+        if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
+        {
+            if (currentDay == 6 || currentDay == 16)
+            {
+                var evt = storyEvents.Find(e => e.triggerDay == currentDay);
+                if (evt != null)
+                {
+                    hasStoryMorningEvent = true;
+                    storyMorningAction = () => {
+                        System.Action applyPenaltyAndMonologue = () => {
+                            if (currentDay == 16 && evt.isPenalty && evt.penaltyAmount > 0)
+                            {
+                                currentBalance -= evt.penaltyAmount;
+                                if (TraderStatus.CanonicalInstance != null) TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(evt.penaltyAmount);
+                                Debug.Log($"[GameManager] {currentDay}일차 아침 페널티 차감: -{evt.penaltyAmount}");
+                            }
+                            
+                            var monologue = currentDay == 6 ? day6Monologue : day16Monologue;
+                            StartCoroutine(PlayStoryMonologueAndWait(monologue, () => {
+                                currentState = GameState.Playing;
+                                Debug.Log($"[GameManager] {currentDay}일차 스토리 시작 컷씬 및 독백 종료.");
+                            }));
+                        };
+
+                        if (evt.comicPanels != null && evt.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+                        {
+                            FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(evt.comicPanels, applyPenaltyAndMonologue);
+                        }
+                        else
+                        {
+                            applyPenaltyAndMonologue();
+                        }
+                    };
+                }
+            }
+        }
+
+        if (hasStoryMorningEvent)
+        {
+            currentState = GameState.Paused;
+            storyMorningAction?.Invoke();
+        }
+        else
+        {
+            currentState = GameState.Playing;
+        }
 
         // 일일 정산(다음날 진입) 시점에 현재 게임 상태 자동 저장
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
