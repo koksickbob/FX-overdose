@@ -8,7 +8,7 @@ namespace FXOverdose.Core
     [Serializable]
     public class SaveData
     {
-        public string Version = "1.3.0"; // 1.3.0: 코스튬 보유 및 장착 상태 저장 추가
+        public string Version = "1.4.0"; // 1.4.0: 액티브 아이템 보유 레벨 저장 추가
 
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
         public GameMode GameMode = GameMode.Story;
@@ -59,5 +59,10 @@ namespace FXOverdose.Core
         // --- 코스튬 데이터 ---
         public List<string> OwnedCostumeIds = new List<string> { CostumeManager.StandardId };
         public string EquippedCostumeId = CostumeManager.StandardId;
+
+        // --- 액티브 아이템 데이터 ---
+        // JsonUtility가 Dictionary를 직렬화하지 못하므로 아이템 ID와 레벨을 같은 인덱스의 병렬 리스트로 저장합니다.
+        public List<string> ActiveItemIds = new List<string>();
+        public List<int> ActiveItemLevels = new List<int>();
     }
 }
