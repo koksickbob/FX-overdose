@@ -371,10 +371,34 @@ namespace FXOverdose.Core
                 return;
             }
 
-            // [수정] 새로운 시간대별 BGM과 기존 레이어(타이틀 BGM과 동일)가 겹쳐서 불협화음이 나는 것을 방지하기 위해 
-            // 당분간 레이어 볼륨이 올라가지 않도록 0으로 고정합니다.
-            targetProfitLayer = 0f;
-            targetDangerLayer = 0f;
+            float profitFactor = 0f;
+            float dangerFactor = 0f;
+
+            if (boundTrading != null && boundTrading.IsActive)
+            {
+                float roe = boundTrading.CalculateROEPercentage();
+                if (roe > 0f)
+                {
+                    // 20% 수익일 때 최대 레이어 볼륨
+                    profitFactor = Mathf.Clamp01(roe / 20f);
+                }
+                else if (roe < 0f)
+                {
+                    // -20% 손실일 때 최대 레이어 볼륨
+                    dangerFactor = Mathf.Clamp01(-roe / 20f);
+                }
+            }
+
+            // 멘탈 비율이 40% 미만일 때 위기 레이어 점진적 활성화 (멘탈 10%에서 최대)
+            float mentalRatio = boundStatus.CurrentMental / boundStatus.MaxMental;
+            if (mentalRatio < 0.4f)
+            {
+                float mentalDanger = Mathf.Clamp01((0.4f - mentalRatio) / 0.3f);
+                dangerFactor = Mathf.Max(dangerFactor, mentalDanger);
+            }
+
+            targetProfitLayer = profitFactor;
+            targetDangerLayer = dangerFactor;
         }
 
         private void StartNormalMusic()
