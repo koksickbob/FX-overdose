@@ -132,7 +132,8 @@ public class ShopItemButton : MonoBehaviour
             }
             else
             {
-                priceText.text = $"${item.Price:N0}";
+                int displayPrice = shopManager != null ? shopManager.GetInflatedPrice(item) : item.Price;
+                priceText.text = $"${displayPrice:N0}";
             }
         }
 

@@ -98,6 +98,22 @@ public class ShopManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 현재 일차에 비례하여 인플레이션(물가 상승)이 적용된 가격을 반환합니다. (2일마다 20% 상승)
+    /// </summary>
+    public int GetInflatedPrice(ItemData item)
+    {
+        if (item == null) return 0;
+        
+        float basePrice = item.Price;
+        if (gameManager != null)
+        {
+            float inflationMultiplier = Mathf.Pow(1.2f, (gameManager.CurrentDay - 1) / 2f);
+            return Mathf.RoundToInt(basePrice * inflationMultiplier);
+        }
+        return Mathf.RoundToInt(basePrice);
+    }
+
+    /// <summary>
     /// 자산이 충분하면 가격을 차감하고 아이템을 지급 또는 업그레이드합니다.
     /// </summary>
     public bool BuyItem(ItemData item)
@@ -113,7 +129,7 @@ public class ShopManager : MonoBehaviour
             return false;
         }
 
-        int priceToSpend = item.Price;
+        int priceToSpend = GetInflatedPrice(item);
         if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
         {
             if (ActiveItemEffectManager.Instance.IsMaxLevel(item))

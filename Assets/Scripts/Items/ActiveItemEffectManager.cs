@@ -69,12 +69,22 @@ public class ActiveItemEffectManager : MonoBehaviour
     public int GetNextUpgradePrice(ItemData item)
     {
         if (item == null) return 0;
+        
+        float basePrice = item.Price;
+        
+        GameManager gm = FindAnyObjectByType<GameManager>();
+        if (gm != null)
+        {
+            // 액티브/패시브 아이템도 2일마다 20% 상승
+            basePrice *= Mathf.Pow(1.2f, (gm.CurrentDay - 1) / 2f);
+        }
+
         int currentLevel = GetItemLevel(item);
-        if (currentLevel <= 0) return item.Price;
+        if (currentLevel <= 0) return Mathf.RoundToInt(basePrice);
 
         // 초기 구매(LV.1 -> LV.2) 시 priceMultiplierPerLevel 반영
         float multiplier = Mathf.Pow(item.PriceMultiplierPerLevel, currentLevel);
-        return Mathf.RoundToInt(item.Price * multiplier);
+        return Mathf.RoundToInt(basePrice * multiplier);
     }
 
     /// <summary>

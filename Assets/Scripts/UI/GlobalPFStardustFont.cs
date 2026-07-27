@@ -68,14 +68,13 @@ public static class GlobalPFStardustFont
         RefreshCompactHudText(text);
     }
 
-    /// <summary>값이 바뀐 작은 HUD 텍스트의 TMP 메쉬를 즉시 다시 만듭니다.</summary>
+    /// <summary>값이 바뀐 작은 HUD 텍스트의 TMP 메쉬 업데이트를 예약합니다.</summary>
     public static void RefreshCompactHudText(TMP_Text text)
     {
         if (text == null) return;
         CompactHudTextStabilizer stabilizer = text.GetComponent<CompactHudTextStabilizer>();
         if (stabilizer != null) stabilizer.RequestRefresh();
         text.SetAllDirty();
-        text.ForceMeshUpdate(true, true);
     }
 
     private static void EnsureCompactHudCharacters(TMP_FontAsset font)

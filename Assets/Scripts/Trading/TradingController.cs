@@ -927,6 +927,9 @@ namespace FXOverdose.Trading
             OnPositionChanged?.Invoke();
             OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
 
+            // [통합] 수동/자동 상관없이 진입 리액션 대사 출력
+            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionOpened, FXOverdose.AI.DialoguePriority.High);
+
             // 플레이어 매매 진행 시 AI 차트 힌트 대사 연동
             var aiBrain = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AITradingBrain>();
             if (aiBrain != null)
@@ -1017,6 +1020,9 @@ namespace FXOverdose.Trading
             lastClosedPosition = currentPosition;
             lastClosedPrice = marketEngine != null ? marketEngine.CurrentPrice : entryPrice;
             lastClosedTime = Time.time;
+
+            // [통합] 수동/자동 상관없이 청산 리액션 대사 출력 (currentPosition 정보가 초기화되기 직전에 호출)
+            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
 
             // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 1초 적용
             if (activeTradingMode == TradingMode.Player_Manual || currentOwner == OwnerType.Player)

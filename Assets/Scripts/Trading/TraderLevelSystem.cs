@@ -129,15 +129,15 @@ namespace FXOverdose.Trading
         {
             return protagonistLevel switch
             {
-                1 => 10,
-                2 => 15,
-                3 => 25,
-                4 => 35,
-                5 => 50,
-                6 => 65,
-                7 => 80,
-                8 => 100,
-                _ => 125 // LV 9 이상
+                1 => 5,
+                2 => 10,
+                3 => 15,
+                4 => 20,
+                5 => 30,
+                6 => 40,
+                7 => 50,
+                8 => 75,
+                _ => 100 // LV 9 이상
             };
         }
 
@@ -187,14 +187,14 @@ namespace FXOverdose.Trading
         {
             return chartStudyLevel switch
             {
-                1 => 0.70f, // 30% 오진입/역진입 에러 확률
-                2 => 0.75f,
-                3 => 0.80f,
-                4 => 0.85f,
-                5 => 0.90f, // 10% 에러 확률
-                6 => 0.94f,
-                7 => 0.97f,
-                _ => 1.0f   // LV 8 이상 오진입 0% 완벽 정확도
+                1 => 0.60f, // 40% 오진입
+                2 => 0.65f,
+                3 => 0.70f,
+                4 => 0.75f,
+                5 => 0.80f, // 20% 오진입
+                6 => 0.84f,
+                7 => 0.87f,
+                _ => 0.90f  // LV 8 이상 오진입 최소 10% 남음
             };
         }
 
@@ -223,16 +223,16 @@ namespace FXOverdose.Trading
         {
             return cubePatienceLevel switch
             {
-                1 => 0.30f, // 초반 쫄보 칼익절
-                2 => 0.40f,
-                3 => 0.50f,
-                4 => 0.60f,
-                5 => 0.70f,
-                6 => 0.78f,
-                7 => 0.85f,
-                8 => 0.90f, // 안정적인 몸통 수익
-                9 => 0.95f, // 꼬리 직전 극대화
-                _ => 0.98f  // LV 10: 휩소 터치 실패를 방지하기 위한 안전마진(98%)을 두고 파동의 끝까지 완벽 발라먹기
+                1 => 0.25f, 
+                2 => 0.35f,
+                3 => 0.45f,
+                4 => 0.55f,
+                5 => 0.65f,
+                6 => 0.72f,
+                7 => 0.78f,
+                8 => 0.84f, 
+                9 => 0.88f, 
+                _ => 0.90f  // LV 10: 인내심 만렙 시 0.90
             };
         }
 
@@ -244,16 +244,16 @@ namespace FXOverdose.Trading
         {
             return bookJudgmentLevel switch
             {
-                1 => 0.090f, // -9.0%의 막대한 손해를 볼 때까지 못 끊음
-                2 => 0.080f,
-                3 => 0.070f,
-                4 => 0.060f,
-                5 => 0.045f, // -4.5% 손절
-                6 => 0.035f,
-                7 => 0.028f,
-                8 => 0.022f,
-                9 => 0.018f,
-                _ => 0.015f  // -1.5% 기계적 칼손절로 손해 극소화
+                1 => 0.090f, 
+                2 => 0.085f,
+                3 => 0.080f,
+                4 => 0.075f,
+                5 => 0.070f, 
+                6 => 0.065f,
+                7 => 0.060f,
+                8 => 0.055f,
+                9 => 0.052f,
+                _ => 0.050f  // -5.0%
             };
         }
 
@@ -273,13 +273,21 @@ namespace FXOverdose.Trading
         public float GetSkillCost(SkillType type)
         {
             int lv = GetSkillLevel(type);
-            return type switch
+            float baseCost = type switch
             {
-                SkillType.ChartStudy => 200f * Mathf.Pow(1.6f, lv - 1),
-                SkillType.CubePatience => 100f * Mathf.Pow(1.5f, lv - 1),
-                SkillType.BookJudgment => 150f * Mathf.Pow(1.55f, lv - 1),
+                SkillType.ChartStudy => 500f * Mathf.Pow(1.6f, lv - 1),
+                SkillType.CubePatience => 300f * Mathf.Pow(1.5f, lv - 1),
+                SkillType.BookJudgment => 400f * Mathf.Pow(1.55f, lv - 1),
                 _ => 100f
             };
+            
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager != null)
+            {
+                baseCost *= Mathf.Pow(1.15f, gameManager.CurrentDay - 1);
+            }
+            
+            return baseCost;
         }
 
         public float GetSkillHealthCost(SkillType type)

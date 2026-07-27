@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -66653,7 +66653,7 @@ MonoBehaviour:
     isHighMarginRisk: 0
     eventCategory: ToggleManualStart
   - text: "\uCC38\uB098, \uC624\uBE60\uAC00 \uC54C\uC544\uC11C \uD558\uACA0\uB2E4\uACE0?
-      \uB0B4 \uC644\uBCBD\uD55C \uC778\uACF5\uC9C0\uB2A5 \uBD84\uC11D\uBCF4\uB2E4
+      \uB0B4 \uC644\uBCBD\uD55C \uCC28\uD2B8 \uBD84\uC11D\uBCF4\uB2E4
       \uB098\uC744 \uC218 \uC788\uB098 \uBCF4\uC790."
     marketTrend: None
     mentalState: None
