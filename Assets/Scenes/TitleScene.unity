@@ -8268,7 +8268,7 @@ MonoBehaviour:
   _parallelPrompts: 1
   _contextSize: 8192
   _batchSize: 512
-  _model: Models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+  _model: Models/llama-3.2-Korean-Bllossom-3B-gguf-Q4_K_M.gguf
   _flashAttention: 0
   _reasoning: 0
   _lora: 
