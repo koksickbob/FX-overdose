@@ -548,6 +548,16 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
 
+### PF Stardust 동적 폰트 에셋 머지 충돌 해결
+
+- `PFStardustBold Dynamic SDF.asset`에서 빈 동적 아틀라스 버전과 글리프가 포함된 DEV 버전이 충돌한 상태를 해결했습니다.
+- 숫자·영문·한글 글리프와 멀티 아틀라스 데이터가 포함된 DEV 버전을 보존해 레벨 HUD 등 런타임 텍스트가 다시 깨지지 않도록 했습니다.
+- 충돌 마커와 Git 미해결 상태를 제거하고 Unity C# 전체 빌드를 검증했습니다.
+
+관련 파일:
+
+- `Assets/Fonts/PFStardustBold Dynamic SDF.asset`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.

@@ -315,13 +315,21 @@ namespace FXOverdose.UI
                 new Vector2(0.10f, 0.61f), new Vector2(0.90f, 0.68f), TextAlignmentOptions.Left);
             Slider bgm = CreateSlider(window.transform, "Slider_BGM", new Vector2(0.10f, 0.53f), new Vector2(0.90f, 0.60f));
             bgm.value = PlayerPrefs.GetFloat("BGMVolume", 0.8f);
-            bgm.onValueChanged.AddListener(value => PlayerPrefs.SetFloat("BGMVolume", value));
+            bgm.onValueChanged.AddListener(value => {
+                PlayerPrefs.SetFloat("BGMVolume", value);
+                if (FXOverdose.Core.AudioManager.Instance != null)
+                    FXOverdose.Core.AudioManager.Instance.SetBGMVolume(value);
+            });
 
             CreateText(window.transform, "SFXLabel", "SFX VOLUME", 19f, Text,
                 new Vector2(0.10f, 0.40f), new Vector2(0.90f, 0.47f), TextAlignmentOptions.Left);
             Slider sfx = CreateSlider(window.transform, "Slider_SFX", new Vector2(0.10f, 0.32f), new Vector2(0.90f, 0.39f));
             sfx.value = PlayerPrefs.GetFloat("SFXVolume", 0.8f);
-            sfx.onValueChanged.AddListener(value => PlayerPrefs.SetFloat("SFXVolume", value));
+            sfx.onValueChanged.AddListener(value => {
+                PlayerPrefs.SetFloat("SFXVolume", value);
+                if (FXOverdose.Core.AudioManager.Instance != null)
+                    FXOverdose.Core.AudioManager.Instance.SetSFXVolume(value);
+            });
 
             Button close = CreateSmallButton(window.transform, "Btn_Close", "APPLY & CLOSE", new Vector2(0.29f, 0.09f), new Vector2(0.71f, 0.20f));
             close.onClick.AddListener(() =>

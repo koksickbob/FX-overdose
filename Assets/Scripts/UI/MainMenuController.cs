@@ -259,7 +259,14 @@ namespace FXOverdose.UI
 
             slider.onValueChanged.RemoveAllListeners();
             slider.SetValueWithoutNotify(PlayerPrefs.GetFloat(key, 0.8f));
-            slider.onValueChanged.AddListener(value => PlayerPrefs.SetFloat(key, value));
+            slider.onValueChanged.AddListener(value => {
+                PlayerPrefs.SetFloat(key, value);
+                if (FXOverdose.Core.AudioManager.Instance != null)
+                {
+                    if (key == "BGMVolume") FXOverdose.Core.AudioManager.Instance.SetBGMVolume(value);
+                    else if (key == "SFXVolume") FXOverdose.Core.AudioManager.Instance.SetSFXVolume(value);
+                }
+            });
         }
 
         private void BindTutorialPromptControls()
