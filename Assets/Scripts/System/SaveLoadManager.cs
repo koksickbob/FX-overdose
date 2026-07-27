@@ -64,6 +64,7 @@ namespace FXOverdose.Core
             var memory = TraderMemoryManager.Instance;
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             var costumes = CostumeManager.Instance;
+            var activeItems = ActiveItemEffectManager.Instance;
 
             if (gm == null || status == null || levelSys == null || memory == null)
             {
@@ -122,6 +123,8 @@ namespace FXOverdose.Core
                 data.TargetPrice = trading.TargetPrice;
                 data.StopLossPrice = trading.StopLossPrice;
             }
+
+            activeItems?.CaptureSaveData(data.ActiveItemIds, data.ActiveItemLevels);
 
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
@@ -248,6 +251,8 @@ namespace FXOverdose.Core
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
             var costumes = CostumeManager.Instance;
+            var activeItems = ActiveItemEffectManager.Instance;
+            var shopManager = FindAnyObjectByType<ShopManager>(FindObjectsInactive.Include);
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
 
             if (gm != null)
@@ -301,6 +306,14 @@ namespace FXOverdose.Core
             if (costumes != null)
             {
                 costumes.Restore(CurrentData.OwnedCostumeIds, CurrentData.EquippedCostumeId);
+            }
+
+            if (activeItems != null)
+            {
+                activeItems.RestoreFromSaveData(
+                    shopManager != null ? shopManager.CatalogItems : null,
+                    CurrentData.ActiveItemIds,
+                    CurrentData.ActiveItemLevels);
             }
 
             if (trading != null && CurrentData.HasActivePosition)

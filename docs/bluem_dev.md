@@ -558,6 +558,19 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Fonts/PFStardustBold Dynamic SDF.asset`
 
+### 액티브 아이템 저장·불러오기 복원
+
+- 액티브 아이템 구매 후 저장해도 `SaveData`에 보유 기록이 전혀 기록되지 않아, 불러오기 시 실제 버프와 상점 BUY 버튼이 모두 초기 상태로 돌아가던 데이터 계층 문제를 수정했습니다.
+- 저장 데이터 버전을 `1.4.0`으로 올리고 액티브 아이템 ID와 보유 레벨을 직렬화 가능한 병렬 리스트로 저장합니다.
+- 불러오기 시 ID를 현재 상점 카탈로그의 `ItemData`와 다시 연결하고, 레벨 제한 범위 안에서 복원한 뒤 모든 버프를 재계산합니다.
+- 복원 완료 이벤트를 발생시켜 이미 열려 있는 상점 UI와 BUY/MAX 상태도 즉시 갱신합니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/SaveData.cs`
+- `Assets/Scripts/System/SaveLoadManager.cs`
+- `Assets/Scripts/Items/ActiveItemEffectManager.cs`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.

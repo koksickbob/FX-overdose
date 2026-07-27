@@ -110,6 +110,67 @@ public class ActiveItemEffectManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 저장 가능한 형태로 현재 액티브 아이템 ID와 레벨을 내보냅니다.
+    /// </summary>
+    public void CaptureSaveData(List<string> itemIds, List<int> levels)
+    {
+        if (itemIds == null || levels == null) return;
+        itemIds.Clear();
+        levels.Clear();
+
+        foreach (KeyValuePair<ItemData, int> entry in itemLevels)
+        {
+            ItemData item = entry.Key;
+            int level = entry.Value;
+            if (item == null || !item.IsActiveItem || string.IsNullOrWhiteSpace(item.ItemId) || level <= 0)
+                continue;
+
+            itemIds.Add(item.ItemId);
+            levels.Add(Mathf.Clamp(level, 1, item.MaxLevel));
+        }
+    }
+
+    /// <summary>
+    /// 저장된 아이템 ID를 현재 상점 카탈로그의 ItemData와 연결해 보유 레벨과 버프를 복원합니다.
+    /// </summary>
+    public void RestoreFromSaveData(
+        IReadOnlyList<ItemData> catalog,
+        IReadOnlyList<string> itemIds,
+        IReadOnlyList<int> levels)
+    {
+        itemLevels.Clear();
+
+        if (catalog != null && itemIds != null && levels != null)
+        {
+            Dictionary<string, ItemData> itemsById = new(StringComparer.Ordinal);
+            foreach (ItemData item in catalog)
+            {
+                if (item == null || !item.IsActiveItem || string.IsNullOrWhiteSpace(item.ItemId)) continue;
+                itemsById[item.ItemId] = item;
+            }
+
+            int count = Mathf.Min(itemIds.Count, levels.Count);
+            for (int i = 0; i < count; i++)
+            {
+                string itemId = itemIds[i];
+                if (string.IsNullOrWhiteSpace(itemId) ||
+                    !itemsById.TryGetValue(itemId, out ItemData item))
+                {
+                    Debug.LogWarning($"[ActiveItemEffectManager] 저장된 액티브 아이템을 현재 카탈로그에서 찾지 못했습니다: {itemId}");
+                    continue;
+                }
+
+                int restoredLevel = Mathf.Clamp(levels[i], 0, item.MaxLevel);
+                if (restoredLevel > 0) itemLevels[item] = restoredLevel;
+            }
+        }
+
+        RecalculateModifiers();
+        OnActiveItemsChanged?.Invoke();
+        Debug.Log($"[ActiveItemEffectManager] 저장된 액티브 아이템 {itemLevels.Count}종 복원 완료");
+    }
+
+    /// <summary>
     /// 현재 보유 중인 모든 액티브 아이템들의 보정치를 집계합니다.
     /// </summary>
     private void RecalculateModifiers()
