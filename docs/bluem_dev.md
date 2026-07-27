@@ -468,6 +468,15 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Data/Items/Supplement.asset`
 - `Assets/Data/Items/Sedative.asset`
 
+### 스킬 레벨업 완료 후 팝업 자동 닫기
+
+- 스킬 레벨업 시간 경과 연출 종료 후 상세 팝업을 무조건 다시 열던 처리를 제거했습니다.
+- 업그레이드 성공 시 상세 창은 닫힌 상태를 유지하며, 실패한 경우에만 실패 사유 확인을 위해 다시 표시합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ActiveSkillHUDController.cs`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.

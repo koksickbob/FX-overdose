@@ -345,15 +345,18 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         visual?.EndSkillUpgradeVisual();
 
         RefreshButtonLevels();
-        OpenInfo(type);
-        if (upgradeFeedbackText != null)
+        if (upgraded)
         {
-            upgradeFeedbackText.text = upgraded
-                ? $"{GetDisplayName(type)} 업그레이드 완료!  {timeHours}시간 경과"
-                : "업그레이드에 실패했습니다.";
-            upgradeFeedbackText.color = upgraded
-                ? new Color32(34, 197, 94, 255)
-                : new Color32(239, 68, 68, 255);
+            CloseInfo();
+        }
+        else
+        {
+            OpenInfo(type);
+            if (upgradeFeedbackText != null)
+            {
+                upgradeFeedbackText.text = "업그레이드에 실패했습니다.";
+                upgradeFeedbackText.color = new Color32(239, 68, 68, 255);
+            }
         }
         isUpgradeSequencePlaying = false;
     }
