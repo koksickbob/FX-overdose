@@ -487,6 +487,67 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/GlobalPFStardustFont.cs`
 
+### 상단 상태 바 비주얼 리디자인
+
+- DAY/TIME, BALANCE, P&L, HP, MENTAL, 설정 영역의 데이터 연결과 튜토리얼 하이라이트 대상은 유지하면서 외형을 통일된 트레이딩 터미널 HUD로 재구성했습니다.
+- 깊은 네이비 공통 프레임, 카드별 상태 액센트, 얇은 상·하단 스캔라인, 정돈된 타이포그래피와 보조 텔레메트리 라벨을 추가했습니다.
+- P&L 카드의 액센트는 실시간 손익 부호에 따라 수익색 또는 손실색으로 변경됩니다.
+- HP와 MENTAL은 각 상태색으로 구분되는 고대비 게이지로 정리하고 설정 버튼에도 동일한 프레임·호버 피드백을 적용했습니다.
+- 새 장식 요소는 레이아웃 계산과 입력을 방해하지 않도록 `ignoreLayout` 및 비레이캐스트 요소로 생성됩니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+
+### 상단 HUD 라인 가시성 조정
+
+- 상단 바 전체를 가로지르던 하늘색 장식선을 제거했습니다.
+- P&L 카드의 상태 액센트가 카드 경계에서 잘리거나 내부 UI에 가려지지 않도록 안쪽으로 이동하고 두께와 렌더 순서를 조정했습니다.
+- P&L 스파크라인도 새 카드 장식보다 앞에서 렌더되도록 순서를 보정하고 선 두께를 높였습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+- `Assets/Scripts/UI/TopBar/SparklineRenderer.cs`
+
+### 상단 HUD 루트 배경 제거
+
+- 개별 정보 카드 뒤에 깔리던 `TopStatusBarPanel`의 검은 배경을 완전 투명하게 변경했습니다.
+- DAY, BALANCE, P&L, Vitals 등 개별 카드의 배경과 가독성은 그대로 유지합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+
+### 상단 HUD 하단 장식선 제거
+
+- 상단 상태 바 아래쪽 전체를 가로지르던 하늘색 `TopHudLowerRule` 장식선을 제거했습니다.
+- 개별 카드의 테두리와 상태 액센트는 유지합니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+
+### 상단 HUD TMP 예외 및 P&L 스파크라인 복구
+
+- 일부 씬 TMP 텍스트의 머티리얼 초기화 전에 `outlineWidth`를 지정하면서 `NullReferenceException`이 발생하던 처리를 제거했습니다.
+- 예외로 전체 리디자인 적용이 중단되면서 P&L 스파크라인의 전면 배치와 두께 설정까지 실행되지 않던 연쇄 문제를 수정했습니다.
+- 스파크라인 가시성 설정은 텍스트 스타일 처리보다 먼저 실행하도록 순서를 변경했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+
+### 상단 HUD 상하 여백 통일
+
+- 상단 바의 위·아래 외부 여백을 각각 `8px`로 통일했습니다.
+- DAY/TIME, BALANCE, P&L, HP·MENTAL 카드 높이를 `92px`로 고정하고 전체를 수직 중앙 정렬했습니다.
+- 런타임 장식 요소는 `ignoreLayout`을 유지해 카드 여백 계산에 영향을 주지 않습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.

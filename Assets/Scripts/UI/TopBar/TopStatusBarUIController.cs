@@ -13,6 +13,15 @@ namespace FXOverdose.UI.TopBar
     {
         private const float DayTimeCardWidth = 330f;
         private const int DayTimeHorizontalPadding = 24;
+        private const int BarVerticalPadding = 8;
+        private const float NormalizedCardHeight = 92f;
+        private static readonly Color HudBackground = new Color32(5, 12, 24, 0);
+        private static readonly Color CardBackground = new Color32(10, 22, 39, 248);
+        private static readonly Color CardBorder = new Color32(31, 61, 86, 255);
+        private static readonly Color PrimaryText = new Color32(221, 247, 250, 255);
+        private static readonly Color SecondaryText = new Color32(111, 143, 165, 255);
+        private static readonly Color CyanAccent = new Color32(6, 182, 212, 255);
+        private static readonly Color GoldAccent = new Color32(234, 179, 8, 255);
 
         [Header("Tutorial Targets")]
         [SerializeField] private RectTransform balanceHighlightTarget;
@@ -44,6 +53,7 @@ namespace FXOverdose.UI.TopBar
 
         private List<float> equityHistory = new List<float>();
         private int lastRecordedMinute = -1;
+        private Image pnlAccent;
 
         private void Start()
         {
@@ -51,6 +61,7 @@ namespace FXOverdose.UI.TopBar
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (sparklineRenderer == null) sparklineRenderer = GetComponentInChildren<SparklineRenderer>();
             ConfigureDayTimeCardLayout();
+            ApplyVisualRedesign();
 
             if (gameManager != null)
             {
@@ -179,6 +190,396 @@ namespace FXOverdose.UI.TopBar
                 pnlAmountLabel.text = $"{sign}${pnlDiff:N2}";
                 pnlAmountLabel.color = targetColor;
             }
+
+            if (pnlAccent != null)
+            {
+                pnlAccent.color = targetColor;
+            }
+        }
+
+        /// <summary>
+        /// 기존 데이터 바인딩과 튜토리얼 하이라이트 대상을 유지한 채 상단 HUD 외형만 재구성합니다.
+        /// </summary>
+        private void ApplyVisualRedesign()
+        {
+            Image rootBackground = GetComponent<Image>();
+            if (rootBackground != null)
+            {
+                rootBackground.sprite = null;
+                rootBackground.color = HudBackground;
+                rootBackground.raycastTarget = false;
+            }
+
+            HorizontalLayoutGroup rootLayout = GetComponent<HorizontalLayoutGroup>();
+            if (rootLayout != null)
+            {
+                rootLayout.padding = new RectOffset(10, 10, BarVerticalPadding, BarVerticalPadding);
+                rootLayout.spacing = 7f;
+                rootLayout.childAlignment = TextAnchor.MiddleLeft;
+            }
+
+            RemoveRule(transform, "TopHudUpperRule");
+            RemoveRule(transform, "TopHudLowerRule");
+
+            Transform dayCard = FindDescendant(transform, "DayTimeCard");
+            Transform balanceCard = FindDescendant(transform, "BalanceCard");
+            Transform pnlCard = FindDescendant(transform, "PnLCard");
+            Transform vitalsPanel = FindDescendant(transform, "VitalsPanel");
+
+            NormalizeCardHeight(dayCard);
+            NormalizeCardHeight(balanceCard);
+            NormalizeCardHeight(pnlCard);
+            NormalizeCardHeight(vitalsPanel);
+
+            StyleCard(dayCard, CyanAccent);
+            StyleCard(balanceCard, GoldAccent);
+            StyleCard(pnlCard, bearishColor);
+            StyleCard(vitalsPanel, new Color32(168, 85, 247, 255));
+
+            // TMP 텍스트 스타일 처리와 무관하게 손익 그래프는 먼저 가시성을 확보합니다.
+            if (sparklineRenderer != null)
+            {
+                sparklineRenderer.SetVisualWeight(3.5f);
+                sparklineRenderer.transform.SetAsLastSibling();
+            }
+
+            StyleValue(dayLabel, 23f, PrimaryText);
+            if (dayLabel != null)
+            {
+                dayLabel.characterSpacing = 1.5f;
+                dayLabel.fontStyle = FontStyles.Bold;
+            }
+            StyleValue(timeLabel, 25f, CyanAccent);
+            if (timeLabel != null)
+            {
+                timeLabel.characterSpacing = 2f;
+                timeLabel.fontStyle = FontStyles.Bold;
+            }
+
+            StyleNamedLabel("BalanceTitle", "BALANCE");
+            StyleNamedLabel("PnLTitle", "P&L");
+            StyleValue(balanceValueLabel, 26f, PrimaryText);
+            StyleValue(pnlPercentageLabel, 25f, bearishColor);
+            StyleValue(pnlAmountLabel, 13f, SecondaryText);
+
+            if (balanceCard != null) AddCornerTag(balanceCard, "AVAILABLE EQUITY", GoldAccent);
+            if (pnlCard != null)
+            {
+                AddCornerTag(pnlCard, "SESSION RETURN", CyanAccent);
+                pnlAccent = FindDescendant(pnlCard, "CardAccent")?.GetComponent<Image>();
+                if (pnlAccent != null)
+                {
+                    RectTransform accentRect = pnlAccent.rectTransform;
+                    accentRect.anchoredPosition = new Vector2(3f, 0f);
+                    accentRect.sizeDelta = new Vector2(6f, 0f);
+                    pnlAccent.transform.SetAsLastSibling();
+                }
+            }
+            if (dayCard != null) AddMarketStatus(dayCard);
+
+            StyleVitals(vitalsPanel);
+            StyleSettingsButton(vitalsPanel);
+        }
+
+        private void StyleNamedLabel(string objectName, string value)
+        {
+            TMP_Text label = FindDescendant(transform, objectName)?.GetComponent<TMP_Text>();
+            if (label == null) return;
+            label.text = value;
+            label.color = SecondaryText;
+            label.fontSize = 12f;
+            label.enableAutoSizing = false;
+            label.fontStyle = FontStyles.Normal;
+            label.characterSpacing = 2.5f;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
+        private static void StyleValue(TMP_Text text, float size, Color color)
+        {
+            if (text == null) return;
+            text.color = color;
+            text.fontSize = size;
+            text.fontSizeMin = Mathf.Min(12f, size);
+            text.fontSizeMax = size;
+            text.fontStyle = FontStyles.Bold;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+        }
+
+        private static void StyleCard(Transform card, Color accentColor)
+        {
+            if (card == null) return;
+            Image background = card.GetComponent<Image>();
+            if (background != null)
+            {
+                background.sprite = null;
+                background.color = CardBackground;
+                background.raycastTarget = false;
+            }
+
+            Outline outline = card.GetComponent<Outline>();
+            if (outline == null) outline = card.gameObject.AddComponent<Outline>();
+            outline.effectColor = CardBorder;
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
+
+            Shadow shadow = null;
+            foreach (Shadow candidate in card.GetComponents<Shadow>())
+            {
+                // Outline도 Shadow를 상속하므로 정확히 기본 Shadow 컴포넌트만 찾습니다.
+                if (candidate.GetType() == typeof(Shadow))
+                {
+                    shadow = candidate;
+                    break;
+                }
+            }
+            if (shadow == null) shadow = card.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color32(0, 0, 0, 145);
+            shadow.effectDistance = new Vector2(3f, -3f);
+            shadow.useGraphicAlpha = true;
+
+            GameObject accent = GetOrCreateUi(card, "CardAccent");
+            RectTransform accentRect = accent.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0f, 0.16f);
+            accentRect.anchorMax = new Vector2(0f, 0.84f);
+            accentRect.pivot = new Vector2(0f, 0.5f);
+            accentRect.anchoredPosition = new Vector2(0f, 0f);
+            accentRect.sizeDelta = new Vector2(4f, 0f);
+            accent.GetComponent<Image>().color = accentColor;
+            IgnoreLayout(accent);
+
+            GameObject topGlow = GetOrCreateUi(card, "CardTopGlow");
+            RectTransform glowRect = topGlow.GetComponent<RectTransform>();
+            glowRect.anchorMin = new Vector2(0f, 1f);
+            glowRect.anchorMax = new Vector2(1f, 1f);
+            glowRect.pivot = new Vector2(0.5f, 1f);
+            glowRect.anchoredPosition = Vector2.zero;
+            glowRect.sizeDelta = new Vector2(0f, 1f);
+            Color glowColor = accentColor;
+            glowColor.a = 0.35f;
+            topGlow.GetComponent<Image>().color = glowColor;
+            IgnoreLayout(topGlow);
+        }
+
+        private static void NormalizeCardHeight(Transform card)
+        {
+            if (card == null) return;
+            LayoutElement layout = card.GetComponent<LayoutElement>();
+            if (layout == null) layout = card.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = NormalizedCardHeight;
+            layout.preferredHeight = NormalizedCardHeight;
+            layout.flexibleHeight = 0f;
+        }
+
+        private static void StyleVitals(Transform vitalsPanel)
+        {
+            if (vitalsPanel == null) return;
+
+            TMP_Text hpTitle = FindDescendant(vitalsPanel, "HPTitle")?.GetComponent<TMP_Text>();
+            TMP_Text mentalTitle = FindDescendant(vitalsPanel, "MentalTitle")?.GetComponent<TMP_Text>();
+            StyleVitalTitle(hpTitle, new Color32(255, 82, 125, 255));
+            StyleVitalTitle(mentalTitle, new Color32(183, 112, 255, 255));
+
+            TMP_Text hpValue = FindDescendant(vitalsPanel, "HPValue")?.GetComponent<TMP_Text>();
+            TMP_Text mentalValue = FindDescendant(vitalsPanel, "MentalValue")?.GetComponent<TMP_Text>();
+            StyleVitalValue(hpValue);
+            StyleVitalValue(mentalValue);
+
+            foreach (Slider slider in vitalsPanel.GetComponentsInChildren<Slider>(true))
+            {
+                bool mental = slider.name.IndexOf("mental", StringComparison.OrdinalIgnoreCase) >= 0;
+                Image fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
+                if (fill != null)
+                {
+                    fill.sprite = null;
+                    fill.color = mental
+                        ? new Color32(168, 85, 247, 255)
+                        : new Color32(244, 63, 94, 255);
+                }
+            }
+
+            StyleBarBackground(vitalsPanel, "HPBarBackground");
+            StyleBarBackground(vitalsPanel, "MentalBarBackground");
+        }
+
+        private static void StyleVitalTitle(TMP_Text text, Color color)
+        {
+            if (text == null) return;
+            text.color = color;
+            text.fontSize = 14f;
+            text.fontStyle = FontStyles.Bold;
+            text.characterSpacing = 1.5f;
+        }
+
+        private static void StyleVitalValue(TMP_Text text)
+        {
+            if (text == null) return;
+            text.color = PrimaryText;
+            text.fontSize = 12f;
+            text.fontStyle = FontStyles.Normal;
+        }
+
+        private static void StyleBarBackground(Transform root, string objectName)
+        {
+            Image background = FindDescendant(root, objectName)?.GetComponent<Image>();
+            if (background == null) return;
+            background.sprite = null;
+            background.color = new Color32(2, 8, 18, 245);
+            Outline outline = background.GetComponent<Outline>();
+            if (outline == null) outline = background.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color32(35, 55, 74, 255);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+
+        private static void StyleSettingsButton(Transform root)
+        {
+            Transform button = FindDescendant(root, "SettingsButton");
+            if (button == null) button = FindDescendant(root, "SettingsButtonVisual")?.parent;
+            if (button == null) return;
+
+            Image background = button.GetComponent<Image>();
+            if (background != null)
+            {
+                background.sprite = null;
+                background.color = new Color32(12, 27, 47, 255);
+            }
+
+            Outline outline = button.GetComponent<Outline>();
+            if (outline == null) outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = CyanAccent;
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            Button unityButton = button.GetComponent<Button>();
+            if (unityButton != null && background != null)
+            {
+                unityButton.targetGraphic = background;
+                ColorBlock colors = unityButton.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color32(176, 244, 255, 255);
+                colors.pressedColor = new Color32(94, 182, 200, 255);
+                unityButton.colors = colors;
+            }
+        }
+
+        private static void AddCornerTag(Transform card, string value, Color color)
+        {
+            Transform existing = card.Find("TelemetryTag");
+            TMP_Text tag;
+            if (existing != null)
+            {
+                tag = existing.GetComponent<TMP_Text>();
+            }
+            else
+            {
+                GameObject go = new("TelemetryTag", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+                go.transform.SetParent(card, false);
+                go.GetComponent<LayoutElement>().ignoreLayout = true;
+                tag = go.GetComponent<TMP_Text>();
+            }
+
+            RectTransform rect = tag.rectTransform;
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-12f, -8f);
+            rect.sizeDelta = new Vector2(145f, 18f);
+            tag.text = value;
+            tag.alignment = TextAlignmentOptions.TopRight;
+            tag.font = TMP_Settings.defaultFontAsset;
+            tag.fontSize = 8.5f;
+            tag.characterSpacing = 1.4f;
+            tag.color = new Color(color.r, color.g, color.b, 0.62f);
+            tag.raycastTarget = false;
+            tag.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
+        private static void AddMarketStatus(Transform dayCard)
+        {
+            GameObject status = GetOrCreateUi(dayCard, "MarketLiveDot");
+            RectTransform rect = status.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.anchoredPosition = new Vector2(13f, 9f);
+            rect.sizeDelta = new Vector2(5f, 5f);
+            status.GetComponent<Image>().color = new Color32(34, 197, 94, 255);
+            IgnoreLayout(status);
+
+            Transform existing = dayCard.Find("MarketLiveLabel");
+            TMP_Text label;
+            if (existing != null) label = existing.GetComponent<TMP_Text>();
+            else
+            {
+                GameObject go = new("MarketLiveLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+                go.transform.SetParent(dayCard, false);
+                go.GetComponent<LayoutElement>().ignoreLayout = true;
+                label = go.GetComponent<TMP_Text>();
+            }
+            RectTransform labelRect = label.rectTransform;
+            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 0f);
+            labelRect.pivot = new Vector2(0f, 0f);
+            labelRect.anchoredPosition = new Vector2(23f, 5f);
+            labelRect.sizeDelta = new Vector2(90f, 14f);
+            label.text = "MARKET LIVE";
+            label.font = TMP_Settings.defaultFontAsset;
+            label.fontSize = 8.5f;
+            label.characterSpacing = 1.3f;
+            label.color = new Color32(85, 191, 132, 230);
+            label.raycastTarget = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
+        private static void AddOrStyleRule(Transform parent, string name, Color color, bool top)
+        {
+            GameObject rule = GetOrCreateUi(parent, name);
+            RectTransform rect = rule.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, top ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, top ? 1f : 0f);
+            rect.pivot = new Vector2(0.5f, top ? 1f : 0f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(0f, top ? 2f : 1f);
+            rule.GetComponent<Image>().color = color;
+            IgnoreLayout(rule);
+            rule.transform.SetAsLastSibling();
+        }
+
+        private static void RemoveRule(Transform parent, string name)
+        {
+            Transform existing = parent.Find(name);
+            if (existing != null)
+            {
+                existing.gameObject.SetActive(false);
+            }
+        }
+
+        private static GameObject GetOrCreateUi(Transform parent, string name)
+        {
+            Transform existing = parent.Find(name);
+            if (existing != null) return existing.gameObject;
+
+            GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Image image = go.GetComponent<Image>();
+            image.raycastTarget = false;
+            return go;
+        }
+
+        private static void IgnoreLayout(GameObject go)
+        {
+            LayoutElement layout = go.GetComponent<LayoutElement>();
+            if (layout == null) layout = go.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+        }
+
+        private static Transform FindDescendant(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform found = FindDescendant(root.GetChild(i), objectName);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         // 실시간 총 자산(Total Equity) 공식: 보유 현금 + 투입 증거금 + 실시간 미실현 손익

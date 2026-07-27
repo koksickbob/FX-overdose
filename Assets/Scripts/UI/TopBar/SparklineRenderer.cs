@@ -22,6 +22,23 @@ namespace FXOverdose.UI.TopBar
         private List<Image> activeSegments = new List<Image>();
         private Stack<Image> pooledSegments = new Stack<Image>();
 
+        /// <summary>상단 HUD 테마에 맞춰 그래프 선의 가시성을 조정합니다.</summary>
+        public void SetVisualWeight(float width)
+        {
+            lineWidth = Mathf.Max(1f, width);
+            if (containerTransform != null)
+            {
+                containerTransform.gameObject.SetActive(true);
+            }
+
+            foreach (Image segment in activeSegments)
+            {
+                if (segment == null) continue;
+                RectTransform rect = segment.rectTransform;
+                rect.sizeDelta = new Vector2(rect.sizeDelta.x, lineWidth);
+            }
+        }
+
         private void Awake()
         {
             if (containerTransform == null)
