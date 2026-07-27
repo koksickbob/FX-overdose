@@ -86,6 +86,17 @@ namespace FXOverdose.UI
             DayPeriod desiredPeriod = GetPeriod(gameManager.CurrentHour);
             if (!immediate && desiredPeriod == currentPeriod) return;
 
+            if (FXOverdose.Core.AudioManager.Instance != null)
+            {
+                string bgmPath = desiredPeriod switch
+                {
+                    DayPeriod.Morning => "Audio/BGM/bgm_morning",
+                    DayPeriod.Sunset => "Audio/BGM/bgm_sunset",
+                    _ => "Audio/BGM/bgm_night"
+                };
+                FXOverdose.Core.AudioManager.Instance.SetTimeOfDayBgm(bgmPath, !immediate);
+            }
+
             Sprite desiredSprite = GetSprite(desiredPeriod);
             if (desiredSprite == null) return;
 

@@ -332,6 +332,13 @@ public class GameManager : MonoBehaviour
 
         currentState = GameState.Playing;
 
+        // 일일 정산(다음날 진입) 시점에 현재 게임 상태 자동 저장
+        if (FXOverdose.Core.SaveLoadManager.Instance != null)
+        {
+            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
+            if (saved) Debug.Log("[GameManager] 일일 정산 시점 자동 저장 완료.");
+        }
+
         if (remainingFastForwardMinutes > 0)
         {
             int resumeMinutes = remainingFastForwardMinutes;

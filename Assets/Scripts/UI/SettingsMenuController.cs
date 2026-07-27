@@ -310,11 +310,7 @@ public class SettingsMenuController : MonoBehaviour
     {
         Time.timeScale = previousTimeScale > 0f ? previousTimeScale : 1f;
 
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
+        UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
     }
 
     private void RestoreGameState()
@@ -363,11 +359,11 @@ public class SettingsMenuController : MonoBehaviour
         title.color = new Color(0.55f, 0.90f, 1f, 1f);
 
         TMP_Text paused = CreateText(inner.transform, "PausedLabel", "GAME PAUSED", 23f, TextAlignmentOptions.Center);
-        SetRect(paused.rectTransform, new Vector2(0.08f, 0.62f), new Vector2(0.92f, 0.75f));
+        SetRect(paused.rectTransform, new Vector2(0.08f, 0.77f), new Vector2(0.92f, 0.85f));
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
         popupModeButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: AUTO", new Color(0.12f, 0.48f, 0.72f, 1f));
-        SetRect(popupModeButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.50f), new Vector2(0.74f, 0.58f));
+        SetRect(popupModeButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.68f), new Vector2(0.74f, 0.76f));
         popupModeImage = popupModeButton.GetComponent<Image>();
         popupModeText = popupModeButton.GetComponentInChildren<TMP_Text>();
         if (popupModeText != null)
@@ -381,16 +377,24 @@ public class SettingsMenuController : MonoBehaviour
             UpdateModeButtonVisuals();
         });
 
+        TMP_Text bgmLabel = CreateText(inner.transform, "Label_BGM", "BGM", 18f, TextAlignmentOptions.BottomLeft);
+        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.60f), new Vector2(0.87f, 0.65f));
+        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.53f), new Vector2(0.87f, 0.60f), new Color32(0, 255, 255, 255));
+
+        TMP_Text sfxLabel = CreateText(inner.transform, "Label_SFX", "SFX", 18f, TextAlignmentOptions.BottomLeft);
+        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.44f), new Vector2(0.87f, 0.49f));
+        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.37f), new Vector2(0.87f, 0.44f), new Color32(0, 255, 255, 255));
+
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.34f), new Vector2(0.87f, 0.45f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.25f), new Vector2(0.87f, 0.35f));
         saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.19f), new Vector2(0.87f, 0.30f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.14f), new Vector2(0.87f, 0.24f));
         resumeButton.onClick.AddListener(CloseMenu);
 
-        Button quitButton = CreateButton(inner.transform, "QuitButton", "QUIT GAME", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.04f), new Vector2(0.87f, 0.15f));
+        Button quitButton = CreateButton(inner.transform, "QuitButton", "TITLE SCENE", new Color(0.60f, 0.15f, 0.22f, 1f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.03f), new Vector2(0.87f, 0.13f));
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();
@@ -463,5 +467,33 @@ public class SettingsMenuController : MonoBehaviour
         rect.anchorMin = min;
         rect.anchorMax = max;
         rect.offsetMin = rect.offsetMax = Vector2.zero;
+    }
+
+    private Slider CreateSlider(Transform parent, string objectName, Vector2 min, Vector2 max, Color fillColor)
+    {
+        GameObject root = new(objectName, typeof(RectTransform), typeof(Slider));
+        root.transform.SetParent(parent, false);
+        SetRect(root.GetComponent<RectTransform>(), min, max);
+
+        GameObject bg = CreateUIObject("Background", root.transform, typeof(Image));
+        SetRect(bg.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+        Image background = bg.GetComponent<Image>();
+        background.color = new Color32(3, 10, 22, 255);
+
+        GameObject fillArea = new("Fill Area", typeof(RectTransform));
+        fillArea.transform.SetParent(root.transform, false);
+        SetRect(fillArea.GetComponent<RectTransform>(), new Vector2(0.02f, 0.18f), new Vector2(0.98f, 0.82f));
+        
+        GameObject fillObj = CreateUIObject("Fill", fillArea.transform, typeof(Image));
+        SetRect(fillObj.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+        Image fill = fillObj.GetComponent<Image>();
+        fill.color = fillColor;
+
+        Slider slider = root.GetComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.fillRect = fill.rectTransform;
+        slider.targetGraphic = background;
+        return slider;
     }
 }

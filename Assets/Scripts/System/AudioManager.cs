@@ -44,7 +44,7 @@ namespace FXOverdose.Core
     [DefaultExecutionOrder(-1000)]
     public sealed class AudioManager : MonoBehaviour
     {
-        private const string NormalBgmPath = "Audio/BGM/bgm_normal";
+        private string currentNormalBgmPath = "Audio/BGM/bgm_night";
         private const string OverdoseBgmPath = "Audio/BGM/bgm_overdose";
         private const string ProfitLayerPath = "Audio/BGM/layer_profit";
         private const string DangerLayerPath = "Audio/BGM/layer_danger";
@@ -331,7 +331,9 @@ namespace FXOverdose.Core
             bool nowOverdose = state == TraderStatus.MentalState.Overdose;
             if (nowOverdose && !overdoseActive) PlayCue(AudioCue.Overdose, true);
             overdoseActive = nowOverdose;
-            CrossFadeBgm(nowOverdose ? OverdoseBgmPath : NormalBgmPath, 0.8f);
+            
+            AudioClip nextClip = nowOverdose ? LoadClip(OverdoseBgmPath) : GetValidNormalBgmClip();
+            CrossFadeBgmByClip(nextClip, 0.8f);
         }
 
         private void HandleItemConsumed(ItemData item)
@@ -369,19 +371,28 @@ namespace FXOverdose.Core
                 return;
             }
 
-            float pnl = boundTrading != null ? boundTrading.CalculateUnrealizedPnL() : 0f;
-            float balance = FindAnyObjectByType<GameManager>()?.CurrentBalance ?? 1f;
-            targetProfitLayer = Mathf.Clamp01(pnl / Mathf.Max(100f, balance * 0.08f));
-
-            float mentalDanger = 1f - Mathf.Clamp01(boundStatus.MentalRatio * 2f);
-            float lossDanger = Mathf.Clamp01(-pnl / Mathf.Max(100f, balance * 0.08f));
-            targetDangerLayer = Mathf.Max(mentalDanger, lossDanger);
+            // [수정] 새로운 시간대별 BGM과 기존 레이어(타이틀 BGM과 동일)가 겹쳐서 불협화음이 나는 것을 방지하기 위해 
+            // 당분간 레이어 볼륨이 올라가지 않도록 0으로 고정합니다.
+            targetProfitLayer = 0f;
+            targetDangerLayer = 0f;
         }
 
         private void StartNormalMusic()
         {
             overdoseActive = boundStatus != null && boundStatus.CurrentMentalState == TraderStatus.MentalState.Overdose;
-            PlayLoop(bgmSource, overdoseActive ? OverdoseBgmPath : NormalBgmPath, bgmVolume * masterVolume);
+            
+            AudioClip nextClip = overdoseActive ? LoadClip(OverdoseBgmPath) : GetValidNormalBgmClip();
+            if (nextClip != null)
+            {
+                if (bgmSource.clip != nextClip)
+                {
+                    bgmSource.clip = nextClip;
+                    bgmSource.time = 0f;
+                }
+                bgmSource.volume = bgmVolume * masterVolume;
+                if (!bgmSource.isPlaying) bgmSource.Play();
+            }
+
             PlayLoop(profitLayerSource, ProfitLayerPath, 0f);
             PlayLoop(dangerLayerSource, DangerLayerPath, 0f);
             SyncLayerPlayback();
@@ -472,9 +483,45 @@ namespace FXOverdose.Core
         private void CrossFadeBgm(string path, float duration)
         {
             AudioClip clip = LoadClip(path);
+            CrossFadeBgmByClip(clip, duration);
+        }
+
+        private void CrossFadeBgmByClip(AudioClip clip, float duration)
+        {
             if (clip == null || bgmSource.clip == clip) return;
             if (bgmFadeRoutine != null) StopCoroutine(bgmFadeRoutine);
             bgmFadeRoutine = StartCoroutine(CrossFadeRoutine(clip, duration));
+        }
+
+        private AudioClip GetValidNormalBgmClip()
+        {
+            AudioClip clip = LoadClip(currentNormalBgmPath);
+            if (clip == null) clip = LoadClip("Audio/BGM/bgm_normal");
+            return clip;
+        }
+
+        public void SetTimeOfDayBgm(string bgmPath, bool crossFade = true)
+        {
+            if (string.IsNullOrEmpty(bgmPath) || currentNormalBgmPath == bgmPath) return;
+            currentNormalBgmPath = bgmPath;
+
+            if (!overdoseActive && bgmSource != null)
+            {
+                AudioClip clip = GetValidNormalBgmClip();
+                if (clip != null && bgmSource.clip != clip)
+                {
+                    if (crossFade)
+                        CrossFadeBgmByClip(clip, 0.8f);
+                    else
+                    {
+                        bgmSource.clip = clip;
+                        bgmSource.time = 0f;
+                        bgmSource.volume = bgmVolume * masterVolume;
+                        if (!bgmSource.isPlaying) bgmSource.Play();
+                        SyncLayerPlayback();
+                    }
+                }
+            }
         }
 
         private IEnumerator CrossFadeRoutine(AudioClip next, float duration)
