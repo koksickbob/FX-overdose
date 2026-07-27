@@ -60,19 +60,13 @@ namespace FXOverdose.UI
         private Image proceedButtonBackground;
 
         private Coroutine transitionCoroutine;
-        private Coroutine dialogueTimeoutCoroutine;
         private Coroutine dayCompleteCoroutine;
         private GameObject dayCompleteOverlay;
-        private bool settlementRequestActive;
         private bool isClosing;
         private int lastPresentedDay = -1;
         private float currentDailyPnl;
         private float currentDailyReturn;
         private float currentTotalEquity;
-
-        private int lastPrefetchedDay = -1;
-        private string prefetchedDiary = null;
-        private bool isFetchingDiary = false;
 
         private void Awake()
         {
@@ -120,8 +114,6 @@ namespace FXOverdose.UI
             {
                 gameManager.OnDayEnded -= HandleDayEnded;
                 gameManager.OnDayEnded += HandleDayEnded;
-                gameManager.OnGameMinuteAdvanced -= CheckPreFetchSettlement;
-                gameManager.OnGameMinuteAdvanced += CheckPreFetchSettlement;
             }
         }
 
@@ -130,46 +122,10 @@ namespace FXOverdose.UI
             if (gameManager != null)
             {
                 gameManager.OnDayEnded -= HandleDayEnded;
-                gameManager.OnGameMinuteAdvanced -= CheckPreFetchSettlement;
             }
         }
 
-        private async void CheckPreFetchSettlement()
-        {
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing) return;
-            
-            // 23:50에 프리페치 시도
-            if (gameManager.CurrentHour == 23 && gameManager.CurrentMinute >= 50)
-            {
-                if (lastPrefetchedDay != gameManager.CurrentDay && !isFetchingDiary)
-                {
-                    lastPrefetchedDay = gameManager.CurrentDay;
-                    isFetchingDiary = true;
-                    
-                    TraderStatus status = TraderStatus.CanonicalInstance;
-                    float startingEquity = gameManager.StartOfDayEquity;
-                    if (!float.IsFinite(startingEquity) || startingEquity <= 0.001f) startingEquity = 1f; // 안전장치
-                    float totalEquity = status != null ? status.GetTotalEquity() : gameManager.CurrentBalance;
-                    float dailyPnl = totalEquity - startingEquity;
-                    float dailyReturn = startingEquity > 0.001f ? dailyPnl / startingEquity * 100f : 0f;
-                    
-                    var generator = FXOverdose.AI.LLM.LLMSafeGenerator.Instance;
-                    if (generator != null)
-                    {
-                        try
-                        {
-                            prefetchedDiary = await generator.GenerateDailySettlementAsync(dailyReturn, 0); // TODO: 청산 횟수 연동
-                        }
-                        catch (System.Exception e)
-                        {
-                            Debug.LogError($"[DailySettlementUI] 사전 일기 생성 실패: {e.Message}");
-                            prefetchedDiary = null;
-                        }
-                    }
-                    isFetchingDiary = false;
-                }
-            }
-        }
+
 
         private void HandleDayEnded()
         {
@@ -305,11 +261,22 @@ namespace FXOverdose.UI
             UpdateResultTheme();
             UpdateCharacterSprite();
 
-            settlementRequestActive = true;
             isClosing = false;
-            SetProceedInteractable(false);
-            reactionText.text = GetImmediateReaction(currentDailyPnl);
-            reactionStatusText.text = "GENERATING YOMI COMMENT...";
+            
+            if (gameManager.TodayEvent != null && gameManager.TodayEvent.isPenalty && !string.IsNullOrEmpty(gameManager.TodayEvent.dialogueMessage))
+            {
+                reactionText.text = gameManager.TodayEvent.dialogueMessage;
+                reactionStatusText.text = "PENALTY IMPOSED";
+                reactionStatusText.color = LossRed;
+            }
+            else
+            {
+                reactionText.text = GetImmediateReaction(currentDailyPnl);
+                reactionStatusText.text = "LOCAL SUMMARY READY";
+                reactionStatusText.color = MutedText;
+            }
+            
+            SetProceedInteractable(true);
 
             overlayRoot.SetActive(true);
             overlayRoot.transform.SetAsLastSibling();
@@ -324,8 +291,6 @@ namespace FXOverdose.UI
                 StopCoroutine(transitionCoroutine);
             }
             transitionCoroutine = StartCoroutine(AnimateIn());
-
-            RequestSettlementDialogue();
         }
 
         private void UpdateSettlementValues(float startingEquity, TraderStatus status)
@@ -360,7 +325,12 @@ namespace FXOverdose.UI
             Color resultColor;
             string resultLabel;
 
-            if (currentDailyPnl > 0.005f)
+            if (gameManager.TodayEvent != null && gameManager.TodayEvent.isPenalty)
+            {
+                resultColor = LossRed;
+                resultLabel = "⚠  PENALTY EVENT";
+            }
+            else if (currentDailyPnl > 0.005f)
             {
                 resultColor = ProfitGreen;
                 resultLabel = "▲  PROFIT SESSION";
@@ -409,53 +379,6 @@ namespace FXOverdose.UI
             visualController?.ShowEmotion(emotion, 5f);
         }
 
-        private void RequestSettlementDialogue()
-        {
-            if (dialogueTimeoutCoroutine != null)
-            {
-                StopCoroutine(dialogueTimeoutCoroutine);
-                dialogueTimeoutCoroutine = null;
-            }
-
-            if (!string.IsNullOrEmpty(prefetchedDiary))
-            {
-                // 사전 생성된 LLM 일기가 있다면 즉각 출력
-                reactionText.text = prefetchedDiary;
-                reactionStatusText.text = "LOCAL SUMMARY READY";
-                settlementRequestActive = false;
-                SetProceedInteractable(true);
-                prefetchedDiary = null; // 출력 후 캐시 초기화
-            }
-            else
-            {
-                // 생성 중이거나 에러가 났다면 기존의 더미 타임아웃/하드코딩 로직 수행
-                dialogueTimeoutCoroutine = StartCoroutine(UnlockProceedAfterTimeout());
-                settlementRequestActive = true; // timeout 대기
-                reactionStatusText.text = "GENERATING YOMI COMMENT...";
-                SetProceedInteractable(false);
-            }
-        }
-
-
-
-        private IEnumerator UnlockProceedAfterTimeout()
-        {
-            float elapsed = 0f;
-            while (elapsed < DialogueWaitTimeout && settlementRequestActive)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            if (settlementRequestActive && overlayRoot != null && overlayRoot.activeSelf)
-            {
-                reactionStatusText.text = "LOCAL SUMMARY READY";
-                SetProceedInteractable(true);
-            }
-
-            dialogueTimeoutCoroutine = null;
-        }
-
         private void HandleProceedClicked()
         {
             if (isClosing || gameManager == null || gameManager.CurrentState != GameManager.GameState.Settlement)
@@ -464,14 +387,7 @@ namespace FXOverdose.UI
             }
 
             isClosing = true;
-            settlementRequestActive = false;
             SetProceedInteractable(false);
-
-            if (dialogueTimeoutCoroutine != null)
-            {
-                StopCoroutine(dialogueTimeoutCoroutine);
-                dialogueTimeoutCoroutine = null;
-            }
 
             if (transitionCoroutine != null)
             {

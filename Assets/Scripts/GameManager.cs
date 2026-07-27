@@ -12,6 +12,16 @@ public class GameManager : MonoBehaviour
     public event Action OnDayEnded;
     // 게임 오버 발생 시 발행하는 이벤트 (게임 오버 UI 표시용)
     public static event Action<EndingType> OnGameOverEvent;
+    [System.Serializable]
+    public class StoryEvent 
+    { 
+        public int triggerDay; 
+        public bool isPenalty; 
+        public float penaltyAmount; 
+        public string dialogueMessage; 
+        public System.Collections.Generic.List<Sprite> comicPanels; 
+    }
+
     //게임 진행 상태
     public enum GameState
     {
@@ -39,6 +49,14 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float startingBalance = 4000f; // 시작 자산 (초기 4,000)
     [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
+
+    [Header("스토리 모드 이벤트 및 엔딩 연출")]
+    [SerializeField] private System.Collections.Generic.List<StoryEvent> storyEvents = new System.Collections.Generic.List<StoryEvent>();
+    [SerializeField] private System.Collections.Generic.List<Sprite> successEndingComic;
+    [SerializeField] private System.Collections.Generic.List<Sprite> bankruptcyEndingComic;
+    [SerializeField] private System.Collections.Generic.List<Sprite> overdoseEndingComic;
+    public StoryEvent TodayEvent { get; private set; } // DailySettlementUIController 접근용
+    public bool isSettlementProcessing = false;
 
     [Header("시간 설정")]
     [SerializeField] private int currentDay = 1;    // 현재 일차
@@ -287,7 +305,36 @@ public class GameManager : MonoBehaviour
                 Debug.Log("[GameManager] 24:00 마감 시간 도달. 당일 정산을 위해 열려 있는 포지션을 강제로 종료 및 수익/손실 확정.");
             }
 
-            currentState = GameState.Settlement;
+            ProcessDailySettlementWithStory();
+        }
+    }
+
+    private void ProcessDailySettlementWithStory()
+    {
+        isSettlementProcessing = true; // 파산 판정 유예
+        currentState = GameState.Settlement;
+
+        TodayEvent = storyEvents.Find(e => e.triggerDay == currentDay);
+
+        // 페널티 적용
+        if (TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
+        {
+            currentBalance -= TodayEvent.penaltyAmount; // TrySpendBalance 안 쓰고 강제 차감
+            if (TraderStatus.CanonicalInstance != null)
+                TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(TodayEvent.penaltyAmount);
+            Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
+        }
+
+        // 컷툰 재생 또는 바로 정산
+        if (TodayEvent != null && TodayEvent.comicPanels != null && TodayEvent.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+        {
+            FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(TodayEvent.comicPanels, () => {
+                Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
+                OnDayEnded?.Invoke();
+            });
+        }
+        else
+        {
             Debug.Log($"[GameManager] {currentDay}일차 24:00 종료. 일일 정산 대기 상태 진입.");
             OnDayEnded?.Invoke();
         }
@@ -297,6 +344,31 @@ public class GameManager : MonoBehaviour
     public void ProceedToNextDay()
     {
         if (currentState != GameState.Settlement) return;
+
+        isSettlementProcessing = false;
+
+        // Day 20 진 엔딩 조건 검사
+        if (currentDay == 20)
+        {
+            var endStatus = TraderStatus.CanonicalInstance;
+            float endEquity = endStatus != null ? endStatus.GetTotalEquity() : currentBalance;
+            float endMentalPercent = endStatus != null ? (endStatus.CurrentMental / endStatus.MaxMental) * 100f : 0f;
+
+            if (endEquity >= 1000000f && endMentalPercent >= 30f)
+            {
+                EndGame(EndingType.Success);
+            }
+            else
+            {
+                if (endMentalPercent < 30f) EndGame(EndingType.Overdose);
+                else EndGame(EndingType.Bankruptcy);
+            }
+            return;
+        }
+
+        // 정산 창 닫힐 때 유예된 파산 판정 일괄 검사
+        CheckEnding();
+        if (currentState == GameState.GameOver) return; // 파산 당했으면 진행 불가
 
         currentHour = 9;
         currentMinute = 0;
@@ -455,6 +527,8 @@ public class GameManager : MonoBehaviour
     // 성공 또는 파산 조건 확인
     private void CheckEnding()
     {
+        if (isSettlementProcessing) return; // 정산 중에는 파산 판정 유예
+
         var status = TraderStatus.CanonicalInstance;
         bool isOverdose = status != null && (status.CurrentMentalState == TraderStatus.MentalState.Overdose || status.CurrentMental <= 0f);
 
@@ -507,9 +581,26 @@ public class GameManager : MonoBehaviour
         currentState = GameState.GameOver;
 
         Debug.Log($"게임 종료: {ending}");
-        
-        // 게임 오버 이벤트 발생 (UI 연동)
-        OnGameOverEvent?.Invoke(ending);
+
+        System.Collections.Generic.List<Sprite> panels = null;
+        switch (ending)
+        {
+            case EndingType.Success: panels = successEndingComic; break;
+            case EndingType.Bankruptcy: panels = bankruptcyEndingComic; break;
+            case EndingType.Overdose: panels = overdoseEndingComic; break;
+        }
+
+        if (panels != null && panels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
+        {
+            FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(panels, () => {
+                OnGameOverEvent?.Invoke(ending);
+            });
+        }
+        else
+        {
+            // 게임 오버 이벤트 발생 (UI 연동)
+            OnGameOverEvent?.Invoke(ending);
+        }
     }
 
     // 게임 일시정지
