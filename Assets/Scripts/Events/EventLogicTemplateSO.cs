@@ -8,6 +8,9 @@ namespace FXOverdose.Events
     public class EventLogicOptionData
     {
         public ChoiceOptionType OptionType;
+        public string OptionTitle;
+        public string OptionDescription;
+
         public string RequiredItemId;
         public int RequiredItemCount;
         

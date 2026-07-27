@@ -383,22 +383,23 @@ namespace FXOverdose.Events
             dynamicEventInstance.EventID = template.TemplateID;
             dynamicEventInstance.ScenarioTitle = llmData.ScenarioTitle;
             dynamicEventInstance.ScenarioDescription = llmData.ScenarioDescription;
+            dynamicEventInstance.AIMonologue = llmData.AIMonologue;
             dynamicEventInstance.Options = new ChoiceOptionData[3];
             
             // 옵션 A
             dynamicEventInstance.Options[0] = ConvertTemplateOption(template.LogicOptions[0]);
-            dynamicEventInstance.Options[0].OptionTitle = llmData.OptionATitle;
-            dynamicEventInstance.Options[0].Description = llmData.OptionADesc;
+            dynamicEventInstance.Options[0].OptionTitle = template.LogicOptions[0].OptionTitle;
+            dynamicEventInstance.Options[0].Description = template.LogicOptions[0].OptionDescription;
 
             // 옵션 B
             dynamicEventInstance.Options[1] = ConvertTemplateOption(template.LogicOptions[1]);
-            dynamicEventInstance.Options[1].OptionTitle = llmData.OptionBTitle;
-            dynamicEventInstance.Options[1].Description = llmData.OptionBDesc;
+            dynamicEventInstance.Options[1].OptionTitle = template.LogicOptions[1].OptionTitle;
+            dynamicEventInstance.Options[1].Description = template.LogicOptions[1].OptionDescription;
 
             // 옵션 C
             dynamicEventInstance.Options[2] = ConvertTemplateOption(template.LogicOptions[2]);
-            dynamicEventInstance.Options[2].OptionTitle = llmData.OptionCTitle;
-            dynamicEventInstance.Options[2].Description = llmData.OptionCDesc;
+            dynamicEventInstance.Options[2].OptionTitle = template.LogicOptions[2].OptionTitle;
+            dynamicEventInstance.Options[2].Description = template.LogicOptions[2].OptionDescription;
 
             currentActiveEvent = dynamicEventInstance;
             AudioManager.Play(AudioCue.EventAppear, true);

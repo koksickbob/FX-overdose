@@ -179,15 +179,37 @@ namespace FXOverdose.Events
                             $"\n<size=68%><color=#EAB308>REQUIRED: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
                     }
 
+                    if (option.ForceLeverage > 0)
+                    {
+                        var choiceCtrl = UnityEngine.Object.FindAnyObjectByType<ChoiceEventController>();
+                        int dynamicLeverage = choiceCtrl != null ? choiceCtrl.GetDynamicEventLeverage(option.ForceLeverage) : option.ForceLeverage;
+                        requirement += $"\n<size=68%><color=#EF4444>[강제 레버리지: {dynamicLeverage}배 적용]</color></size>";
+                    }
+
                     string unavailable = isAvailable
                         ? string.Empty
                         : "\n<size=68%><color=#FF4D4D><b>REQUIRED ITEM MISSING</b></color></size>";
 
+                    string safeTitle = option.OptionTitle;
+                    if (!string.IsNullOrEmpty(safeTitle))
+                    {
+                        safeTitle = System.Text.RegularExpressions.Regex.Replace(safeTitle, @"\d+배\s*", "");
+                    }
+
+                    string safeDesc = option.Description;
+                    if (!string.IsNullOrEmpty(safeDesc) && (safeDesc.Contains("%") || safeDesc.Contains("멘탈") || safeDesc.Contains("체력") || safeDesc.Contains("배 ")))
+                    {
+                        safeDesc = string.Empty;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(safeDesc))
+                    {
+                        safeDesc = $"\n<size=68%><color=#CBD5E1>{safeDesc}</color></size>";
+                    }
+
                     optionTexts[i].text =
                         $"<size=76%><color=#{accentHex}><b>{letter} / {GetOptionLabel(option.OptionType)}</b></color></size>\n" +
-                        $"<size=100%><b>{option.OptionTitle}</b></size>\n" +
-                        $"<size=68%><color=#CBD5E1>{option.Description}</color></size>" +
-                        requirement + unavailable;
+                        $"<size=100%><b>{safeTitle}</b></size>" +
+                        safeDesc + requirement + unavailable;
                 }
             }
 

@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -20,12 +20,17 @@ MonoBehaviour:
     \uBE54 \uD3ED\uB77D \uC0C1\uD669"
   LogicOptions:
   - OptionType: 0
+    OptionTitle: "\uC548\uC804\uD558\uAC8C \uD3EC\uC9C0\uC158\uC744 \uC885\uB8CC\uD558\uACE0
+      \uAD00\uB9DD\uD55C\uB2E4."
+    OptionDescription: "\uC2DC\uC7A5\uC758 \uBD88\uD655\uC2E4\uC131\uC744 \uD53C\uD558\uC5EC
+      \uC7A0\uC2DC \uD734\uC2DD\uD558\uBA70 \uBA58\uD0C8\uACFC \uCCB4\uB825\uC744
+      \uD68C\uBCF5\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
     OverrideSignalProbTrue: 0
-    OverrideBeamPercent: -6.6918044
+    OverrideBeamPercent: -4.280873
     OverrideDurationSeconds: 10
-    MentalChangeAmount: 9
+    MentalChangeAmount: 12
     HealthChangeAmount: 14
     ForceLeverage: 0
     ForcePosition: 0
@@ -33,27 +38,37 @@ MonoBehaviour:
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 4
+    OptionTitle: "\uD558\uB77D\uC5D0 \uBAA8\uB4E0 \uAC83\uC744 \uAC78\uACE0 \uC20F(Short)
+      \uBCA0\uD305!"
+    OptionDescription: "\uC2DC\uC7A5\uC758 \uBC29\uD5A5\uC131\uC5D0 \uACF5\uACA9\uC801\uC73C\uB85C
+      \uBCA0\uD305\uD558\uC5EC \uD070 \uC218\uC775\uC744 \uB178\uB9AC\uAC70\uB098
+      \uD070 \uC190\uC2E4\uC744 \uAC10\uC218\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
-    OverrideSignalProbTrue: 0.6759919
-    OverrideBeamPercent: -60.638863
+    OverrideSignalProbTrue: 0.44486153
+    OverrideBeamPercent: -28.167662
     OverrideDurationSeconds: 15
-    MentalChangeAmount: -60
+    MentalChangeAmount: -57
     HealthChangeAmount: 0
-    ForceLeverage: 120
+    ForceLeverage: 96
     ForcePosition: 2
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 2
-    RequiredItemId: energy_drink
+    OptionTitle: "[\uC544\uC774\uD15C \uC0AC\uC6A9] \uD2B9\uC218 \uB300\uC751 \uC54C\uACE0\uB9AC\uC998
+      \uAC00\uB3D9"
+    OptionDescription: "\uBCF4\uC720\uD55C \uC544\uC774\uD15C\uC744 \uC0AC\uC6A9\uD558\uC5EC
+      \uC704\uAE30\uB97C \uAE30\uD68C\uB85C \uBC14\uAFB8\uACE0 \uD655\uC815\uC801\uC778
+      \uC218\uC775\uC744 \uCC3D\uCD9C\uD569\uB2C8\uB2E4."
+    RequiredItemId: dessert
     RequiredItemCount: 2
     OverrideSignalProbTrue: 1
-    OverrideBeamPercent: 37.627632
+    OverrideBeamPercent: 23.994556
     OverrideDurationSeconds: 15
-    MentalChangeAmount: 18
-    HealthChangeAmount: 28
-    ForceLeverage: 25
+    MentalChangeAmount: 16
+    HealthChangeAmount: 21
+    ForceLeverage: 21
     ForcePosition: 1
     PositionHandlingMode: 0
     CustomTargetROELimit: 0

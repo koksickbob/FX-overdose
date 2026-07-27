@@ -12,12 +12,7 @@ namespace FXOverdose.AI.LLM
     {
         public string ScenarioTitle;
         public string ScenarioDescription;
-        public string OptionATitle;
-        public string OptionADesc;
-        public string OptionBTitle;
-        public string OptionBDesc;
-        public string OptionCTitle;
-        public string OptionCDesc;
+        public string AIMonologue;
     }
 
     [RequireComponent(typeof(LLMUnity.LLM))]
@@ -53,12 +48,13 @@ namespace FXOverdose.AI.LLM
 
             string prompt = $@"당신은 가상화폐 트레이딩 게임의 돌발 이벤트 생성기입니다.
 현재 시장 상황({marketContext})과 테마('{themeTag}')에 맞춰 흥미로운 돌발 이벤트를 창작해주세요.
-아래의 3가지 선택지는 각각 정해진 게임 시스템적 효과를 가지고 있습니다. 이 효과가 유저에게 직관적으로 느껴지도록 선택지 제목과 설명을 작성하세요.
+플레이어의 파트너 AI '요미'의 반응(AIMonologue)도 작성해야 합니다. 요미는 플레이어를 '마스터'라고 부르며, 감정적이고 호들갑을 잘 떠는 귀여운 성격입니다.
 
-[선택지 시스템 효과]
-- 선택지 A: {optionAHint}
-- 선택지 B: {optionBHint}
-- 선택지 C: {optionCHint}
+[요미 대사 작성 예시 (반드시 이 말투를 모방하세요)]
+- ""마스터...! 거래량 왜 이래?! 찌라시가 돌고 있어! 진짜라면 지금 안 타면 우리 시드 다 날아간다고!! 아씨... 롱 쳐야 해?!""
+- ""안 돼... 출금 중단이라니... 내 시드가 묶이면 끝이야... 싹 다 던져버려야 해... 지금 당장 숏으로 쳐박아야 된다고!!""
+- ""파웰 총재 입에서 긴축 발언이 나왔어...! 이건 그냥 차트 구조가 무너지는 거잖아... 당장 손절해야 돼... 아니 물타야 하나?!""
+- ""내 계산은 다 틀렸어... 무서워...! 마스터... 제발 부탁이야, 마스터가 정해줘! 위야, 아래야?!""
 
 반드시 아래 JSON 양식의 값(value) 부분에 제시된 [안내 텍스트]를 지우고, 당신이 직접 창작한 내용으로 채워서 응답해야 합니다. 
 [IMPORTANT] 무조건 한국어(Korean)로만 응답하세요! 영어나 한자, 중국어를 사용하면 절대 안 됩니다. 오직 한글만 사용하세요.
@@ -66,12 +62,7 @@ namespace FXOverdose.AI.LLM
 {{
   ""ScenarioTitle"": ""[한국어로 이벤트 제목 작성]"",
   ""ScenarioDescription"": ""[한국어로 이벤트 상황 묘사 작성]"",
-  ""OptionATitle"": ""[한국어로 선택지 A 제목 작성]"",
-  ""OptionADesc"": ""[한국어로 선택지 A 결과 설명 작성]"",
-  ""OptionBTitle"": ""[한국어로 선택지 B 제목 작성]"",
-  ""OptionBDesc"": ""[한국어로 선택지 B 결과 설명 작성]"",
-  ""OptionCTitle"": ""[한국어로 선택지 C 제목 작성]"",
-  ""OptionCDesc"": ""[한국어로 선택지 C 결과 설명 작성]""
+  ""AIMonologue"": ""[이 상황에 대한 요미의 다급한 한마디]""
 }}
 오직 JSON 코드만 출력하세요. 다른 설명은 절대 추가하지 마세요.";
             
@@ -116,7 +107,7 @@ namespace FXOverdose.AI.LLM
         {
             if (data == null) return false;
             
-            string combinedText = data.ScenarioTitle + data.ScenarioDescription + data.OptionATitle + data.OptionBTitle;
+            string combinedText = data.ScenarioTitle + data.ScenarioDescription + data.AIMonologue;
             if (string.IsNullOrEmpty(combinedText)) return false;
 
             int koreanCount = 0;
@@ -163,12 +154,7 @@ namespace FXOverdose.AI.LLM
             {
                 ScenarioTitle = $"[긴급] 시장 변동성 경고: {themeTag}",
                 ScenarioDescription = $"현재 시장 상황({marketContext})에 급격한 변동이 감지되었습니다. 신중한 선택이 필요합니다.",
-                OptionATitle = "안전(A) 선택지",
-                OptionADesc = "포지션을 정리하고 잠시 시장을 관망하며 위험을 회피합니다.",
-                OptionBTitle = "공격(B) 선택지",
-                OptionBDesc = "변동성을 기회로 삼아 과감하게 시장의 방향에 베팅합니다.",
-                OptionCTitle = "특수(C) 선택지",
-                OptionCDesc = "보유하고 있는 특수 아이템이나 수단을 사용하여 상황을 반전시킵니다."
+                AIMonologue = "큰일 났어요 오빠! 시장이 요동치고 있어요, 빨리 대응해야 해요!"
             };
         }
 
@@ -186,28 +172,10 @@ namespace FXOverdose.AI.LLM
             }
 
             if (option.ForcePosition != TradingController.PositionType.None)
-                hint += $"결과적으로 {option.ForcePosition} 포지션 진입. ";
+                hint += $"결과적으로 {option.ForcePosition} 방향으로 베팅. ";
             else if (option.OptionType == ChoiceOptionType.Safe)
-                hint += "모든 포지션 청산 및 관망. ";
-
-            if (option.ForceLeverage > 0)
-            {
-                var choiceCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
-                int dynamicLeverage = choiceCtrl != null ? choiceCtrl.GetDynamicEventLeverage(option.ForceLeverage) : option.ForceLeverage;
-                hint += $"레버리지 {dynamicLeverage}배 강제 적용. ";
-            }
-
-            if (Mathf.Abs(option.OverrideBeamPercent) > 0.01f)
-            {
-                string dir = option.OverrideBeamPercent > 0 ? "상승" : "하락";
-                hint += $"시장 가격 약 {Mathf.Abs(option.OverrideBeamPercent)}% {dir} 효과 발생. ";
-            }
-
-            if (option.MentalChangeAmount != 0)
-            {
-                string change = option.MentalChangeAmount > 0 ? "회복" : "감소";
-                hint += $"멘탈 {Mathf.Abs(option.MentalChangeAmount)}만큼 {change}. ";
-            }
+                hint += "포지션을 종료하고 관망. ";
+            
             return hint.Trim();
         }
     }

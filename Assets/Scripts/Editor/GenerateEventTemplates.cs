@@ -96,6 +96,8 @@ namespace FXOverdose.Editor
             options[0] = new EventLogicOptionData
             {
                 OptionType = ChoiceOptionType.Safe,
+                OptionTitle = "안전하게 포지션을 종료하고 관망한다.",
+                OptionDescription = "시장의 불확실성을 피하여 잠시 휴식하며 멘탈과 체력을 회복합니다.",
                 ForcePosition = TradingController.PositionType.None,
                 MentalChangeAmount = Random.Range(5, 20),
                 HealthChangeAmount = Random.Range(5, 15),
@@ -105,9 +107,19 @@ namespace FXOverdose.Editor
 
             // [Option 1: Aggressive / Directional]
             float aggressiveBeam = (flow == "Crash" ? -baseBeam : baseBeam) * Random.Range(1.2f, 2.0f);
+            var optType = (flow == "Crash") ? ChoiceOptionType.DirectionalShort : ChoiceOptionType.DirectionalLong;
+            string optTitle = optType == ChoiceOptionType.DirectionalLong ? "상승에 모든 것을 걸고 롱(Long) 베팅!" : "하락에 모든 것을 걸고 숏(Short) 베팅!";
+            if (flow == "Whipsaw") 
+            {
+                optType = ChoiceOptionType.Aggressive;
+                optTitle = "시장의 변동성에 공격적으로 몸을 맡긴다!";
+            }
+
             options[1] = new EventLogicOptionData
             {
-                OptionType = (flow == "Crash") ? ChoiceOptionType.DirectionalShort : ChoiceOptionType.DirectionalLong,
+                OptionType = optType,
+                OptionTitle = optTitle,
+                OptionDescription = "시장의 방향성에 공격적으로 베팅하여 큰 수익을 노리거나 큰 손실을 감수합니다.",
                 ForcePosition = (flow == "Crash") ? TradingController.PositionType.Short : TradingController.PositionType.Long,
                 ForceLeverage = risk == "High" ? Random.Range(75, 126) : Random.Range(30, 76),
                 MentalChangeAmount = Random.Range(-40, -10) * riskMultiplier,
@@ -115,13 +127,14 @@ namespace FXOverdose.Editor
                 OverrideBeamPercent = aggressiveBeam,
                 OverrideDurationSeconds = 15
             };
-            if (flow == "Whipsaw") options[1].OptionType = ChoiceOptionType.Aggressive; // 방향 특정 불능
 
             // [Option 2: SpecialItem]
             string item = Items[Random.Range(0, Items.Length)];
             options[2] = new EventLogicOptionData
             {
                 OptionType = ChoiceOptionType.SpecialItem,
+                OptionTitle = "[아이템 사용] 특수 대응 알고리즘 가동",
+                OptionDescription = "보유한 아이템을 사용하여 위기를 기회로 바꾸고 확정적인 수익을 창출합니다.",
                 RequiredItemId = item,
                 RequiredItemCount = risk == "High" ? 2 : 1,
                 ForcePosition = TradingController.PositionType.Long,

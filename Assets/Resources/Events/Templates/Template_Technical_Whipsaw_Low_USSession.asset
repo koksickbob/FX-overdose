@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -21,40 +21,55 @@ MonoBehaviour:
     \uC7A5\uC138 \uC0C1\uD669"
   LogicOptions:
   - OptionType: 0
+    OptionTitle: "\uC548\uC804\uD558\uAC8C \uD3EC\uC9C0\uC158\uC744 \uC885\uB8CC\uD558\uACE0
+      \uAD00\uB9DD\uD55C\uB2E4."
+    OptionDescription: "\uC2DC\uC7A5\uC758 \uBD88\uD655\uC2E4\uC131\uC744 \uD53C\uD558\uC5EC
+      \uC7A0\uC2DC \uD734\uC2DD\uD558\uBA70 \uBA58\uD0C8\uACFC \uCCB4\uB825\uC744
+      \uD68C\uBCF5\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
     OverrideSignalProbTrue: 0
     OverrideBeamPercent: 0
     OverrideDurationSeconds: 10
-    MentalChangeAmount: 8
-    HealthChangeAmount: 6
+    MentalChangeAmount: 12
+    HealthChangeAmount: 9
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 1
+    OptionTitle: "\uC2DC\uC7A5\uC758 \uBCC0\uB3D9\uC131\uC5D0 \uACF5\uACA9\uC801\uC73C\uB85C
+      \uBAB8\uC744 \uB9E1\uAE34\uB2E4!"
+    OptionDescription: "\uC2DC\uC7A5\uC758 \uBC29\uD5A5\uC131\uC5D0 \uACF5\uACA9\uC801\uC73C\uB85C
+      \uBCA0\uD305\uD558\uC5EC \uD070 \uC218\uC775\uC744 \uB178\uB9AC\uAC70\uB098
+      \uD070 \uC190\uC2E4\uC744 \uAC10\uC218\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
-    OverrideSignalProbTrue: 0.61301595
-    OverrideBeamPercent: 10.097318
+    OverrideSignalProbTrue: 0.6862721
+    OverrideBeamPercent: 18.986029
     OverrideDurationSeconds: 15
-    MentalChangeAmount: -37
+    MentalChangeAmount: -20
     HealthChangeAmount: 0
-    ForceLeverage: 48
+    ForceLeverage: 66
     ForcePosition: 1
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 2
-    RequiredItemId: dessert
+    OptionTitle: "[\uC544\uC774\uD15C \uC0AC\uC6A9] \uD2B9\uC218 \uB300\uC751 \uC54C\uACE0\uB9AC\uC998
+      \uAC00\uB3D9"
+    OptionDescription: "\uBCF4\uC720\uD55C \uC544\uC774\uD15C\uC744 \uC0AC\uC6A9\uD558\uC5EC
+      \uC704\uAE30\uB97C \uAE30\uD68C\uB85C \uBC14\uAFB8\uACE0 \uD655\uC815\uC801\uC778
+      \uC218\uC775\uC744 \uCC3D\uCD9C\uD569\uB2C8\uB2E4."
+    RequiredItemId: sedative
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
-    OverrideBeamPercent: 8.29014
+    OverrideBeamPercent: 15.1671295
     OverrideDurationSeconds: 15
-    MentalChangeAmount: 16
-    HealthChangeAmount: 18
-    ForceLeverage: 20
+    MentalChangeAmount: 37
+    HealthChangeAmount: 29
+    ForceLeverage: 22
     ForcePosition: 1
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
