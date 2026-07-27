@@ -16,11 +16,8 @@ public class SettingsMenuController : MonoBehaviour
     private bool pausedBySettings;
     private float previousTimeScale = 1f;
 
-    private TMP_Text popupModeText;
     private TMP_Text floatingModeText;
-    private Image popupModeImage;
     private Image floatingModeImage;
-    private Button popupModeButton;
     private Button floatingModeButton;
     private Button saveMenuButton;
 
@@ -79,15 +76,8 @@ public class SettingsMenuController : MonoBehaviour
 
         bool isAuto = !isChallenge && controller != null &&
                       controller.ActiveTradingMode == FXOverdose.Trading.TradingController.TradingMode.AI_Auto;
-        string popupLabel = isChallenge
-            ? "CHALLENGE: USER ONLY"
-            : isAuto ? "모드: AUTO" : "모드: USER";
         string floatLabel = isChallenge ? "USER" : isAuto ? "AUTO" : "USER";
-        Color btnColor = isChallenge
-            ? new Color(0.48f, 0.16f, 0.24f, 1f)
-            : isAuto ? new Color(0.12f, 0.48f, 0.72f, 1f) : new Color(0.75f, 0.35f, 0.08f, 1f);
 
-        if (popupModeText != null) popupModeText.text = popupLabel;
         if (floatingModeText != null)
         {
             floatingModeText.text = floatLabel;
@@ -96,10 +86,8 @@ public class SettingsMenuController : MonoBehaviour
                 : isAuto ? new Color32(207, 250, 254, 255) : new Color32(234, 179, 8, 255);
             GlobalPFStardustFont.RefreshCompactHudText(floatingModeText);
         }
-        if (popupModeImage != null) popupModeImage.color = btnColor;
         if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
 
-        if (popupModeButton != null) popupModeButton.interactable = !isChallenge;
         if (floatingModeButton != null) floatingModeButton.interactable = !isChallenge;
 
         if (saveMenuButton != null)
@@ -342,7 +330,7 @@ public class SettingsMenuController : MonoBehaviour
         GameObject panel = CreateUIObject("SettingsPanel", overlay.transform);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(570f, 540f);
+        panelRect.sizeDelta = new Vector2(570f, 700f);
         panelRect.anchoredPosition = Vector2.zero;
         Image panelImage = panel.GetComponent<Image>();
         panelImage.color = new Color(0.025f, 0.065f, 0.13f, 0.99f);
@@ -355,46 +343,31 @@ public class SettingsMenuController : MonoBehaviour
         inner.GetComponent<Image>().color = new Color(0.05f, 0.11f, 0.20f, 1f);
 
         TMP_Text title = CreateText(inner.transform, "SettingsTitle", "SETTINGS", 46f, TextAlignmentOptions.Center);
-        SetRect(title.rectTransform, new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.95f));
+        SetRect(title.rectTransform, new Vector2(0.08f, 0.84f), new Vector2(0.92f, 0.965f));
         title.color = new Color(0.55f, 0.90f, 1f, 1f);
 
         TMP_Text paused = CreateText(inner.transform, "PausedLabel", "GAME PAUSED", 23f, TextAlignmentOptions.Center);
-        SetRect(paused.rectTransform, new Vector2(0.08f, 0.77f), new Vector2(0.92f, 0.85f));
+        SetRect(paused.rectTransform, new Vector2(0.08f, 0.77f), new Vector2(0.92f, 0.825f));
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
-        popupModeButton = CreateButton(inner.transform, "ModeSwitchButton", "모드: AUTO", new Color(0.12f, 0.48f, 0.72f, 1f));
-        SetRect(popupModeButton.GetComponent<RectTransform>(), new Vector2(0.26f, 0.68f), new Vector2(0.74f, 0.76f));
-        popupModeImage = popupModeButton.GetComponent<Image>();
-        popupModeText = popupModeButton.GetComponentInChildren<TMP_Text>();
-        if (popupModeText != null)
-        {
-            popupModeText.fontSize = 17f;
-            popupModeText.fontSizeMin = 13f;
-            popupModeText.fontSizeMax = 17f;
-        }
-        popupModeButton.onClick.AddListener(() => {
-            FXOverdose.Trading.TradingController.Instance?.ToggleTradingMode();
-            UpdateModeButtonVisuals();
-        });
-
         TMP_Text bgmLabel = CreateText(inner.transform, "Label_BGM", "BGM", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.60f), new Vector2(0.87f, 0.65f));
-        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.53f), new Vector2(0.87f, 0.60f), new Color32(0, 255, 255, 255));
+        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.68f), new Vector2(0.87f, 0.72f));
+        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.61f), new Vector2(0.87f, 0.665f), new Color32(0, 255, 255, 255));
 
         TMP_Text sfxLabel = CreateText(inner.transform, "Label_SFX", "SFX", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.44f), new Vector2(0.87f, 0.49f));
-        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.37f), new Vector2(0.87f, 0.44f), new Color32(0, 255, 255, 255));
+        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.49f), new Vector2(0.87f, 0.53f));
+        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.405f), new Vector2(0.87f, 0.46f), new Color32(0, 255, 255, 255));
 
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.25f), new Vector2(0.87f, 0.35f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.285f), new Vector2(0.87f, 0.355f));
         saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.14f), new Vector2(0.87f, 0.24f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.165f), new Vector2(0.87f, 0.235f));
         resumeButton.onClick.AddListener(CloseMenu);
 
-        Button quitButton = CreateButton(inner.transform, "QuitButton", "TITLE SCENE", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.03f), new Vector2(0.87f, 0.13f));
+        Button quitButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.035f), new Vector2(0.87f, 0.105f));
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();

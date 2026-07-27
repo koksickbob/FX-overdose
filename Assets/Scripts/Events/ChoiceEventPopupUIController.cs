@@ -56,18 +56,28 @@ namespace FXOverdose.Events
         private Outline[] optionOutlines = new Outline[OptionCount];
         private Coroutine breakingNewsCoroutine;
         private GameObject breakingNewsOverlay;
+        private GameObject minimizedDock;
+        private Button minimizeButton;
+        private GameObject restoreHighlight;
+        private Coroutine restoreHighlightCoroutine;
+        private bool isMinimized;
 
-        public bool IsShowing => popupPanel != null && popupPanel.activeInHierarchy;
+        public bool IsShowing =>
+            (popupPanel != null && popupPanel.activeInHierarchy) ||
+            (minimizedDock != null && minimizedDock.activeInHierarchy);
+        public bool IsMinimized => isMinimized;
 
         private void Awake()
         {
             EnsureUIBuilt();
             EnsureOverlayPriority();
+            EnsureMinimizedDock();
 
             if (popupPanel != null)
             {
                 popupPanel.SetActive(false);
             }
+            if (minimizedDock != null) minimizedDock.SetActive(false);
         }
 
         public void Show(ChoiceEventSO eventData, Action<int> onOptionSelected)
@@ -89,6 +99,9 @@ namespace FXOverdose.Events
 
             currentEvent = eventData;
             currentCallback = onOptionSelected;
+            isMinimized = false;
+            StopRestoreHighlight();
+            if (minimizedDock != null) minimizedDock.SetActive(false);
 
             string eventId = string.IsNullOrWhiteSpace(eventData.EventID) ? "market-alert" : eventData.EventID.Trim();
             string category = GetEventCategory(eventData.TriggerCondition);
@@ -176,17 +189,17 @@ namespace FXOverdose.Events
                     if (option.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrWhiteSpace(option.RequiredItemId))
                     {
                         requirement =
-                            $"\n<size=68%><color=#EAB308>REQUIRED: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
+                            $"\n<size=65%><color=#EAB308>REQUIRED: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
                     }
 
                     string unavailable = isAvailable
                         ? string.Empty
-                        : "\n<size=68%><color=#FF4D4D><b>REQUIRED ITEM MISSING</b></color></size>";
+                        : "\n<size=65%><color=#FF4D4D><b>REQUIRED ITEM MISSING</b></color></size>";
 
                     optionTexts[i].text =
-                        $"<size=76%><color=#{accentHex}><b>{letter} / {GetOptionLabel(option.OptionType)}</b></color></size>\n" +
-                        $"<size=100%><b>{option.OptionTitle}</b></size>\n" +
-                        $"<size=68%><color=#CBD5E1>{option.Description}</color></size>" +
+                        $"<size=55%><color=#{accentHex}><b>{letter} / {GetOptionLabel(option.OptionType)}</b></color></size>\n" +
+                        $"<size=82%><b>{option.OptionTitle}</b></size>\n" +
+                        $"<size=100%><color=#CBD5E1>{option.Description}</color></size>" +
                         requirement + unavailable;
                 }
             }
@@ -216,11 +229,14 @@ namespace FXOverdose.Events
             }
             currentEvent = null;
             currentCallback = null;
+            isMinimized = false;
+            StopRestoreHighlight();
 
             if (popupPanel != null)
             {
                 popupPanel.SetActive(false);
             }
+            if (minimizedDock != null) minimizedDock.SetActive(false);
         }
 
         private IEnumerator ShowBreakingNewsThenArticle(string category)
@@ -275,6 +291,9 @@ namespace FXOverdose.Events
 
             popupPanel.SetActive(true);
             popupPanel.transform.SetAsLastSibling();
+            isMinimized = false;
+            StopRestoreHighlight();
+            if (minimizedDock != null) minimizedDock.SetActive(false);
             EnsureOverlayPriority();
             Canvas.ForceUpdateCanvases();
             RefreshArticleLayout();
@@ -284,6 +303,39 @@ namespace FXOverdose.Events
                 scrollRect.StopMovement();
                 scrollRect.verticalNormalizedPosition = 1f;
             }
+        }
+
+        private void MinimizePopup()
+        {
+            if (currentEvent == null || popupPanel == null || !popupPanel.activeSelf) return;
+
+            EnsureMinimizedDock();
+            popupPanel.SetActive(false);
+            isMinimized = true;
+
+            if (minimizedDock != null)
+            {
+                minimizedDock.SetActive(true);
+                minimizedDock.transform.SetAsLastSibling();
+                StartRestoreHighlight();
+            }
+
+            Debug.Log("[ChoiceEventUI] 돌발 이벤트 창 최소화. 게임과 이벤트 선택 상태는 일시정지 상태로 유지됩니다.");
+        }
+
+        private void RestorePopup()
+        {
+            if (currentEvent == null || popupPanel == null) return;
+
+            isMinimized = false;
+            StopRestoreHighlight();
+            if (minimizedDock != null) minimizedDock.SetActive(false);
+
+            popupPanel.SetActive(true);
+            popupPanel.transform.SetAsLastSibling();
+            EnsureOverlayPriority();
+            Canvas.ForceUpdateCanvases();
+            RefreshArticleLayout();
         }
 
         private static IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
@@ -352,6 +404,8 @@ namespace FXOverdose.Events
                 Transform marker = popupPanel.transform.Find("ModalBox/InternetNewsLayout");
                 if (marker != null && RebindGeneratedUI(marker))
                 {
+                    EnsureMinimizeControl(marker);
+                    EnsureMinimizedDock();
                     return;
                 }
 
@@ -403,6 +457,7 @@ namespace FXOverdose.Events
             CreateArticleColumn(layoutGo.transform);
             CreateResponseSidebar(layoutGo.transform);
 
+            EnsureMinimizedDock();
             EnsureOverlayPriority();
         }
 
@@ -418,13 +473,14 @@ namespace FXOverdose.Events
             RectTransform browserRect = browser.GetComponent<RectTransform>();
             SetTopRect(browserRect, 0f, 0f, 4f, 44f);
 
+            CreateMinimizeButton(browser.transform);
             CreatePixelIndicator(browser.transform, "ClosePixel", new Color32(239, 68, 68, 255), 24f);
             CreatePixelIndicator(browser.transform, "MinimizePixel", new Color32(234, 179, 8, 255), 48f);
             CreatePixelIndicator(browser.transform, "OnlinePixel", new Color32(34, 197, 94, 255), 72f);
 
             GameObject addressBar = CreatePanel(browser.transform, "AddressBar", DeepBackground, false);
             RectTransform addressRect = addressBar.GetComponent<RectTransform>();
-            Stretch(addressRect, new Vector2(102f, 7f), new Vector2(-18f, -7f));
+            Stretch(addressRect, new Vector2(210f, 7f), new Vector2(-18f, -7f));
             AddOutline(addressBar, new Color32(44, 59, 82, 255), new Vector2(2f, -2f));
 
             browserAddressText = CreateText(addressBar.transform, "AddressText", 16f, MutedText, TextAlignmentOptions.MidlineLeft);
@@ -667,14 +723,12 @@ namespace FXOverdose.Events
                 SetRect(accent.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(7f, 0f));
                 optionAccentBars[i] = accent.GetComponent<Image>();
 
-                optionTexts[i] = CreateText(buttonGo.transform, "Text", 20f, Color.white, TextAlignmentOptions.TopLeft);
+                optionTexts[i] = CreateText(buttonGo.transform, "Text", 25.5f, Color.white, TextAlignmentOptions.TopLeft);
                 Stretch(optionTexts[i].rectTransform, new Vector2(24f, 12f), new Vector2(-16f, -12f));
-                optionTexts[i].enableAutoSizing = true;
-                optionTexts[i].fontSizeMin = 13f;
-                optionTexts[i].fontSizeMax = 20f;
+                optionTexts[i].enableAutoSizing = false;
                 optionTexts[i].textWrappingMode = TextWrappingModes.Normal;
                 optionTexts[i].overflowMode = TextOverflowModes.Overflow;
-                optionTexts[i].lineSpacing = 1.5f;
+                optionTexts[i].lineSpacing = 1f;
                 optionTexts[i].raycastTarget = false;
             }
 
@@ -759,6 +813,242 @@ namespace FXOverdose.Events
             }
 
             return hasCoreReferences;
+        }
+
+        private void EnsureMinimizeControl(Transform marker)
+        {
+            Transform browser = marker != null ? marker.Find("BrowserChrome") : null;
+            if (browser == null) return;
+
+            Transform existingButton = browser.Find("MinimizeButton");
+            minimizeButton = existingButton != null ? existingButton.GetComponent<Button>() : null;
+            if (minimizeButton == null)
+            {
+                CreateMinimizeButton(browser);
+                return;
+            }
+
+            minimizeButton.onClick.RemoveListener(MinimizePopup);
+            minimizeButton.onClick.AddListener(MinimizePopup);
+        }
+
+        private void CreateMinimizeButton(Transform browser)
+        {
+            Transform existing = browser.Find("MinimizeButton");
+            GameObject buttonObject;
+            if (existing != null)
+            {
+                buttonObject = existing.gameObject;
+            }
+            else
+            {
+                buttonObject = new GameObject(
+                    "MinimizeButton",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Button),
+                    typeof(Outline));
+                buttonObject.transform.SetParent(browser, false);
+            }
+
+            RectTransform rect = buttonObject.GetComponent<RectTransform>();
+            Fixed(rect, new Vector2(0f, 0.5f), new Vector2(190f, 32f), new Vector2(100f, 0f));
+
+            Image background = buttonObject.GetComponent<Image>();
+            background.color = new Color32(92, 67, 8, 255);
+            background.raycastTarget = true;
+
+            Outline outline = buttonObject.GetComponent<Outline>();
+            outline.effectColor = SpecialGold;
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = true;
+
+            minimizeButton = buttonObject.GetComponent<Button>();
+            minimizeButton.targetGraphic = background;
+            minimizeButton.onClick.RemoveAllListeners();
+            minimizeButton.onClick.AddListener(MinimizePopup);
+
+            ColorBlock colors = minimizeButton.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color32(255, 239, 164, 255);
+            colors.pressedColor = new Color32(195, 150, 43, 255);
+            colors.fadeDuration = 0.08f;
+            minimizeButton.colors = colors;
+
+            TMP_Text label = buttonObject.GetComponentInChildren<TMP_Text>(true);
+            if (label == null)
+            {
+                label = CreateText(buttonObject.transform, "Label", 13f, Color.white, TextAlignmentOptions.Center);
+            }
+            Stretch(label.rectTransform, new Vector2(88f, 0f), new Vector2(-10f, 0f));
+            label.fontSize = 13f;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.text = "MINIMIZE";
+            label.fontStyle = FontStyles.Bold;
+            label.raycastTarget = false;
+        }
+
+        private void EnsureMinimizedDock()
+        {
+            if (minimizedDock != null) return;
+
+            Canvas targetCanvas = FindTargetCanvas();
+            if (targetCanvas == null) return;
+
+            minimizedDock = CreatePanel(
+                targetCanvas.transform,
+                "ChoiceEventMinimizedDock",
+                new Color32(10, 22, 39, 252),
+                true);
+
+            RectTransform dockRect = minimizedDock.GetComponent<RectTransform>();
+            dockRect.anchorMin = dockRect.anchorMax = new Vector2(0.5f, 1f);
+            dockRect.pivot = new Vector2(0.5f, 1f);
+            dockRect.anchoredPosition = new Vector2(0f, -122f);
+            dockRect.sizeDelta = new Vector2(600f, 62f);
+
+            Canvas dockCanvas = minimizedDock.AddComponent<Canvas>();
+            dockCanvas.overrideSorting = true;
+            dockCanvas.sortingOrder = EventPopupSortingOrder;
+            minimizedDock.AddComponent<GraphicRaycaster>();
+            AddOutline(minimizedDock, Cyan, new Vector2(2f, -2f));
+
+            GameObject alert = CreatePanel(minimizedDock.transform, "Alert", RiskRed, false);
+            RectTransform alertRect = alert.GetComponent<RectTransform>();
+            alertRect.anchorMin = new Vector2(0f, 0f);
+            alertRect.anchorMax = new Vector2(0f, 1f);
+            alertRect.pivot = new Vector2(0f, 0.5f);
+            alertRect.anchoredPosition = Vector2.zero;
+            alertRect.sizeDelta = new Vector2(6f, 0f);
+
+            TMP_Text status = CreateText(
+                minimizedDock.transform,
+                "Status",
+                17f,
+                BodyText,
+                TextAlignmentOptions.MidlineLeft);
+            Stretch(status.rectTransform, new Vector2(24f, 0f), new Vector2(-228f, 0f));
+            status.text = "<color=#EF4444><b>FX WIRE</b></color>  ·  EVENT PAUSED";
+            status.raycastTarget = false;
+
+            GameObject restoreObject = CreatePanel(
+                minimizedDock.transform,
+                "RestoreButton",
+                new Color32(7, 104, 126, 255),
+                true);
+            RectTransform restoreRect = restoreObject.GetComponent<RectTransform>();
+            restoreRect.anchorMin = new Vector2(1f, 0f);
+            restoreRect.anchorMax = new Vector2(1f, 1f);
+            restoreRect.pivot = new Vector2(1f, 0.5f);
+            restoreRect.anchoredPosition = Vector2.zero;
+            restoreRect.sizeDelta = new Vector2(212f, -12f);
+            AddOutline(restoreObject, Cyan, new Vector2(1.5f, -1.5f));
+
+            Button restoreButton = restoreObject.AddComponent<Button>();
+            restoreButton.targetGraphic = restoreObject.GetComponent<Image>();
+            restoreButton.onClick.AddListener(RestorePopup);
+            ColorBlock restoreColors = restoreButton.colors;
+            restoreColors.normalColor = Color.white;
+            restoreColors.highlightedColor = new Color32(203, 249, 255, 255);
+            restoreColors.pressedColor = new Color32(128, 195, 207, 255);
+            restoreColors.fadeDuration = 0.08f;
+            restoreButton.colors = restoreColors;
+
+            TMP_Text restoreLabel = CreateText(
+                restoreObject.transform,
+                "Label",
+                18f,
+                Color.white,
+                TextAlignmentOptions.Center);
+            Stretch(restoreLabel.rectTransform, new Vector2(16f, 0f), new Vector2(-16f, 0f));
+            restoreLabel.text = "OPEN EVENT";
+            restoreLabel.fontStyle = FontStyles.Bold;
+            restoreLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            restoreLabel.overflowMode = TextOverflowModes.Overflow;
+            restoreLabel.raycastTarget = false;
+
+            CreateRestoreHighlight(restoreObject.transform);
+
+            // 도크 전체를 눌러도 다시 열 수 있게 하되, 우측 버튼과 동일한 동작을 사용합니다.
+            Button dockButton = minimizedDock.AddComponent<Button>();
+            dockButton.targetGraphic = minimizedDock.GetComponent<Image>();
+            dockButton.onClick.AddListener(RestorePopup);
+
+            minimizedDock.SetActive(false);
+        }
+
+        private void CreateRestoreHighlight(Transform target)
+        {
+            restoreHighlight = new GameObject(
+                "RestoreHighlight",
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            restoreHighlight.transform.SetParent(target, false);
+            restoreHighlight.transform.SetAsLastSibling();
+
+            RectTransform highlightRect = restoreHighlight.GetComponent<RectTransform>();
+            Stretch(highlightRect, new Vector2(-7f, -7f), new Vector2(7f, 7f));
+
+            Color highlightColor = new Color32(255, 217, 26, 255);
+            const float thickness = 4f;
+            CreateHighlightBorderLine(restoreHighlight.transform, "Top",
+                new Vector2(0f, 1f), new Vector2(1f, 1f),
+                new Vector2(0f, -thickness), Vector2.zero, highlightColor);
+            CreateHighlightBorderLine(restoreHighlight.transform, "Bottom",
+                Vector2.zero, new Vector2(1f, 0f),
+                Vector2.zero, new Vector2(0f, thickness), highlightColor);
+            CreateHighlightBorderLine(restoreHighlight.transform, "Left",
+                Vector2.zero, new Vector2(0f, 1f),
+                Vector2.zero, new Vector2(thickness, 0f), highlightColor);
+            CreateHighlightBorderLine(restoreHighlight.transform, "Right",
+                new Vector2(1f, 0f), Vector2.one,
+                new Vector2(-thickness, 0f), Vector2.zero, highlightColor);
+
+            CanvasGroup group = restoreHighlight.GetComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            restoreHighlight.SetActive(false);
+        }
+
+        private void StartRestoreHighlight()
+        {
+            if (restoreHighlight == null) return;
+
+            restoreHighlight.SetActive(true);
+            if (restoreHighlightCoroutine != null) StopCoroutine(restoreHighlightCoroutine);
+            restoreHighlightCoroutine = StartCoroutine(PulseRestoreHighlight());
+        }
+
+        private void StopRestoreHighlight()
+        {
+            if (restoreHighlightCoroutine != null)
+            {
+                StopCoroutine(restoreHighlightCoroutine);
+                restoreHighlightCoroutine = null;
+            }
+
+            if (restoreHighlight == null) return;
+            CanvasGroup group = restoreHighlight.GetComponent<CanvasGroup>();
+            if (group != null) group.alpha = 1f;
+            restoreHighlight.SetActive(false);
+        }
+
+        private IEnumerator PulseRestoreHighlight()
+        {
+            CanvasGroup group = restoreHighlight != null
+                ? restoreHighlight.GetComponent<CanvasGroup>()
+                : null;
+            if (group == null) yield break;
+
+            while (restoreHighlight != null && restoreHighlight.activeInHierarchy)
+            {
+                group.alpha = 0.35f + ((Mathf.Sin(Time.unscaledTime * 5f) + 1f) * 0.325f);
+                yield return null;
+            }
+
+            restoreHighlightCoroutine = null;
         }
 
         private void ApplyOptionVisual(int index, ChoiceOptionType type, bool isAvailable)
@@ -899,6 +1189,7 @@ namespace FXOverdose.Events
             optionBackgrounds = new Image[OptionCount];
             optionAccentBars = new Image[OptionCount];
             optionOutlines = new Outline[OptionCount];
+            minimizeButton = null;
         }
 
         private Canvas FindTargetCanvas()
@@ -1044,6 +1335,23 @@ namespace FXOverdose.Events
         {
             GameObject indicator = CreatePanel(parent, name, color, false);
             Fixed(indicator.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(12f, 12f), new Vector2(x, 0f));
+        }
+
+        private static void CreateHighlightBorderLine(
+            Transform parent,
+            string name,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Vector2 offsetMin,
+            Vector2 offsetMax,
+            Color color)
+        {
+            GameObject line = CreatePanel(parent, name, color, false);
+            RectTransform rect = line.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
         }
 
         private static void CreateHorizontalRule(Transform parent, string name, Color color, float left, float right, float top, float height)
