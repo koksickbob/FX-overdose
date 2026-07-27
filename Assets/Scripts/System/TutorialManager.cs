@@ -252,8 +252,7 @@ namespace FXOverdose.Core
                 var topBar = FindAnyObjectByType<FXOverdose.UI.TopBar.TopStatusBarUIController>();
                 if (topBar != null && topBar.TutorialBalanceHighlightTarget != null)
                 {
-                    Transform targetBg = topBar.TutorialBalanceHighlightTarget.parent;
-                    balanceHighlight = CreateHighlightOverlay(targetBg);
+                    balanceHighlight = CreateHighlightOverlay(topBar.TutorialBalanceHighlightTarget);
                 }
             }
 
@@ -329,26 +328,6 @@ namespace FXOverdose.Core
                    mentalHighlight != null &&
                    shopHighlight != null &&
                    levelHighlight != null;
-        }
-
-        private Transform FindCardByName(Transform start)
-        {
-            Transform current = start.parent;
-            // 뎁스 제한 없이 위로 계속 올라가며 'Card', 'Panel', 'Bg' 등의 이름을 가진 진짜 카드 컨테이너를 찾습니다.
-            while (current != null)
-            {
-                string lowerName = current.name.ToLower();
-                if (lowerName.Contains("card") || lowerName.Contains("panel") || lowerName.Contains("bg") || lowerName.Contains("background"))
-                {
-                    return current;
-                }
-                
-                // Canvas에 도달하면 탐색 중단
-                if (current.GetComponent<Canvas>() != null) break;
-                
-                current = current.parent;
-            }
-            return start.parent != null ? start.parent : start;
         }
 
 

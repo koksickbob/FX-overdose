@@ -1287,6 +1287,21 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/System/TutorialManager.cs`
 
+### 튜토리얼 하이라이트 명시적 타겟 연결
+
+- `튜토리얼_UI_하이라이트_인수인계.md`와 `하이라이트 에러 수정 방법.md`의 권장안에 따라 부모 이름·계층 추적 및 이름 기반 fallback을 제거했습니다.
+- `TopStatusBarUIController`와 `VitalsValueUI`의 튜토리얼 전용 `RectTransform`을 씬에 직렬화해 저장합니다.
+- 게임·튜토리얼 씬에서 잔고는 `BalanceCard`, 멘탈은 `Mental` 영역을 정확한 타겟으로 직접 연결했습니다.
+- `TutorialManager`가 저장된 타겟을 그대로 사용하므로 Layout Group이나 UI 계층 변경에 따른 크기 오차가 발생하지 않습니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/TutorialManager.cs`
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
+- `Assets/Scripts/UI/VitalsValueUI.cs`
+- `Assets/Scenes/GameScene.unity`
+- `Assets/Scenes/tutorial.unity`
+
 ### 튜토리얼 수동매매 버튼 클릭 복구
 
 - 하이라이트·블로커 Canvas를 `32000`으로 올린 뒤 롱·숏 허용 버튼이 기존 정렬 순위 `1000`에 남아 투명 블로커가 클릭을 가로채던 문제를 수정했습니다.

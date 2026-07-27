@@ -7,27 +7,9 @@ using UnityEngine.UI;
 public class VitalsValueUI : MonoBehaviour
 {
     [Header("Tutorial Targets")]
-    public RectTransform mentalHighlightTarget;
+    [SerializeField] private RectTransform mentalHighlightTarget;
 
-    public RectTransform TutorialMentalHighlightTarget
-    {
-        get
-        {
-            if (mentalHighlightTarget != null) return mentalHighlightTarget;
-
-            foreach (RectTransform child in GetComponentsInChildren<RectTransform>(true))
-            {
-                if (child.name.IndexOf("HighlightTarget", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    child.name.IndexOf("MentalHighlight", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    child.name.IndexOf("TutorialHighlight", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return child;
-                }
-            }
-
-            return mentalSlider != null ? mentalSlider.GetComponent<RectTransform>() : null;
-        }
-    }
+    public RectTransform TutorialMentalHighlightTarget => mentalHighlightTarget;
 
     [SerializeField] private Slider healthSlider;
     [SerializeField] private Slider mentalSlider;

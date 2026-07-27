@@ -3495,6 +3495,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16d76671bdd70bd42a300c8c16142605, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.UI.TopBar.TopStatusBarUIController
+  balanceHighlightTarget: {fileID: 1130506284}
   gameManager: {fileID: 33821695}
   tradingController: {fileID: 33821697}
   sparklineRenderer: {fileID: 1747478237}
@@ -11039,6 +11040,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3095f6dedee8041358ba098d8eada41e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VitalsValueUI
+  mentalHighlightTarget: {fileID: 984677661}
   healthSlider: {fileID: 413336271}
   mentalSlider: {fileID: 984677662}
   healthValueText: {fileID: 891966448}
