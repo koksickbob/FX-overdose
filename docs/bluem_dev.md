@@ -456,6 +456,18 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `docs/오디오_적용_가이드.md`
 - `docs/오디오.md`
 
+### 소모 아이템 가격 조정
+
+- 파르페(Dessert) 가격을 `700`에서 `600`으로 조정했습니다.
+- 서플먼트(Supplement) 가격을 `1100`에서 `900`으로 조정했습니다.
+- 세다티브(Sedative) 가격을 `1300`에서 `1000`으로 조정했습니다.
+
+관련 파일:
+
+- `Assets/Data/Items/Dessert.asset`
+- `Assets/Data/Items/Supplement.asset`
+- `Assets/Data/Items/Sedative.asset`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.
