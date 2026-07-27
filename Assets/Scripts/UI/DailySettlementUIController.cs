@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using FXOverdose.Core;
 
 namespace FXOverdose.UI
 {
@@ -296,6 +297,9 @@ namespace FXOverdose.UI
             currentDailyReturn = Mathf.Abs(startingEquity) > 0.001f
                 ? currentDailyPnl / startingEquity * 100f
                 : 0f;
+            AudioManager.Play(
+                currentDailyPnl > 0f ? AudioCue.SettlementProfit : AudioCue.SettlementNonProfit,
+                true);
 
             UpdateSettlementValues(startingEquity, status);
             UpdateResultTheme();

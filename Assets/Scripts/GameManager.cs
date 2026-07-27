@@ -1,4 +1,5 @@
 using System;
+using FXOverdose.Core;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -421,6 +422,7 @@ public class GameManager : MonoBehaviour
 
         if (currentBalance < amount)
         {
+            AudioManager.Play(AudioCue.InsufficientBalance);
             Debug.Log("자산이 부족합니다.");
             return false;
         }

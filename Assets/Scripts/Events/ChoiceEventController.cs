@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using FXOverdose.Core;
 using FXOverdose.Trading;
 
 namespace FXOverdose.Events
@@ -353,6 +354,7 @@ namespace FXOverdose.Events
             activeTemplate = null; // LLM 템플릿 초기화
 
             PrepareGamePause();
+            AudioManager.Play(AudioCue.EventAppear, true);
             uiController.Show(eventData, OnOptionSelected);
         }
 
@@ -388,6 +390,7 @@ namespace FXOverdose.Events
             dynamicEventInstance.Options[2].Description = llmData.OptionCDesc;
 
             currentActiveEvent = dynamicEventInstance;
+            AudioManager.Play(AudioCue.EventAppear, true);
             uiController.Show(dynamicEventInstance, OnOptionSelected);
             
             // 캐시 비우기
