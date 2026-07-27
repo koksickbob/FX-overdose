@@ -618,7 +618,7 @@ namespace FXOverdose.Core
             CurrentState = TutorialState.AITradingDemo;
             AllowAITrading = true; // 이 단계에서만 요미 매매 허용
             
-            yield return StartCoroutine(PlayDialogueAndWait("음, 나쁘지 않네. 하지만 진정한 수익은 내 완벽한 알고리즘에서 나오지! 이제는 요미가 직접 매매 해볼게. 요미가 어떻게 타점을 잡는지 잘 봐."));
+            yield return StartCoroutine(PlayDialogueAndWait("음, 나쁘지 않네. 하지만 진정한 수익은 내 완벽한 차트 분석에서 나오지! 이제는 요미가 직접 매매 해볼게. 요미가 어떻게 타점을 잡는지 잘 봐."));
 
             if (tradingController != null)
             {

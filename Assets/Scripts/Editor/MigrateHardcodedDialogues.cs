@@ -26,7 +26,7 @@ namespace FXOverdose.Editor
 
             // 2. 수동 조작 전환
             AddEntry(db, "ToggleManualStart", "하...! 직접 매매하시겠다?! 내 타점이 못미더워...? 그래 맘대로 해봐. 대신 포지션 잡는 거 두 눈 부릅뜨고 지켜볼 거니까 실수해서 돈 날리기만 해봐...");
-            AddEntry(db, "ToggleManualStart", "참나, 오빠가 알아서 하겠다고? 내 완벽한 인공지능 분석보다 나을 수 있나 보자.");
+            AddEntry(db, "ToggleManualStart", "참나, 오빠가 알아서 하겠다고? 내 완벽한 차트 분석보다 나을 수 있나 보자.");
             AddEntry(db, "ToggleManualAuto", "흥, 역시 나 없으면 안 되지?! 이제 조종간은 내가 잡았으니까 옆에서 화려한 수익률이나 감상하시지.");
 
             // 3. 수익률 극단적 하락 (Whipsaw, 손실)
