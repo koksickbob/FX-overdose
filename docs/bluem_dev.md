@@ -1302,6 +1302,16 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scenes/GameScene.unity`
 - `Assets/Scenes/tutorial.unity`
 
+### 타이틀 경유 튜토리얼 하이라이트 생명주기 수정
+
+- 타이틀에서 `LoadingScene`을 거쳐 튜토리얼을 Additive 로드할 때, 런타임 생성된 `TutorialBlockerCanvas`가 활성 상태였던 로딩 씬 소속으로 생성되는 원인을 확인했습니다.
+- 로딩 씬 언로드 시 하이라이트 Canvas가 함께 삭제되어 튜토리얼 직접 실행에서는 보이고 타이틀 경유 시에는 사라지던 문제였습니다.
+- Canvas 생성 직후 `SceneManager.MoveGameObjectToScene`으로 `TutorialManager`가 속한 튜토리얼 씬에 명시적으로 이동시켜 생명주기를 보존합니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/TutorialManager.cs`
+
 ### 튜토리얼 수동매매 버튼 클릭 복구
 
 - 하이라이트·블로커 Canvas를 `32000`으로 올린 뒤 롱·숏 허용 버튼이 기존 정렬 순위 `1000`에 남아 투명 블로커가 클릭을 가로채던 문제를 수정했습니다.

@@ -117,6 +117,10 @@ namespace FXOverdose.Core
                 typeof(RectTransform),
                 typeof(Canvas),
                 typeof(GraphicRaycaster));
+            // LoadingScene이 tutorial을 Additive로 로드할 때 Start 시점의 활성 씬은 아직
+            // LoadingScene일 수 있습니다. 생성 직후 튜토리얼 씬으로 옮겨 로딩 씬 언로드와
+            // 함께 하이라이트 Canvas가 삭제되지 않도록 합니다.
+            SceneManager.MoveGameObjectToScene(blockerGo, gameObject.scene);
             highlightCanvas = blockerGo.GetComponent<Canvas>();
             highlightCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             highlightCanvas.sortingOrder = 999; // 최상단
