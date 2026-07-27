@@ -335,7 +335,7 @@ namespace FXOverdose.Events
             {
                 try
                 {
-                    cachedLLMData = await generator.GenerateChoiceEventAsync(activeTemplate.ThemeTag, marketContext);
+                    cachedLLMData = await generator.GenerateChoiceEventAsync(activeTemplate, marketContext);
                 }
                 catch (Exception e)
                 {

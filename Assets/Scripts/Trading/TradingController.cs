@@ -98,8 +98,7 @@ namespace FXOverdose.Trading
             if (mode == TradingMode.Player_Manual && IsManualModeLockedByYomi)
             {
                 Debug.LogWarning("[TradingController] ⚠️ 요미가 매매 주도권을 강제로 뺏어 잠근 상태라 수동 모드로 전환할 수 없습니다.");
-                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("이건 내가 알아서 할 거야! 건들지 말고 가만히 있어!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                OutputSpecificEventDialogue("ToggleManualBlocked");
                 return;
             }
 
@@ -110,8 +109,7 @@ namespace FXOverdose.Trading
             if (gm != null && gm.CurrentState != GameManager.GameState.Playing)
             {
                 Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
-                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("아직 장도 안 열렸잖아! 호가창 움직이기 시작하면 그때 전환해, 눈 돌아갈 것 같으니까...!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                OutputSpecificEventDialogue("ToggleManualBlocked");
                 return;
             }
 
@@ -120,8 +118,7 @@ namespace FXOverdose.Trading
             if (market != null && !market.IsMarketOpen)
             {
                 Debug.LogWarning("[TradingController] ⚠️ 시장(Market)이 아직 개장하지 않았습니다. 개장 후에 전환 가능합니다.");
-                var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                if (visual != null) visual.DisplayDialogueBalloon("시장이 닫혀 있는데 어딜 전환하려고 해?! 개장하면 바로 넘겨줄 테니까 가만히 좀 있어.", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                OutputSpecificEventDialogue("ToggleManualBlocked");
                 return;
             }
 
@@ -129,17 +126,13 @@ namespace FXOverdose.Trading
             Debug.Log($"[TradingController ⚙️] 매매 조작 모드 전환: {mode}");
             OnTradingModeChanged?.Invoke(mode);
 
-            var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-            if (visualCtrl != null)
+            if (mode == TradingMode.Player_Manual)
             {
-                if (mode == TradingMode.Player_Manual)
-                {
-                    visualCtrl.DisplayDialogueBalloon("하...! 직접 매매하시겠다?! 내 타점이 못미더워...? 그래 맘대로 해봐. 대신 포지션 잡는 거 두 눈 부릅뜨고 지켜볼 거니까 실수해서 돈 날리기만 해봐...", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
-                }
-                else
-                {
-                    visualCtrl.DisplayDialogueBalloon("흥, 역시 나 없으면 안 되지?! 이제 조종간은 내가 잡았으니까 옆에서 화려한 수익률이나 감상하시지.", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
-                }
+                OutputSpecificEventDialogue("ToggleManualStart");
+            }
+            else
+            {
+                OutputSpecificEventDialogue("ToggleManualAuto");
             }
         }
 
@@ -347,13 +340,13 @@ namespace FXOverdose.Trading
                     if (roe <= -40f && lastReportedROEBasket > -40)
                     {
                         lastReportedROEBasket = -40;
-                        visual.DisplayDialogueBalloon("으아아악!! 거봐 내 말이 맞잖아!! 왜 그딴 판단을 한 거야!! 돈이 썰려나가고 있다고!! 당장 손절 쳐, 아니 물타야 되나?!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                        OutputSpecificEventDialogue("RoeNegative40", roe: roe);
                         if (traderStatus != null) traderStatus.ModifyMentalState(-15f);
                     }
                     else if (roe <= -65f && lastReportedROEBasket > -65)
                     {
                         lastReportedROEBasket = -65;
-                        visual.DisplayDialogueBalloon("진짜 이러다 깡통 차... 증거금이 다 타들어가고 있다고 젠장...!! 제발 반등 좀...!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                        OutputSpecificEventDialogue("RoeNegative65", roe: roe);
                     }
                 }
                 else if (!isEventTrueSignal)
@@ -361,7 +354,7 @@ namespace FXOverdose.Trading
                     if (roe <= -50f && lastReportedROEBasket > -50)
                     {
                         lastReportedROEBasket = -50;
-                        visual.DisplayDialogueBalloon("아씨...! 세력 휩소에 처맞았어!! ROE -50%... 심장 튀어나올 것 같아... 바닥에서 물타서 탈출해야 돼!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                        OutputSpecificEventDialogue("RoeNegative50", roe: roe);
                     }
                 }
                 else
@@ -369,17 +362,17 @@ namespace FXOverdose.Trading
                     if (roe >= 50f && roe < 100f && lastReportedROEBasket < 50)
                     {
                         lastReportedROEBasket = 50;
-                        visual.DisplayDialogueBalloon("오오?! ROE +50% 돌파!! 내 분석 미쳤어!! 지금 수직 상승 중이야!! 더 가자!!", FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.ChartMovement);
+                        OutputSpecificEventDialogue("RoePositive50", roe: roe, priority: FXOverdose.AI.DialoguePriority.Normal, cat: FXOverdose.AI.EventCategory.ChartMovement);
                     }
                     else if (roe >= 100f && roe < 200f && lastReportedROEBasket < 100)
                     {
                         lastReportedROEBasket = 100;
-                        visual.DisplayDialogueBalloon("크하학 ROE +100% 돌파!! 빔이 멈추지 않아!! 수익 복사 미쳤다!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.ChartMovement);
+                        OutputSpecificEventDialogue("RoePositive100", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.ChartMovement);
                     }
                     else if (roe >= 200f && lastReportedROEBasket < 200)
                     {
                         lastReportedROEBasket = 200;
-                        visual.DisplayDialogueBalloon("ROE +200% 초광기 돌파!! 이게 바로 전설의 빔이야!! 끝까지 쥐고 털어먹자!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.ChartMovement);
+                        OutputSpecificEventDialogue("RoePositive200", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.ChartMovement);
                     }
                 }
             }
@@ -408,7 +401,7 @@ namespace FXOverdose.Trading
                         gameManager.ChangeBalance(-addMargin);
                         marginAmount += addMargin;
                         Debug.Log($"[TradingController 💉] 악결과 바닥 부근(-75%) 비상 물타기 발동! 증거금 ${addMargin:N0} 투입으로 평단가 낮춤 및 반등 꼬리 탈출 준비!");
-                        if (visual != null) visual.DisplayDialogueBalloon("하아...! 강제 청산 직전이야...! 일단 남은 현금 쏟아부어서 비상 물타기로 평단 낮췄어!! 기술적 반등 꼬리 나오면 바로 탈출한다 제발...!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+                        OutputSpecificEventDialogue("EmergencyWaterRiding", roe: roe);
                         OnPositionChanged?.Invoke();
                         return;
                     }
@@ -553,13 +546,13 @@ namespace FXOverdose.Trading
                     if (roe < 0f)
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 시간 종료: 인내 끝에 손실({roe:F1}%)을 완화하여 정리합니다.");
-                        if (visual != null) visual.DisplayDialogueBalloon($"이벤트 빔 끝날 때까지 버텨서 손실({roe:0.0}%)을 최대한 줄였어...! 다음엔 꼭 복구하자!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.PositionClosed);
+                        OutputSpecificEventDialogue("EventHoldMitigateLoss", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
                         ClosePosition();
                     }
                     else
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 역전 성공: 오히려 수익(+{roe:F1}%)으로 전환되어 익절합니다!");
-                        if (visual != null) visual.DisplayDialogueBalloon($"하아... 끝까지 버텼더니 결국 기호흡 치면서 ROE +{roe:0.0}% 수익으로 역전됐어!! 심장 떨어지는 줄 알았네 진짜...", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.PositionClosed);
+                        OutputSpecificEventDialogue("EventHoldMitigateLoss", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
                         ClosePosition();
                     }
                     break;
@@ -568,7 +561,7 @@ namespace FXOverdose.Trading
                     if (roe > 0f)
                     {
                         Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 시간 종료: 누적된 ROE +{roe:F1}% 대박 수익을 전액 챙깁니다!");
-                        if (visual != null) visual.DisplayDialogueBalloon($"끝까지 발라먹어서 ROE +{roe:0.0}% 달성!! 역시 추세 터질 땐 무조건 버텨야 돼!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.PositionClosed);
+                        OutputSpecificEventDialogue("EventGreedyHoldWin", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
                         ClosePosition();
                     }
                     else
@@ -636,8 +629,7 @@ namespace FXOverdose.Trading
                     {
                         lastROEDialogueTime = Time.time;
                         Debug.Log("[TradingController] 💊 멘탈 회복! 하지만 오버도즈 함정은 포지션 종료 전까지 유지됩니다.");
-                        var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
-                        visualCtrl?.DisplayDialogueBalloon("헉...! 약 먹으니까 머리가 맑아졌어...! 내가 무슨 미친 짓을 한 거야?! 이대로 두면 다 날려먹어!! 빨리 수동으로 전환해서 청산해야 해!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+                        OutputSpecificEventDialogue("MentalOverdoseRecover", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.MentalChange);
                     }
                     return; // 수동으로 청산할 때까지 AI 개입 및 함정 유지를 위해 대기
                 }
@@ -648,8 +640,7 @@ namespace FXOverdose.Trading
                     if (overdoseRoe <= -70f && Time.time - lastROEDialogueTime >= 5f)
                     {
                         lastROEDialogueTime = Time.time;
-                        var visualCtrl = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
-                        visualCtrl?.DisplayDialogueBalloon("으하하하!! 청산 직전의 짜릿함...!! 피가 거꾸로 솟는다!! 바로 이 다음 반등에 100배로 튀어 오르는 거야!! 이대로 가즈아!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+                        OutputSpecificEventDialogue("MentalOverdoseStart", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.MentalChange);
                     }
                     return; // 💡 다른 매매 로직(익절/손절/이벤트 반응/스위칭 등) 개입을 원천 차단! 오직 청산(CheckLiquidation)이나 아이템 회복 탈출만 가능하게 함!
                 }
@@ -1227,8 +1218,7 @@ namespace FXOverdose.Trading
         private global::System.Collections.IEnumerator DelayedOverdoseRoutine(PositionType forcedDirection, float forcedMargin, int forcedLeverage, float aiTarget)
         {
             LockManualModeTemporarily(2.0f);
-            var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
-            visual?.DisplayDialogueBalloon($"크하하하!! 완벽한 진입 타점이다!! {forcedLeverage}배 풀레버리지 남은 시드 싹 다 올인!! 오늘 끝장을 보자!!", FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+            OutputSpecificEventDialogue("OverdoseExecute", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.MentalChange, overrideLeverage: forcedLeverage);
             
             yield return new WaitForSecondsRealtime(2.0f);
 
@@ -1401,6 +1391,32 @@ namespace FXOverdose.Trading
                     Debug.Log("[TradingController] ⚡ 수수료 면제(Zero-Fee) 혜택으로 포지션 청산 완료.");
                 }
             }
+        }
+
+        private void OutputSpecificEventDialogue(string eventCategory, float roe = 0f, float maxObserved = 0f, FXOverdose.AI.DialoguePriority priority = FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory cat = FXOverdose.AI.EventCategory.General, int overrideLeverage = -1)
+        {
+            var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include);
+            if (visual == null) return;
+
+            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
+            if (matcher != null)
+            {
+                int lev = overrideLeverage >= 0 ? overrideLeverage : currentLeverage;
+                float marginRatio = 0f;
+                if (gameManager != null && this.marginAmount > 0f)
+                {
+                    marginRatio = this.marginAmount / (this.marginAmount + gameManager.CurrentBalance);
+                }
+                
+                string text = matcher.GetEventDialogue(eventCategory, lev, marginRatio, roe, maxObserved);
+                if (!string.IsNullOrEmpty(text))
+                {
+                    visual.DisplayDialogueBalloon(text, priority, cat);
+                    return;
+                }
+            }
+            
+            visual.DisplayDialogueBalloon($"[{eventCategory}] 이벤트 발생!", priority, cat);
         }
 
         private void OutputYomiDialogue(FXOverdose.AI.EventCategory cat, FXOverdose.AI.DialoguePriority priority = FXOverdose.AI.DialoguePriority.Normal)

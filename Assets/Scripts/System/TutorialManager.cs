@@ -785,6 +785,13 @@ namespace FXOverdose.Core
                     }
                 }
                 
+                // 이벤트 종료 시점에 포지션이 남아있다면 강제 정산하여 결과를 보여줌
+                var tradingController = FindAnyObjectByType<TradingController>();
+                if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+                {
+                    tradingController.ClosePosition();
+                }
+                
                 yield return StartCoroutine(PlayDialogueAndWait("결과 확인 완료! 돌발 이벤트 대응도 완벽하네!"));
             }
             else

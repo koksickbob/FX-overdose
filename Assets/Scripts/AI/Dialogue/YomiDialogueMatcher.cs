@@ -107,7 +107,7 @@ namespace FXOverdose.AI.Dialogue
         /// <summary>
         /// 이벤트 카테고리(예: SkillUpgraded)에 해당하는 대사를 반환합니다.
         /// </summary>
-        public string GetEventDialogue(string eventCategory)
+        public string GetEventDialogue(string eventCategory, int currentLeverage = 0, float currentMarginRatio = 0f, float roe = 0f, float maxObserved = 0f)
         {
             if (database == null) return null;
             var candidates = database.GetEventCandidates(eventCategory);
@@ -115,7 +115,16 @@ namespace FXOverdose.AI.Dialogue
             
             // 이벤트 대사도 랜덤하게 하나 선택 (간단히)
             int r = Random.Range(0, candidates.Count);
-            return candidates[r].text;
+            string finalDialogue = candidates[r].text;
+            
+            finalDialogue = finalDialogue.Replace("{leverage}", currentLeverage.ToString());
+            finalDialogue = finalDialogue.Replace("{margin}", Mathf.RoundToInt(currentMarginRatio * 100).ToString());
+            finalDialogue = finalDialogue.Replace("{roe:F1}", roe.ToString("F1"));
+            finalDialogue = finalDialogue.Replace("{maxObserved:F1}", maxObserved.ToString("F1"));
+
+            // 이벤트 출력 직후에 일반 대사가 덮어씌우지 않도록 쿨다운 갱신
+            lastDialogueTime = Time.time; 
+            return finalDialogue;
         }
 
         private int CalculateScore(YomiDialogueEntry entry, string currentMentalState, DirectionTag currentDirection, bool isProfit, string position, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel)
