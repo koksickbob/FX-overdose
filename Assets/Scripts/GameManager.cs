@@ -306,6 +306,14 @@ public class GameManager : MonoBehaviour
         StartOfDayEquity = status != null ? status.GetTotalEquity() : currentBalance;
         IsDailyPnlPartial = false;
 
+        // 다음 날로 넘어갈 때 체력과 멘탈을 모두 최대로 회복
+        if (status != null)
+        {
+            status.ChangeHealth(9999f);
+            status.ChangeMental(9999f, true, "NewDayReset");
+            Debug.Log("[GameManager] 일일 정산 후 다음 날 진입: 체력과 멘탈이 최대로 회복되었습니다.");
+        }
+
         Debug.Log($"{currentDay}일차 시작 (09:00)");
 
         // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행

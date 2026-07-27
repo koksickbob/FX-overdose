@@ -102,6 +102,13 @@ namespace FXOverdose.Trading
                 return;
             }
 
+            if (mode == TradingMode.Player_Manual && traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 오버도즈 상태에서는 수동 매매로 전환할 수 없습니다.");
+                OutputSpecificEventDialogue("ToggleManualBlocked");
+                return;
+            }
+
             
 
             // 2. 게임 플레이(장이 개시된 상태) 검증
@@ -648,6 +655,33 @@ namespace FXOverdose.Trading
                 {
                     isOverdoseTradeActive = false;
                     if (marketEngine != null) marketEngine.CancelOverdoseTrapSignal();
+                }
+            }
+
+            // 💡 [고속 스킵 중 포지션 강제 청산] 고속 스킵(스킬 학습 등) 중일 때는 수동 모드라도 요미의 스킬 기반 동적 익절/손절선 도달 시 강제 청산합니다.
+            // 이벤트 쉴드보다 우선적으로 평가되어, 고속 스킵 중 방치로 인한 막대한 손실을 방지합니다.
+            if (gameManager != null && gameManager.IsFastForwardingTime)
+            {
+                float skipRoe = CalculateROEPercentage();
+                var levelSystem = TraderLevelSystem.Instance;
+                
+                float takeProfitMultiplier = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 0.8f;
+                float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
+
+                float dynamicTakeProfitRoe = 50f * takeProfitMultiplier;
+                float dynamicStopLossRoe = -stopLossTightness * 3.33f * 100f;
+
+                if (skipRoe >= dynamicTakeProfitRoe)
+                {
+                    Debug.Log($"[TradingController ⏩] 고속 스킵 중 요미 스킬 기반 목표 수익률(ROE +{dynamicTakeProfitRoe:F1}%) 도달로 강제 익절 청산!");
+                    ClosePosition();
+                    return;
+                }
+                else if (skipRoe <= dynamicStopLossRoe)
+                {
+                    Debug.Log($"[TradingController ⏩] 고속 스킵 중 요미 스킬 기반 위험 손절률(ROE {dynamicStopLossRoe:F1}%) 도달로 강제 손절 청산!");
+                    ClosePosition();
+                    return;
                 }
             }
 

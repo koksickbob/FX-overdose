@@ -363,6 +363,9 @@ namespace FXOverdose.Core
             {
                 targetProfitLayer = 0f;
                 targetDangerLayer = 0f;
+                // 오버도즈 상태일 때 즉시 레이어 볼륨을 0으로 만들어 겹침 현상을 방지
+                profitLayerSource.volume = 0f;
+                dangerLayerSource.volume = 0f;
                 return;
             }
 
@@ -484,6 +487,7 @@ namespace FXOverdose.Core
             }
             bgmSource.clip = next;
             bgmSource.Play();
+            SyncLayerPlayback();
             for (float t = 0f; t < duration * 0.5f; t += Time.unscaledDeltaTime)
             {
                 bgmSource.volume = Mathf.Lerp(0f, normalVolume, t / (duration * 0.5f));

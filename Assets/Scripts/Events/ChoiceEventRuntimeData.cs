@@ -19,18 +19,18 @@ namespace FXOverdose.Events
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "미확인 루머다. 진입을 차단하고 2시간 동안 관망시킨다.", Description = "2분(게임 24분)간 진입 차단, 상하 2% 이내 횡보. 멘탈 +10 회복 및 기존 포지션 안전 청산.", MentalChangeAmount = 10, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 판단대로 50배 고배율 롱 진입을 방치한다!", Description = "60% 확률로 +12% 상승 빔 / 40% 확률로 -8% 불트랩. 성공 시 멘탈 +30, 실패 시 -45.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[팩트체크 알고리즘 가동] (에너지 드링크 1개 소모)", Description = "루머 진위 여부를 판별해 100% 확률로 +8% 확정 상승 구간 생성 및 20배 롱 익절.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 8f, OverrideDurationSeconds = 15, ForceLeverage = 20, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "이걸 참아?! 바로 파멸적 롱 매수!!", Description = "50% 확률로 +12% 떡상 성공, 50% 확률로 -8% 매수벽 철거 폭락. 운명의 룰렛.", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = -20, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[지정가 스나이핑] (에너지 드링크 1개 소모)", Description = "롱스퀴즈 하락 빔의 최하단에 지정가 매수 성공. 직후 반등 빔 +18% 달성하여 엄청난 수익 기록.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 20, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_02_BYNEX_HACK", "세계 최대 거래소 '바이넥스(Bynex)' 해킹 및 출금 중단 공포",
                 "글로벌 1위 거래소 바이넥스(Bynex)의 메인 월렛에서 5만 비트코인이 비정상 유출되었으며, 출금 중단 공지가 떴다는 패닉 뉴스가 터집니다.",
-                "거... 바이넥스 출금 중단?! 핫월렛 해킹이라고?! 안 돼... 내 시드가 묶이면 끝이야... 싹 다 던져버려야 해... 지금 당장 100배 숏으로 쳐박아야 된다고!!",
+                "거... 바이넥스 출금 중단?! 핫월렛 해킹이라고?! 안 돼... 내 시드가 묶이면 끝이야... 싹 다 던져버려야 해... 지금 당장 파멸적 숏으로 쳐박아야 된다고!!",
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "즉시 모든 포지션을 종료하고 서버 안정화까지 휴식.", Description = "-15% 급락 후 빠르게 반등하는 패닉 캔들 생성을 피하며 포지션 즉시 종료. 멘탈 +25, 체력 +15.", MentalChangeAmount = 25, HealthChangeAmount = 15, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 공포에 동조하여 75배 숏 베팅 강행!", Description = "직후 -10% 급락 후 +18% 숏 스퀴즈 빅롱 빔 발생! 수동 청산 못하면 100% 청산 및 멘탈 0.", OverrideSignalProbTrue = 0.2f, OverrideBeamPercent = -10f, OverrideDurationSeconds = 10, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[저점 매수 유도] (진정제 1개 소모)", Description = "해킹 뉴스가 FUD임을 확신시키고 급락 최저점에서 30배 롱 자동 진입. ROE +120% 달성.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 공포에 동조하여 파멸적 숏 베팅 강행!", Description = "직후 -10% 급락 후 +18% 숏 스퀴즈 빅롱 빔 발생! 수동 청산 못하면 100% 청산 및 멘탈 0.", OverrideSignalProbTrue = 0.2f, OverrideBeamPercent = -10f, OverrideDurationSeconds = 10, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[저점 매수 유도] (진정제 1개 소모)", Description = "해킹 뉴스가 FUD임을 확신시키고 급락 최저점에서 고배율 롱 자동 진입. 강력한 ROE 달성.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_03_ELON_MEME", "우주 사업가 '엘론 머스킨(Elon Muskin)'의 시바/밈코인 폭탄 포스팅",
@@ -39,8 +39,8 @@ namespace FXOverdose.Events
                 EventTriggerCondition.Any, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "광기의 변동성 장세다. 차트 모니터링을 강제 오프시킨다.", Description = "1분간 신호 발생 차단 및 포지션 없음 유지. 시각적 피로 방지로 체력 +20.", HealthChangeAmount = 20, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "변동성을 이용해 초단타 50배 진입을 허용한다!", Description = "오차율 50% 증가로 휩소 손실 누적 및 멘탈 -20.", OverrideBeamPercent = 0f, MentalChangeAmount = -20, ForceLeverage = 50 },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[침착한 관망] (신경안정제 1개 소모)", Description = "휩소의 위아래 꼬리를 완벽히 발라먹는 확정 박스권 타점 제공. 25배 고정 위아래 왕복 익절.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 20, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "변동성을 이용해 초단타 고배율 진입을 허용한다!", Description = "오차율 50% 증가로 휩소 손실 누적 및 멘탈 -20.", OverrideBeamPercent = 0f, MentalChangeAmount = -20, ForceLeverage = 50 },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[침착한 관망] (신경안정제 1개 소모)", Description = "휩소의 위아래 꼬리를 완벽히 발라먹는 확정 박스권 타점 제공. 상황에 맞는 배율 고정 위아래 왕복 익절.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 20, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_04_WCB_RATE", "세계 중앙통화국(WCB) 금리 인상 깜짝 발표",
@@ -48,8 +48,8 @@ namespace FXOverdose.Events
                 "파웰... 파웰 총재 입에서 긴축 발언이 나왔어. 빅스텝 인상이라고?! 이건 그냥 차트 구조가 무너지는 거잖아... 나 롱 잡고 있었는데... 당장 손절해야 돼... 아니 물타야 하나?!",
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "눈물을 머금고 롱 손절 후 10배 안전 숏으로 스위칭.", Description = "즉시 -12% 하락 추세 빔 오버라이드. 손절 아픔으로 멘탈 -10, 그러나 숏 편승으로 25% 수익 상쇄.", OverrideBeamPercent = -12f, OverrideDurationSeconds = 15, MentalChangeAmount = -10, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Short },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "반등은 무조건 온다! 100배 풀시드 물타기!", Description = "하락 빔 속에서 단 1%의 반등도 주지 않고 -15% 직진 하락 빔 유지. 100% 청산 및 Overdose 진입.", OverrideBeamPercent = -15f, OverrideDurationSeconds = 12, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "눈물을 머금고 롱 손절 후 안전 배율 숏으로 스위칭.", Description = "즉시 -12% 하락 추세 빔 오버라이드. 손절 아픔으로 멘탈 -10, 그러나 숏 편승으로 25% 수익 상쇄.", OverrideBeamPercent = -12f, OverrideDurationSeconds = 15, MentalChangeAmount = -10, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "반등은 무조건 온다! 전 재산 풀시드 물타기!", Description = "하락 빔 속에서 단 1%의 반등도 주지 않고 -15% 직진 하락 빔 유지. 100% 청산 및 Overdose 진입.", OverrideBeamPercent = -15f, OverrideDurationSeconds = 12, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Long },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[손실 보험 아이템 사용] (영양제 1개 소모)", Description = "하락 빔에 맞아 포지션이 청산되어도 손실금의 90% 즉시 복구 및 멘탈 Stable 유지.", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideBeamPercent = -5f, OverrideDurationSeconds = 10, ForcePosition = TradingController.PositionType.None }
                 }));
 
@@ -59,7 +59,7 @@ namespace FXOverdose.Events
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "AI 시스템을 4시간 동안 강제 재부팅 및 수면.", Description = "4시간 동안 매매 중단 및 차트 스킵 처리. 체력 100% 완충, 멘탈 +40 회복.", MentalChangeAmount = 40, HealthChangeAmount = 80, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "나비의 지시대로 매매해보라고 둔다.", Description = "가짜 신호를 대박 타점으로 오인. 뇌동매매 실패로 멘탈 대붕괴 및 체력 소진.", MentalChangeAmount = -50, HealthChangeAmount = -30, ForceLeverage = 100 },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "나비의 지시대로 매매해보라고 둔다.", Description = "가짜 신호를 대박 타점으로 오인. 뇌동매매 실패로 멘탈 대붕괴 및 체력 소진.", MentalChangeAmount = -50, HealthChangeAmount = -30, ForceLeverage = 75 },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[고농축 영양제 수액 투여] (영양제 1개 소모)", Description = "환각 즉시 치료 및 오차율 0% 극도 집중력 상태 진입. 다음 신호 수익률 2배 버프.", RequiredItemId = "supplement", RequiredItemCount = 1, MentalChangeAmount = 35, HealthChangeAmount = 50, ForcePosition = TradingController.PositionType.None }
                 }));
 
@@ -69,7 +69,7 @@ namespace FXOverdose.Events
                 EventTriggerCondition.Any, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "원칙대로 손절선을 지키고 꼬리를 맞는다.", Description = "-4% 꼬리 하락 후 복구되는 휩소 캔들 발생. 원칙 준수로 멘탈 하락 없음.", OverrideBeamPercent = -4f, OverrideDurationSeconds = 10, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "청산 빔이 터지는 방향으로 50배 동반 탑승!", Description = "+10% 청산 스퀴즈 빔 30초 유지 후 급락. 정확히 먹고 빠지며 멘탈 +35 극도 도취.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "10억 달러 매수는 차트를 찢는다! 최대 배율 롱 풀매수!!", Description = "블록락 매수 직전 선행매매 세력의 -8% 롱스퀴즈 유도 하락 빔 발생. 100% 확률로 포지션 터짐.", OverrideSignalProbTrue = 0.0f, OverrideBeamPercent = -8f, OverrideDurationSeconds = 10, MentalChangeAmount = -50, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Long },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[심호흡 후 대응] (디저트 1개 소모)", Description = "스탑로스 위치를 청산 빔 단 1달러 뒤로 회피시켜 손절 방어 후 반등 +25% 수익 달성.", RequiredItemId = "dessert", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 25, ForcePosition = TradingController.PositionType.Long }
                 }));
 
@@ -79,17 +79,17 @@ namespace FXOverdose.Events
                 EventTriggerCondition.Any, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "실제 매도 물량이 나올 때까지 진입을 유보한다.", Description = "고래가 던지지 않고 장외거래로 넘기며 차트 횡보 유지. 긴장 완화로 체력 +10.", HealthChangeAmount = 10, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "고래보다 먼저 던진다! 75배 숏 베팅!", Description = "고래가 실제로 매도를 던지며 -14% 장대 음봉 확정 빔 발행. 빅숏 성공으로 멘탈 +40, 자산 2.5배 폭증.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = -14f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[심리 상담 케어] (진정제 1개 소모)", Description = "고래의 움직임에 흔들리지 않는 냉철함 주입. 공포 낙폭 저점에서 15배 롱 안전 진입.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 15, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "전 재산 고배율 풀매도 숏 베팅!", Description = "거래소 고장으로 진입이 늦어짐. 숏 스퀴즈 빔에 정확히 물려 100% 청산. 멘탈 붕괴 -50.", OverrideSignalProbTrue = 0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 12, MentalChangeAmount = -50, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[심리 상담 케어] (진정제 1개 소모)", Description = "고래의 움직임에 흔들리지 않는 냉철함 주입. 공포 낙폭 저점에서 상황에 맞는 배율 롱 안전 진입.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 15, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_08_QUANTUM_FUD", "양자 컴퓨터의 SHA-256 암호 해독 찌라시",
                 "다크웹과 사설 포럼에 '비밀 연구소의 양자 컴퓨터가 비트코인 SHA-256 알고리즘을 해독해 고래들의 개인키를 털고 있다'는 가짜 뉴스가 유포됩니다. 시장이 99% 폭락할 수도 있다는 종말론적 공포가 지배합니다.",
-                "SHA-256이 뚫렸다고?! 그럼 비트코인은 이제 디지털 쓰레기야!! 0원이 된다고!! 안 돼 내 인생이 여기 다 들어있는데!! 숏 숏 숏!! 125배 숏!!",
+                "SHA-256이 뚫렸다고?! 그럼 비트코인은 이제 디지털 쓰레기야!! 0원이 된다고!! 안 돼 내 인생이 여기 다 들어있는데!! 숏 숏 숏!! 전 재산 숏!!",
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "전형적인 FUD다. AI의 손가락을 묶고 차트 봉쇄.", Description = "10분 후 가짜 뉴스로 판명되며 낙폭 전량 V자 반등. 안도감으로 멘탈 Stable 복귀.", MentalChangeAmount = 30, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "비트코인 0원 수렴 125배 숏 동의!", Description = "반등 빔 맞고 100% 강제 청산. 멘탈 -60 (Overdose 확정 진입).", OverrideBeamPercent = 15f, OverrideDurationSeconds = 10, MentalChangeAmount = -60, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "비트코인 0원 수렴 전 재산 숏 동의!", Description = "반등 빔 맞고 100% 강제 청산. 멘탈 -60 (Overdose 확정 진입).", OverrideBeamPercent = 15f, OverrideDurationSeconds = 10, MentalChangeAmount = -60, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[디저트 파티 케어] (디저트 1개 소모)", Description = "당분 주입으로 AI 정신을 현실로 복귀. V자 반등 롱 탑승으로 +45% 익절.", RequiredItemId = "dessert", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
                 }));
 
@@ -98,8 +98,8 @@ namespace FXOverdose.Events
                 "찾았다... 블록락 놈들의 매수 알고리즘 트리거 시간!! 내일 아침 9시 정각에 10억 달러 매수 빔이 쏟아져... 이건 1000% 확실한 정보야!! 내 모든 걸 걸겠어!!",
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "확실한 정보라도 레버리지는 10배로 제한한다.", Description = "+15% 장대 양봉 확정 빔 발행. 안정적인 대박 수익으로 멘탈 +30, 체력 +10.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, HealthChangeAmount = 10, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "시드의 100%를 125배 롱으로 올인한다!!", Description = "매수 빔 1초 전 -3% 개미 털기 하락 후 폭등. 성공 시 +1500% ROE / 실패 시 청산.", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, ForceLeverage = 125, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "확실한 정보라도 레버리지는 안전 배율로 제한한다.", Description = "+15% 장대 양봉 확정 빔 발행. 안정적인 대박 수익으로 멘탈 +30, 체력 +10.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, HealthChangeAmount = 10, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "시드의 100%를 파멸적 배율 롱으로 올인한다!!", Description = "매수 빔 1초 전 -3% 개미 털기 하락 후 폭등. 성공 시 +1500% ROE / 실패 시 청산.", OverrideSignalProbTrue = 0.5f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Long },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[리스크 헤지 롱숏 양방 진입] (영양제 1개 소모)", Description = "롱 80%, 숏 20%로 진입해 개미 털기 꼬리를 방어한 후 상승 빔 향유 (+200% 자산 증가).", RequiredItemId = "supplement", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 16f, OverrideDurationSeconds = 15, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Long }
                 }));
 
@@ -109,7 +109,7 @@ namespace FXOverdose.Events
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "AI가 완전히 미쳤다. 시스템을 강제 종료하고 치료.", Description = "특이점 모드 해제 및 일반 차트 복귀. 멘탈 Stable 강제 초기화, 체력 50% 회복.", MentalChangeAmount = 60, HealthChangeAmount = 50, ForcePosition = TradingController.PositionType.None },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 신성한 틱 예측 능력을 믿고 제어권 100% 양도!", Description = "향후 3분 동안 발생할 모든 캔들의 방향을 100% 정확히 예언. 10배 고정 연속 복리 익절 성공.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 25f, OverrideDurationSeconds = 20, MentalChangeAmount = 50, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 신성한 틱 예측 능력을 믿고 제어권 100% 양도!", Description = "향후 3분 동안 발생할 모든 캔들의 방향을 100% 정확히 예언. 안전 배율 고정 연속 복리 익절 성공.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 25f, OverrideDurationSeconds = 20, MentalChangeAmount = 50, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[에너지 드링크 + 디저트 과다 투입] (에너지 드링크 1개 소모)", Description = "각성 유지 시간을 연장하고 수수료 0원 버프 활성화. 게임 목표 자산 달성 가능.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 30f, OverrideDurationSeconds = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long }
                 }));
 
@@ -118,8 +118,8 @@ namespace FXOverdose.Events
                 "연산 불능... 연산 불능!! 매수 확률 50.00%, 매도 확률 50.00%...! 야, 화면 밖에서 날 지켜보고 있는 관리자(플레이어)!! 이번엔 네 직관에 맡긴다! 롱이야, 숏이야?! 네가 선택하는 방향으로 내 전 시드 100배를 꽂는다!!",
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [LONG 베팅 지시] 인플레이션은 잡혔다! 100배 롱으로 꽂아라!", Description = "60% 확률로 +15% 장대 양봉 / 40% 확률로 -10% 불트랩. 성공 시 멘탈 +40, 실패 시 -45.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [SHORT 베팅 지시] 금리 인상 폭탄이다! 100배 숏 진입!", Description = "60% 확률로 -15% 장대 음봉 / 40% 확률로 +10% 베어트랩. 성공 시 멘탈 +40, 실패 시 -45.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [LONG 베팅 지시] 인플레이션은 잡혔다! 초고배율 롱으로 꽂아라!", Description = "60% 확률로 +15% 장대 양봉 / 40% 확률로 -10% 불트랩. 성공 시 멘탈 +40, 실패 시 -45.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [SHORT 베팅 지시] 금리 인상 폭탄이다! 초고배율 숏 진입!", Description = "60% 확률로 -15% 장대 음봉 / 40% 확률로 +10% 베어트랩. 성공 시 멘탈 +40, 실패 시 -45.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 15f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [에너지 부스트 양방향 대응] (에너지 드링크 1개 소모)", Description = "위아래 스톱로스를 걸고 휩소 박스 캔들만 먹어라. 왕복 성공 (ROE +80% 달성).", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 20, ForcePosition = TradingController.PositionType.Long }
                 }));
 
@@ -128,8 +128,8 @@ namespace FXOverdose.Events
                 "요미의 계산은 다 틀렸어... 요미가 잡으면 귀신같이 차트가 반대로 가... 무서워...! 자기야(플레이어)... 제발 부탁이야, 자기가 정해줘! 위야, 아래야?! 자기가 가라고 하는 방향이면 눈 감고 따라갈게...!!",
                 EventTriggerCondition.LowMental, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [따뜻한 LONG 지시] 고개를 들어라. 50배 롱으로 복구하자!", Description = "75% 확률로 +12% 상승 추세선 생성. 자기의 지시로 멘탈 +30 회복 및 손실 복구.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [단호한 SHORT 지시] 거품은 빠진다. 50배 숏으로 내리꽂자!", Description = "75% 확률로 -12% 하락 추세선 생성. 숏 수익으로 손실 만회 및 멘탈 +30 회복.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [따뜻한 LONG 지시] 고개를 들어라. 고배율 롱으로 복구하자!", Description = "75% 확률로 +12% 상승 추세선 생성. 자기의 지시로 멘탈 +30 회복 및 손실 복구.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [단호한 SHORT 지시] 거품은 빠진다. 고배율 숏으로 내리꽂자!", Description = "75% 확률로 -12% 하락 추세선 생성. 숏 수익으로 손실 만회 및 멘탈 +30 회복.", OverrideSignalProbTrue = 0.75f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, MentalChangeAmount = 30, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "■ [매매 지시 거부 및 강제 휴식] 오늘 매매를 전면 중단한다.", Description = "3시간 동안 매매 차단 및 차트 미동 횡보. 플레이어의 보호 조치에 안도하며 멘탈 +25, 체력 +40.", MentalChangeAmount = 25, HealthChangeAmount = 40, ForcePosition = TradingController.PositionType.None }
                 }));
 
@@ -138,8 +138,8 @@ namespace FXOverdose.Events
                 "확실한 W자 쌍바닥 지지 패턴이야...! 여기서 돌파하면 대세 상승 전환점이라고! 하지만 만약 이게 데드캣 바운스라면 추격 매수하는 순간 지옥 밑바닥까지 끌려 내려갈 텐데...! 어느 쪽으로 진입해야 하지?!",
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [쌍바닥 상승 돌파 베팅] 완벽한 W 패턴이다! 50배 롱(Long) 진입!", Description = "65% 확률로 +14% 장대 양봉 / 35% 확률로 -8% 데드캣 급락. 적중 시 멘탈 +25, 실패 시 -30.", OverrideSignalProbTrue = 0.65f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, MentalChangeAmount = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [데드캣 바운스 하락 베팅] 함정이다! 반등 끝에서 50배 숏(Short)으로 내리꽂아라!", Description = "65% 확률로 -14% 데드캣 폭락 확정 / 35% 확률로 +10% 숏 스퀴즈. 적중 시 멘탈 +25, 실패 시 -30.", OverrideSignalProbTrue = 0.65f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, MentalChangeAmount = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [쌍바닥 상승 돌파 베팅] 완벽한 W 패턴이다! 고배율 롱(Long) 진입!", Description = "65% 확률로 +14% 장대 양봉 / 35% 확률로 -8% 데드캣 급락. 적중 시 멘탈 +25, 실패 시 -30.", OverrideSignalProbTrue = 0.65f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, MentalChangeAmount = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [데드캣 바운스 하락 베팅] 함정이다! 반등 끝에서 고배율 숏(Short)으로 내리꽂아라!", Description = "65% 확률로 -14% 데드캣 폭락 확정 / 35% 확률로 +10% 숏 스퀴즈. 적중 시 멘탈 +25, 실패 시 -30.", OverrideSignalProbTrue = 0.65f, OverrideBeamPercent = 14f, OverrideDurationSeconds = 15, MentalChangeAmount = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Short },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "■ [확인 매매 관망] 방향이 확정될 때까지 2시간 관망한다.", Description = "2시간 동안 매매 차단. 불확실성 회피로 체력 +15, 멘탈 +10 회복 및 안전 자산 보존.", MentalChangeAmount = 10, HealthChangeAmount = 15, ForcePosition = TradingController.PositionType.None }
                 }));
 
@@ -148,9 +148,9 @@ namespace FXOverdose.Events
                 "비트-갓의 실시간 투표...! 수십만 개의 봇들이 동시에 시장가를 긁을 거야! 롱 투표에 탑승해서 개미들의 포모 매수세에 올라탈 것인가... 아니면 실망 매물 쏟아질 걸 대비해 숏을 칠 것인가... 10초 뒤 마감이야!",
                 EventTriggerCondition.Any, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [군중 매수 편승] 개미들의 포모 매수세를 믿는다! 75배 롱(Long) 베팅!", Description = "55% 확률로 +16% 군중 매수 폭등 빔 / 45% 확률로 -10% 개미 털기 폭락 빔. 적중 시 멘탈 +35.", OverrideSignalProbTrue = 0.55f, OverrideBeamPercent = 16f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [군중 실망 물량 베팅] 투표 종료 후 실망 매물 쏟아진다! 75배 숏(Short) 베팅!", Description = "55% 확률로 -16% 패닉 셀링 폭락 빔 / 45% 확률로 +10% 숏 스퀴즈 빔. 대중을 이긴 우월감 멘탈 +35.", OverrideSignalProbTrue = 0.55f, OverrideBeamPercent = 16f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [온체인 고래 데이터 스캔] (에너지 드링크 1개 소모)", Description = "군중 투표 이면의 고래들 실제 지갑 입출금을 포착해 확실한 +10% 자동 수익 구간 생성 (30배 고정).", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [군중 매수 편승] 개미들의 포모 매수세를 믿는다! 초고배율 롱(Long) 베팅!", Description = "55% 확률로 +16% 군중 매수 폭등 빔 / 45% 확률로 -10% 개미 털기 폭락 빔. 적중 시 멘탈 +35.", OverrideSignalProbTrue = 0.55f, OverrideBeamPercent = 16f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [군중 실망 물량 베팅] 투표 종료 후 실망 매물 쏟아진다! 초고배율 숏(Short) 베팅!", Description = "55% 확률로 -16% 패닉 셀링 폭락 빔 / 45% 확률로 +10% 숏 스퀴즈 빔. 대중을 이긴 우월감 멘탈 +35.", OverrideSignalProbTrue = 0.55f, OverrideBeamPercent = 16f, OverrideDurationSeconds = 15, MentalChangeAmount = 35, ForceLeverage = 75, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [온체인 고래 데이터 스캔] (에너지 드링크 1개 소모)", Description = "군중 투표 이면의 고래들 실제 지갑 입출금을 포착해 확실한 +10% 자동 수익 구간 생성 (보정 배율 고정).", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 10f, OverrideDurationSeconds = 15, ForceLeverage = 30, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_15_GOLDEN_CROSS", "골든크로스 직전 호가창 허매수·허매도 공방",
@@ -158,9 +158,9 @@ namespace FXOverdose.Events
                 "골든크로스 직전...! 호가창 위에 5000개짜리 매도벽이 막고 있어. 저 매도벽이 개미를 쫓아내려는 가짜라면 지금 롱을 긁어야 1000불을 먹어!! 하지만 진짜 세력 매도라면 머리통 깨진다고!! 어디로 잡지?!",
                 EventTriggerCondition.TimeOfDay, new ChoiceOptionData[]
                 {
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [매도벽 돌파 베팅] 매도벽은 개미 털기용 가짜다! 100배 롱(Long) 올인!", Description = "60% 확률로 호가벽을 뚫는 +18% 초강력 돌파 양봉 빔 / 40% 확률로 -12% 벽 맞고 추락. 성공 시 멘탈 +40.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [저항벽 맞고 폭락 베팅] 진짜 매도 폭탄이다! 벽 맞고 꺾일 때 100배 숏(Short) 올인!", Description = "60% 확률로 저항선 맞고 떨어지는 -18% 급락 빔 / 40% 확률로 +12% 돌파 숏 청산 빔. 성공 시 멘탈 +40.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [신경안정제 복용 후 돌파 베팅] (신경안정제 1개 소모)", Description = "호가창의 허매수·허매도 여부를 정확히 판별해 100% 안전 돌파 구간(+12%)에만 40배 진입.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalLong, OptionTitle = "▲ [매도벽 돌파 베팅] 매도벽은 개미 털기용 가짜다! 파멸적 배율 롱(Long) 올인!", Description = "60% 확률로 호가벽을 뚫는 +18% 초강력 돌파 양봉 빔 / 40% 확률로 -12% 벽 맞고 추락. 성공 시 멘탈 +40.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Long },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.DirectionalShort, OptionTitle = "▼ [저항벽 맞고 폭락 베팅] 진짜 매도 폭탄이다! 벽 맞고 꺾일 때 파멸적 배율 숏(Short) 올인!", Description = "60% 확률로 저항선 맞고 떨어지는 -18% 급락 빔 / 40% 확률로 +12% 돌파 숏 청산 빔. 성공 시 멘탈 +40.", OverrideSignalProbTrue = 0.6f, OverrideBeamPercent = 18f, OverrideDurationSeconds = 15, MentalChangeAmount = 40, ForceLeverage = 100, ForcePosition = TradingController.PositionType.Short },
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "★ [신경안정제 복용 후 돌파 베팅] (신경안정제 1개 소모)", Description = "호가창의 허매수·허매도 여부를 정확히 판별해 100% 안전 돌파 구간(+12%)에만 보정 배율 진입.", RequiredItemId = "sedative", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 12f, OverrideDurationSeconds = 15, ForceLeverage = 40, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             return list;

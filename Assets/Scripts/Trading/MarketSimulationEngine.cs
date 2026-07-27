@@ -690,11 +690,11 @@ namespace FXOverdose.Trading
         // Phase 3: 차트 신호 및 3단계 주가 제어 타임라인 업데이트 (1분마다 호출)
         private void UpdateSignalSystem()
         {
-            if (IsFastForwarding) return;
-
             switch (currentSignalPhase)
             {
                 case SignalPhase.None:
+                    if (IsFastForwarding) return; // 💡 [수정] 고속 스킵 중에는 신규 신호를 발생시키지 않고 관망합니다.
+
                     minutesUntilNextSignal--;
                     if (minutesUntilNextSignal <= 0)
                     {
