@@ -703,7 +703,7 @@ namespace FXOverdose.EditorTools
             statusRect.anchorMax = new Vector2(0.92f, 0.92f);
             statusRect.offsetMin = Vector2.zero;
             statusRect.offsetMax = Vector2.zero;
-            Image statusBackground = statusOverlay.GetComponent<Image>();
+            Image statusBackground = statusOverlay.AddComponent<Image>();
             statusBackground.color = Color.clear;
             VerticalLayoutGroup statusLayout = statusOverlay.AddComponent<VerticalLayoutGroup>();
             statusLayout.childAlignment = TextAnchor.MiddleCenter;
