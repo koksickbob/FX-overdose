@@ -56,6 +56,9 @@ public class TraderStatus : MonoBehaviour
 
     // 멘탈 감소/증가 시 원인과 함께 알리는 이벤트
     public event System.Action<float, string> OnMentalChangedWithReason;
+    public event System.Action<float> OnHealthChanged;
+    public event System.Action<float> OnMentalValueChanged;
+    public event System.Action<MentalState> OnMentalStateChanged;
 
     // 다른 스크립트에서 현재 상태를 읽을 때 사용
     public float CurrentHealth => currentHealth;
@@ -340,6 +343,11 @@ public class TraderStatus : MonoBehaviour
             0f,
             maxHealth
         );
+        float appliedHealthDelta = currentHealth - prevHealth;
+        if (!Mathf.Approximately(appliedHealthDelta, 0f))
+        {
+            OnHealthChanged?.Invoke(appliedHealthDelta);
+        }
 
         // 체력 임계치 돌파 시 유동적 대사 호출
         if (amount < 0f && maxHealth > 0f)
@@ -388,6 +396,7 @@ public class TraderStatus : MonoBehaviour
             return;
         }
 
+        float prevMental = currentMental;
         currentMental += amount;
 
         // 멘탈이 0보다 작거나 최대 멘탈(및 트라우마 제한 maxMentalLimit)보다 커지지 않도록 제한
@@ -397,6 +406,11 @@ public class TraderStatus : MonoBehaviour
             0f,
             effectiveMax
         );
+        float appliedMentalDelta = currentMental - prevMental;
+        if (!Mathf.Approximately(appliedMentalDelta, 0f))
+        {
+            OnMentalValueChanged?.Invoke(appliedMentalDelta);
+        }
 
         if (!string.IsNullOrEmpty(reason))
         {
@@ -414,6 +428,7 @@ public class TraderStatus : MonoBehaviour
     // 현재 멘탈 수치에 따라 감정 상태 결정
     private void UpdateMentalState()
     {
+        MentalState previousState = currentMentalState;
         if (tradingController == null)
         {
             tradingController = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
@@ -492,6 +507,10 @@ public class TraderStatus : MonoBehaviour
             }
         }
 
+        if (previousState != currentMentalState)
+        {
+            OnMentalStateChanged?.Invoke(currentMentalState);
+        }
         lastTrackedMentalState = currentMentalState;
     }
 

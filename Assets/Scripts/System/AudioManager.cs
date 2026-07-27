@@ -1,23 +1,129 @@
-using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
+using FXOverdose.Trading;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace FXOverdose.Core
 {
-    public class AudioManager : MonoBehaviour
+    public enum AudioCue
     {
+        UiClick,
+        LongManual,
+        LongAuto,
+        ShortManual,
+        ShortAuto,
+        Profit,
+        Loss,
+        EventAppear,
+        TraderLevelUp,
+        SkillLevelUp,
+        EnergyDrink,
+        Dessert,
+        Supplement,
+        Sedative,
+        ShopPurchase,
+        CostumePurchase,
+        CostumeEquip,
+        InsufficientBalance,
+        MentalUp,
+        MentalDown,
+        HealthUp,
+        HealthDown,
+        SettlementProfit,
+        SettlementNonProfit,
+        Overdose,
+        GameOver
+    }
+
+    /// <summary>
+    /// Resources/Audio에 약속된 이름의 WAV를 넣으면 자동으로 게임 이벤트에 연결되는 전역 오디오 서비스입니다.
+    /// 씬에 배치하지 않아도 런타임에 자동 생성됩니다.
+    /// </summary>
+    [DefaultExecutionOrder(-1000)]
+    public sealed class AudioManager : MonoBehaviour
+    {
+        private const string NormalBgmPath = "Audio/BGM/bgm_normal";
+        private const string OverdoseBgmPath = "Audio/BGM/bgm_overdose";
+        private const string ProfitLayerPath = "Audio/BGM/layer_profit";
+        private const string DangerLayerPath = "Audio/BGM/layer_danger";
+
+        private static readonly Dictionary<AudioCue, string> CuePaths = new()
+        {
+            { AudioCue.UiClick, "Audio/SFX/UI/ui_click" },
+            { AudioCue.LongManual, "Audio/SFX/Trading/long_manual" },
+            { AudioCue.LongAuto, "Audio/SFX/Trading/long_auto" },
+            { AudioCue.ShortManual, "Audio/SFX/Trading/short_manual" },
+            { AudioCue.ShortAuto, "Audio/SFX/Trading/short_auto" },
+            { AudioCue.Profit, "Audio/SFX/Trading/profit" },
+            { AudioCue.Loss, "Audio/SFX/Trading/loss" },
+            { AudioCue.EventAppear, "Audio/SFX/Event/event_appear" },
+            { AudioCue.TraderLevelUp, "Audio/SFX/Growth/trader_level_up" },
+            { AudioCue.SkillLevelUp, "Audio/SFX/Growth/skill_level_up" },
+            { AudioCue.EnergyDrink, "Audio/SFX/Item/energy_drink" },
+            { AudioCue.Dessert, "Audio/SFX/Item/dessert" },
+            { AudioCue.Supplement, "Audio/SFX/Item/supplement" },
+            { AudioCue.Sedative, "Audio/SFX/Item/sedative" },
+            { AudioCue.ShopPurchase, "Audio/SFX/Shop/item_purchase" },
+            { AudioCue.CostumePurchase, "Audio/SFX/Shop/costume_purchase" },
+            { AudioCue.CostumeEquip, "Audio/SFX/Shop/costume_equip" },
+            { AudioCue.InsufficientBalance, "Audio/SFX/UI/insufficient_balance" },
+            { AudioCue.MentalUp, "Audio/SFX/Status/mental_up" },
+            { AudioCue.MentalDown, "Audio/SFX/Status/mental_down" },
+            { AudioCue.HealthUp, "Audio/SFX/Status/health_up" },
+            { AudioCue.HealthDown, "Audio/SFX/Status/health_down" },
+            { AudioCue.SettlementProfit, "Audio/SFX/Settlement/profit" },
+            { AudioCue.SettlementNonProfit, "Audio/SFX/Settlement/non_profit" },
+            { AudioCue.Overdose, "Audio/SFX/State/overdose" },
+            { AudioCue.GameOver, "Audio/SFX/State/game_over" }
+        };
+
         public static AudioManager Instance { get; private set; }
-
-        [Header("오디오 소스")]
-        [SerializeField] private AudioSource bgmSource;
-        [SerializeField] private GameObject sfxSourcePrefab;
-        [SerializeField] private int sfxPoolSize = 10;
-
-        private List<AudioSource> sfxPool = new List<AudioSource>();
 
         [Header("볼륨 설정")]
         [Range(0f, 1f)] public float masterVolume = 1f;
-        [Range(0f, 1f)] public float bgmVolume = 1f;
+        [Range(0f, 1f)] public float bgmVolume = 0.7f;
         [Range(0f, 1f)] public float sfxVolume = 1f;
+        [SerializeField, Min(4)] private int sfxPoolSize = 12;
+        [SerializeField, Range(0f, 1f)] private float duckedBgmRatio = 0.35f;
+
+        private readonly Dictionary<string, AudioClip> clipCache = new();
+        private readonly HashSet<string> missingClipPaths = new();
+        private readonly List<AudioSource> sfxPool = new();
+        private AudioSource bgmSource;
+        private AudioSource profitLayerSource;
+        private AudioSource dangerLayerSource;
+        private Coroutine bgmFadeRoutine;
+        private Coroutine duckRoutine;
+        private TradingController boundTrading;
+        private TraderLevelSystem boundLevelSystem;
+        private TraderStatus boundStatus;
+        private Inventory boundInventory;
+        private bool overdoseActive;
+        private float targetProfitLayer;
+        private float targetDangerLayer;
+        private float statusSfxReadyAt;
+        private float nextTitleButtonScanAt;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Bootstrap()
+        {
+            EnsureInstance();
+        }
+
+        public static AudioManager EnsureInstance()
+        {
+            if (Instance != null) return Instance;
+            AudioManager existing = FindAnyObjectByType<AudioManager>(FindObjectsInactive.Include);
+            if (existing != null) return existing;
+            return new GameObject(nameof(AudioManager)).AddComponent<AudioManager>();
+        }
+
+        public static void Play(AudioCue cue, bool important = false)
+        {
+            EnsureInstance().PlayCue(cue, important);
+        }
 
         private void Awake()
         {
@@ -26,37 +132,388 @@ namespace FXOverdose.Core
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
             transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
-
-            InitializeAudio();
             LoadSettings();
+            CreateSources();
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+            GameManager.OnGameOverEvent += HandleGameOver;
         }
 
-        private void InitializeAudio()
+        private void Start()
         {
-            if (bgmSource == null)
+            HandleSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance != this) return;
+            UnbindGameplayEvents();
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+            GameManager.OnGameOverEvent -= HandleGameOver;
+            Instance = null;
+        }
+
+        private void Update()
+        {
+            RebindMissingSystems();
+            if (Time.unscaledTime >= nextTitleButtonScanAt)
             {
-                bgmSource = gameObject.AddComponent<AudioSource>();
-                bgmSource.loop = true;
-                bgmSource.playOnAwake = false;
+                nextTitleButtonScanAt = Time.unscaledTime + 1f;
+                BindTitleButtons(SceneManager.GetActiveScene());
+            }
+            UpdateMusicState();
+            float fadeSpeed = 1.5f * Time.unscaledDeltaTime;
+            profitLayerSource.volume = Mathf.MoveTowards(profitLayerSource.volume, targetProfitLayer * bgmVolume * masterVolume, fadeSpeed);
+            dangerLayerSource.volume = Mathf.MoveTowards(dangerLayerSource.volume, targetDangerLayer * bgmVolume * masterVolume, fadeSpeed);
+        }
+
+        private void CreateSources()
+        {
+            bgmSource = CreateSource("BGM", true);
+            profitLayerSource = CreateSource("Profit Layer", true);
+            dangerLayerSource = CreateSource("Danger Layer", true);
+            for (int i = 0; i < sfxPoolSize; i++) sfxPool.Add(CreateSource($"SFX {i + 1:00}", false));
+        }
+
+        private AudioSource CreateSource(string sourceName, bool loop)
+        {
+            AudioSource source = gameObject.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = loop;
+            source.spatialBlend = 0f;
+            return source;
+        }
+
+        private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            UnbindGameplayEvents();
+            BindGameplayEvents();
+            BindTitleButtons(scene);
+
+            bool isGameplay = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include) != null;
+            if (isGameplay) StartNormalMusic();
+            else StopMusic();
+        }
+
+        private void RebindMissingSystems()
+        {
+            if (boundTrading == null || boundLevelSystem == null || boundStatus == null || boundInventory == null)
+                BindGameplayEvents();
+        }
+
+        private void BindGameplayEvents()
+        {
+            TradingController trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            if (trading != null && trading != boundTrading)
+            {
+                if (boundTrading != null)
+                {
+                    boundTrading.OnPositionOpened -= HandlePositionOpened;
+                    boundTrading.OnPositionClosed -= HandlePositionClosed;
+                }
+                boundTrading = trading;
+                boundTrading.OnPositionOpened += HandlePositionOpened;
+                boundTrading.OnPositionClosed += HandlePositionClosed;
             }
 
-            for (int i = 0; i < sfxPoolSize; i++)
+            TraderLevelSystem levels = FindAnyObjectByType<TraderLevelSystem>(FindObjectsInactive.Include);
+            if (levels != null && levels != boundLevelSystem)
             {
-                AudioSource sfx = gameObject.AddComponent<AudioSource>();
-                sfx.playOnAwake = false;
-                sfxPool.Add(sfx);
+                if (boundLevelSystem != null)
+                {
+                    boundLevelSystem.OnProtagonistLeveledUp -= HandleTraderLevelUp;
+                    boundLevelSystem.OnSkillLevelChanged -= HandleSkillLevelUp;
+                }
+                boundLevelSystem = levels;
+                boundLevelSystem.OnProtagonistLeveledUp += HandleTraderLevelUp;
+                boundLevelSystem.OnSkillLevelChanged += HandleSkillLevelUp;
             }
+
+            TraderStatus status = TraderStatus.CanonicalInstance;
+            if (status != null && status != boundStatus)
+            {
+                if (boundStatus != null)
+                {
+                    boundStatus.OnHealthChanged -= HandleHealthChanged;
+                    boundStatus.OnMentalValueChanged -= HandleMentalChanged;
+                    boundStatus.OnMentalStateChanged -= HandleMentalStateChanged;
+                }
+                boundStatus = status;
+                boundStatus.OnHealthChanged += HandleHealthChanged;
+                boundStatus.OnMentalValueChanged += HandleMentalChanged;
+                boundStatus.OnMentalStateChanged += HandleMentalStateChanged;
+                overdoseActive = boundStatus.CurrentMentalState == TraderStatus.MentalState.Overdose;
+            }
+
+            Inventory inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
+            if (inventory != null && inventory != boundInventory)
+            {
+                if (boundInventory != null) boundInventory.ItemConsumed -= HandleItemConsumed;
+                boundInventory = inventory;
+                boundInventory.ItemConsumed += HandleItemConsumed;
+            }
+        }
+
+        private void UnbindGameplayEvents()
+        {
+            if (boundTrading != null)
+            {
+                boundTrading.OnPositionOpened -= HandlePositionOpened;
+                boundTrading.OnPositionClosed -= HandlePositionClosed;
+            }
+            if (boundLevelSystem != null)
+            {
+                boundLevelSystem.OnProtagonistLeveledUp -= HandleTraderLevelUp;
+                boundLevelSystem.OnSkillLevelChanged -= HandleSkillLevelUp;
+            }
+            if (boundStatus != null)
+            {
+                boundStatus.OnHealthChanged -= HandleHealthChanged;
+                boundStatus.OnMentalValueChanged -= HandleMentalChanged;
+                boundStatus.OnMentalStateChanged -= HandleMentalStateChanged;
+            }
+            if (boundInventory != null) boundInventory.ItemConsumed -= HandleItemConsumed;
+            boundTrading = null;
+            boundLevelSystem = null;
+            boundStatus = null;
+            boundInventory = null;
+        }
+
+        private void BindTitleButtons(Scene scene)
+        {
+            if (!scene.name.Contains("Title") && FindAnyObjectByType<FXOverdose.UI.MainMenuController>(FindObjectsInactive.Include) == null)
+                return;
+
+            Button[] buttons = FindObjectsByType<Button>(FindObjectsInactive.Include);
+            foreach (Button button in buttons)
+            {
+                if (button.GetComponent<AudioClickRelay>() == null)
+                    button.gameObject.AddComponent<AudioClickRelay>();
+            }
+        }
+
+        private void HandlePositionOpened(TradingController.PositionType type, float margin, int leverage)
+        {
+            bool manual = boundTrading != null && boundTrading.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
+            PlayCue(type == TradingController.PositionType.Long
+                ? (manual ? AudioCue.LongManual : AudioCue.LongAuto)
+                : (manual ? AudioCue.ShortManual : AudioCue.ShortAuto));
+        }
+
+        private void HandlePositionClosed(float returned, float pnl)
+        {
+            PlayCue(pnl > 0f ? AudioCue.Profit : AudioCue.Loss);
+        }
+
+        private void HandleTraderLevelUp(int level) => PlayCue(AudioCue.TraderLevelUp, true);
+        private void HandleSkillLevelUp(SkillType skill, int level) => PlayCue(AudioCue.SkillLevelUp, true);
+
+        private void HandleHealthChanged(float delta)
+        {
+            if (Mathf.Abs(delta) < 0.5f || Time.unscaledTime < statusSfxReadyAt) return;
+            statusSfxReadyAt = Time.unscaledTime + 0.2f;
+            PlayCue(delta > 0f ? AudioCue.HealthUp : AudioCue.HealthDown);
+        }
+
+        private void HandleMentalChanged(float delta)
+        {
+            if (Mathf.Abs(delta) < 0.5f || Time.unscaledTime < statusSfxReadyAt) return;
+            statusSfxReadyAt = Time.unscaledTime + 0.2f;
+            PlayCue(delta > 0f ? AudioCue.MentalUp : AudioCue.MentalDown);
+        }
+
+        private void HandleMentalStateChanged(TraderStatus.MentalState state)
+        {
+            bool nowOverdose = state == TraderStatus.MentalState.Overdose;
+            if (nowOverdose && !overdoseActive) PlayCue(AudioCue.Overdose, true);
+            overdoseActive = nowOverdose;
+            CrossFadeBgm(nowOverdose ? OverdoseBgmPath : NormalBgmPath, 0.8f);
+        }
+
+        private void HandleItemConsumed(ItemData item)
+        {
+            if (item == null) return;
+            AudioCue cue = item.ItemId switch
+            {
+                "energy_drink" => AudioCue.EnergyDrink,
+                "dessert" => AudioCue.Dessert,
+                "supplement" => AudioCue.Supplement,
+                "sedative" => AudioCue.Sedative,
+                _ => AudioCue.UiClick
+            };
+            PlayCue(cue);
+        }
+
+        private void HandleGameOver(GameManager.EndingType ending) => PlayCue(AudioCue.GameOver, true);
+
+        private void UpdateMusicState()
+        {
+            if (boundStatus == null)
+            {
+                targetProfitLayer = 0f;
+                targetDangerLayer = 0f;
+                return;
+            }
+
+            if (overdoseActive)
+            {
+                targetProfitLayer = 0f;
+                targetDangerLayer = 0f;
+                return;
+            }
+
+            float pnl = boundTrading != null ? boundTrading.CalculateUnrealizedPnL() : 0f;
+            float balance = FindAnyObjectByType<GameManager>()?.CurrentBalance ?? 1f;
+            targetProfitLayer = Mathf.Clamp01(pnl / Mathf.Max(100f, balance * 0.08f));
+
+            float mentalDanger = 1f - Mathf.Clamp01(boundStatus.MentalRatio * 2f);
+            float lossDanger = Mathf.Clamp01(-pnl / Mathf.Max(100f, balance * 0.08f));
+            targetDangerLayer = Mathf.Max(mentalDanger, lossDanger);
+        }
+
+        private void StartNormalMusic()
+        {
+            overdoseActive = boundStatus != null && boundStatus.CurrentMentalState == TraderStatus.MentalState.Overdose;
+            PlayLoop(bgmSource, overdoseActive ? OverdoseBgmPath : NormalBgmPath, bgmVolume * masterVolume);
+            PlayLoop(profitLayerSource, ProfitLayerPath, 0f);
+            PlayLoop(dangerLayerSource, DangerLayerPath, 0f);
+            SyncLayerPlayback();
+        }
+
+        private void StopMusic()
+        {
+            bgmSource.Stop();
+            profitLayerSource.Stop();
+            dangerLayerSource.Stop();
+        }
+
+        private void PlayLoop(AudioSource source, string path, float volume)
+        {
+            AudioClip clip = LoadClip(path);
+            if (clip == null) return;
+            if (source.clip != clip)
+            {
+                source.clip = clip;
+                source.time = 0f;
+            }
+            source.volume = volume;
+            if (!source.isPlaying) source.Play();
+        }
+
+        private void SyncLayerPlayback()
+        {
+            if (bgmSource.clip == null) return;
+            float normalizedTime = bgmSource.clip.length > 0f ? bgmSource.time / bgmSource.clip.length : 0f;
+            SyncLayer(profitLayerSource, normalizedTime);
+            SyncLayer(dangerLayerSource, normalizedTime);
+        }
+
+        private static void SyncLayer(AudioSource layer, float normalizedTime)
+        {
+            if (layer.clip == null) return;
+            layer.time = Mathf.Repeat(normalizedTime * layer.clip.length, layer.clip.length);
+        }
+
+        public void PlayCue(AudioCue cue, bool important = false)
+        {
+            if (!CuePaths.TryGetValue(cue, out string path)) return;
+            AudioClip clip = LoadClip(path);
+            if (clip == null) return;
+
+            AudioSource source = sfxPool.Find(candidate => !candidate.isPlaying) ?? sfxPool[0];
+            source.volume = sfxVolume * masterVolume;
+            source.PlayOneShot(clip);
+            if (important) DuckBgm(0.25f, 0.7f);
+        }
+
+        public void PlayBGM(AudioClip clip, bool crossFade = false)
+        {
+            if (clip == null) return;
+            if (bgmSource.clip == clip && bgmSource.isPlaying) return;
+            bgmSource.clip = clip;
+            bgmSource.volume = bgmVolume * masterVolume;
+            bgmSource.loop = true;
+            bgmSource.Play();
+        }
+
+        public void PlaySFX(AudioClip clip)
+        {
+            if (clip == null) return;
+            AudioSource source = sfxPool.Find(candidate => !candidate.isPlaying) ?? sfxPool[0];
+            source.volume = sfxVolume * masterVolume;
+            source.PlayOneShot(clip);
+        }
+
+        private AudioClip LoadClip(string resourcesPath)
+        {
+            if (clipCache.TryGetValue(resourcesPath, out AudioClip cached)) return cached;
+            if (missingClipPaths.Contains(resourcesPath)) return null;
+            AudioClip clip = Resources.Load<AudioClip>(resourcesPath);
+            if (clip != null) clipCache[resourcesPath] = clip;
+            else missingClipPaths.Add(resourcesPath);
+            return clip;
+        }
+
+        private void CrossFadeBgm(string path, float duration)
+        {
+            AudioClip clip = LoadClip(path);
+            if (clip == null || bgmSource.clip == clip) return;
+            if (bgmFadeRoutine != null) StopCoroutine(bgmFadeRoutine);
+            bgmFadeRoutine = StartCoroutine(CrossFadeRoutine(clip, duration));
+        }
+
+        private IEnumerator CrossFadeRoutine(AudioClip next, float duration)
+        {
+            float normalVolume = bgmVolume * masterVolume;
+            for (float t = 0f; t < duration * 0.5f; t += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(normalVolume, 0f, t / (duration * 0.5f));
+                yield return null;
+            }
+            bgmSource.clip = next;
+            bgmSource.Play();
+            for (float t = 0f; t < duration * 0.5f; t += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(0f, normalVolume, t / (duration * 0.5f));
+                yield return null;
+            }
+            bgmSource.volume = normalVolume;
+            bgmFadeRoutine = null;
+        }
+
+        private void DuckBgm(float fadeTime, float holdTime)
+        {
+            if (duckRoutine != null) StopCoroutine(duckRoutine);
+            duckRoutine = StartCoroutine(DuckRoutine(fadeTime, holdTime));
+        }
+
+        private IEnumerator DuckRoutine(float fadeTime, float holdTime)
+        {
+            float normal = bgmVolume * masterVolume;
+            float ducked = normal * duckedBgmRatio;
+            for (float t = 0f; t < fadeTime; t += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(normal, ducked, t / fadeTime);
+                yield return null;
+            }
+            yield return new WaitForSecondsRealtime(holdTime);
+            for (float t = 0f; t < fadeTime; t += Time.unscaledDeltaTime)
+            {
+                bgmSource.volume = Mathf.Lerp(ducked, normal, t / fadeTime);
+                yield return null;
+            }
+            bgmSource.volume = normal;
+            duckRoutine = null;
         }
 
         private void LoadSettings()
         {
             masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
-            bgmVolume = PlayerPrefs.GetFloat("BGMVolume", 1f);
+            bgmVolume = PlayerPrefs.GetFloat("BGMVolume", 0.7f);
             sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
-            UpdateVolumes();
         }
 
         public void SaveSettings()
@@ -67,64 +524,29 @@ namespace FXOverdose.Core
             PlayerPrefs.Save();
         }
 
-        public void SetMasterVolume(float value)
-        {
-            masterVolume = Mathf.Clamp01(value);
-            UpdateVolumes();
-        }
-
-        public void SetBGMVolume(float value)
-        {
-            bgmVolume = Mathf.Clamp01(value);
-            UpdateVolumes();
-        }
-
-        public void SetSFXVolume(float value)
-        {
-            sfxVolume = Mathf.Clamp01(value);
-            UpdateVolumes();
-        }
+        public void SetMasterVolume(float value) { masterVolume = Mathf.Clamp01(value); UpdateVolumes(); }
+        public void SetBGMVolume(float value) { bgmVolume = Mathf.Clamp01(value); UpdateVolumes(); }
+        public void SetSFXVolume(float value) { sfxVolume = Mathf.Clamp01(value); UpdateVolumes(); }
 
         private void UpdateVolumes()
         {
-            if (bgmSource != null)
-            {
-                bgmSource.volume = bgmVolume * masterVolume;
-            }
-
-            foreach (var sfx in sfxPool)
-            {
-                if (sfx != null)
-                {
-                    sfx.volume = sfxVolume * masterVolume;
-                }
-            }
-        }
-
-        public void PlayBGM(AudioClip clip, bool crossFade = false)
-        {
-            if (clip == null) return;
-            if (bgmSource.clip == clip && bgmSource.isPlaying) return;
-
-            // 크로스페이드 로직은 추후 확장을 위해 예약
-            bgmSource.clip = clip;
             bgmSource.volume = bgmVolume * masterVolume;
-            bgmSource.Play();
+            foreach (AudioSource source in sfxPool) source.volume = sfxVolume * masterVolume;
         }
+    }
 
-        public void PlaySFX(AudioClip clip)
+    internal sealed class AudioClickRelay : MonoBehaviour
+    {
+        private Button button;
+        private void Awake()
         {
-            if (clip == null) return;
-
-            AudioSource availableSource = sfxPool.Find(s => !s.isPlaying);
-            if (availableSource == null)
-            {
-                // 풀이 꽉 찼다면 가장 오래된 재생 중인 것을 강제로 사용하거나 무시
-                availableSource = sfxPool[0];
-            }
-
-            availableSource.volume = sfxVolume * masterVolume;
-            availableSource.PlayOneShot(clip);
+            button = GetComponent<Button>();
+            if (button != null) button.onClick.AddListener(PlayClick);
         }
+        private void OnDestroy()
+        {
+            if (button != null) button.onClick.RemoveListener(PlayClick);
+        }
+        private static void PlayClick() => AudioManager.Play(AudioCue.UiClick);
     }
 }

@@ -428,6 +428,46 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/UI/UIStrokeStyle.cs`
 - `Assets/Scripts/UI/SettingsMenuController.cs`
 
+### Resources 자동 연결형 오디오 시스템
+
+- `Assets/Resources/Audio` 아래 약속된 파일명으로 오디오를 넣으면 씬·인스펙터 설정 없이 자동 로드되는 전역 `AudioManager`를 구현했습니다.
+- 타이틀 버튼, 자동·수동 LONG/SHORT, 수익·손실, 돌발 이벤트, 성장, 아이템 4종, 상점 구매, 코스튬 구매·장착, 잔액 부족, HP·멘탈 변화, 일일 결산, 오버도즈, 게임 오버 이벤트를 실제 성공 시점에 연결했습니다.
+- 평상시·오버도즈 BGM 크로스페이드, 수익·위기 동적 레이어, 중요 효과음 재생 중 BGM 덕킹을 추가했습니다.
+- 오디오 파일이 없는 상태에서도 정상 실행되며, 정확한 파일 경로표를 `docs/오디오.md`에 추가했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/System/AudioManager.cs`
+- `Assets/Scripts/TraderStatus.cs`
+- `Assets/Scripts/GameManager.cs`
+- `Assets/Scripts/Items/ShopManager.cs`
+- `Assets/Scripts/Events/ChoiceEventController.cs`
+- `Assets/Scripts/UI/DailySettlementUIController.cs`
+- `docs/오디오.md`
+
+### 협업자용 오디오 적용 가이드
+
+- 오디오 담당자나 다른 개발자가 코드 수정 없이 파일을 적용할 수 있도록 전체 경로표와 작업 순서를 별도 문서로 작성했습니다.
+- Unity 임포트 권장 설정, 기능별 테스트 체크리스트, 무음 문제 진단 순서, 기존 파일 교체 시 `.meta` 유지 규칙과 신규 오디오 큐 추가 절차를 포함했습니다.
+- 기존 `docs/오디오.md`의 적용 경로 항목에서 가이드로 바로 이동할 수 있도록 링크를 추가했습니다.
+
+관련 파일:
+
+- `docs/오디오_적용_가이드.md`
+- `docs/오디오.md`
+
+### 소모 아이템 가격 조정
+
+- 파르페(Dessert) 가격을 `700`에서 `600`으로 조정했습니다.
+- 서플먼트(Supplement) 가격을 `1100`에서 `900`으로 조정했습니다.
+- 세다티브(Sedative) 가격을 `1300`에서 `1000`으로 조정했습니다.
+
+관련 파일:
+
+- `Assets/Data/Items/Dessert.asset`
+- `Assets/Data/Items/Supplement.asset`
+- `Assets/Data/Items/Sedative.asset`
+
 ### 스킬 레벨 버튼 가로 정렬
 
 - 차트 공부·큐브·독서 스킬 버튼 3개를 세로 열에서 `231×69` 크기의 가로 행으로 변경했습니다.

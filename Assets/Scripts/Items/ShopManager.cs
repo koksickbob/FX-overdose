@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using FXOverdose.Core;
 
 /// <summary>
 /// 상점 열기와 닫기, 자산 차감, 구매 아이템 지급을 처리합니다.
@@ -146,18 +147,23 @@ public class ShopManager : MonoBehaviour
             Debug.Log($"[ShopManager] 소모형 아이템 {item.ItemName} 구매 완료");
         }
 
+        AudioManager.Play(AudioCue.ShopPurchase);
         return true;
     }
 
     public bool BuyCostume(string costumeId)
     {
         if (!IsOpen || gameManager == null || CostumeManager.Instance == null) return false;
-        return CostumeManager.Instance.Purchase(costumeId, gameManager);
+        bool purchased = CostumeManager.Instance.Purchase(costumeId, gameManager);
+        if (purchased) AudioManager.Play(AudioCue.CostumePurchase);
+        return purchased;
     }
 
     public bool EquipCostume(string costumeId)
     {
         if (CostumeManager.Instance == null) return false;
-        return CostumeManager.Instance.Equip(costumeId);
+        bool equipped = CostumeManager.Instance.Equip(costumeId);
+        if (equipped) AudioManager.Play(AudioCue.CostumeEquip);
+        return equipped;
     }
 }
