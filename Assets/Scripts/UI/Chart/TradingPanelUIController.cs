@@ -409,7 +409,7 @@ namespace FXOverdose.UI.Chart
                 UpdatePositionStatusNumbers();
                 if (positionTypeText != null)
                 {
-                    string ownerTag = tradingController.CurrentOwner == TradingController.OwnerType.Player ? "[플레이어]" : "[AI]";
+                    string ownerTag = tradingController.CurrentOwner == TradingController.OwnerType.Player ? "[플레이어]" : "[AUTO]";
                     positionTypeText.text = $"{ownerTag} {tradingController.CurrentPosition} {tradingController.CurrentLeverage}x";
                     positionTypeText.color = tradingController.CurrentPosition == TradingController.PositionType.Long 
                         ? bullishColor : bearishColor;
