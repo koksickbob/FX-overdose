@@ -65,28 +65,28 @@ public class ComicUIBuilder : EditorWindow
         GameObject skipBtnGO = new GameObject("SkipButton");
         skipBtnGO.transform.SetParent(canvasGO.transform, false);
         Image skipImg = skipBtnGO.AddComponent<Image>();
-        skipImg.color = new Color(0, 0, 0, 0.6f); // 반투명 검정
+        skipImg.color = new Color32(64, 68, 76, 165);
         Button skipBtn = skipBtnGO.AddComponent<Button>();
         RectTransform skipRect = skipBtnGO.GetComponent<RectTransform>();
         skipRect.anchorMin = new Vector2(1, 1);
         skipRect.anchorMax = new Vector2(1, 1);
         skipRect.pivot = new Vector2(1, 1);
-        skipRect.anchoredPosition = new Vector2(-50, -50);
-        skipRect.sizeDelta = new Vector2(200, 80);
+        skipRect.anchoredPosition = new Vector2(-28, -28);
+        skipRect.sizeDelta = new Vector2(154, 52);
 
         // Skip Button Text
         GameObject skipTextGO = new GameObject("Text");
         skipTextGO.transform.SetParent(skipBtnGO.transform, false);
         TMPro.TextMeshProUGUI skipText = skipTextGO.AddComponent<TMPro.TextMeshProUGUI>();
-        skipText.text = "SKIP >>";
-        skipText.fontSize = 40;
+        skipText.text = "SKIP  >";
+        skipText.fontSize = 22;
         skipText.alignment = TMPro.TextAlignmentOptions.Center;
         skipText.color = Color.white;
         RectTransform skipTextRect = skipTextGO.GetComponent<RectTransform>();
         skipTextRect.anchorMin = Vector2.zero;
         skipTextRect.anchorMax = Vector2.one;
-        skipTextRect.offsetMin = Vector2.zero;
-        skipTextRect.offsetMax = Vector2.zero;
+        skipTextRect.offsetMin = new Vector2(10, 4);
+        skipTextRect.offsetMax = new Vector2(-10, -4);
 
         // Link fields in controller using serialized object
         SerializedObject so = new SerializedObject(controller);

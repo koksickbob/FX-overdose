@@ -1553,3 +1553,15 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 관련 파일:
 
 - `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+
+## 2026-07-28 — 스토리 컷신 SKIP 버튼 리디자인
+
+- 컷신 스킵 버튼을 작은 `154×52px` 회색 반투명 카드로 정리했습니다.
+- 장식 요소를 제거하고 흰색 `SKIP  >` 텍스트를 중앙에 배치했습니다.
+- 은은한 1px 흰색 외곽선, 호버·누름 색상 피드백과 우측 상단 안전 여백을 적용했으며 기존 스킵 동작은 유지했습니다.
+- 현재 씬의 직렬화 UI를 덮어쓰지 않고 런타임에 스타일을 보장하며, UI 재생성 도구에도 같은 기본 배치를 반영했습니다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/ComicCutsceneController.cs`
+- `Assets/Editor/ComicUIBuilder.cs`

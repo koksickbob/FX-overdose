@@ -51,6 +51,8 @@ namespace FXOverdose.UI
                 return;
             }
             _instance = this;
+
+            ApplySkipButtonStyle();
             
             if (canvasGroup != null)
             {
@@ -64,6 +66,66 @@ namespace FXOverdose.UI
 
             if (nextPanelButton != null)
                 nextPanelButton.onClick.AddListener(ShowNextPanel);
+        }
+
+        private void ApplySkipButtonStyle()
+        {
+            if (skipButton == null) return;
+
+            RectTransform buttonRect = skipButton.GetComponent<RectTransform>();
+            buttonRect.anchorMin = Vector2.one;
+            buttonRect.anchorMax = Vector2.one;
+            buttonRect.pivot = Vector2.one;
+            buttonRect.anchoredPosition = new Vector2(-28f, -28f);
+            buttonRect.sizeDelta = new Vector2(154f, 52f);
+            buttonRect.SetAsLastSibling();
+
+            Image background = skipButton.GetComponent<Image>();
+            if (background == null)
+            {
+                background = skipButton.gameObject.AddComponent<Image>();
+            }
+            background.color = new Color32(64, 68, 76, 165);
+            skipButton.targetGraphic = background;
+            skipButton.transition = Selectable.Transition.ColorTint;
+
+            ColorBlock colors = skipButton.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color32(220, 220, 220, 255);
+            colors.pressedColor = new Color32(165, 165, 165, 255);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color32(110, 110, 110, 130);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            skipButton.colors = colors;
+
+            Outline outline = skipButton.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = skipButton.gameObject.AddComponent<Outline>();
+            }
+            outline.effectColor = new Color32(255, 255, 255, 90);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = true;
+
+            TextMeshProUGUI label = skipButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null)
+            {
+                label.text = "SKIP  >";
+                label.fontSize = 22f;
+                label.enableAutoSizing = false;
+                label.fontStyle = FontStyles.Normal;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = Color.white;
+                label.characterSpacing = 1f;
+                label.raycastTarget = false;
+
+                RectTransform labelRect = label.rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(10f, 4f);
+                labelRect.offsetMax = new Vector2(-10f, -4f);
+            }
         }
 
         private void Update()
