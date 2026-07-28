@@ -57,6 +57,9 @@ namespace FXOverdose.Core
         [SerializeField] private GameObject levelHighlight;
         private GameObject leverageHighlight;
         private GameObject shopHighlight;
+        private GameObject longButtonHighlight;
+        private GameObject shortButtonHighlight;
+        private GameObject closeButtonHighlight;
         private GameObject endTutorialPanel;
 
         private Canvas highlightCanvas;
@@ -332,6 +335,22 @@ namespace FXOverdose.Core
                     : GameObject.Find("CharacterLevelExpHUD")?.GetComponent<RectTransform>();
                 if (levelHud != null) levelHighlight = CreateHighlightOverlay(levelHud);
             }
+
+            // 7. Manual LONG / SHORT buttons
+            if (longButtonHighlight == null && btnLong != null)
+            {
+                longButtonHighlight = CreateHighlightOverlay(btnLong.transform);
+            }
+            if (shortButtonHighlight == null && btnShort != null)
+            {
+                shortButtonHighlight = CreateHighlightOverlay(btnShort.transform);
+            }
+
+            // 8. Manual position close button
+            if (closeButtonHighlight == null && btnClose != null)
+            {
+                closeButtonHighlight = CreateHighlightOverlay(btnClose.transform);
+            }
         }
 
         private IEnumerator BindHighlightsWhenReady()
@@ -350,7 +369,8 @@ namespace FXOverdose.Core
                 $"[TutorialManager] 일부 하이라이트 대상 바인딩 지연: " +
                 $"chart={chartHighlight != null}, balance={balanceHighlight != null}, " +
                 $"margin={marginHighlight != null}, leverage={leverageHighlight != null}, " +
-                $"mental={mentalHighlight != null}, shop={shopHighlight != null}, level={levelHighlight != null}",
+                $"mental={mentalHighlight != null}, shop={shopHighlight != null}, level={levelHighlight != null}, " +
+                $"long={longButtonHighlight != null}, short={shortButtonHighlight != null}, close={closeButtonHighlight != null}",
                 this);
         }
 
@@ -362,7 +382,10 @@ namespace FXOverdose.Core
                    leverageHighlight != null &&
                    mentalHighlight != null &&
                    shopHighlight != null &&
-                   levelHighlight != null;
+                   levelHighlight != null &&
+                   longButtonHighlight != null &&
+                   shortButtonHighlight != null &&
+                   closeButtonHighlight != null;
         }
 
 
@@ -474,6 +497,9 @@ namespace FXOverdose.Core
             if (mentalHighlight != null) mentalHighlight.SetActive(false);
             if (shopHighlight != null) shopHighlight.SetActive(false);
             if (levelHighlight != null) levelHighlight.SetActive(false);
+            if (longButtonHighlight != null) longButtonHighlight.SetActive(false);
+            if (shortButtonHighlight != null) shortButtonHighlight.SetActive(false);
+            if (closeButtonHighlight != null) closeButtonHighlight.SetActive(false);
         }
 
         private Coroutine pulseCoroutine;
@@ -533,6 +559,45 @@ namespace FXOverdose.Core
                 }
                 yield return null;
             }
+        }
+
+        private void SetManualTradeHighlights(bool state)
+        {
+            if (pulseCoroutine != null)
+            {
+                StopCoroutine(pulseCoroutine);
+                pulseCoroutine = null;
+            }
+
+            if (longButtonHighlight != null) longButtonHighlight.SetActive(state);
+            if (shortButtonHighlight != null) shortButtonHighlight.SetActive(state);
+
+            SetHighlightAlpha(longButtonHighlight, 1f);
+            SetHighlightAlpha(shortButtonHighlight, 1f);
+
+            if (state)
+            {
+                pulseCoroutine = StartCoroutine(PulseManualTradeHighlights());
+            }
+        }
+
+        private IEnumerator PulseManualTradeHighlights()
+        {
+            const float speed = 5f;
+            while (true)
+            {
+                float alpha = (Mathf.Sin(Time.unscaledTime * speed) + 1f) * 0.35f + 0.3f;
+                SetHighlightAlpha(longButtonHighlight, alpha);
+                SetHighlightAlpha(shortButtonHighlight, alpha);
+                yield return null;
+            }
+        }
+
+        private static void SetHighlightAlpha(GameObject highlight, float alpha)
+        {
+            if (highlight == null) return;
+            CanvasGroup canvasGroup = highlight.GetComponent<CanvasGroup>();
+            if (canvasGroup != null) canvasGroup.alpha = alpha;
         }
 
         private IEnumerator PlayDialogueAndWait(string text, DialoguePriority priority = DialoguePriority.Critical)
@@ -604,6 +669,7 @@ namespace FXOverdose.Core
                 tradingController.LockManualMode();   // 다시 강제 락 (요미 외 전환 불가)
             }
 
+            SetManualTradeHighlights(true);
             yield return StartCoroutine(PlayDialogueAndWait("일단 오빠의 실력 좀 볼까? 수동 매매 모드로 바꿨으니까, 차트를 보고 상승(Long)이든 하락(Short)이든 버튼을 눌러서 포지션을 잡아봐!"));
 
             // 롱/숏 버튼만 앞으로 가져오고 활성화
@@ -623,6 +689,7 @@ namespace FXOverdose.Core
             }
 
             // 진입 성공 시 다시 전역 차단
+            SetManualTradeHighlights(false);
             SetButtonsInteractable(false);
         }
 
@@ -631,6 +698,7 @@ namespace FXOverdose.Core
             CurrentState = TutorialState.WaitToClosePosition;
             
             yield return new WaitForSeconds(2.0f); // 가격 변동 대기
+            if (closeButtonHighlight != null) SetHighlight(closeButtonHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("좋아, 포지션이 잡혔어! 손익(ROE)이 움직이는 거 보이지? 적당할 때 '포지션 매도' 버튼을 눌러서 수익을 확정(또는 손절)해봐."));
 
             SetButtonsInteractable(false);
@@ -642,6 +710,7 @@ namespace FXOverdose.Core
                 yield return null;
             }
 
+            if (closeButtonHighlight != null) SetHighlight(closeButtonHighlight, false);
             SetButtonsInteractable(false);
         }
 

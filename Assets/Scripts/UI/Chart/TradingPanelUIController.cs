@@ -100,6 +100,8 @@ namespace FXOverdose.UI.Chart
         private Image positionBannerImage;
         private TMP_Text positionBannerText;
         private Coroutine positionFxCoroutine;
+        private GameObject tradeCooldownOverlay;
+        private TMP_Text tradeCooldownText;
 
         private void Start()
         {
@@ -116,6 +118,7 @@ namespace FXOverdose.UI.Chart
             }
 
             BuildPositionFx();
+            BuildTradeCooldownUI();
             ConfigureDynamicValueText(marginRatioDisplayText, 22f, 12f);
             ConfigureDynamicValueText(marginAmountText, 18f, 10f);
             SetupButtons();
@@ -179,6 +182,8 @@ namespace FXOverdose.UI.Chart
                     marginAmountText.text = $"투입: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
                 }
             }
+
+            UpdateTradeCooldownUI();
         }
 
         private void SetupButtons()
@@ -362,10 +367,11 @@ namespace FXOverdose.UI.Chart
             bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
             bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
             bool showPlayerSellButton = hasPosition && isManualMode;
+            bool isTradeCooldown = isManualMode && !hasPosition && tradingController.IsPlayerTradeOnCooldown;
 
             // 진입 버튼은 포지션이 없을 때만 동작하고, 보유 중에는 전용 매도 버튼이 위를 덮습니다.
-            if (longButton != null) longButton.interactable = isManualMode && !hasPosition;
-            if (shortButton != null) shortButton.interactable = isManualMode && !hasPosition;
+            if (longButton != null) longButton.interactable = isManualMode && !hasPosition && !isTradeCooldown;
+            if (shortButton != null) shortButton.interactable = isManualMode && !hasPosition && !isTradeCooldown;
             if (closePositionButton != null)
             {
                 closePositionButton.gameObject.SetActive(showPlayerSellButton);
@@ -375,16 +381,22 @@ namespace FXOverdose.UI.Chart
 
             if (longSubtitleText != null)
             {
-                longSubtitleText.text = hasPosition
+                longSubtitleText.text = isTradeCooldown
+                    ? "재진입 대기 중"
+                    : hasPosition
                     ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Long ? "LONG 보유중 (AUTO)" : "대기중"))
                     : (isManualMode ? "LONG 수동 매수" : "자동 매수 대기");
             }
             if (shortSubtitleText != null)
             {
-                shortSubtitleText.text = hasPosition
+                shortSubtitleText.text = isTradeCooldown
+                    ? "재진입 대기 중"
+                    : hasPosition
                     ? (isManualMode ? "포지션 매도 버튼 사용" : (tradingController.CurrentPosition == TradingController.PositionType.Short ? "SHORT 보유중 (AUTO)" : "대기중"))
                     : (isManualMode ? "SHORT 수동 매도" : "자동 매도 대기");
             }
+
+            UpdateTradeCooldownUI();
 
             // 상태 오버레이 패널 및 탭 바 표시 여부
             if (positionStatusPanel != null)
@@ -463,6 +475,87 @@ namespace FXOverdose.UI.Chart
                 pnlText.text = $"PnL: {sign}${pnl:N2}";
                 pnlText.color = pnl >= 0 ? bullishColor : bearishColor;
             }
+        }
+
+        private void BuildTradeCooldownUI()
+        {
+            if (closePositionButton == null) return;
+
+            Transform parent = closePositionButton.transform.parent;
+            Transform existing = parent.Find("TradeCooldownOverlay");
+            if (existing != null)
+            {
+                tradeCooldownOverlay = existing.gameObject;
+                tradeCooldownText = existing.GetComponentInChildren<TMP_Text>(true);
+                return;
+            }
+
+            GameObject overlay = new("TradeCooldownOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            overlay.transform.SetParent(parent, false);
+
+            RectTransform sourceRect = closePositionButton.GetComponent<RectTransform>();
+            RectTransform overlayRect = overlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = sourceRect.anchorMin;
+            overlayRect.anchorMax = sourceRect.anchorMax;
+            overlayRect.pivot = sourceRect.pivot;
+            overlayRect.anchoredPosition = sourceRect.anchoredPosition;
+            overlayRect.sizeDelta = sourceRect.sizeDelta;
+            overlayRect.localRotation = sourceRect.localRotation;
+            overlayRect.localScale = sourceRect.localScale;
+
+            Image background = overlay.GetComponent<Image>();
+            background.color = new Color32(15, 23, 42, 224);
+            background.raycastTarget = false;
+
+            Outline outline = overlay.GetComponent<Outline>();
+            outline.effectColor = new Color32(255, 255, 255, 110);
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            GameObject textObject = new("CooldownText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(overlay.transform, false);
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(6f, 4f);
+            textRect.offsetMax = new Vector2(-6f, -4f);
+
+            tradeCooldownText = textObject.GetComponent<TextMeshProUGUI>();
+            tradeCooldownText.font = TMP_Settings.defaultFontAsset;
+            tradeCooldownText.fontSize = 25f;
+            tradeCooldownText.fontStyle = FontStyles.Bold;
+            tradeCooldownText.alignment = TextAlignmentOptions.Center;
+            tradeCooldownText.color = Color.white;
+            tradeCooldownText.raycastTarget = false;
+            tradeCooldownText.textWrappingMode = TextWrappingModes.NoWrap;
+            tradeCooldownText.text = "COOLDOWN  3.0s";
+
+            overlay.SetActive(false);
+            tradeCooldownOverlay = overlay;
+        }
+
+        private void UpdateTradeCooldownUI()
+        {
+            if (tradingController == null) return;
+
+            bool hasPosition = tradingController.CurrentPosition != TradingController.PositionType.None;
+            bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
+            float remaining = tradingController.RemainingPlayerTradeCooldown;
+            bool showCooldown = isManualMode && !hasPosition && remaining > 0f;
+
+            if (tradeCooldownOverlay != null)
+            {
+                tradeCooldownOverlay.SetActive(showCooldown);
+                if (showCooldown) tradeCooldownOverlay.transform.SetAsLastSibling();
+            }
+
+            if (showCooldown && tradeCooldownText != null)
+            {
+                tradeCooldownText.text = $"COOLDOWN  {remaining:0.0}s";
+            }
+
+            bool canEnter = isManualMode && !hasPosition && !showCooldown;
+            if (longButton != null && longButton.interactable != canEnter) longButton.interactable = canEnter;
+            if (shortButton != null && shortButton.interactable != canEnter) shortButton.interactable = canEnter;
         }
 
         private void HandlePositionLiquidated()
