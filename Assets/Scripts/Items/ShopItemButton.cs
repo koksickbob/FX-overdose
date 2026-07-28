@@ -121,6 +121,9 @@ public class ShopItemButton : MonoBehaviour
 
         if (priceText != null)
         {
+            priceText.enableAutoSizing = true;
+            priceText.fontSizeMin = 10f;
+            priceText.textWrappingMode = TextWrappingModes.NoWrap;
             if (isMax)
             {
                 priceText.text = "MAXED";
