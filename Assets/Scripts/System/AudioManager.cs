@@ -106,6 +106,8 @@ namespace FXOverdose.Core
         private float targetDangerLayer;
         private float statusSfxReadyAt;
         private float nextTitleButtonScanAt;
+        private float lastHealthRatio = 1f;
+        private float lastMentalRatio = 1f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -247,6 +249,8 @@ namespace FXOverdose.Core
                 boundStatus.OnMentalValueChanged += HandleMentalChanged;
                 boundStatus.OnMentalStateChanged += HandleMentalStateChanged;
                 overdoseActive = boundStatus.CurrentMentalState == TraderStatus.MentalState.Overdose;
+                lastHealthRatio = boundStatus.MaxHealth > 0f ? boundStatus.CurrentHealth / boundStatus.MaxHealth : 1f;
+                lastMentalRatio = boundStatus.MaxMental > 0f ? boundStatus.CurrentMental / boundStatus.MaxMental : 1f;
             }
 
             Inventory inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
@@ -314,6 +318,18 @@ namespace FXOverdose.Core
 
         private void HandleHealthChanged(float delta)
         {
+            float currentRatio = boundStatus != null && boundStatus.MaxHealth > 0f ? boundStatus.CurrentHealth / boundStatus.MaxHealth : 1f;
+            bool playedThreshold = false;
+
+            if (lastHealthRatio >= 0.5f && currentRatio < 0.5f)
+            {
+                PlayCue(AudioCue.HealthDown, true);
+                playedThreshold = true;
+            }
+            lastHealthRatio = currentRatio;
+
+            if (playedThreshold) return;
+
             if (Mathf.Abs(delta) < 0.5f || Time.unscaledTime < statusSfxReadyAt) return;
             statusSfxReadyAt = Time.unscaledTime + 0.2f;
             PlayCue(delta > 0f ? AudioCue.HealthUp : AudioCue.HealthDown);
@@ -321,6 +337,23 @@ namespace FXOverdose.Core
 
         private void HandleMentalChanged(float delta)
         {
+            float currentRatio = boundStatus != null && boundStatus.MaxMental > 0f ? boundStatus.CurrentMental / boundStatus.MaxMental : 1f;
+            bool playedThreshold = false;
+
+            if (lastMentalRatio >= 0.5f && currentRatio < 0.5f)
+            {
+                PlayCue(AudioCue.MentalDown, true);
+                playedThreshold = true;
+            }
+            else if (lastMentalRatio >= 0.2f && currentRatio < 0.2f)
+            {
+                PlayCue(AudioCue.MentalDown, true);
+                playedThreshold = true;
+            }
+            lastMentalRatio = currentRatio;
+
+            if (playedThreshold) return;
+
             if (Mathf.Abs(delta) < 0.5f || Time.unscaledTime < statusSfxReadyAt) return;
             statusSfxReadyAt = Time.unscaledTime + 0.2f;
             PlayCue(delta > 0f ? AudioCue.MentalUp : AudioCue.MentalDown);
