@@ -270,6 +270,8 @@ public class GameManager : MonoBehaviour
                 aiVisual.SetTutorialAdvanceIndicator(false);
                 yield return new WaitForSeconds(0.1f);
             }
+            
+            aiVisual.HideDialogueBalloon();
         }
         else
         {
