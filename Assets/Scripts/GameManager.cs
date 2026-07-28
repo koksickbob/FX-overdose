@@ -401,12 +401,15 @@ public class GameManager : MonoBehaviour
         }
 
         // 페널티 적용 (Day 16 페널티는 아침으로 이동했으므로 예외)
-        if (currentDay != 16 && TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
+        if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
         {
-            currentBalance -= TodayEvent.penaltyAmount; 
-            if (TraderStatus.CanonicalInstance != null)
-                TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(TodayEvent.penaltyAmount);
-            Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
+            if (currentDay != 16 && TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
+            {
+                currentBalance -= TodayEvent.penaltyAmount; 
+                if (TraderStatus.CanonicalInstance != null)
+                    TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(TodayEvent.penaltyAmount);
+                Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
+            }
         }
 
         // 컷툰 재생 또는 바로 정산
