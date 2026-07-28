@@ -20,6 +20,8 @@ public class SettingsMenuController : MonoBehaviour
     private Image floatingModeImage;
     private Button floatingModeButton;
     private Button saveMenuButton;
+    private Button fpsMenuButton;
+    private TMP_Text fpsButtonText;
 
     [Header("오디오 설정 UI (UI 담당자 할당)")]
     [SerializeField] private Slider bgmVolumeSlider;
@@ -351,27 +353,52 @@ public class SettingsMenuController : MonoBehaviour
         paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
 
         TMP_Text bgmLabel = CreateText(inner.transform, "Label_BGM", "BGM", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.68f), new Vector2(0.87f, 0.72f));
-        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.61f), new Vector2(0.87f, 0.665f), new Color32(0, 255, 255, 255));
+        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.71f), new Vector2(0.87f, 0.75f));
+        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.64f), new Vector2(0.87f, 0.695f), new Color32(0, 255, 255, 255));
 
         TMP_Text sfxLabel = CreateText(inner.transform, "Label_SFX", "SFX", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.49f), new Vector2(0.87f, 0.53f));
-        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.405f), new Vector2(0.87f, 0.46f), new Color32(0, 255, 255, 255));
+        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.55f), new Vector2(0.87f, 0.59f));
+        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.48f), new Vector2(0.87f, 0.535f), new Color32(0, 255, 255, 255));
+
+        TMP_Text fpsLabel = CreateText(inner.transform, "Label_FPS", "MAX FPS (FRAME LIMIT)", 18f, TextAlignmentOptions.BottomLeft);
+        SetRect(fpsLabel.rectTransform, new Vector2(0.13f, 0.39f), new Vector2(0.87f, 0.43f));
+        
+        int currentFps = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
+        fpsMenuButton = CreateButton(inner.transform, "FpsButton", $"{currentFps} FPS", new Color(0.10f, 0.35f, 0.48f, 1f));
+        SetRect(fpsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.32f), new Vector2(0.87f, 0.375f));
+        fpsMenuButton.onClick.AddListener(CycleFPS);
+        fpsButtonText = fpsMenuButton.GetComponentInChildren<TMP_Text>();
 
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.285f), new Vector2(0.87f, 0.355f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.22f), new Vector2(0.87f, 0.29f));
         saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.165f), new Vector2(0.87f, 0.235f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.12f), new Vector2(0.87f, 0.19f));
         resumeButton.onClick.AddListener(CloseMenu);
 
         Button quitButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.035f), new Vector2(0.87f, 0.105f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.02f), new Vector2(0.87f, 0.09f));
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();
         overlay.SetActive(false);
+    }
+
+    private void CycleFPS()
+    {
+        int current = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
+        var options = FXOverdose.Core.SystemSettingsManager.FpsOptions;
+        int idx = System.Array.IndexOf(options, current);
+        if (idx < 0) idx = 1; // Default to index 1 (60) if not found
+        idx = (idx + 1) % options.Length;
+        int nextFps = options[idx];
+        
+        FXOverdose.Core.SystemSettingsManager.SetFPS(nextFps);
+        if (fpsButtonText != null)
+        {
+            fpsButtonText.text = $"{nextFps} FPS";
+        }
     }
 
     private Button CreateButton(Transform parent, string objectName, string label, Color color)

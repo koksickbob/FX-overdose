@@ -531,6 +531,7 @@ namespace FXOverdose.Core
                 }
                 
                 aiVisualController.SetTutorialAdvanceIndicator(false);
+                aiVisualController.HideDialogueBalloon();
 
                 // 클릭 직후 약간의 유예 시간
                 yield return new WaitForSeconds(0.1f);
@@ -714,11 +715,7 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("매매에 도움을 주는 유용한 아이템들이나, 요미의 밥과 음료수들을 살 수 있어."));
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 번 돈은 요미를 위해 아낌없이 쓰라구!"));
             
-            SetButtonsInteractable(false);
-            BringToFront(btnShop);
-            yield return new WaitForSeconds(2.0f);
             if (shopHighlight != null) SetHighlight(shopHighlight, false);
-            SetButtonsInteractable(false);
         }
 
         private IEnumerator Step8_LevelSystem()

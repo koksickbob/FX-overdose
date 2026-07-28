@@ -815,9 +815,31 @@ namespace FXOverdose.AI
             {
                 SetTutorialAdvanceIndicator(true);
             }
+            else
+            {
+                // 출력 완료 후 최소 읽기 보장 시간 및 displayDuration 대기
+                hideBalloonCoroutine = StartCoroutine(HideBalloonOrProcessQueueAfterDelay(displayDuration));
+            }
+        }
 
-            // 출력 완료 후 최소 읽기 보장 시간 및 displayDuration 대기
-            hideBalloonCoroutine = StartCoroutine(HideBalloonOrProcessQueueAfterDelay(displayDuration));
+        public void HideDialogueBalloon()
+        {
+            if (typewriterCoroutine != null)
+            {
+                StopCoroutine(typewriterCoroutine);
+                typewriterCoroutine = null;
+            }
+            if (hideBalloonCoroutine != null)
+            {
+                StopCoroutine(hideBalloonCoroutine);
+                hideBalloonCoroutine = null;
+            }
+            isBalloonLocked = false;
+            SetTutorialAdvanceIndicator(false);
+            if (dialogueBalloonPanel != null)
+            {
+                dialogueBalloonPanel.SetActive(false);
+            }
         }
 
         private IEnumerator HideBalloonOrProcessQueueAfterDelay(float delay)

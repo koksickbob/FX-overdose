@@ -529,8 +529,11 @@ namespace FXOverdose.Events
                 return;
             }
 
-            // 확률적 성공 여부 판정 (기본값 0이면 100% 확정 신호, 0~1 사이면 확률 판정)
-            bool isOptionSuccess = option.OverrideSignalProbTrue <= 0f || option.OverrideSignalProbTrue >= 1f || (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
+            // 확률적 성공 여부 판정 (기본값 0이면 100% 트랩/실패, 1이면 100% 확정 신호, 0~1 사이면 확률 판정)
+            bool isOptionSuccess;
+            if (option.OverrideSignalProbTrue >= 1f) isOptionSuccess = true;
+            else if (option.OverrideSignalProbTrue <= 0f) isOptionSuccess = false;
+            else isOptionSuccess = (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
 
             // 매매 제어
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
@@ -558,7 +561,23 @@ namespace FXOverdose.Events
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (marketEngine != null && Mathf.Abs(option.OverrideBeamPercent) > 0.001f)
             {
-                marketEngine.OverrideMarketTrend(option.OverrideBeamPercent, 150, !isOptionSuccess);
+                float finalBeam = option.OverrideBeamPercent;
+                if (!isOptionSuccess && option.ForcePosition != TradingController.PositionType.None)
+                {
+                    // 트랩(실패)일 경우, 무조건 플레이어 포지션의 반대 방향(손실 방향)으로 빔이 나와야 함.
+                    // 데이터에 이미 기획 의도대로 올바른 반대 부호(음수/양수)가 기입되어 있는지 확인
+                    bool isAlreadyOpposite = (option.ForcePosition == TradingController.PositionType.Long && finalBeam < 0) || 
+                                             (option.ForcePosition == TradingController.PositionType.Short && finalBeam > 0);
+                    
+                    if (!isAlreadyOpposite)
+                    {
+                        // 기획상 양수(원래 방향)로 기입되어 있다면, 실패 시 반대 방향 70% 위력의 트랩으로 변환!
+                        finalBeam = option.ForcePosition == TradingController.PositionType.Long 
+                            ? -Mathf.Abs(option.OverrideBeamPercent) * 0.7f 
+                            : Mathf.Abs(option.OverrideBeamPercent) * 0.7f;
+                    }
+                }
+                marketEngine.OverrideMarketTrend(finalBeam, 150, !isOptionSuccess);
             }
         }
 
@@ -568,7 +587,10 @@ namespace FXOverdose.Events
                 ? TradingController.PositionType.Long 
                 : TradingController.PositionType.Short;
 
-            bool isSuccess = UnityEngine.Random.value <= option.OverrideSignalProbTrue;
+            bool isSuccess;
+            if (option.OverrideSignalProbTrue >= 1f) isSuccess = true;
+            else if (option.OverrideSignalProbTrue <= 0f) isSuccess = false;
+            else isSuccess = (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
 
             TradingController.EventPositionHandlingMode handlingMode = option.PositionHandlingMode;
             if (handlingMode == TradingController.EventPositionHandlingMode.StandardAuto)

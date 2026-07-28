@@ -240,6 +240,12 @@ namespace FXOverdose.UI
         private void BindSettingsPanelControls()
         {
             if (settingsPanel == null) return;
+            
+            Transform modalWindow = settingsPanel.transform.Find("ModalWindow");
+            if (modalWindow != null && modalWindow.Find("Btn_FPS") == null)
+            {
+                InjectFPSSettingsUI(modalWindow);
+            }
 
             Button close = settingsPanel.transform.Find("ModalWindow/Btn_Close")?.GetComponent<Button>();
             if (close != null)
@@ -250,6 +256,69 @@ namespace FXOverdose.UI
 
             BindVolumeSlider(settingsPanel.transform, "ModalWindow/Slider_BGM", "BGMVolume");
             BindVolumeSlider(settingsPanel.transform, "ModalWindow/Slider_SFX", "SFXVolume");
+        }
+
+        private void InjectFPSSettingsUI(Transform window)
+        {
+            Transform bgmLabel = window.Find("BGMLabel");
+            Transform bgmSlider = window.Find("Slider_BGM");
+            Transform sfxLabel = window.Find("SFXLabel");
+            Transform sfxSlider = window.Find("Slider_SFX");
+            
+            Transform fpsLabel = null;
+            if (sfxLabel != null)
+            {
+                fpsLabel = Instantiate(sfxLabel, window);
+                fpsLabel.name = "FPSLabel";
+                var text = fpsLabel.GetComponent<TMP_Text>();
+                if (text != null) text.text = "MAX FPS (FRAME LIMIT)";
+            }
+
+            if (bgmLabel != null) ShiftRectY(bgmLabel, 0.08f);
+            if (bgmSlider != null) ShiftRectY(bgmSlider, 0.08f);
+            if (sfxLabel != null) ShiftRectY(sfxLabel, 0.11f);
+            if (sfxSlider != null) ShiftRectY(sfxSlider, 0.11f);
+            
+            if (fpsLabel != null) ShiftRectY(fpsLabel, -0.07f);
+            
+            Transform closeBtn = window.Find("Btn_Close");
+            if (closeBtn != null)
+            {
+                Transform fpsBtn = Instantiate(closeBtn, window);
+                fpsBtn.name = "Btn_FPS";
+                var text = fpsBtn.GetComponentInChildren<TMP_Text>();
+                int currentFps = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
+                if (text != null) text.text = $"{currentFps} FPS";
+                
+                RectTransform rt = fpsBtn.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.10f, 0.25f);
+                rt.anchorMax = new Vector2(0.90f, 0.32f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                
+                Button btn = fpsBtn.GetComponent<Button>();
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => {
+                    int current = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
+                    var options = FXOverdose.Core.SystemSettingsManager.FpsOptions;
+                    int idx = System.Array.IndexOf(options, current);
+                    if (idx < 0) idx = 1;
+                    idx = (idx + 1) % options.Length;
+                    int nextFps = options[idx];
+                    FXOverdose.Core.SystemSettingsManager.SetFPS(nextFps);
+                    if (text != null) text.text = $"{nextFps} FPS";
+                });
+            }
+        }
+        
+        private void ShiftRectY(Transform t, float amount)
+        {
+            RectTransform rt = t.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(rt.anchorMin.x, rt.anchorMin.y + amount);
+                rt.anchorMax = new Vector2(rt.anchorMax.x, rt.anchorMax.y + amount);
+            }
         }
 
         private static void BindVolumeSlider(Transform panel, string path, string key)

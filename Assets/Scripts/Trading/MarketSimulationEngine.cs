@@ -243,30 +243,33 @@ namespace FXOverdose.Trading
             {
                 case MarketRegime.Bull:
                     drift = 0.0004f;
-                    targetVol = 0.0025f;
+                    targetVol = 0.0035f; // 변동성 상향
                     ouTheta = 0.02f;
                     break;
                 case MarketRegime.Bear:
                     drift = -0.0004f;
-                    targetVol = 0.0035f;
+                    targetVol = 0.0045f; // 변동성 상향
                     ouTheta = 0.02f;
                     break;
                 case MarketRegime.Sideways:
                     drift = 0f;
-                    targetVol = 0.0015f;
+                    targetVol = 0.0025f; // 변동성 상향
                     ouTheta = 0.15f; // 박스권 강한 회귀
                     break;
                 case MarketRegime.Squeeze:
                     drift = UnityEngine.Random.Range(-0.0008f, 0.0008f);
-                    targetVol = 0.008f; // 광기 변동성
+                    targetVol = 0.012f; // 광기 변동성 대폭 상향
                     ouTheta = 0.01f;
                     break;
             }
 
-            // 💡 [자연스러운 차트 파동 생성] 고정된 Drift로 인해 차트가 일직선으로 그려지는 것을 방지하기 위해 단기 파동(Sine Wave)을 결합합니다.
-            float waveCycle1 = (currentTotalMinutes % 35) / 35f * Mathf.PI * 2f;
-            float waveCycle2 = (currentTotalMinutes % 13) / 13f * Mathf.PI * 2f;
-            float waveDrift = (Mathf.Sin(waveCycle1) * 0.0003f) + (Mathf.Cos(waveCycle2) * 0.00015f);
+            // 💡 [자연스러운 차트 파동 생성] 고정된 Drift로 인해 차트가 일직선으로 그려지는 것을 방지하기 위해 실시간 단기 파동(Sine Wave)을 결합합니다.
+            float timeSec = Time.time;
+            float waveCycle1 = ((currentTotalMinutes * 60f + timeSec) % 350f) / 350f * Mathf.PI * 2f;
+            float waveCycle2 = ((currentTotalMinutes * 60f + timeSec) % 130f) / 130f * Mathf.PI * 2f;
+            float waveCycle3 = (timeSec % 15f) / 15f * Mathf.PI * 2f; // 초단기 미세 파동 추가 (현실감 부여)
+            
+            float waveDrift = (Mathf.Sin(waveCycle1) * 0.0004f) + (Mathf.Cos(waveCycle2) * 0.0002f) + (Mathf.Sin(waveCycle3) * 0.00015f);
             
             // 고속 스킵 중에는 랜덤성을 더 부여하여 일직선 패턴 완전 타파
             if (IsFastForwarding)
@@ -308,16 +311,18 @@ namespace FXOverdose.Trading
             }
             else if (currentSignalPhase == SignalPhase.GraceWindow)
             {
-                // 1단계 판단 여유 시간: 노이즈를 15% 수준으로 억제하고 횡보 유지 (골든타임 예고 방송 및 대기)
-                stochasticNoise *= 0.15f;
+                // 1단계 판단 여유 시간: 너무 굳어있지 않게 노이즈를 40% 수준으로 살리고 횡보 유지 (골든타임 예고 방송 및 대기)
+                stochasticNoise *= 0.40f;
                 drift = 0f;
             }
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
-                // 2단계 확정적 주가 제어 구간: 위너 노이즈 억제 및 확정적 드리프트 주입
-                // 💡 [버그 수정] 이벤트 지속 시간이 30분으로 길어지면서 분당 drift가 매우 약해졌으므로,
-                // 랜덤 워크(stochasticNoise)가 캔들 방향을 뒤집지 않도록 노이즈를 강력하게(0.02) 억제합니다.
-                stochasticNoise *= 0.02f; 
+                // 2단계 확정적 주가 제어 구간: 너무 정직한 일직선 이동을 방지하고 현실적인 흔들림을 주입
+                // 💡 [개선] 노이즈를 너무 억제하면 차트가 부자연스러우므로 0.02에서 0.35로 상향하여 변동성을 줍니다.
+                stochasticNoise *= 0.35f; 
+                
+                // 확정 빔 구간에도 짧은 역추세 파동을 더해 쫄깃한 수동매매 경험을 제공
+                drift += Mathf.Sin(Time.time * 1.5f) * 0.00025f;
 
                 if (isExternalEventOverride && !activeSignal.IsTrueSignal)
                 {

@@ -312,8 +312,8 @@ namespace FXOverdose.UI
             CreateModalTitle(window.transform, "SETTINGS", "오디오 및 화면 설정");
 
             CreateText(window.transform, "BGMLabel", "BGM VOLUME", 19f, Text,
-                new Vector2(0.10f, 0.61f), new Vector2(0.90f, 0.68f), TextAlignmentOptions.Left);
-            Slider bgm = CreateSlider(window.transform, "Slider_BGM", new Vector2(0.10f, 0.53f), new Vector2(0.90f, 0.60f));
+                new Vector2(0.10f, 0.69f), new Vector2(0.90f, 0.76f), TextAlignmentOptions.Left);
+            Slider bgm = CreateSlider(window.transform, "Slider_BGM", new Vector2(0.10f, 0.61f), new Vector2(0.90f, 0.68f));
             bgm.value = PlayerPrefs.GetFloat("BGMVolume", 0.8f);
             bgm.onValueChanged.AddListener(value => {
                 PlayerPrefs.SetFloat("BGMVolume", value);
@@ -322,13 +322,28 @@ namespace FXOverdose.UI
             });
 
             CreateText(window.transform, "SFXLabel", "SFX VOLUME", 19f, Text,
-                new Vector2(0.10f, 0.40f), new Vector2(0.90f, 0.47f), TextAlignmentOptions.Left);
-            Slider sfx = CreateSlider(window.transform, "Slider_SFX", new Vector2(0.10f, 0.32f), new Vector2(0.90f, 0.39f));
+                new Vector2(0.10f, 0.51f), new Vector2(0.90f, 0.58f), TextAlignmentOptions.Left);
+            Slider sfx = CreateSlider(window.transform, "Slider_SFX", new Vector2(0.10f, 0.43f), new Vector2(0.90f, 0.50f));
             sfx.value = PlayerPrefs.GetFloat("SFXVolume", 0.8f);
             sfx.onValueChanged.AddListener(value => {
                 PlayerPrefs.SetFloat("SFXVolume", value);
                 if (FXOverdose.Core.AudioManager.Instance != null)
                     FXOverdose.Core.AudioManager.Instance.SetSFXVolume(value);
+            });
+
+            CreateText(window.transform, "FPSLabel", "MAX FPS (FRAME LIMIT)", 19f, Text,
+                new Vector2(0.10f, 0.33f), new Vector2(0.90f, 0.40f), TextAlignmentOptions.Left);
+            Button fpsButton = CreateSmallButton(window.transform, "Btn_FPS", $"{FXOverdose.Core.SystemSettingsManager.GetCurrentFPS()} FPS", new Vector2(0.10f, 0.25f), new Vector2(0.90f, 0.32f));
+            TMP_Text fpsText = fpsButton.GetComponentInChildren<TMP_Text>();
+            fpsButton.onClick.AddListener(() => {
+                int current = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
+                var options = FXOverdose.Core.SystemSettingsManager.FpsOptions;
+                int idx = System.Array.IndexOf(options, current);
+                if (idx < 0) idx = 1;
+                idx = (idx + 1) % options.Length;
+                int nextFps = options[idx];
+                FXOverdose.Core.SystemSettingsManager.SetFPS(nextFps);
+                if (fpsText != null) fpsText.text = $"{nextFps} FPS";
             });
 
             Button close = CreateSmallButton(window.transform, "Btn_Close", "APPLY & CLOSE", new Vector2(0.29f, 0.09f), new Vector2(0.71f, 0.20f));
