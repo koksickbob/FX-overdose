@@ -9,6 +9,7 @@ public class CostumeManager : MonoBehaviour
     public const string BunnyGirlId = "bunny_girl";
     public const string BikiniId = "bikini";
     public const string JiraiKeiId = "jirai_kei";
+    public const string StreetCapId = "street_cap";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -58,6 +59,15 @@ public class CostumeManager : MonoBehaviour
             Price = 600,
             IconResourcePath = "Characters/Costumes/JiraiKei_TwinTails",
             SpriteRoot = "Characters/Costumes/JiraiKei_TwinTails"
+        },
+        new()
+        {
+            Id = StreetCapId,
+            DisplayName = "STREET CAP",
+            Description = "White ball cap, cropped hoodie, black leggings and sneakers.",
+            Price = 800,
+            IconResourcePath = "Characters/Costumes/StreetCap",
+            SpriteRoot = "Characters/Costumes/StreetCap"
         }
     };
 

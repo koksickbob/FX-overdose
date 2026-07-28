@@ -314,12 +314,12 @@ public class TraderStatus : MonoBehaviour
         float currentDay = gameManager != null ? gameManager.CurrentDay : 1f;
         float currentHealthDecrease = Mathf.Min(0.15f, healthDecreasePerSecond + (currentDay * 0.005f));
 
-        ChangeHealth(-currentHealthDecrease * (1f - healthGuard) * speedScale * Time.deltaTime);
+        ChangeHealth(-currentHealthDecrease * 1.5f * (1f - healthGuard) * speedScale * Time.deltaTime);
 
         // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * 2.0f * (1f - mentalGuard) * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime);
         }
         else if (currentHealth <= maxHealth * 0.5f)
         {
