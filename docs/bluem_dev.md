@@ -1565,3 +1565,10 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/ComicCutsceneController.cs`
 - `Assets/Editor/ComicUIBuilder.cs`
+
+## 2026-07-28 — macOS LLM 네이티브 런타임 경로 복구
+
+- LLMUnity 빌드 임시 폴더인 `LLMUnityBuild`가 커밋되어 macOS ARM64 라이브러리가 `StreamingAssets`에서 빠진 문제를 수정했습니다.
+- Apple Silicon 런타임·가속·비가속 라이브러리와 관련 `.meta`를 `Assets/StreamingAssets/LlamaLib-v2.0.5/osx-arm64/native`로 복구했습니다.
+- 임시 이동됐던 setup 및 Windows CUBLAS 파일도 원래 LlamaLib 경로로 되돌리고 `LLMUnityBuild` 임시 항목을 제거했습니다.
+- 씬이 참조하는 Korean Bllossom 3B GGUF 모델의 존재를 확인하고 macOS runtime/no-acc 동적 라이브러리의 `dlopen` 성공을 검증했습니다.
