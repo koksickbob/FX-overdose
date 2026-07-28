@@ -161,6 +161,7 @@ public class ShopManager : MonoBehaviour
         {
             inventory.AddItem(item);
             Debug.Log($"[ShopManager] 소모형 아이템 {item.ItemName} 구매 완료");
+            FXOverdose.Core.AchievementManager.Instance?.RecordItemPurchase();
         }
 
         AudioManager.Play(AudioCue.ShopPurchase);

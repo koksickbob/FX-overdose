@@ -138,10 +138,16 @@ public class SettingsMenuController : MonoBehaviour
 
         floatingModeButton.onClick.AddListener(() => {
             FXOverdose.Trading.TradingController.Instance?.ToggleTradingMode();
-            UpdateModeButtonVisuals();
         });
 
-        // 로딩 직후 Time.timeScale이 0이어도 Challenge 잠금 상태가 한 프레임도 잘못 보이지 않게 즉시 반영합니다.
+        // 주도권 변경 이벤트 구독
+        if (FXOverdose.Trading.TradingController.Instance != null)
+        {
+            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged -= _ => UpdateModeButtonVisuals();
+            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged += _ => UpdateModeButtonVisuals();
+        }
+
+        // 로딩 직후 Time.timeScale이 0이어도 Challenge 잠금 상태가 잘 안보일 수 있어, Invoke로 지연 반영
         UpdateModeButtonVisuals();
         Invoke(nameof(UpdateModeButtonVisuals), 0.2f);
         StartCoroutine(SyncFloatingButtonLayoutCoroutine());
@@ -270,9 +276,14 @@ public class SettingsMenuController : MonoBehaviour
                 var tmpText = saveBtnObj.GetComponentInChildren<TMP_Text>();
                 if (tmpText != null)
                 {
-                    tmpText.text = saved
-                        ? "SAVED!"
-                        : FXOverdose.Core.SaveLoadManager.Instance.AllowsSaving ? "CLOSE POSITION" : "STORY MODE ONLY";
+                    var trading = FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);
+                    bool isOverdose = trading != null && trading.IsOverdoseTradeActive;
+
+                    if (saved) tmpText.text = "SAVED!";
+                    else if (isOverdose) tmpText.text = "OVERDOSE!";
+                    else if (FXOverdose.Core.SaveLoadManager.Instance.AllowsSaving) tmpText.text = "CLOSE POSITION";
+                    else tmpText.text = "STORY MODE ONLY";
+
                     Invoke(nameof(ResetSaveButtonText), 2f);
                 }
             }

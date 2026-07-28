@@ -173,11 +173,20 @@ public class TraderStatus : MonoBehaviour
         }
     }
 
+    private bool wasLoaded = false;
+    
     private void Start()
     {
         if (this == CanonicalInstance)
         {
-            ResetStatus();
+            if (wasLoaded)
+            {
+                Debug.Log("[TraderStatus] 로드 중이므로 HP/멘탈 초기화를 건너뜁니다.");
+            }
+            else
+            {
+                ResetStatus();
+            }
         }
         else
         {

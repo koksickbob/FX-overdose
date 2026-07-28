@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -45,7 +45,7 @@ MonoBehaviour:
       \uD070 \uC190\uC2E4\uC744 \uAC10\uC218\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
-    OverrideSignalProbTrue: 0.4158886
+    OverrideSignalProbTrue: 0.3217
     OverrideBeamPercent: -27.910465
     OverrideDurationSeconds: 15
     MentalChangeAmount: -52
@@ -73,3 +73,4 @@ MonoBehaviour:
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
+

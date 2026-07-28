@@ -92,8 +92,8 @@ namespace FXOverdose.Trading
 
         public float GetMaxProtagonistEXP(int level)
         {
-            // LV.1 -> 100 EXP, LV.2 -> 135 EXP, 매 레벨 35%씩 증가
-            return 100f * Mathf.Pow(1.35f, Mathf.Max(0, level - 1));
+            // LV.1 -> 400 EXP, 매 레벨 50%씩 증가 (초중반 하드코어 밸런스)
+            return 400f * Mathf.Pow(1.5f, Mathf.Max(0, level - 1));
         }
 
         /// <summary>
@@ -108,8 +108,8 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            // 기본 EXP 20 + 손익금의 5% + 레버리지 배율 * 1.5 (전체 획득량을 1/3로 축소)
-            float gainedExp = (20f + (pnl * 0.05f) + (leverage * 1.5f)) / 3.0f;
+            // 기본 EXP 10 + PNL의 제곱근에 0.6배 + 레버리지 배율 (초중반 억제 밸런스)
+            float gainedExp = 10f + (Mathf.Sqrt(pnl) * 0.6f) + leverage;
             protagonistEXP += gainedExp;
 
             Debug.Log($"[TraderLevelSystem 🌟] 거래 성공! 경험치 획득: +{gainedExp:N1} (현재 EXP: {protagonistEXP:N1} / {GetMaxProtagonistEXP(protagonistLevel):N1})");
@@ -120,6 +120,7 @@ namespace FXOverdose.Trading
                 protagonistLevel++;
                 Debug.Log($"[TraderLevelSystem 🚀] [레벨업] 주인공 레벨 LV.{protagonistLevel} 달성! (레버리지/증거금 한도 및 멘탈 회복 증가)");
                 OnProtagonistLeveledUp?.Invoke(protagonistLevel);
+                FXOverdose.Core.AchievementManager.Instance?.RecordLevelUp(protagonistLevel);
             }
 
             OnProtagonistLevelChanged?.Invoke(protagonistLevel, protagonistEXP, GetMaxProtagonistEXP(protagonistLevel));

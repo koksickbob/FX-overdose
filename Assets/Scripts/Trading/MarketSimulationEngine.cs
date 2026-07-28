@@ -136,6 +136,74 @@ namespace FXOverdose.Trading
             }
         }
 
+        private bool wasLoaded = false;
+
+        public void CaptureSaveData(FXOverdose.Core.SaveData data)
+        {
+            data.CurrentChartPrice = currentPrice;
+            data.Current24hHigh = current24hHigh;
+            data.Current24hLow = current24hLow;
+            data.Current24hVolume = current24hVolume;
+            data.CurrentRegime = currentRegime;
+            data.CurrentSignalPhase = currentSignalPhase;
+
+            data.ChartHistories.Clear();
+            foreach (var kvp in candleHistories)
+            {
+                var th = new FXOverdose.Core.TimeframeHistory { timeframe = kvp.Key, candles = new List<FXOverdose.Core.SavedCandle>() };
+                foreach (var c in kvp.Value)
+                {
+                    th.candles.Add(new FXOverdose.Core.SavedCandle { timestampMinutes = c.timestampMinutes, open = c.open, high = c.high, low = c.low, close = c.close, volume = c.volume });
+                }
+                if (liveAggregatedCandles.TryGetValue(kvp.Key, out CandleData liveC))
+                {
+                    th.liveCandle = new FXOverdose.Core.SavedCandle { timestampMinutes = liveC.timestampMinutes, open = liveC.open, high = liveC.high, low = liveC.low, close = liveC.close, volume = liveC.volume };
+                }
+                data.ChartHistories.Add(th);
+            }
+        }
+
+        public void RestoreFromSaveData(FXOverdose.Core.SaveData data)
+        {
+            wasLoaded = true;
+            currentPrice = data.CurrentChartPrice;
+            ouCenterPrice = data.CurrentChartPrice;
+            current24hHigh = data.Current24hHigh;
+            current24hLow = data.Current24hLow;
+            current24hVolume = data.Current24hVolume;
+            currentRegime = data.CurrentRegime;
+            
+            // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
+            currentSignalPhase = SignalPhase.None;
+            signalPhaseTimerMinutes = 0;
+            isExternalEventOverride = false;
+            isOverdoseTrapOverride = false;
+            
+            candleHistories.Clear();
+            liveAggregatedCandles.Clear();
+            
+            foreach (var th in data.ChartHistories)
+            {
+                var list = new List<CandleData>();
+                if (th.candles != null)
+                {
+                    foreach (var c in th.candles)
+                    {
+                        list.Add(new CandleData(c.timestampMinutes, c.open, c.high, c.low, c.close, c.volume));
+                    }
+                }
+                candleHistories[th.timeframe] = list;
+                liveAggregatedCandles[th.timeframe] = new CandleData(th.liveCandle.timestampMinutes, th.liveCandle.open, th.liveCandle.high, th.liveCandle.low, th.liveCandle.close, th.liveCandle.volume);
+            }
+            
+            if (candleHistories.TryGetValue(Timeframe.M1, out var m1List) && m1List.Count > 0)
+            {
+                liveM1Candle = liveAggregatedCandles[Timeframe.M1];
+            }
+            
+            Debug.Log("[MarketSimulationEngine] 차트 히스토리 및 현재 가격 복구 완료.");
+        }
+
         private void Start()
         {
             EnsureCandleHistoriesInitialized();
@@ -150,7 +218,15 @@ namespace FXOverdose.Trading
                 gameManager.OnFastForwardEnded += HandleFastForwardEnded;
             }
 
-            ResetEngine(initialPrice);
+            if (!wasLoaded)
+            {
+                ResetEngine(initialPrice);
+            }
+            else
+            {
+                Debug.Log("[MarketSimulationEngine] 세이브 로드로 인해 ResetEngine(초기화)을 건너뜁니다.");
+                IsDataPrepared = true;
+            }
         }
 
         private void OnDestroy()

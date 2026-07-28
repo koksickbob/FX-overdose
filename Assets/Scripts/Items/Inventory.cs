@@ -67,6 +67,12 @@ public class Inventory : MonoBehaviour
 
     public IReadOnlyList<InventorySlot> Slots => slots;
 
+    public void Clear()
+    {
+        slots.Clear();
+        QuantityChanged?.Invoke(null, 0); // Optional event broadcast
+    }
+
     private void Awake()
     {
         RemoveInvalidAndDuplicateSlots();

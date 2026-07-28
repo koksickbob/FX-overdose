@@ -80,6 +80,37 @@ namespace FXOverdose.Core
             tradingController = FindAnyObjectByType<TradingController>();
             aiVisualController = FindAnyObjectByType<AIVisualController>();
             marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
+            
+            bool isCompleted = false;
+            if (SaveLoadManager.Instance != null)
+            {
+                if (SaveLoadManager.Instance.IsPendingLoad && SaveLoadManager.Instance.CurrentData != null)
+                {
+                    isCompleted = SaveLoadManager.Instance.CurrentData.IsTutorialCompleted || SaveLoadManager.Instance.CurrentData.CurrentDay > 1;
+                }
+                else
+                {
+                    isCompleted = SaveLoadManager.Instance.IsTutorialCompleted;
+                }
+            }
+
+            if (CurrentState == TutorialState.Graduation || isCompleted)
+            {
+                Debug.Log("[TutorialManager] 튜토리얼이 이미 완료된 상태입니다. 튜토리얼을 스킵합니다.");
+                
+                var choiceCtrlSkip = FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
+                if (choiceCtrlSkip != null) choiceCtrlSkip.IsTutorialMode = false;
+                
+                if (aiVisualController != null) aiVisualController.SuppressNormalDialogues = false;
+
+                var gmSkip = FindAnyObjectByType<GameManager>();
+                if (gmSkip != null) gmSkip.FinishLoadingAndStartPlaying(true);
+                
+                if (marketEngine != null) marketEngine.OpenMarketAfterLoading();
+
+                Destroy(gameObject);
+                yield break;
+            }
 
             // 동적 UI 바인딩
             var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
@@ -983,6 +1014,12 @@ namespace FXOverdose.Core
         {
             Debug.Log("[TutorialManager] 튜토리얼 종료 버튼 클릭 -> LoadingScene -> GameScene 이동");
             if (btnEndTutorial != null) btnEndTutorial.interactable = false;
+            
+            if (SaveLoadManager.Instance != null)
+            {
+                SaveLoadManager.Instance.IsTutorialCompleted = true;
+                SaveLoadManager.Instance.SaveCurrentGame();
+            }
             
             FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "GameScene";
             

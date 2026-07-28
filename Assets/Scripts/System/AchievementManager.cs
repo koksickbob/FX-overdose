@@ -1,0 +1,293 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace FXOverdose.Core
+{
+    public class AchievementManager : MonoBehaviour
+    {
+        public enum AchievementType
+        {
+            Custom,
+            Ending,
+            ItemUsage,
+            ItemPurchase,
+            PeakBalance,
+            RiskyEventSuccess,
+            LevelUp
+        }
+
+        [Serializable]
+        public class AchievementDefinition
+        {
+            public string Id;
+            public string Title;
+            public string Description;
+            public AchievementType Type;
+            public float TargetValue;
+            public string StringParameter; // e.g. Specific EndingType name, ItemId
+            public string RewardCostumeId; // Which costume gets unlocked
+        }
+
+        public static AchievementManager Instance { get; private set; }
+
+        private List<AchievementDefinition> achievements = new List<AchievementDefinition>();
+        private HashSet<string> unlockedAchievements = new HashSet<string>();
+
+        // We use PlayerPrefs to store the global variables.
+        private const string Pref_UnlockedPrefix = "Achieve_Unlock_";
+        private const string Pref_EnergyDrinkUsed = "Stat_EnergyDrinkUsed";
+        private const string Pref_ParfaitUsed = "Stat_ParfaitUsed";
+        private const string Pref_ConsumablesPurchased = "Stat_ConsumablesPurchased";
+        private const string Pref_RiskyEventSuccess = "Stat_RiskyEventSuccess";
+        private const string Pref_PeakBalance = "Stat_GlobalPeakBalance";
+        
+        // For endings
+        private const string Pref_EndingFirstGameOver = "Stat_EndingFirstGameOver";
+        private const string Pref_EndingTrueClear = "Stat_EndingTrueClear";
+        private const string Pref_EndingBankruptcy = "Stat_EndingBankruptcy";
+        private const string Pref_EndingOverdose = "Stat_EndingOverdose";
+
+        // For other custom flags
+        private const string Pref_TraumaCured = "Stat_TraumaCured";
+        private const string Pref_Level9Reached = "Stat_Level9Reached";
+
+        public event Action OnAchievementsChanged;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+            transform.SetParent(null);
+            DontDestroyOnLoad(gameObject);
+            
+            InitializeAchievements();
+            LoadUnlockedAchievements();
+        }
+
+        private void InitializeAchievements()
+        {
+            // Populating the achievements
+            achievements.Add(new AchievementDefinition { Id = "ending_first_gameover", Title = "첫 쓴맛", Description = "최초 게임 오버 달성", Type = AchievementType.Ending, StringParameter = "FirstGameOver" });
+            achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear" });
+            achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
+            achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose" });
+            
+            achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9 });
+            achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
+            
+            achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50 });
+            achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100 });
+            achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100 });
+            achievements.Add(new AchievementDefinition { Id = "purchase_consumable_50", Title = "큰손 고객", Description = "소모성 아이템 구매 수량 총 50개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 50 });
+            
+            achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20 });
+            
+            achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "첫 목표 달성", Description = "100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000 });
+            achievements.Add(new AchievementDefinition { Id = "balance_25m", Title = "억만장자의 길 I", Description = "누적 최고 자산 2,500만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 25000000 });
+            achievements.Add(new AchievementDefinition { Id = "balance_50m", Title = "억만장자의 길 II", Description = "누적 최고 자산 5,000만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 50000000 });
+        }
+
+        private void LoadUnlockedAchievements()
+        {
+            unlockedAchievements.Clear();
+            foreach (var ach in achievements)
+            {
+                if (PlayerPrefs.GetInt(Pref_UnlockedPrefix + ach.Id, 0) == 1)
+                {
+                    unlockedAchievements.Add(ach.Id);
+                }
+            }
+        }
+
+        private void UnlockAchievement(AchievementDefinition ach)
+        {
+            if (!unlockedAchievements.Contains(ach.Id))
+            {
+                unlockedAchievements.Add(ach.Id);
+                PlayerPrefs.SetInt(Pref_UnlockedPrefix + ach.Id, 1);
+                PlayerPrefs.Save();
+                
+                Debug.Log($"[AchievementManager] 업적 달성: {ach.Title} - {ach.Description}");
+                OnAchievementsChanged?.Invoke();
+            }
+        }
+
+        private void CheckAchievements()
+        {
+            foreach (var ach in achievements)
+            {
+                if (unlockedAchievements.Contains(ach.Id)) continue;
+
+                bool isMet = false;
+                switch (ach.Type)
+                {
+                    case AchievementType.Custom:
+                        if (ach.StringParameter == "TraumaCured" && PlayerPrefs.GetInt(Pref_TraumaCured, 0) == 1) isMet = true;
+                        break;
+                    case AchievementType.Ending:
+                        if (ach.StringParameter == "FirstGameOver" && PlayerPrefs.GetInt(Pref_EndingFirstGameOver, 0) >= 1) isMet = true;
+                        if (ach.StringParameter == "TrueClear" && PlayerPrefs.GetInt(Pref_EndingTrueClear, 0) >= 1) isMet = true;
+                        if (ach.StringParameter == "Bankruptcy" && PlayerPrefs.GetInt(Pref_EndingBankruptcy, 0) >= 1) isMet = true;
+                        if (ach.StringParameter == "Overdose" && PlayerPrefs.GetInt(Pref_EndingOverdose, 0) >= 1) isMet = true;
+                        break;
+                    case AchievementType.ItemUsage:
+                        if (ach.StringParameter == "EnergyDrink" && PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0) >= ach.TargetValue) isMet = true;
+                        if (ach.StringParameter == "Parfait" && PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) >= ach.TargetValue) isMet = true;
+                        break;
+                    case AchievementType.ItemPurchase:
+                        if (PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0) >= ach.TargetValue) isMet = true;
+                        break;
+                    case AchievementType.PeakBalance:
+                        if (PlayerPrefs.GetFloat(Pref_PeakBalance, 0f) >= ach.TargetValue) isMet = true;
+                        break;
+                    case AchievementType.RiskyEventSuccess:
+                        if (PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0) >= ach.TargetValue) isMet = true;
+                        break;
+                    case AchievementType.LevelUp:
+                        if (PlayerPrefs.GetInt(Pref_Level9Reached, 0) == 1) isMet = true;
+                        break;
+                }
+
+                if (isMet)
+                {
+                    UnlockAchievement(ach);
+                }
+            }
+        }
+
+        public void RecordEnding(string endingType)
+        {
+            bool isFirstGameOver = PlayerPrefs.GetInt(Pref_EndingFirstGameOver, 0) == 0;
+            if (endingType != "Success")
+            {
+                if (isFirstGameOver)
+                {
+                    PlayerPrefs.SetInt(Pref_EndingFirstGameOver, 1);
+                }
+            }
+            
+            if (endingType == "Success") PlayerPrefs.SetInt(Pref_EndingTrueClear, 1);
+            else if (endingType == "Bankruptcy") PlayerPrefs.SetInt(Pref_EndingBankruptcy, PlayerPrefs.GetInt(Pref_EndingBankruptcy, 0) + 1);
+            else if (endingType == "Overdose") PlayerPrefs.SetInt(Pref_EndingOverdose, PlayerPrefs.GetInt(Pref_EndingOverdose, 0) + 1);
+            
+            PlayerPrefs.Save();
+            CheckAchievements();
+        }
+
+        public void RecordPeakBalance(float balance)
+        {
+            float currentPeak = PlayerPrefs.GetFloat(Pref_PeakBalance, 0f);
+            if (balance > currentPeak)
+            {
+                PlayerPrefs.SetFloat(Pref_PeakBalance, balance);
+                PlayerPrefs.Save();
+                CheckAchievements();
+            }
+        }
+
+        public void RecordItemUsage(string itemId)
+        {
+            if (!string.IsNullOrEmpty(itemId))
+            {
+                string lowerId = itemId.ToLowerInvariant();
+                if (lowerId.Contains("energy"))
+                {
+                    int count = PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0) + 1;
+                    PlayerPrefs.SetInt(Pref_EnergyDrinkUsed, count);
+                }
+                else if (lowerId.Contains("parfait"))
+                {
+                    int count = PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) + 1;
+                    PlayerPrefs.SetInt(Pref_ParfaitUsed, count);
+                }
+                PlayerPrefs.Save();
+                CheckAchievements();
+            }
+        }
+
+        public void RecordItemPurchase()
+        {
+            int count = PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0) + 1;
+            PlayerPrefs.SetInt(Pref_ConsumablesPurchased, count);
+            PlayerPrefs.Save();
+            CheckAchievements();
+        }
+
+        public void RecordRiskyEventSuccess()
+        {
+            int count = PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0) + 1;
+            PlayerPrefs.SetInt(Pref_RiskyEventSuccess, count);
+            PlayerPrefs.Save();
+            CheckAchievements();
+        }
+
+        public void RecordLevelUp(int level)
+        {
+            if (level >= 9)
+            {
+                PlayerPrefs.SetInt(Pref_Level9Reached, 1);
+                PlayerPrefs.Save();
+                CheckAchievements();
+            }
+        }
+
+        public void RecordTraumaCured()
+        {
+            PlayerPrefs.SetInt(Pref_TraumaCured, 1);
+            PlayerPrefs.Save();
+            CheckAchievements();
+        }
+
+        public bool IsCostumeUnlocked(string costumeId, out string requirementText)
+        {
+            requirementText = string.Empty;
+            foreach (var ach in achievements)
+            {
+                if (!string.IsNullOrEmpty(ach.RewardCostumeId) && ach.RewardCostumeId == costumeId)
+                {
+                    if (unlockedAchievements.Contains(ach.Id))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        requirementText = ach.Title;
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        [ContextMenu("Reset Achievements")]
+        public void ResetAchievements()
+        {
+            PlayerPrefs.DeleteKey(Pref_EnergyDrinkUsed);
+            PlayerPrefs.DeleteKey(Pref_ParfaitUsed);
+            PlayerPrefs.DeleteKey(Pref_ConsumablesPurchased);
+            PlayerPrefs.DeleteKey(Pref_RiskyEventSuccess);
+            PlayerPrefs.DeleteKey(Pref_PeakBalance);
+            PlayerPrefs.DeleteKey(Pref_EndingFirstGameOver);
+            PlayerPrefs.DeleteKey(Pref_EndingTrueClear);
+            PlayerPrefs.DeleteKey(Pref_EndingBankruptcy);
+            PlayerPrefs.DeleteKey(Pref_EndingOverdose);
+            PlayerPrefs.DeleteKey(Pref_TraumaCured);
+            PlayerPrefs.DeleteKey(Pref_Level9Reached);
+            
+            foreach (var ach in achievements)
+            {
+                PlayerPrefs.DeleteKey(Pref_UnlockedPrefix + ach.Id);
+            }
+            PlayerPrefs.Save();
+            LoadUnlockedAchievements();
+            OnAchievementsChanged?.Invoke();
+            Debug.Log("[AchievementManager] All achievements reset.");
+        }
+    }
+}

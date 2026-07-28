@@ -6,29 +6,61 @@ using FXOverdose.Trading;
 namespace FXOverdose.Core
 {
     [Serializable]
+    public struct SavedCandle
+    {
+        public long timestampMinutes;
+        public float open;
+        public float high;
+        public float low;
+        public float close;
+        public float volume;
+    }
+
+    [Serializable]
+    public struct TimeframeHistory
+    {
+        public Timeframe timeframe;
+        public List<SavedCandle> candles;
+        public SavedCandle liveCandle;
+    }
+
+    [Serializable]
     public class SaveData
     {
-        public string Version = "1.4.0"; // 1.4.0: 액티브 아이템 보유 레벨 저장 추가
+        public string Version = "1.5.0";
 
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
         public GameMode GameMode = GameMode.Story;
 
-        // --- GameManager 데이터 ---
-        public float Balance;
-        public int CurrentDay;
-        public int CurrentHour;
-        public int CurrentMinute;
-        public float SecondsPerGameMinute;
-        public float StartOfDayEquity;
+        // --- GameManager 상태 ---
+        public float Balance = 1000f;
+        public int CurrentDay = 1;
+        public int CurrentHour = 9;
+        public int CurrentMinute = 0;
+        public float SecondsPerGameMinute = 3f;
+        public float StartOfDayEquity = -1f;
 
-        // --- TraderStatus 데이터 ---
-        public float PeakBalance;
-        public float CurrentMental;
-        public TraderStatus.MentalState CurrentMentalState;
-        public float CurrentHealth;
-        
-        // 인벤토리 상태 등 추가 가능
-        // public List<int> ItemInventory = new List<int>();
+        // --- TraderStatus 상태 ---
+        public float PeakBalance = 0f;
+        public float CurrentMental = 100f;
+        public float CurrentHealth = 100f; // 24.12.01: 체력 저장 복구
+        public TraderStatus.MentalState CurrentMentalState = TraderStatus.MentalState.Stable;
+
+        // --- 인벤토리 상태 ---
+        public List<string> InventoryItemIds = new List<string>();
+        public List<int> InventoryItemQuantities = new List<int>();
+
+        // --- 튜토리얼 완료 플래그 ---
+        public bool IsTutorialCompleted = false;
+
+        // --- 차트 및 주가 저장 ---
+        public List<TimeframeHistory> ChartHistories = new List<TimeframeHistory>();
+        public float CurrentChartPrice;
+        public float Current24hHigh;
+        public float Current24hLow;
+        public float Current24hVolume;
+        public MarketSimulationEngine.MarketRegime CurrentRegime;
+        public SignalPhase CurrentSignalPhase;
 
         // --- TraderLevelSystem 데이터 ---
         public int ProtagonistLevel;
@@ -47,9 +79,11 @@ namespace FXOverdose.Core
         // --- 추가 징후 ---
         public TraderEmotion CurrentEmotion;
 
-        // --- 활성 포지션 유지 데이터 ---
+        // --- 현재 활성 포지션 및 거래 모드 데이터 ---
+        public TradingController.TradingMode ActiveTradingMode;
         public bool HasActivePosition;
         public TradingController.PositionType PositionType;
+        public TradingController.OwnerType CurrentOwner;
         public float EntryPrice;
         public float MarginAmount;
         public int CurrentLeverage;

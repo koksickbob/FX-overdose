@@ -15,6 +15,7 @@ namespace FXOverdose.Core
 
         /// <summary>현재 타이틀에서 선택해 실행 중인 게임 모드입니다.</summary>
         public GameMode CurrentGameMode { get; private set; } = GameMode.Story;
+        public bool IsTutorialCompleted { get; set; } = false;
 
         /// <summary>스토리 모드에서 현재 사용 중인 저장 슬롯입니다.</summary>
         public int ActiveStorySlotIndex { get; private set; }
@@ -63,6 +64,7 @@ namespace FXOverdose.Core
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             var costumes = CostumeManager.Instance;
             var activeItems = ActiveItemEffectManager.Instance;
 
@@ -90,6 +92,7 @@ namespace FXOverdose.Core
                 CurrentMinute = gm.CurrentMinute,
                 SecondsPerGameMinute = gm.SecondsPerGameMinute,
                 StartOfDayEquity = gm.StartOfDayEquity,
+                IsTutorialCompleted = this.IsTutorialCompleted,
 
                 // TraderStatus
                 PeakBalance = status.PeakBalance,
@@ -113,17 +116,23 @@ namespace FXOverdose.Core
                     : CostumeManager.StandardId,
             };
 
-            if (trading != null && trading.IsActive)
+            if (trading != null)
             {
-                data.HasActivePosition = true;
-                data.PositionType = trading.CurrentPosition;
-                data.EntryPrice = trading.EntryPrice;
-                data.MarginAmount = trading.MarginAmount;
-                data.CurrentLeverage = trading.CurrentLeverage;
-                data.TargetPrice = trading.TargetPrice;
-                data.StopLossPrice = trading.StopLossPrice;
+                data.ActiveTradingMode = trading.ActiveTradingMode;
+                if (trading.CurrentPosition != TradingController.PositionType.None)
+                {
+                    data.HasActivePosition = true;
+                    data.PositionType = trading.CurrentPosition;
+                    data.CurrentOwner = trading.CurrentOwner;
+                    data.EntryPrice = trading.EntryPrice;
+                    data.MarginAmount = trading.MarginAmount;
+                    data.CurrentLeverage = trading.CurrentLeverage;
+                    data.TargetPrice = trading.TargetPrice;
+                    data.StopLossPrice = trading.StopLossPrice;
+                }
             }
 
+            marketEngine?.CaptureSaveData(data);
             activeItems?.CaptureSaveData(data.ActiveItemIds, data.ActiveItemLevels);
 
             // MemoryManager
@@ -254,6 +263,16 @@ namespace FXOverdose.Core
             var activeItems = ActiveItemEffectManager.Instance;
             var shopManager = FindAnyObjectByType<ShopManager>(FindObjectsInactive.Include);
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+            var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+
+            this.IsTutorialCompleted = CurrentData.IsTutorialCompleted;
+            
+            // 과거 세이브 파일 보정: 튜토리얼 완료 플래그가 없더라도 이미 2일차 이상이라면 완료된 것으로 간주
+            if (!this.IsTutorialCompleted && CurrentData.CurrentDay > 1)
+            {
+                this.IsTutorialCompleted = true;
+                CurrentData.IsTutorialCompleted = true;
+            }
 
             if (gm != null)
             {
@@ -316,10 +335,16 @@ namespace FXOverdose.Core
                     CurrentData.ActiveItemLevels);
             }
 
-            if (trading != null && CurrentData.HasActivePosition)
+            if (trading != null)
             {
-                trading.RestorePosition(CurrentData);
+                trading.SetTradingMode(CurrentData.ActiveTradingMode, forceRestore: true);
+                if (CurrentData.HasActivePosition)
+                {
+                    trading.RestorePosition(CurrentData);
+                }
             }
+
+            marketEngine?.RestoreFromSaveData(CurrentData);
 
             IsPendingLoad = false;
             CurrentData = null;

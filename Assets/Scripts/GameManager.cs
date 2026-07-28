@@ -114,6 +114,8 @@ public class GameManager : MonoBehaviour
         EnsureCostumeManager();
     }
 
+    public bool IsGameLoaded { get; private set; }
+
     // 게임 시작 시 한 번 실행
     private void Start()
     {
@@ -121,6 +123,7 @@ public class GameManager : MonoBehaviour
         if (saveManager != null && saveManager.IsPendingLoad)
         {
             // 불러오기 모드 진입
+            IsGameLoaded = true;
             currentState = GameState.Loading;
             currentEnding = EndingType.None;
             timeAccumulator = 0f;
@@ -281,11 +284,11 @@ public class GameManager : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    public void FinishLoadingAndStartPlaying()
+    public void FinishLoadingAndStartPlaying(bool skipCutscenes = false)
     {
         if (currentState == GameState.Loading)
         {
-            if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
+            if (!skipCutscenes && !IsGameLoaded && FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
             {
                 if (currentDay == 1)
                 {
@@ -625,6 +628,8 @@ public class GameManager : MonoBehaviour
         Debug.Log(
             $"자산 변동: {amount:N0}, 현재 자산: {currentBalance:N0}"
         );
+        
+        FXOverdose.Core.AchievementManager.Instance?.RecordPeakBalance(currentBalance);
 
         // 자산 변경 후 엔딩 조건 검사
         CheckEnding();
@@ -719,6 +724,8 @@ public class GameManager : MonoBehaviour
         currentState = GameState.GameOver;
 
         Debug.Log($"게임 종료: {ending}");
+        
+        FXOverdose.Core.AchievementManager.Instance?.RecordEnding(ending.ToString());
 
         System.Collections.Generic.List<Sprite> panels = null;
         switch (ending)

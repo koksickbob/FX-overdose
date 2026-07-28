@@ -111,6 +111,7 @@ public class CostumeManager : MonoBehaviour
     {
         CostumeDefinition definition = GetDefinition(costumeId);
         if (definition == null || gameManager == null || IsOwned(costumeId)) return false;
+        if (FXOverdose.Core.AchievementManager.Instance != null && !FXOverdose.Core.AchievementManager.Instance.IsCostumeUnlocked(costumeId, out _)) return false;
         if (definition.Price < 0 || !gameManager.TrySpendBalance(definition.Price)) return false;
 
         ownedCostumeIds.Add(costumeId);

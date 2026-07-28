@@ -79,7 +79,7 @@ namespace FXOverdose.Trading
             }
         }
 
-        public void SetTradingMode(TradingMode mode)
+        public void SetTradingMode(TradingMode mode, bool forceRestore = false)
         {
             if (IsAITradingLockedByGameMode && mode == TradingMode.AI_Auto)
             {
@@ -95,51 +95,55 @@ namespace FXOverdose.Trading
 
             if (activeTradingMode == mode) return;
 
-            if (mode == TradingMode.Player_Manual && IsManualModeLockedByYomi)
+            if (!forceRestore)
             {
-                Debug.LogWarning("[TradingController] ⚠️ 요미가 매매 주도권을 강제로 뺏어 잠근 상태라 수동 모드로 전환할 수 없습니다.");
-                OutputSpecificEventDialogue("ToggleManualBlocked");
-                return;
-            }
+                if (mode == TradingMode.Player_Manual && IsManualModeLockedByYomi)
+                {
+                    Debug.LogWarning("[TradingController] ⚠️ 요미가 매매 주도권을 강제로 뺏어 잠근 상태라 수동 모드로 전환할 수 없습니다.");
+                    OutputSpecificEventDialogue("ToggleManualBlocked");
+                    return;
+                }
 
-            if (mode == TradingMode.Player_Manual && traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
-            {
-                Debug.LogWarning("[TradingController] ⚠️ 오버도즈 상태에서는 수동 매매로 전환할 수 없습니다.");
-                OutputSpecificEventDialogue("ToggleManualBlocked");
-                return;
-            }
+                if (mode == TradingMode.Player_Manual && traderStatus != null && traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+                {
+                    Debug.LogWarning("[TradingController] ⚠️ 오버도즈 상태에서는 수동 매매로 전환할 수 없습니다.");
+                    OutputSpecificEventDialogue("ToggleManualBlocked");
+                    return;
+                }
 
-            
+                // 2. 게임 플레이(장이 개시된 상태) 검증
+                var gm = gameManager != null ? gameManager : UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                if (gm != null && gm.CurrentState != GameManager.GameState.Playing)
+                {
+                    Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
+                    OutputSpecificEventDialogue("ToggleManualBlocked");
+                    return;
+                }
 
-            // 2. 게임 플레이(장이 개시된 상태) 검증
-            var gm = gameManager != null ? gameManager : UnityEngine.Object.FindAnyObjectByType<GameManager>();
-            if (gm != null && gm.CurrentState != GameManager.GameState.Playing)
-            {
-                Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
-                OutputSpecificEventDialogue("ToggleManualBlocked");
-                return;
-            }
-
-            // 3. 시장 오픈 여부 검증
-            var market = marketEngine != null ? marketEngine : UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>();
-            if (market != null && !market.IsMarketOpen)
-            {
-                Debug.LogWarning("[TradingController] ⚠️ 시장(Market)이 아직 개장하지 않았습니다. 개장 후에 전환 가능합니다.");
-                OutputSpecificEventDialogue("ToggleManualBlocked");
-                return;
+                // 3. 시장 오픈 여부 검증
+                var market = marketEngine != null ? marketEngine : UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>();
+                if (market != null && !market.IsMarketOpen)
+                {
+                    Debug.LogWarning("[TradingController] ⚠️ 시장(Market)이 아직 개장하지 않았습니다. 개장 후에 전환 가능합니다.");
+                    OutputSpecificEventDialogue("ToggleManualBlocked");
+                    return;
+                }
             }
 
             activeTradingMode = mode;
-            Debug.Log($"[TradingController ⚙️] 매매 조작 모드 전환: {mode}");
+            Debug.Log($"[TradingController ⚙️] 매매 조작 모드 전환: {mode} (forceRestore: {forceRestore})");
             OnTradingModeChanged?.Invoke(mode);
 
-            if (mode == TradingMode.Player_Manual)
+            if (!forceRestore)
             {
-                OutputSpecificEventDialogue("ToggleManualStart");
-            }
-            else
-            {
-                OutputSpecificEventDialogue("ToggleManualAuto");
+                if (mode == TradingMode.Player_Manual)
+                {
+                    OutputSpecificEventDialogue("ToggleManualStart");
+                }
+                else
+                {
+                    OutputSpecificEventDialogue("ToggleManualAuto");
+                }
             }
         }
 
@@ -264,7 +268,7 @@ namespace FXOverdose.Trading
             currentLeverage = data.CurrentLeverage;
             targetPrice = data.TargetPrice;
             stopLossPrice = data.StopLossPrice;
-            currentOwner = OwnerType.AI; // 기본적으로 AI 주도권으로 재시작
+            currentOwner = data.CurrentOwner;
 
             const float maintenanceMarginRate = 0.005f;
             if (currentPosition == PositionType.Long)

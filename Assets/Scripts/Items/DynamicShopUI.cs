@@ -590,9 +590,12 @@ public class DynamicShopUI : MonoBehaviour
 
         bool owned = CostumeManager.Instance != null && CostumeManager.Instance.IsOwned(costume.Id);
         bool equipped = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id);
+        string requirementText = string.Empty;
+        bool isUnlocked = FXOverdose.Core.AchievementManager.Instance == null || FXOverdose.Core.AchievementManager.Instance.IsCostumeUnlocked(costume.Id, out requirementText);
+        
         TMP_Text ownedText = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
-        ownedText.text = equipped ? "EQUIPPED ✓" : owned ? "OWNED ✓" : "NOT OWNED";
-        ownedText.color = equipped ? SuccessGreen : MutedText;
+        ownedText.text = !isUnlocked ? "LOCKED" : (equipped ? "EQUIPPED ✓" : owned ? "OWNED ✓" : "NOT OWNED");
+        ownedText.color = !isUnlocked ? new Color32(239, 68, 68, 255) : (equipped ? SuccessGreen : MutedText);
         SetRect(ownedText.rectTransform, new Vector2(0.52f, 0.28f), new Vector2(0.95f, 0.37f), Vector2.zero, new Vector2(-14f, 0f));
 
         RectTransform purchaseBar = GetOrCreateRect(card.transform, "PurchaseBar");
@@ -601,8 +604,16 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(purchaseBar.gameObject, BorderColor, new Vector2(2f, -2f));
 
         TMP_Text price = CreateText(purchaseBar, "Price", 25f, TextAlignmentOptions.MidlineLeft);
-        price.text = owned ? "OWNED" : costume.Price <= 0 ? "FREE" : $"${costume.Price:N0}";
-        price.color = owned ? SuccessGreen : SpecialGold;
+        price.text = !isUnlocked ? $"REQ: {requirementText}" : (owned ? "OWNED" : costume.Price <= 0 ? "FREE" : $"${costume.Price:N0}");
+        price.color = !isUnlocked ? new Color32(239, 68, 68, 255) : (owned ? SuccessGreen : SpecialGold);
+        if (!isUnlocked)
+        {
+            price.enableAutoSizing = true;
+            price.fontSizeMin = 10f;
+            price.fontSizeMax = 25f;
+            price.textWrappingMode = TextWrappingModes.Normal;
+            price.overflowMode = TextOverflowModes.Ellipsis;
+        }
         price.fontStyle = FontStyles.Bold;
         SetRect(price.rectTransform, Vector2.zero, new Vector2(0.53f, 1f), new Vector2(12f, 0f), new Vector2(-4f, 0f));
 
@@ -610,11 +621,11 @@ public class DynamicShopUI : MonoBehaviour
         actionObject.transform.SetParent(purchaseBar, false);
         SetRect(actionObject.GetComponent<RectTransform>(), new Vector2(0.55f, 0.10f), new Vector2(0.975f, 0.90f), Vector2.zero, Vector2.zero);
         Image actionImage = actionObject.GetComponent<Image>();
-        actionImage.color = equipped ? new Color32(22, 101, 52, 255) : new Color32(112, 26, 117, 255);
-        ApplyOutline(actionObject, equipped ? SuccessGreen : ApparelMagenta, new Vector2(2f, -2f));
+        actionImage.color = !isUnlocked ? new Color32(84, 96, 116, 255) : (equipped ? new Color32(22, 101, 52, 255) : new Color32(112, 26, 117, 255));
+        ApplyOutline(actionObject, !isUnlocked ? BorderColor : (equipped ? SuccessGreen : ApparelMagenta), new Vector2(2f, -2f));
         Button action = actionObject.GetComponent<Button>();
         action.targetGraphic = actionImage;
-        action.interactable = !equipped;
+        action.interactable = isUnlocked && !equipped;
         ColorBlock colors = action.colors;
         colors.normalColor = Color.white;
         colors.highlightedColor = new Color32(255, 225, 255, 255);
@@ -623,7 +634,7 @@ public class DynamicShopUI : MonoBehaviour
         action.colors = colors;
 
         TMP_Text label = CreateText(actionObject.transform, "Label", 21f, TextAlignmentOptions.Center);
-        label.text = equipped ? "EQUIPPED" : owned ? "EQUIP" : "BUY";
+        label.text = !isUnlocked ? "LOCKED" : (equipped ? "EQUIPPED" : owned ? "EQUIP" : "BUY");
         label.color = Color.white;
         label.fontStyle = FontStyles.Bold;
         label.enableAutoSizing = true;

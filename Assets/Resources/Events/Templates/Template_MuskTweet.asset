@@ -18,7 +18,7 @@ MonoBehaviour:
   - OptionType: 3
     RequiredItemId: 
     RequiredItemCount: 0
-    OverrideSignalProbTrue: 0
+    OverrideSignalProbTrue: 0.3986
     OverrideBeamPercent: 15
     OverrideDurationSeconds: 15
     MentalChangeAmount: 30
@@ -44,7 +44,7 @@ MonoBehaviour:
   - OptionType: 1
     RequiredItemId: 
     RequiredItemCount: 0
-    OverrideSignalProbTrue: 0
+    OverrideSignalProbTrue: 0.0607
     OverrideBeamPercent: 0
     OverrideDurationSeconds: 150
     MentalChangeAmount: -50
@@ -54,3 +54,4 @@ MonoBehaviour:
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
+

@@ -534,6 +534,11 @@ namespace FXOverdose.Events
             if (option.OverrideSignalProbTrue >= 1f) isOptionSuccess = true;
             else if (option.OverrideSignalProbTrue <= 0f) isOptionSuccess = false;
             else isOptionSuccess = (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
+            
+            if (isOptionSuccess && option.OptionType == ChoiceOptionType.Aggressive)
+            {
+                FXOverdose.Core.AchievementManager.Instance?.RecordRiskyEventSuccess();
+            }
 
             // 매매 제어
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
@@ -546,7 +551,7 @@ namespace FXOverdose.Events
                 else if (option.ForceLeverage > 0 || option.ForcePosition != TradingController.PositionType.None)
                 {
                     int dynamicLeverage = GetDynamicEventLeverage(option.ForceLeverage > 0 ? option.ForceLeverage : 10);
-                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, dynamicLeverage, 150, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: false, isTrueSignal: isOptionSuccess);
+                    tradingController.ExecuteEmergencyTrade(option.ForcePosition, dynamicLeverage, 150, option.PositionHandlingMode, option.CustomTargetROELimit, option.CustomStopLossROELimit, isPlayerChoice: true, isTrueSignal: isOptionSuccess);
                 }
             }
 
@@ -591,6 +596,11 @@ namespace FXOverdose.Events
             if (option.OverrideSignalProbTrue >= 1f) isSuccess = true;
             else if (option.OverrideSignalProbTrue <= 0f) isSuccess = false;
             else isSuccess = (UnityEngine.Random.value <= option.OverrideSignalProbTrue);
+            
+            if (isSuccess)
+            {
+                FXOverdose.Core.AchievementManager.Instance?.RecordRiskyEventSuccess();
+            }
 
             TradingController.EventPositionHandlingMode handlingMode = option.PositionHandlingMode;
             if (handlingMode == TradingController.EventPositionHandlingMode.StandardAuto)

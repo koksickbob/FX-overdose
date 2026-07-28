@@ -32,9 +32,15 @@ public class ItemUser : MonoBehaviour
             return false;
         }
 
-        if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
+        bool isOverdoseGimmick = false;
+        if (FXOverdose.Trading.TradingController.Instance != null)
         {
-            Debug.LogWarning("[ItemUser] 오버도즈 상태에서는 아이템을 사용할 수 없습니다.", this);
+            isOverdoseGimmick = FXOverdose.Trading.TradingController.Instance.IsOverdoseTradeActive;
+        }
+
+        if (traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose || isOverdoseGimmick)
+        {
+            Debug.LogWarning("[ItemUser] 오버도즈 기믹 진행 중이거나 오버도즈 상태에서는 아이템을 사용할 수 없습니다.", this);
             return false;
         }
 
@@ -91,6 +97,8 @@ public class ItemUser : MonoBehaviour
         traderStatus.ChangeHealth(item.EffectAmount);
         TriggerItemDialogue(item);
         Debug.Log($"[ItemUser] {item.ItemName} 사용: 체력 +{item.EffectAmount}");
+        
+        FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
         return true;
     }
 
@@ -114,6 +122,7 @@ public class ItemUser : MonoBehaviour
             {
                 traderStatus.HasDrawdownTrauma = false;
                 Debug.Log("[ItemUser] ✨ 당분 및 진정제 효과로 드로다운 트라우마 천장 제한이 완전히 극복되었습니다!");
+                FXOverdose.Core.AchievementManager.Instance?.RecordTraumaCured();
             }
         }
 
@@ -141,6 +150,8 @@ public class ItemUser : MonoBehaviour
 
         TriggerItemDialogue(item);
         Debug.Log($"[ItemUser] {item.ItemName} 사용: 멘탈 및 한계치 +{item.EffectAmount} 회복");
+        
+        FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
         return true;
     }
 }
