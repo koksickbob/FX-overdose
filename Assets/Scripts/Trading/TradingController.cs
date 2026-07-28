@@ -317,6 +317,9 @@ namespace FXOverdose.Trading
         private float maxObservedEventROE = 0f;
         private int lastReportedROEBasket = 0;
         private float playerTradeCooldownEndTime = -1f;
+        public const float PlayerTradeCooldownSeconds = 3f;
+        public float RemainingPlayerTradeCooldown => Mathf.Max(0f, playerTradeCooldownEndTime - Time.time);
+        public bool IsPlayerTradeOnCooldown => RemainingPlayerTradeCooldown > 0f;
 
         private void Update()
         {
@@ -858,10 +861,10 @@ namespace FXOverdose.Trading
         // 플레이어 직접(수동) 매매 진입
         public bool OpenPlayerPosition(PositionType type, float marginPercentage, int leverage)
         {
-            // 💡 [단타 어뷰징 방지] 매매 쿨타임 체크 (종료 후 1초간 신규 진입/스위칭 제한)
+            // 💡 [단타 어뷰징 방지] 매매 쿨타임 체크 (종료 후 3초간 신규 진입/스위칭 제한)
             if (Time.time < playerTradeCooldownEndTime)
             {
-                Debug.LogWarning("[TradingController] ⏳ 매매 쿨타임 적용 중: 단타 어뷰징을 방지하기 위해 포지션 종료 후 1초간은 새로운 포지션을 개설할 수 없습니다.");
+                Debug.LogWarning($"[TradingController] ⏳ 매매 쿨타임 적용 중: 포지션 종료 후 {PlayerTradeCooldownSeconds:0}초간은 새로운 포지션을 개설할 수 없습니다.");
                 return false;
             }
 
@@ -1028,10 +1031,10 @@ namespace FXOverdose.Trading
             // [통합] 수동/자동 상관없이 청산 리액션 대사 출력 (currentPosition 정보가 초기화되기 직전에 호출)
             OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
 
-            // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 1초 적용
+            // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 적용
             if (activeTradingMode == TradingMode.Player_Manual || currentOwner == OwnerType.Player)
             {
-                playerTradeCooldownEndTime = Time.time + 1.0f;
+                playerTradeCooldownEndTime = Time.time + PlayerTradeCooldownSeconds;
             }
 
             // 💡 [이벤트 순서 수정] 이벤트 수신자가 활성 증거금 및 PnL ROE를 정확히 읽을 수 있도록 청산 상태 초기화 직전에 발송!
