@@ -98,6 +98,14 @@ namespace FXOverdose.UI.Chart
         private Image positionFxDim;
         private RectTransform positionBannerRect;
         private Image positionBannerImage;
+
+        // Day Volatility Gimmicks
+        private GameObject lagUIPanel;
+        private TMP_Text lagText;
+        private bool isLagUIVisible = false;
+        private Dictionary<Button, Vector2> originalButtonPositions = new Dictionary<Button, Vector2>();
+        private Coroutine hallucinationCoroutine;
+        private TraderStatus traderStatus;
         private TMP_Text positionBannerText;
         private Coroutine positionFxCoroutine;
         private GameObject tradeCooldownOverlay;
@@ -107,6 +115,15 @@ namespace FXOverdose.UI.Chart
         {
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+
+            traderStatus = TraderStatus.CanonicalInstance;
+
+            if (longButton != null) originalButtonPositions[longButton] = longButton.GetComponent<RectTransform>().anchoredPosition;
+            if (shortButton != null) originalButtonPositions[shortButton] = shortButton.GetComponent<RectTransform>().anchoredPosition;
+            if (closePositionButton != null) originalButtonPositions[closePositionButton] = closePositionButton.GetComponent<RectTransform>().anchoredPosition;
+
+            // 서버 렉 전용 오버레이 동적 생성
+            CreateServerLagOverlay();
 
             if (tradingController != null)
             {
@@ -126,6 +143,40 @@ namespace FXOverdose.UI.Chart
             SelectMarginRatio(currentSelectedMarginPercent);
             SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
             RefreshPanelUI();
+        }
+
+        private void CreateServerLagOverlay()
+        {
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            if (parentCanvas == null) return;
+
+            lagUIPanel = new GameObject("ServerLagOverlay");
+            lagUIPanel.transform.SetParent(parentCanvas.transform, false);
+            var rect = lagUIPanel.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            
+            var img = lagUIPanel.AddComponent<Image>();
+            img.color = new Color(0, 0, 0, 0.6f); // 어두운 렉 화면
+            img.raycastTarget = true; // 클릭 차단
+            
+            GameObject textObj = new GameObject("LagText");
+            textObj.transform.SetParent(lagUIPanel.transform, false);
+            lagText = textObj.AddComponent<TextMeshProUGUI>();
+            lagText.text = "서버 연결 지연 중...";
+            lagText.fontSize = 60;
+            lagText.color = Color.red;
+            lagText.alignment = TextAlignmentOptions.Center;
+            
+            var textRect = textObj.GetComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.sizeDelta = new Vector2(800, 200);
+            textRect.anchoredPosition = Vector2.zero;
+
+            lagUIPanel.SetActive(false);
         }
 
         private static void ConfigureDynamicValueText(TMP_Text text, float maxSize, float minSize)
@@ -184,6 +235,130 @@ namespace FXOverdose.UI.Chart
             }
 
             UpdateTradeCooldownUI();
+            UpdateVolatilityGimmicks();
+        }
+
+        private void UpdateVolatilityGimmicks()
+        {
+            var marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
+            if (marketEngine == null || gameManager == null) return;
+
+            // 1. 서버 렉 UI 처리
+            if (marketEngine.IsServerLagging && !isLagUIVisible)
+            {
+                isLagUIVisible = true;
+                if (lagUIPanel != null)
+                {
+                    lagUIPanel.transform.SetAsLastSibling(); // 최상단 노출
+                    lagUIPanel.SetActive(true);
+                }
+            }
+            else if (!marketEngine.IsServerLagging && isLagUIVisible)
+            {
+                isLagUIVisible = false;
+                if (lagUIPanel != null) lagUIPanel.SetActive(false);
+            }
+
+            // 2. 환각 기믹 (16일차 이상 + 멘탈 20% 미만)
+            if (gameManager.CurrentDay >= 16 && traderStatus != null && traderStatus.CurrentMental < traderStatus.MaxMental * 0.2f)
+            {
+                if (hallucinationCoroutine == null)
+                {
+                    hallucinationCoroutine = StartCoroutine(HallucinationRoutine());
+                }
+
+                // 버튼 회피 기믹 (마우스 오버 시 도망감 - 도망가는 거리는 무작위)
+                EvadeButtonIfHovered(longButton);
+                EvadeButtonIfHovered(shortButton);
+                EvadeButtonIfHovered(closePositionButton);
+            }
+            else
+            {
+                if (hallucinationCoroutine != null)
+                {
+                    StopCoroutine(hallucinationCoroutine);
+                    hallucinationCoroutine = null;
+                }
+            }
+        }
+
+        private void EvadeButtonIfHovered(Button btn)
+        {
+            if (btn == null) return;
+            var rect = btn.GetComponent<RectTransform>();
+            if (rect == null) return;
+
+            Vector2 originalPos = Vector2.zero;
+            if (originalButtonPositions.TryGetValue(btn, out Vector2 pos))
+            {
+                originalPos = pos;
+            }
+            else
+            {
+                return;
+            }
+
+            // 간단한 마우스 위치 기반 회피 (PointerEnter 이벤트를 쓰지 않고 단순 거리 체크)
+            Vector2 mousePos = Input.mousePosition;
+            Vector2 localMousePos;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)rect.parent, mousePos, null, out localMousePos))
+            {
+                float dist = Vector2.Distance(rect.anchoredPosition, localMousePos);
+                if (dist < 100f) // 마우스가 가까이 오면
+                {
+                    Vector2 evadeDir = (rect.anchoredPosition - localMousePos).normalized;
+                    if (evadeDir == Vector2.zero) evadeDir = new Vector2(UnityEngine.Random.Range(-1f,1f), UnityEngine.Random.Range(-1f,1f)).normalized;
+                    
+                    // Time.deltaTime을 곱해 너무 빠르게 튕겨나가지 않도록 조정
+                    rect.anchoredPosition += evadeDir * UnityEngine.Random.Range(500f, 800f) * Time.deltaTime;
+                    
+                    // 화면 밖으로 나가지 않도록 원래 위치로 서서히 끌어당김
+                    rect.anchoredPosition = Vector3.Lerp(rect.anchoredPosition, originalPos, Time.deltaTime * 2f);
+                }
+                else
+                {
+                    // 마우스가 멀어지면 원래 위치로 복귀
+                    if (Vector2.Distance(rect.anchoredPosition, originalPos) > 1f)
+                    {
+                        rect.anchoredPosition = Vector3.Lerp(rect.anchoredPosition, originalPos, Time.deltaTime * 5f);
+                    }
+                }
+            }
+            else
+            {
+                if (Vector2.Distance(rect.anchoredPosition, originalPos) > 1f)
+                {
+                    rect.anchoredPosition = Vector3.Lerp(rect.anchoredPosition, originalPos, Time.deltaTime * 5f);
+                }
+            }
+        }
+
+        private IEnumerator HallucinationRoutine()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(UnityEngine.Random.Range(2f, 5f));
+                
+                // 버튼 색상 반전 (Long <-> Short)
+                if (longButton != null && shortButton != null)
+                {
+                    var longImg = longButton.GetComponent<Image>();
+                    var shortImg = shortButton.GetComponent<Image>();
+                    
+                    if (longImg != null && shortImg != null)
+                    {
+                        Color temp = longImg.color;
+                        longImg.color = shortImg.color;
+                        shortImg.color = temp;
+                        
+                        yield return new WaitForSeconds(UnityEngine.Random.Range(0.2f, 0.5f));
+                        
+                        temp = longImg.color;
+                        longImg.color = shortImg.color;
+                        shortImg.color = temp;
+                    }
+                }
+            }
         }
 
         private void SetupButtons()
@@ -356,7 +531,7 @@ namespace FXOverdose.UI.Chart
             if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
             {
                 Debug.Log("[TradingPanelUIController] 플레이어가 직접 포지션 종료(청산) 버튼을 클릭했습니다.");
-                tradingController.ClosePosition();
+                tradingController.ClosePlayerPosition();
             }
         }
 

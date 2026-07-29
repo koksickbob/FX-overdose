@@ -59,6 +59,19 @@ namespace FXOverdose.Trading
         public event Action<MarketSignal> OnMarketSignalGenerated;
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
 
+        [Header("Day-Based Difficulty Scaling (Phase 4)")]
+        [SerializeField] private float dayVolatilityMultiplier = 1.0f;
+        [SerializeField] private float tickInstability = 1.0f; // 1.0 = normal, 10.0 = extremely shaky
+        [SerializeField] private float fakeoutProbability = 0.0f;
+        [SerializeField] private int slippageRange = 0; // Number of ticks offset
+        [SerializeField] private bool isServerLagging = false;
+        private float serverLagTimer = 0f;
+        private float accumulatedLagPriceDelta = 0f;
+        private float accumulatedLagVolume = 0f;
+
+        public bool IsServerLagging => isServerLagging;
+        public int SlippageRange => slippageRange;
+
         public void OpenMarketAfterLoading()
         {
             if (IsMarketOpen)
@@ -292,15 +305,83 @@ namespace FXOverdose.Trading
                 return;
             }
 
+            UpdateDailyDifficulty(gameManager.CurrentDay);
+
+            // Server Lag Gimmick (Priority 4: Only if no Overdose, FastForward, or Event Override)
+            if (!isOverdoseTrapOverride && !IsFastForwarding && !isExternalEventOverride && gameManager.CurrentDay >= 16)
+            {
+                // 매우 낮은 확률로 발동 (대략 1시간에 1번꼴)
+                if (!isServerLagging && UnityEngine.Random.value < 0.05f * Time.deltaTime) 
+                {
+                    isServerLagging = true;
+                    serverLagTimer = UnityEngine.Random.Range(3.0f, 5.0f);
+                    accumulatedLagPriceDelta = 0f;
+                    accumulatedLagVolume = 0f;
+                    Debug.Log("[MarketEngine] ⚠️ 서버 렉 발생! 3~5초간 차트 업데이트가 정지됩니다.");
+                }
+            }
+
+            if (isServerLagging)
+            {
+                serverLagTimer -= Time.deltaTime;
+                if (serverLagTimer <= 0f)
+                {
+                    isServerLagging = false;
+                    Debug.Log("[MarketEngine] ⚡ 서버 렉 복구 완료! 밀린 차트가 한 번에 갱신됩니다.");
+                    currentPrice += accumulatedLagPriceDelta;
+                    if (currentPrice < 10f) currentPrice = 10f;
+                    UpdateLiveCandlesWithTick(currentPrice, accumulatedLagVolume);
+                    OnPriceUpdated?.Invoke(currentPrice);
+                    accumulatedLagPriceDelta = 0f;
+                    accumulatedLagVolume = 0f;
+                }
+            }
+
             // 1초마다 주가 틱이 변동될 때 발생 (명세서 L101 기준. 1분 = 5초 속도 기준 1분당 5틱 유지)
+            // 틱 불안정성(TickInstability)에 따라 갱신 주기를 단축시켜 차트를 요동치게 만듭니다.
             float secondsPerMinute = gameManager != null ? gameManager.SecondsPerGameMinute : 5.0f;
-            float tickInterval = Mathf.Clamp(secondsPerMinute / 5.0f, 0.05f, 1.0f);
+            float baseTickInterval = Mathf.Clamp(secondsPerMinute / 5.0f, 0.05f, 1.0f);
+            float tickInterval = baseTickInterval / Mathf.Max(1.0f, tickInstability);
 
             tickTimer += Time.deltaTime;
             while (tickTimer >= tickInterval)
             {
                 tickTimer -= tickInterval;
                 SimulateTickMovement(tickInterval);
+            }
+        }
+
+        public void UpdateDailyDifficulty(int currentDay)
+        {
+            float effectiveDay = Mathf.Min(currentDay, 25f); // 25일차에서 캡
+
+            if (currentDay <= 5)
+            {
+                dayVolatilityMultiplier = 1.0f;
+                tickInstability = 1.0f;
+                fakeoutProbability = 0.0f;
+                slippageRange = 0;
+            }
+            else if (currentDay <= 10)
+            {
+                dayVolatilityMultiplier = 1.2f;
+                tickInstability = 1.5f;
+                fakeoutProbability = 0.1f;
+                slippageRange = 0;
+            }
+            else if (currentDay <= 15)
+            {
+                dayVolatilityMultiplier = 1.5f;
+                tickInstability = 3.0f;
+                fakeoutProbability = 0.3f;
+                slippageRange = 3;
+            }
+            else
+            {
+                dayVolatilityMultiplier = 2.0f + (effectiveDay - 16) * 0.15f;
+                tickInstability = 5.0f + (effectiveDay - 16) * 1.0f;
+                fakeoutProbability = 0.5f;
+                slippageRange = 5;
             }
         }
 
@@ -592,14 +673,20 @@ namespace FXOverdose.Trading
             Debug.Log($"[MarketEngine] 국면 전환: {currentRegime} (유지: {minutesUntilNextRegimeChange}분)");
         }
 
-        // 유동성 사냥 (꼬리 휩소 스파이크 발생)
+        // 유동성 사냥 (꼬리 휩소 스파이크 발생 - 스탑 헌팅 기믹 강화)
         private void CheckLiquidationSweep()
         {
-            // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률로 꼬리 생성
-            float sweepProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
+            // 오버도즈 발동 중이거나 고속 스킵 중일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
+            if (isOverdoseTrapOverride || IsFastForwarding) return;
+
+            // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
+            float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
+            float sweepProb = baseProb + (dayVolatilityMultiplier > 1.0f ? 0.10f : 0.0f); 
+
             if (UnityEngine.Random.value < sweepProb)
             {
-                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f); // 0.5% ~ 2% 꼬리
+                // 일차별 변동성에 맞춰 꼬리(스파이크)의 크기도 증가합니다.
+                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * dayVolatilityMultiplier; 
                 bool sweepUp = UnityEngine.Random.value > 0.5f;
 
                 if (sweepUp)
@@ -861,8 +948,10 @@ namespace FXOverdose.Trading
             // 강도 설정 (65% 확률로 Strong, 35% 확률로 Weak)
             SignalStrength strength = UnityEngine.Random.value < 0.65f ? SignalStrength.Strong : SignalStrength.Weak;
 
-            // IsTrueSignal 결정: Breakout은 75% 확률로 진짜, Trap은 100% 가짜 속임수
-            bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < 0.75f;
+            // IsTrueSignal 결정: Breakout은 75% 확률로 진짜, Trap은 100% 가짜 속임수. 
+            // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가
+            float trueSignalProb = 0.75f - (fakeoutProbability * 0.5f); // fakeoutProbability가 0.5면 trueSignalProb은 0.5가 됨
+            bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
 
             int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);
             int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
