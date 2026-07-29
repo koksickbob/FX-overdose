@@ -270,6 +270,16 @@ namespace FXOverdose.Core
             return true;
         }
 
+        public IReadOnlyList<AchievementDefinition> GetAllAchievements()
+        {
+            return achievements.AsReadOnly();
+        }
+
+        public bool IsUnlocked(string id)
+        {
+            return unlockedAchievements.Contains(id);
+        }
+
         [ContextMenu("Reset Achievements")]
         public void ResetAchievements()
         {

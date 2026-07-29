@@ -255,6 +255,19 @@ public class SettingsMenuController : MonoBehaviour
         overlay.transform.SetAsLastSibling();
     }
 
+    public void OpenAchievements()
+    {
+        if (FXOverdose.UI.AchievementUIController.Instance != null)
+        {
+            FXOverdose.UI.AchievementUIController.Instance.Open();
+        }
+        else
+        {
+            var ui = FindAnyObjectByType<FXOverdose.UI.AchievementUIController>(FindObjectsInactive.Include);
+            if (ui != null) ui.Open();
+        }
+    }
+
     public void CloseMenu()
     {
         if (overlay != null) overlay.SetActive(false);
@@ -343,7 +356,7 @@ public class SettingsMenuController : MonoBehaviour
         GameObject panel = CreateUIObject("SettingsPanel", overlay.transform);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(570f, 700f);
+        panelRect.sizeDelta = new Vector2(570f, 780f);
         panelRect.anchoredPosition = Vector2.zero;
         Image panelImage = panel.GetComponent<Image>();
         panelImage.color = new Color(0.025f, 0.065f, 0.13f, 0.99f);
@@ -372,24 +385,28 @@ public class SettingsMenuController : MonoBehaviour
         sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.48f), new Vector2(0.87f, 0.535f), new Color32(0, 255, 255, 255));
 
         TMP_Text fpsLabel = CreateText(inner.transform, "Label_FPS", "MAX FPS (FRAME LIMIT)", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(fpsLabel.rectTransform, new Vector2(0.13f, 0.39f), new Vector2(0.87f, 0.43f));
+        SetRect(fpsLabel.rectTransform, new Vector2(0.13f, 0.40f), new Vector2(0.87f, 0.44f));
         
         int currentFps = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
         fpsMenuButton = CreateButton(inner.transform, "FpsButton", $"{currentFps} FPS", new Color(0.10f, 0.35f, 0.48f, 1f));
-        SetRect(fpsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.32f), new Vector2(0.87f, 0.375f));
+        SetRect(fpsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.33f), new Vector2(0.87f, 0.385f));
         fpsMenuButton.onClick.AddListener(CycleFPS);
         fpsButtonText = fpsMenuButton.GetComponentInChildren<TMP_Text>();
 
+        Button achievementsMenuButton = CreateButton(inner.transform, "AchievementsButton", "ACHIEVEMENTS", new Color(0.35f, 0.15f, 0.48f, 1f));
+        SetRect(achievementsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.23f), new Vector2(0.87f, 0.30f));
+        achievementsMenuButton.onClick.AddListener(OpenAchievements);
+
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.22f), new Vector2(0.87f, 0.29f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.15f), new Vector2(0.87f, 0.22f));
         saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.12f), new Vector2(0.87f, 0.19f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.075f), new Vector2(0.87f, 0.14f));
         resumeButton.onClick.AddListener(CloseMenu);
 
         Button quitButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.02f), new Vector2(0.87f, 0.09f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.015f), new Vector2(0.87f, 0.065f));
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();
