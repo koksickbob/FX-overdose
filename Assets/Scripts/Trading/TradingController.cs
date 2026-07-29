@@ -877,6 +877,12 @@ namespace FXOverdose.Trading
                 return false;
             }
 
+            if (marketEngine.IsServerLagging)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 서버 렉(Lag) 발생 중! 매수/매도 주문이 먹통입니다.");
+                return false;
+            }
+
             if (currentPosition != PositionType.None)
             {
                 Debug.LogWarning($"[TradingController] 🔄 기존 {currentPosition} 포지션 보유 중 플레이어 {type} 진입 요청 -> 기존 포지션을 종료하고 스위칭합니다.");
@@ -909,7 +915,17 @@ namespace FXOverdose.Trading
 
             currentPosition = type;
             currentOwner = OwnerType.Player;
-            entryPrice = marketEngine.CurrentPrice;
+
+            float finalEntryPrice = marketEngine.CurrentPrice;
+            if (marketEngine.SlippageRange > 0)
+            {
+                // 불리한 방향으로 슬리피지 적용 (SlippageRange 단위 * 틱당 최소 변동폭)
+                float slippageAmount = marketEngine.CurrentPrice * 0.0005f * marketEngine.SlippageRange;
+                finalEntryPrice += (type == PositionType.Long ? slippageAmount : -slippageAmount);
+                Debug.Log($"[TradingController] ⚠️ 슬리피지 발동! 요청가: {marketEngine.CurrentPrice:N1} -> 체결가: {finalEntryPrice:N1}");
+            }
+            entryPrice = finalEntryPrice;
+
             marginAmount = margin;
             currentLeverage = leverage;
             targetPrice = 0f; // 플레이어 직접 판단 익절
@@ -945,6 +961,17 @@ namespace FXOverdose.Trading
             }
 
             return true;
+        }
+
+        // 플레이어 직접 포지션 종료 (수동 청산)
+        public void ClosePlayerPosition()
+        {
+            if (marketEngine != null && marketEngine.IsServerLagging)
+            {
+                Debug.LogWarning("[TradingController] ⚠️ 서버 렉(Lag) 발생 중! 익절/손절 버튼이 먹통입니다.");
+                return;
+            }
+            ClosePosition();
         }
 
         // 포지션 종료 (익절/손절)
