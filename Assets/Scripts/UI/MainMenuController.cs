@@ -55,6 +55,12 @@ namespace FXOverdose.UI
         {
             EnsureGameModePanel();
 
+            if (btnAchievements == null && transform.parent != null)
+            {
+                Transform btnTransform = transform.parent.Find("Btn_Achievements");
+                if (btnTransform != null) btnAchievements = btnTransform.GetComponent<Button>();
+            }
+
             // 이벤트 리스너 연결
             if (btnNewGame != null) btnNewGame.onClick.AddListener(OnClickNewGame);
             if (btnLoadGame != null) btnLoadGame.onClick.AddListener(OnClickLoadGame);

@@ -36,6 +36,7 @@ namespace FXOverdose.UI
             if (existingCanvas != null)
             {
                 EnsureGameModePanel(existingCanvas.transform);
+                EnsureAchievementButton(existingCanvas.transform);
                 return;
             }
 
@@ -161,6 +162,16 @@ namespace FXOverdose.UI
             CreateText(image.transform, "Arrow", ">", 30f, index == 0 ? Cyan : Muted,
                 new Vector2(0.86f, 0.15f), new Vector2(0.96f, 0.85f), TextAlignmentOptions.Center);
             return button;
+        }
+
+        public static Button EnsureAchievementButton(Transform parent)
+        {
+            if (parent == null) return null;
+
+            Transform existing = parent.Find("Btn_Achievements");
+            if (existing != null) return existing.GetComponent<Button>();
+
+            return CreateAchievementButton(parent);
         }
 
         private static Button CreateAchievementButton(Transform parent)
