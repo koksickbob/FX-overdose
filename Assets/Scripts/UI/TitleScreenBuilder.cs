@@ -50,11 +50,12 @@ namespace FXOverdose.UI
             Button loadGame = CreateMenuButton(canvas.transform, "Btn_LoadGame", "CONTINUE", "게임 불러오기", 1);
             Button settings = CreateMenuButton(canvas.transform, "Btn_Settings", "SETTINGS", "환경 설정", 2);
             Button quit = CreateMenuButton(canvas.transform, "Btn_QuitGame", "QUIT", "게임 종료", 3);
+            Button achievements = CreateAchievementButton(canvas.transform);
 
             GameObject loadPanel = BuildLoadPanel(canvas.transform, controller);
             GameObject settingsPanel = BuildSettingsPanel(canvas.transform);
             GameObject modePanel = EnsureGameModePanel(canvas.transform);
-            controller.Configure(newGame, loadGame, settings, quit, loadPanel, settingsPanel, modePanel);
+            controller.Configure(newGame, loadGame, settings, quit, achievements, loadPanel, settingsPanel, modePanel);
 
             CreateText(canvas.transform, "VersionText", "EARLY ACCESS  /  BUILD 0.1", 16f, Muted,
                 new Vector2(0.055f, 0.025f), new Vector2(0.42f, 0.075f), TextAlignmentOptions.Left);
@@ -159,6 +160,21 @@ namespace FXOverdose.UI
                 new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.38f), TextAlignmentOptions.Left);
             CreateText(image.transform, "Arrow", ">", 30f, index == 0 ? Cyan : Muted,
                 new Vector2(0.86f, 0.15f), new Vector2(0.96f, 0.85f), TextAlignmentOptions.Center);
+            return button;
+        }
+
+        private static Button CreateAchievementButton(Transform parent)
+        {
+            Image image = CreateImage(parent, "Btn_Achievements", Panel, new Vector2(0.92f, 0.02f), new Vector2(0.97f, 0.11f));
+            Button button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.colors = CreateButtonColors();
+
+            Outline outline = image.gameObject.AddComponent<Outline>();
+            outline.effectColor = Cyan;
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            CreateText(image.transform, "Label", "ACHIEVEMENT", 12f, Cyan, Vector2.zero, Vector2.one, TextAlignmentOptions.Center).fontStyle = FontStyles.Bold;
             return button;
         }
 

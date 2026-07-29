@@ -13,12 +13,14 @@ namespace FXOverdose.UI
         [SerializeField] private Button btnLoadGame;
         [SerializeField] private Button btnSettings;
         [SerializeField] private Button btnQuitGame;
+        [SerializeField] private Button btnAchievements;
 
         [Header("팝업 패널 (필수 할당)")]
         [SerializeField] private GameObject gameModePanel;
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
         [SerializeField] private GameObject tutorialPromptPanel;
+        [SerializeField] private AchievementUIController achievementUI;
 
         private bool allowCreatingStorySlot;
         private int pendingSlotIndex = -1;
@@ -29,6 +31,7 @@ namespace FXOverdose.UI
             Button loadGame,
             Button settings,
             Button quitGame,
+            Button achievements,
             GameObject loadPanel,
             GameObject settingsPopup,
             GameObject modePanel = null)
@@ -37,9 +40,15 @@ namespace FXOverdose.UI
             btnLoadGame = loadGame;
             btnSettings = settings;
             btnQuitGame = quitGame;
+            btnAchievements = achievements;
             loadGamePanel = loadPanel;
             settingsPanel = settingsPopup;
             gameModePanel = modePanel;
+            
+            if (achievementUI == null)
+            {
+                achievementUI = Object.FindAnyObjectByType<AchievementUIController>();
+            }
         }
 
         private void Start()
@@ -51,6 +60,7 @@ namespace FXOverdose.UI
             if (btnLoadGame != null) btnLoadGame.onClick.AddListener(OnClickLoadGame);
             if (btnSettings != null) btnSettings.onClick.AddListener(OnClickSettings);
             if (btnQuitGame != null) btnQuitGame.onClick.AddListener(OnClickQuitGame);
+            if (btnAchievements != null) btnAchievements.onClick.AddListener(OnClickAchievements);
 
             BindPopupControls();
 
@@ -114,6 +124,24 @@ namespace FXOverdose.UI
                 if (loadGamePanel != null) loadGamePanel.SetActive(false);
                 settingsPanel.SetActive(true);
                 settingsPanel.transform.SetAsLastSibling();
+            }
+        }
+
+        public void OnClickAchievements()
+        {
+            Debug.Log("[MainMenuController] 업적 팝업 오픈");
+            
+            if (achievementUI == null)
+            {
+                achievementUI = Object.FindAnyObjectByType<AchievementUIController>();
+            }
+            
+            if (achievementUI != null)
+            {
+                if (gameModePanel != null) gameModePanel.SetActive(false);
+                if (loadGamePanel != null) loadGamePanel.SetActive(false);
+                if (settingsPanel != null) settingsPanel.SetActive(false);
+                achievementUI.Open();
             }
         }
 
