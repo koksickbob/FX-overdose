@@ -62,7 +62,18 @@ public class TraderStatus : MonoBehaviour
 
     // 다른 스크립트에서 현재 상태를 읽을 때 사용
     public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+    public float MaxHealth 
+    {
+        get
+        {
+            float bonus = 0f;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.StreetCapId)
+            {
+                bonus = 30f;
+            }
+            return maxHealth + bonus;
+        }
+    }
     public float CurrentMental => currentMental;
     public float MaxMental => maxMental;
     public float MaxMentalLimit => maxMentalLimit;
@@ -154,7 +165,7 @@ public class TraderStatus : MonoBehaviour
 
     // 체력 비율을 0~1 값으로 반환
     // 나중에 체력 게이지 UI의 fillAmount에 사용
-    public float HealthRatio => currentHealth / maxHealth;
+    public float HealthRatio => currentHealth / MaxHealth;
 
     // 멘탈 비율을 0~1 값으로 반환
     // 나중에 멘탈 게이지 UI의 fillAmount에 사용
@@ -328,12 +339,12 @@ public class TraderStatus : MonoBehaviour
         // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime, false, "TimeDrain");
         }
         else if (currentHealth <= maxHealth * 0.5f)
         {
             // 체력이 절반 이하일 때는 기본 멘탈 지속 감소 속도 적용
-            ChangeMental(-mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime);
+            ChangeMental(-mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime, false, "TimeDrain");
         }
     }
 
@@ -353,7 +364,7 @@ public class TraderStatus : MonoBehaviour
         currentHealth = Mathf.Clamp(
             currentHealth,
             0f,
-            maxHealth
+            MaxHealth
         );
         float appliedHealthDelta = currentHealth - prevHealth;
         if (!Mathf.Approximately(appliedHealthDelta, 0f))
@@ -362,10 +373,10 @@ public class TraderStatus : MonoBehaviour
         }
 
         // 체력 임계치 돌파 시 유동적 대사 호출
-        if (amount < 0f && maxHealth > 0f)
+        if (amount < 0f && MaxHealth > 0f)
         {
-            float prevRatio = prevHealth / maxHealth;
-            float currRatio = currentHealth / maxHealth;
+            float prevRatio = prevHealth / MaxHealth;
+            float currRatio = currentHealth / MaxHealth;
 
             if (prevRatio > 0.5f && currRatio <= 0.5f)
             {
@@ -377,16 +388,16 @@ public class TraderStatus : MonoBehaviour
 
         // [핵심 기능 규격] 체력이 절반 이하(<= 50%)로 떨어진 이후부터는 
         // 체력이 감소할 때마다 멘탈 수치도 동일한 비율로 함께 감소하도록 연동
-        if (amount < 0f && prevHealth <= maxHealth * 0.5f)
+        if (amount < 0f && prevHealth <= MaxHealth * 0.5f)
         {
-            ChangeMental(amount);
+            ChangeMental(amount, false, "HealthDrop");
         }
-        else if (amount < 0f && prevHealth > maxHealth * 0.5f && currentHealth < maxHealth * 0.5f)
+        else if (amount < 0f && prevHealth > MaxHealth * 0.5f && currentHealth < MaxHealth * 0.5f)
         {
-            float excessDrop = currentHealth - (maxHealth * 0.5f);
+            float excessDrop = currentHealth - (MaxHealth * 0.5f);
             if (excessDrop < 0f)
             {
-                ChangeMental(excessDrop);
+                ChangeMental(excessDrop, false, "HealthDrop");
             }
         }
 
@@ -406,6 +417,12 @@ public class TraderStatus : MonoBehaviour
         if (amount > 0f && !canRegenMental && !ignoreRegenBlock)
         {
             return;
+        }
+
+        // 지뢰계 의상(Costume) 디버프 적용: 시간에 따른 자연 감소("TimeDrain")를 제외한 모든 멘탈 감소 수치 1.25배 가속
+        if (amount < 0f && reason != "TimeDrain" && CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.JiraiKeiId)
+        {
+            amount *= 1.25f;
         }
 
         float prevMental = currentMental;

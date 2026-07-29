@@ -3,7 +3,7 @@ using FXOverdose.Core;
 
 public class DeliveryFoodManager : MonoBehaviour
 {
-    public const string SteakUnlockAchievementId = "purchase_consumable_50";
+    public const string SteakUnlockAchievementId = "purchase_delivery_200";
     public const float PastaDurationSeconds = 180f;
     public const float PastaTimeMultiplier = 1.5f;
 

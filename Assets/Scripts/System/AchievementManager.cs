@@ -87,16 +87,16 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9 });
             achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
             
-            achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50 });
+            achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50, RewardCostumeId = "street_cap" });
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100 });
             achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100 });
-            achievements.Add(new AchievementDefinition { Id = "purchase_consumable_50", Title = "큰손 고객", Description = "소모성 아이템 구매 수량 총 50개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 50 });
+            achievements.Add(new AchievementDefinition { Id = "purchase_delivery_200", Title = "큰손 고객", Description = "배달음식 구매 수량 총 200개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 200 });
             
-            achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20 });
+            achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20, RewardCostumeId = "jirai_kei" });
             
             achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "첫 목표 달성", Description = "100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000 });
             achievements.Add(new AchievementDefinition { Id = "balance_25m", Title = "억만장자의 길 I", Description = "누적 최고 자산 2,500만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 25000000 });
-            achievements.Add(new AchievementDefinition { Id = "balance_50m", Title = "억만장자의 길 II", Description = "누적 최고 자산 5,000만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 50000000 });
+            achievements.Add(new AchievementDefinition { Id = "balance_50m", Title = "억만장자의 길 II", Description = "누적 최고 자산 5,000만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 50000000, RewardCostumeId = "bunny_girl,bikini" });
         }
 
         private void LoadUnlockedAchievements()
@@ -257,7 +257,7 @@ namespace FXOverdose.Core
             requirementText = string.Empty;
             foreach (var ach in achievements)
             {
-                if (!string.IsNullOrEmpty(ach.RewardCostumeId) && ach.RewardCostumeId == costumeId)
+                if (!string.IsNullOrEmpty(ach.RewardCostumeId) && Array.IndexOf(ach.RewardCostumeId.Split(','), costumeId) >= 0)
                 {
                     if (unlockedAchievements.Contains(ach.Id))
                     {

@@ -28,7 +28,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = StandardId,
             DisplayName = "STANDARD",
-            Description = "Yomi's default white tee and dolphin shorts.",
+            Description = "[기본 외형]\n능력치 보너스 없음",
             Price = 0,
             IconResourcePath = "Characters/States/Standard",
             SpriteRoot = "Characters"
@@ -37,7 +37,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = BunnyGirlId,
             DisplayName = "BUNNY GIRL",
-            Description = "Black bunny suit, ribbon, cuffs, stockings and heels.",
+            Description = "[효과: 자동매매 익절 시 수익금 +15%]",
             Price = 200,
             IconResourcePath = "Characters/Costumes/BunnyGirl",
             SpriteRoot = "Characters/Costumes/BunnyGirl"
@@ -46,7 +46,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = BikiniId,
             DisplayName = "WHITE BIKINI",
-            Description = "White two-piece bikini with a clean summer look.",
+            Description = "[효과: 수동매매 익절 시 수익금 +15%]",
             Price = 400,
             IconResourcePath = "Characters/Costumes/Bikini",
             SpriteRoot = "Characters/Costumes/Bikini"
@@ -55,7 +55,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = JiraiKeiId,
             DisplayName = "JIRAI KEI",
-            Description = "Black-and-pink jirai-kei dress with twin tails and ribbon bows.",
+            Description = "[효과: 전체 익절 시 수익금 +20% 및 체력/멘탈 +10 회복]\n[패널티: 모든 멘탈 데미지 1.25배 가속]",
             Price = 600,
             IconResourcePath = "Characters/Costumes/JiraiKei_TwinTails",
             SpriteRoot = "Characters/Costumes/JiraiKei_TwinTails"
@@ -64,7 +64,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = StreetCapId,
             DisplayName = "STREET CAP",
-            Description = "White ball cap, cropped hoodie, black leggings and sneakers.",
+            Description = "[효과: 최대 체력 +30 확장]",
             Price = 800,
             IconResourcePath = "Characters/Costumes/StreetCap",
             SpriteRoot = "Characters/Costumes/StreetCap"

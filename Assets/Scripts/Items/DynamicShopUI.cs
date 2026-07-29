@@ -602,22 +602,28 @@ public class DynamicShopUI : MonoBehaviour
         effect.text = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)
             ? "CURRENT LOOK"
             : "CHANGE YOMI LOOK";
+        if (costume.Id == CostumeManager.BunnyGirlId) effect.text = "PROFIT +15% (AI)";
+        else if (costume.Id == CostumeManager.BikiniId) effect.text = "PROFIT +15% (PLAYER)";
+        else if (costume.Id == CostumeManager.JiraiKeiId) effect.text = "PROFIT +20% (HIGH RISK)";
+        else if (costume.Id == CostumeManager.StreetCapId) effect.text = "MAX HP +30";
+        if (CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)) effect.text += " (EQUIPPED)";
+        
         effect.color = ApparelMagenta;
         effect.fontStyle = FontStyles.Bold;
         SetRect(effect.rectTransform, new Vector2(0.52f, 0.59f), new Vector2(0.95f, 0.73f), Vector2.zero, Vector2.zero);
 
-        TMP_Text description = CreateText(card.transform, "Description", 17f, TextAlignmentOptions.TopLeft);
+        TMP_Text description = CreateText(card.transform, "Description", 19f, TextAlignmentOptions.TopLeft);
         description.text = costume.Description;
         description.color = BodyText;
         description.enableAutoSizing = true;
-        description.fontSizeMin = 14f;
-        description.fontSizeMax = 19f;
+        description.fontSizeMin = 16f;
+        description.fontSizeMax = 22f;
         description.textWrappingMode = TextWrappingModes.Normal;
         description.overflowMode = TextOverflowModes.Truncate;
-        description.maxVisibleLines = 3;
+        description.maxVisibleLines = 6;
         description.lineSpacing = 2f;
         description.margin = new Vector4(0f, 1f, 8f, 1f);
-        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.94f, 0.58f), Vector2.zero, new Vector2(-4f, 0f));
+        SetRect(description.rectTransform, new Vector2(0.52f, 0.33f), new Vector2(0.94f, 0.58f), Vector2.zero, new Vector2(-4f, 0f));
 
         bool owned = CostumeManager.Instance != null && CostumeManager.Instance.IsOwned(costume.Id);
         bool equipped = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id);

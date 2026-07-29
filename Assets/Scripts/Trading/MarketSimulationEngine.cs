@@ -50,6 +50,10 @@ namespace FXOverdose.Trading
         [SerializeField] private TradingController.PositionType overdoseTrapPositionType;
         [SerializeField] private float overdoseTrapEndTime = -1f;
 
+        // 오버드라이브 연출 상태 변수
+        private int currentOverdriveWaveStyle = 0; // 0: 자잘한 요동, 1: 큰 눌림목
+        private int currentOverdriveTrapType = 0;  // 0: Classic V-Shape, 1: W-Shape Double Trap, 2: Slow Bleed + Flash Spike
+
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
         public bool IsDataPrepared { get; private set; } = false;
@@ -475,37 +479,63 @@ namespace FXOverdose.Trading
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
                 // 2단계 확정적 주가 제어 구간: 너무 정직한 일직선 이동을 방지하고 현실적인 흔들림을 주입
-                // 💡 [개선] 노이즈를 너무 억제하면 차트가 부자연스러우므로 0.02에서 0.35로 상향하여 변동성을 줍니다.
-                stochasticNoise *= 0.35f; 
+                // Wave Style 0: 자잘하게 요동치며 꾸준히 이동 (stochasticNoise 크게 증폭)
+                // Wave Style 1: 큰 눌림목(파동)을 형성하며 이동 (stochasticNoise 약간 증폭, 주기 긴 강한 사인파 결합)
                 
-                // 확정 빔 구간에도 짧은 역추세 파동을 더해 쫄깃한 수동매매 경험을 제공
-                drift += Mathf.Sin(Time.time * 1.5f) * 0.00025f;
+                if (currentOverdriveWaveStyle == 0)
+                {
+                    stochasticNoise *= 1.5f; // 기존 0.35f에서 대폭 상향하여 음봉/양봉 섞임 유도
+                    drift += Mathf.Sin(Time.time * 2.5f) * 0.00015f + Mathf.Cos(Time.time * 5.0f) * 0.0001f;
+                }
+                else
+                {
+                    stochasticNoise *= 0.8f;
+                    // 주기 20~30초 가량의 꽤 큰 역추세 파동 형성
+                    drift += Mathf.Sin(Time.time * 0.5f) * 0.0006f + Mathf.Cos(Time.time * 0.2f) * 0.0003f;
+                }
 
                 if (isExternalEventOverride && !activeSignal.IsTrueSignal)
                 {
-                    // 💡 [악결과(Trap/실패) 휩소 꼬리 반등 궤적 생성]
-                    // 앞 70% 구간: 목표 변동률의 135%까지 강하게 몰아쳐 극도의 공포(-60%~-85% ROE) 유도
-                    // 뒤 30% 구간: 45% 강한 기술적 반등 꼬리(Whipsaw Recovery Bounce)를 발생시켜 버티기/물타기 극적 탈출 기회 제공
                     float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
                     float elapsedRatio = 1f - ((float)signalPhaseTimerMinutes / totalDuration);
 
-                    if (elapsedRatio < 0.7f)
+                    if (currentOverdriveTrapType == 0) // Classic V-Shape
                     {
-                        float targetDriftPerMinute = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * 0.7f);
-                        drift = targetDriftPerMinute;
+                        if (elapsedRatio < 0.7f)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * 0.7f);
+                        else
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.3f);
                     }
-                    else
+                    else if (currentOverdriveTrapType == 1) // W-Shape Double Trap
                     {
-                        // 막바지 30% 구간: 반등 꼬리 드리프트
-                        float recoveryDriftPerMinute = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.3f);
-                        drift = recoveryDriftPerMinute;
+                        if (elapsedRatio < 0.4f)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.5f) / 100f) / Mathf.Max(1f, totalDuration * 0.4f); // 1차 급락
+                        else if (elapsedRatio < 0.6f)
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.8f) / 100f) / Mathf.Max(1f, totalDuration * 0.2f); // 페이크 반등
+                        else if (elapsedRatio < 0.85f)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.2f) / 100f) / Mathf.Max(1f, totalDuration * 0.25f); // 2차 급락 (개미털기)
+                        else
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.6f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f); // 최종 탈출 빔
+                    }
+                    else // 2: Slow Bleed + Flash Spike
+                    {
+                        if (elapsedRatio < 0.85f)
+                        {
+                            stochasticNoise *= 0.3f; // 말려죽이는 피말림 연출
+                            drift = ((activeSignal.TargetPercentageDelta * 0.9f) / 100f) / Mathf.Max(1f, totalDuration * 0.85f);
+                        }
+                        else
+                        {
+                            stochasticNoise *= 2.0f; // 극적 빔
+                            drift = ((activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f);
+                        }
                     }
                 }
                 else
                 {
                     // 정상 확정 구간: 목표 변동률을 남은 보장 시간 동안 분할 반영하여 부드러운 드리프트 생성
                     float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
-                    drift = targetDriftPerMinute;
+                    drift += targetDriftPerMinute; // 파동(drift)에 목표 상승분 누적
                 }
 
                 // OU 평균 회귀 항 무력화 (일방향 궤적 보장)
@@ -517,6 +547,32 @@ namespace FXOverdose.Trading
             float priceDelta = currentPrice * totalReturn;
             currentPrice += priceDelta;
             if (currentPrice < 10f) currentPrice = 10f; // 최저가 방어
+
+            // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어]
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride)
+            {
+                var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
+                if (tradingCtrl != null && tradingCtrl.CurrentPosition != TradingController.PositionType.None)
+                {
+                    float roe = 0f;
+                    if (tradingCtrl.CurrentPosition == TradingController.PositionType.Long)
+                    {
+                        roe = (currentPrice - tradingCtrl.EntryPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                        if (roe < -25f)
+                        {
+                            currentPrice = tradingCtrl.EntryPrice * (1f - (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                        }
+                    }
+                    else
+                    {
+                        roe = (tradingCtrl.EntryPrice - currentPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                        if (roe < -25f)
+                        {
+                            currentPrice = tradingCtrl.EntryPrice * (1f + (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                        }
+                    }
+                }
+            }
 
             // 6. 실시간 1분봉 및 상위 타임프레임 Live 캔들 갱신
             float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
@@ -877,7 +933,12 @@ namespace FXOverdose.Trading
                         // 여유 시간 종료 -> 2단계 확정적 주가 오버라이드 구간 돌입
                         currentSignalPhase = SignalPhase.GuaranteedOverride;
                         signalPhaseTimerMinutes = activeSignal.DurationMinutes;
-                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()}");
+                        
+                        // 오버드라이브 연출 패턴 무작위 설정
+                        currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
+                        currentOverdriveTrapType = UnityEngine.Random.Range(0, 3);
+                        
+                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, Trap: {currentOverdriveTrapType})");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
                     break;

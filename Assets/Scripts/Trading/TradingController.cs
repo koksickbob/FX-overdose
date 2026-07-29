@@ -997,6 +997,29 @@ namespace FXOverdose.Trading
                 }
             }
 
+            // 의상(Costume) 버프 적용
+            string equippedCostume = CostumeManager.Instance != null ? CostumeManager.Instance.EquippedCostumeId : null;
+            if (pnl > 0f && !string.IsNullOrEmpty(equippedCostume))
+            {
+                if (equippedCostume == CostumeManager.BunnyGirlId && activeTradingMode == TradingMode.AI_Auto)
+                {
+                    pnl *= 1.15f; // 바니걸: 자동매매 수익률 15% 증가
+                }
+                else if (equippedCostume == CostumeManager.BikiniId && activeTradingMode == TradingMode.Player_Manual)
+                {
+                    pnl *= 1.15f; // 비키니: 수동매매 수익률 15% 증가
+                }
+                else if (equippedCostume == CostumeManager.JiraiKeiId)
+                {
+                    pnl *= 1.20f; // 지뢰계: 매매 수익률 20% 증가
+                    if (traderStatus != null)
+                    {
+                        traderStatus.ChangeHealth(10f);
+                        traderStatus.ChangeMental(10f);
+                    }
+                }
+            }
+
             // 트라우마 극복 직후 첫 매매 보너스 적용
             if (traderStatus != null && traderStatus.HasTraumaCureTradeBuff)
             {
