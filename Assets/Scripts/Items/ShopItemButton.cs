@@ -100,15 +100,26 @@ public class ShopItemButton : MonoBehaviour
 
         bool isActive = item.IsActiveItem;
         bool isMax = isActive && ActiveItemEffectManager.Instance != null && ActiveItemEffectManager.Instance.IsMaxLevel(item);
+        bool isSteakBlocked = false;
+        string steakReason = string.Empty;
+        if (item.ItemId == "steak" && shopManager != null && shopManager.GameManager != null)
+        {
+            isSteakBlocked = !DeliveryFoodManager.EnsureInstance()
+                .CanPurchaseSteak(shopManager.GameManager.CurrentDay, out steakReason);
+        }
 
         if (button != null)
         {
-            button.interactable = !isMax;
+            button.interactable = !isMax && !isSteakBlocked;
             TMP_Text buttonLabel = button.GetComponentInChildren<TMP_Text>();
             if (buttonLabel != null)
             {
-                ConfigureContainedLabel(buttonLabel, 21f, 11f, 8f);
-                if (isMax)
+                ConfigureContainedLabel(buttonLabel, 23f, 12f, 8f);
+                if (isSteakBlocked)
+                {
+                    buttonLabel.text = "LOCKED";
+                }
+                else if (isMax)
                 {
                     buttonLabel.text = item.MaxLevel <= 1 ? "ACTIVE ✓" : "MAX LV ✓";
                 }
@@ -121,10 +132,17 @@ public class ShopItemButton : MonoBehaviour
 
         if (priceText != null)
         {
-            priceText.enableAutoSizing = true;
-            priceText.fontSizeMin = 10f;
+            priceText.enableAutoSizing = false;
+            priceText.fontSize = 23f;
+            priceText.fontSizeMin = 23f;
+            priceText.fontSizeMax = 23f;
             priceText.textWrappingMode = TextWrappingModes.NoWrap;
-            if (isMax)
+            priceText.overflowMode = TextOverflowModes.Ellipsis;
+            if (isSteakBlocked)
+            {
+                priceText.text = "LOCKED";
+            }
+            else if (isMax)
             {
                 priceText.text = "MAXED";
             }
@@ -142,8 +160,12 @@ public class ShopItemButton : MonoBehaviour
 
         if (ownedText != null)
         {
-            ConfigureContainedLabel(ownedText, 15f, 9f, 4f);
-            if (isActive && ActiveItemEffectManager.Instance != null)
+            ConfigureContainedLabel(ownedText, 17f, 10f, 4f);
+            if (isSteakBlocked)
+            {
+                ownedText.text = steakReason;
+            }
+            else if (isActive && ActiveItemEffectManager.Instance != null)
             {
                 ownedText.text = ActiveItemEffectManager.Instance.GetItemStatusLabel(item);
             }

@@ -54,6 +54,11 @@ namespace FXOverdose.Core
 
         public event Action OnAchievementsChanged;
 
+        public bool IsAchievementUnlocked(string achievementId)
+        {
+            return !string.IsNullOrEmpty(achievementId) && unlockedAchievements.Contains(achievementId);
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this)

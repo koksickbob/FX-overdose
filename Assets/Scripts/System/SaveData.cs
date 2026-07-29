@@ -44,6 +44,8 @@ namespace FXOverdose.Core
         public float PeakBalance = 0f;
         public float CurrentMental = 100f;
         public float CurrentHealth = 100f; // 24.12.01: 체력 저장 복구
+        public float MaxMental = 100f;
+        public float MaxMentalLimit = 100f;
         public TraderStatus.MentalState CurrentMentalState = TraderStatus.MentalState.Stable;
 
         // --- 인벤토리 상태 ---
@@ -98,5 +100,9 @@ namespace FXOverdose.Core
         // JsonUtility가 Dictionary를 직렬화하지 못하므로 아이템 ID와 레벨을 같은 인덱스의 병렬 리스트로 저장합니다.
         public List<string> ActiveItemIds = new List<string>();
         public List<int> ActiveItemLevels = new List<int>();
+
+        // --- 배달 음식 데이터 ---
+        public int LastSteakPurchaseDay = -999;
+        public float PastaBuffRemainingSeconds = 0f;
     }
 }

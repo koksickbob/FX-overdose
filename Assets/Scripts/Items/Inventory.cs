@@ -145,9 +145,14 @@ public class Inventory : MonoBehaviour
         }
 
         slot.RemoveOne();
-        QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
+        int remainingQuantity = slot.Quantity;
+        if (remainingQuantity <= 0)
+        {
+            slots.Remove(slot);
+        }
+        QuantityChanged?.Invoke(item, remainingQuantity);
         ItemConsumed?.Invoke(item);
-        Debug.Log($"[Inventory] {item.ItemName} 사용 완료, 남은 수량 {slot?.Quantity ?? 0}개");
+        Debug.Log($"[Inventory] {item.ItemName} 사용 완료, 남은 수량 {remainingQuantity}개");
         return true;
     }
 
@@ -160,9 +165,14 @@ public class Inventory : MonoBehaviour
         InventorySlot slot = FindSlot(item);
         if (slot == null || slot.Quantity < amount) return false;
         slot.RemoveAmount(amount);
-        QuantityChanged?.Invoke(item, slot?.Quantity ?? 0);
+        int remainingQuantity = slot.Quantity;
+        if (remainingQuantity <= 0)
+        {
+            slots.Remove(slot);
+        }
+        QuantityChanged?.Invoke(item, remainingQuantity);
         ItemConsumed?.Invoke(item);
-        Debug.Log($"[Inventory] {item.ItemName} {amount}개 소비 완료, 남은 수량 {slot?.Quantity ?? 0}개");
+        Debug.Log($"[Inventory] {item.ItemName} {amount}개 소비 완료, 남은 수량 {remainingQuantity}개");
         return true;
     }
 
@@ -204,7 +214,7 @@ public class Inventory : MonoBehaviour
         {
             InventorySlot slot = slots[i];
 
-            if (slot == null || slot.Item == null || !foundItems.Add(slot.Item))
+            if (slot == null || slot.Item == null || slot.Quantity <= 0 || !foundItems.Add(slot.Item))
             {
                 slots.RemoveAt(i);
             }

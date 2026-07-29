@@ -13,14 +13,15 @@ public class DynamicInventoryUI : MonoBehaviour
     [SerializeField] private TMP_FontAsset font;
 
     [Header("반응형 슬롯 배치")]
-    [SerializeField, Min(1)] private int maxColumns = 5;
-    [SerializeField] private float maxPanelWidth = 700f;
-    [SerializeField] private float preferredSlotSize = 122f;
-    [SerializeField] private float minSlotSize = 78f;
-    [SerializeField] private float spacing = 10f;
-    [SerializeField] private float horizontalPadding = 18f;
-    [SerializeField] private float topPadding = 48f;
-    [SerializeField] private float bottomPadding = 14f;
+    [SerializeField, Min(1)] private int minimumVisibleSlots = 4;
+    [SerializeField, Min(1)] private int maxColumns = 6;
+    [SerializeField] private float maxPanelWidth = 660f;
+    [SerializeField] private float preferredSlotSize = 96f;
+    [SerializeField] private float minSlotSize = 70f;
+    [SerializeField] private float spacing = 8f;
+    [SerializeField] private float horizontalPadding = 14f;
+    [SerializeField] private float topPadding = 44f;
+    [SerializeField] private float bottomPadding = 12f;
 
     private readonly List<GameObject> generatedSlots = new();
     private RectTransform panelRect;
@@ -112,12 +113,34 @@ public class DynamicInventoryUI : MonoBehaviour
 
         foreach (InventorySlot slot in inventory.Slots)
         {
-            if (slot?.Item == null) continue;
+            if (slot?.Item == null || slot.Quantity <= 0) continue;
             generatedSlots.Add(CreateSlot(slot.Item));
         }
 
-        lastSlotCount = inventory.Slots.Count;
+        lastSlotCount = generatedSlots.Count;
+        while (generatedSlots.Count < minimumVisibleSlots)
+        {
+            generatedSlots.Add(CreateEmptySlot(generatedSlots.Count));
+        }
         LayoutSlots();
+    }
+
+    private GameObject CreateEmptySlot(int index)
+    {
+        GameObject slot = new($"DynamicEmptySlot_{index}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        slot.transform.SetParent(transform, false);
+
+        Image frame = slot.GetComponent<Image>();
+        frame.sprite = slotFrameSprite;
+        frame.type = Image.Type.Sliced;
+        frame.color = new Color(1f, 1f, 1f, 0.32f);
+        frame.raycastTarget = false;
+
+        Outline outline = slot.GetComponent<Outline>();
+        outline.effectColor = new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.45f);
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
+        return slot;
     }
 
     private GameObject CreateSlot(ItemData item)
@@ -147,7 +170,7 @@ public class DynamicInventoryUI : MonoBehaviour
         icon.preserveAspect = true;
         icon.raycastTarget = false;
 
-        TMP_Text quantity = CreateText(slot.transform, "Quantity", 22f, TextAlignmentOptions.BottomRight);
+        TMP_Text quantity = CreateText(slot.transform, "Quantity", 18f, TextAlignmentOptions.BottomRight);
         SetAnchors(quantity.rectTransform, new Vector2(0.43f, 0.02f), new Vector2(0.94f, 0.34f), Vector2.zero, Vector2.zero);
         quantity.fontStyle = FontStyles.Bold;
 

@@ -30,6 +30,12 @@ public class ShopManager : MonoBehaviour
 
     private void Awake()
     {
+        foreach (ItemData food in Resources.LoadAll<ItemData>("Items/Food"))
+        {
+            if (food != null && !catalogItems.Exists(item => item != null && item.ItemId == food.ItemId))
+                catalogItems.Add(food);
+        }
+
         if (openButton != null)
         {
             openButton.onClick.AddListener(OpenShop);
@@ -130,6 +136,13 @@ public class ShopManager : MonoBehaviour
         }
 
         int priceToSpend = GetInflatedPrice(item);
+        DeliveryFoodManager foodManager = DeliveryFoodManager.EnsureInstance();
+        if (item.ItemId == "steak" &&
+            !foodManager.CanPurchaseSteak(gameManager.CurrentDay, out string steakReason))
+        {
+            Debug.Log($"[ShopManager] 스테이크 구매 불가: {steakReason}");
+            return false;
+        }
         if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
         {
             if (ActiveItemEffectManager.Instance.IsMaxLevel(item))
@@ -160,6 +173,8 @@ public class ShopManager : MonoBehaviour
         else
         {
             inventory.AddItem(item);
+            if (item.ItemId == "steak")
+                foodManager.RecordSteakPurchase(gameManager.CurrentDay);
             Debug.Log($"[ShopManager] 소모형 아이템 {item.ItemName} 구매 완료");
             FXOverdose.Core.AchievementManager.Instance?.RecordItemPurchase();
         }

@@ -67,6 +67,8 @@ namespace FXOverdose.Core
             var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             var costumes = CostumeManager.Instance;
             var activeItems = ActiveItemEffectManager.Instance;
+            var deliveryFood = DeliveryFoodManager.EnsureInstance();
+            var inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
 
             if (gm == null || status == null || levelSys == null || memory == null)
             {
@@ -90,7 +92,9 @@ namespace FXOverdose.Core
                 CurrentDay = gm.CurrentDay,
                 CurrentHour = gm.CurrentHour,
                 CurrentMinute = gm.CurrentMinute,
-                SecondsPerGameMinute = gm.SecondsPerGameMinute,
+                SecondsPerGameMinute = DynamicTimeRegulator.Instance != null
+                    ? DynamicTimeRegulator.Instance.BaseSecondsPerMinute
+                    : gm.SecondsPerGameMinute,
                 StartOfDayEquity = gm.StartOfDayEquity,
                 IsTutorialCompleted = this.IsTutorialCompleted,
 
@@ -99,6 +103,8 @@ namespace FXOverdose.Core
                 CurrentMental = status.CurrentMental,
                 CurrentMentalState = status.CurrentMentalState,
                 CurrentHealth = status.CurrentHealth,
+                MaxMental = status.MaxMental,
+                MaxMentalLimit = status.MaxMentalLimit,
 
                 // LevelSystem
                 ProtagonistLevel = levelSys.ProtagonistLevel,
@@ -134,6 +140,17 @@ namespace FXOverdose.Core
 
             marketEngine?.CaptureSaveData(data);
             activeItems?.CaptureSaveData(data.ActiveItemIds, data.ActiveItemLevels);
+            if (inventory != null)
+            {
+                foreach (InventorySlot slot in inventory.Slots)
+                {
+                    if (slot?.Item == null || slot.Quantity <= 0) continue;
+                    data.InventoryItemIds.Add(slot.Item.ItemId);
+                    data.InventoryItemQuantities.Add(slot.Quantity);
+                }
+            }
+            data.LastSteakPurchaseDay = deliveryFood.LastSteakPurchaseDay;
+            data.PastaBuffRemainingSeconds = deliveryFood.PastaRemainingSeconds;
 
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
@@ -261,6 +278,8 @@ namespace FXOverdose.Core
             var memory = TraderMemoryManager.Instance;
             var costumes = CostumeManager.Instance;
             var activeItems = ActiveItemEffectManager.Instance;
+            var deliveryFood = DeliveryFoodManager.EnsureInstance();
+            var inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
             var shopManager = FindAnyObjectByType<ShopManager>(FindObjectsInactive.Include);
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
@@ -301,6 +320,11 @@ namespace FXOverdose.Core
                 stType.GetField("currentMental", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentMental);
                 stType.GetField("currentMentalState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentMentalState);
                 stType.GetField("currentHealth", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentHealth);
+                if (CurrentData.MaxMental > 0f)
+                {
+                    stType.GetField("maxMental", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.MaxMental);
+                    stType.GetField("maxMentalLimit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.MaxMentalLimit);
+                }
             }
 
             if (levelSys != null)
@@ -335,6 +359,26 @@ namespace FXOverdose.Core
                     CurrentData.ActiveItemLevels);
             }
 
+            if (inventory != null && shopManager != null)
+            {
+                inventory.Clear();
+                int count = Mathf.Min(CurrentData.InventoryItemIds.Count, CurrentData.InventoryItemQuantities.Count);
+                for (int i = 0; i < count; i++)
+                {
+                    ItemData savedItem = null;
+                    foreach (ItemData catalogItem in shopManager.CatalogItems)
+                    {
+                        if (catalogItem != null && catalogItem.ItemId == CurrentData.InventoryItemIds[i])
+                        {
+                            savedItem = catalogItem;
+                            break;
+                        }
+                    }
+                    if (savedItem != null && CurrentData.InventoryItemQuantities[i] > 0)
+                        inventory.AddItem(savedItem, CurrentData.InventoryItemQuantities[i]);
+                }
+            }
+
             if (trading != null)
             {
                 trading.SetTradingMode(CurrentData.ActiveTradingMode, forceRestore: true);
@@ -345,6 +389,7 @@ namespace FXOverdose.Core
             }
 
             marketEngine?.RestoreFromSaveData(CurrentData);
+            deliveryFood.Restore(CurrentData.LastSteakPurchaseDay, CurrentData.PastaBuffRemainingSeconds);
 
             IsPendingLoad = false;
             CurrentData = null;
