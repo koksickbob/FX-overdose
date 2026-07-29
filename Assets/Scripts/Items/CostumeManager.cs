@@ -74,7 +74,7 @@ public class CostumeManager : MonoBehaviour
         {
             Id = QipaoId,
             DisplayName = "BLACK QIPAO",
-            Description = "Black qipao with gold trim, teal cloud patterns and a traditional hair bun.",
+            Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
             Price = 1000,
             IconResourcePath = "Characters/Costumes/Qipao",
             SpriteRoot = "Characters/Costumes/Qipao"

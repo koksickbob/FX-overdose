@@ -30,6 +30,9 @@ namespace FXOverdose.Trading
         [SerializeField] private MarketRegime currentRegime = MarketRegime.Sideways;
         [SerializeField] private float currentVolatility = 0.002f;
 
+        [SerializeField] private MarketRegime currentDailyRegime = MarketRegime.Sideways;
+        private int lastUpdatedDay = -1;
+
         // 국면 전환 제어 변수
         private int minutesUntilNextRegimeChange = 60;
         private float ouCenterPrice; // OU 평균 회귀 중심 가격
@@ -162,6 +165,7 @@ namespace FXOverdose.Trading
             data.Current24hLow = current24hLow;
             data.Current24hVolume = current24hVolume;
             data.CurrentRegime = currentRegime;
+            data.CurrentDailyRegime = currentDailyRegime;
             data.CurrentSignalPhase = currentSignalPhase;
 
             data.ChartHistories.Clear();
@@ -189,6 +193,7 @@ namespace FXOverdose.Trading
             current24hLow = data.Current24hLow;
             current24hVolume = data.Current24hVolume;
             currentRegime = data.CurrentRegime;
+            currentDailyRegime = data.CurrentDailyRegime;
             
             // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
             currentSignalPhase = SignalPhase.None;
@@ -357,6 +362,12 @@ namespace FXOverdose.Trading
 
         public void UpdateDailyDifficulty(int currentDay)
         {
+            if (lastUpdatedDay != currentDay)
+            {
+                lastUpdatedDay = currentDay;
+                DetermineDailyRegime();
+            }
+
             float effectiveDay = Mathf.Min(currentDay, 25f); // 25일차에서 캡
 
             if (currentDay <= 5)
@@ -387,6 +398,17 @@ namespace FXOverdose.Trading
                 fakeoutProbability = 0.5f;
                 slippageRange = 5;
             }
+        }
+
+        private void DetermineDailyRegime()
+        {
+            float rand = UnityEngine.Random.value;
+            if (rand < 0.35f) currentDailyRegime = MarketRegime.Sideways;
+            else if (rand < 0.60f) currentDailyRegime = MarketRegime.Bull;
+            else if (rand < 0.85f) currentDailyRegime = MarketRegime.Bear;
+            else currentDailyRegime = MarketRegime.Squeeze;
+
+            Debug.Log($"[MarketEngine] 📅 일일 마켓 분위기(Daily Regime) 갱신: {currentDailyRegime}");
         }
 
         // 프레임 단위 실시간 주가 움직임 시뮬레이션
@@ -438,7 +460,12 @@ namespace FXOverdose.Trading
                 waveDrift += UnityEngine.Random.Range(-0.0003f, 0.0003f);
             }
 
-            drift += waveDrift;
+            float macroDrift = 0f;
+            if (currentDailyRegime == MarketRegime.Bull) macroDrift = 0.00015f;
+            else if (currentDailyRegime == MarketRegime.Bear) macroDrift = -0.00015f;
+            else if (currentDailyRegime == MarketRegime.Squeeze) macroDrift = UnityEngine.Random.Range(-0.0003f, 0.0003f);
+
+            drift += waveDrift + macroDrift;
 
             // 2. GARCH 스타일 변동성 군집 (TargetVol로 서서히 수렴하거나 스파이크 후 유지)
             currentVolatility = Mathf.Lerp(currentVolatility, targetVol, dtFraction * 5f);
@@ -542,37 +569,71 @@ namespace FXOverdose.Trading
                 ouTerm = 0f;
             }
 
-            // 5. 최종 수익률 및 가격 변동
+            // 5. 최종 수익률 
             float totalReturn = (drift * dtFraction) + (ouTerm * dtFraction) + stochasticNoise;
-            float priceDelta = currentPrice * totalReturn;
-            currentPrice += priceDelta;
-            if (currentPrice < 10f) currentPrice = 10f; // 최저가 방어
 
-            // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어]
-            if (currentSignalPhase == SignalPhase.GuaranteedOverride)
+            // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어 (자연스러운 스프링 꼬리 효과)]
+            // 주의: 오버도즈 폭주(isOverdoseTrapOverride) 발동 중에는 어떠한 가드도 무시하고 청산(-100%)을 우선시합니다.
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride)
             {
                 var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
                 if (tradingCtrl != null && tradingCtrl.CurrentPosition != TradingController.PositionType.None)
                 {
-                    float roe = 0f;
+                    float expectedPrice = currentPrice * (1f + totalReturn);
+                    float expectedRoe = 0f;
+                    
                     if (tradingCtrl.CurrentPosition == TradingController.PositionType.Long)
                     {
-                        roe = (currentPrice - tradingCtrl.EntryPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
-                        if (roe < -25f)
+                        expectedRoe = (expectedPrice - tradingCtrl.EntryPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                        if (expectedRoe < -24f) // -24% 부근부터 강력한 지지/반발 매수세 연출
                         {
-                            currentPrice = tradingCtrl.EntryPrice * (1f - (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                            if (totalReturn < 0) 
+                            {
+                                // 하락폭을 대폭 줄이고 양수 노이즈(반발 매수)를 더해 꼬리를 형성
+                                float dampFactor = Mathf.Clamp01(25f + expectedRoe);
+                                totalReturn = totalReturn * dampFactor + Mathf.Abs(stochasticNoise) * 1.5f;
+                                expectedPrice = currentPrice * (1f + totalReturn);
+                                expectedRoe = (expectedPrice - tradingCtrl.EntryPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                            }
+                            
+                            // 절대 하한선 방어: -25% 도달 시 즉시 무작위 꼬리 반등 형성
+                            if (expectedRoe < -25f)
+                            {
+                                float hardLimit = tradingCtrl.EntryPrice * (1f - (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                                expectedPrice = hardLimit + (currentPrice * UnityEngine.Random.Range(0.0002f, 0.0008f));
+                                totalReturn = (expectedPrice - currentPrice) / currentPrice;
+                            }
                         }
                     }
-                    else
+                    else // Short
                     {
-                        roe = (tradingCtrl.EntryPrice - currentPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
-                        if (roe < -25f)
+                        expectedRoe = (tradingCtrl.EntryPrice - expectedPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                        if (expectedRoe < -24f) 
                         {
-                            currentPrice = tradingCtrl.EntryPrice * (1f + (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                            if (totalReturn > 0) // Short인데 가격 상승(손실 방향)
+                            {
+                                // 상승폭을 대폭 줄이고 음수 노이즈(반발 매도)를 더해 꼬리를 형성
+                                float dampFactor = Mathf.Clamp01(25f + expectedRoe); 
+                                totalReturn = totalReturn * dampFactor - Mathf.Abs(stochasticNoise) * 1.5f;
+                                expectedPrice = currentPrice * (1f + totalReturn);
+                                expectedRoe = (tradingCtrl.EntryPrice - expectedPrice) / tradingCtrl.EntryPrice * tradingCtrl.CurrentLeverage * 100f;
+                            }
+                            
+                            if (expectedRoe < -25f)
+                            {
+                                float hardLimit = tradingCtrl.EntryPrice * (1f + (25f / (tradingCtrl.CurrentLeverage * 100f)));
+                                expectedPrice = hardLimit - (currentPrice * UnityEngine.Random.Range(0.0002f, 0.0008f));
+                                totalReturn = (expectedPrice - currentPrice) / currentPrice;
+                            }
                         }
                     }
                 }
             }
+
+            // 6. 가격 변동 적용
+            float priceDelta = currentPrice * totalReturn;
+            currentPrice += priceDelta;
+            if (currentPrice < 10f) currentPrice = 10f; // 최저가 방어
 
             // 6. 실시간 1분봉 및 상위 타임프레임 Live 캔들 갱신
             float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
@@ -720,13 +781,38 @@ namespace FXOverdose.Trading
         private void SwitchToRandomRegime()
         {
             float rand = UnityEngine.Random.value;
-            if (rand < 0.35f) currentRegime = MarketRegime.Sideways;
-            else if (rand < 0.65f) currentRegime = MarketRegime.Bull;
-            else if (rand < 0.90f) currentRegime = MarketRegime.Bear;
-            else currentRegime = MarketRegime.Squeeze;
+            
+            if (currentDailyRegime == MarketRegime.Bull)
+            {
+                if (rand < 0.60f) currentRegime = MarketRegime.Bull;
+                else if (rand < 0.80f) currentRegime = MarketRegime.Sideways;
+                else if (rand < 0.90f) currentRegime = MarketRegime.Bear;
+                else currentRegime = MarketRegime.Squeeze;
+            }
+            else if (currentDailyRegime == MarketRegime.Bear)
+            {
+                if (rand < 0.60f) currentRegime = MarketRegime.Bear;
+                else if (rand < 0.80f) currentRegime = MarketRegime.Sideways;
+                else if (rand < 0.90f) currentRegime = MarketRegime.Bull;
+                else currentRegime = MarketRegime.Squeeze;
+            }
+            else if (currentDailyRegime == MarketRegime.Squeeze)
+            {
+                if (rand < 0.50f) currentRegime = MarketRegime.Squeeze;
+                else if (rand < 0.70f) currentRegime = MarketRegime.Bull;
+                else if (rand < 0.90f) currentRegime = MarketRegime.Bear;
+                else currentRegime = MarketRegime.Sideways;
+            }
+            else // Sideways
+            {
+                if (rand < 0.40f) currentRegime = MarketRegime.Sideways;
+                else if (rand < 0.65f) currentRegime = MarketRegime.Bull;
+                else if (rand < 0.90f) currentRegime = MarketRegime.Bear;
+                else currentRegime = MarketRegime.Squeeze;
+            }
 
             minutesUntilNextRegimeChange = UnityEngine.Random.Range(30, 120); // 30분~2시간 유지
-            Debug.Log($"[MarketEngine] 국면 전환: {currentRegime} (유지: {minutesUntilNextRegimeChange}분)");
+            Debug.Log($"[MarketEngine] 국면 전환: {currentRegime} (유지: {minutesUntilNextRegimeChange}분, 일일 기조: {currentDailyRegime})");
         }
 
         // 유동성 사냥 (꼬리 휩소 스파이크 발생 - 스탑 헌팅 기믹 강화)

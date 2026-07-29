@@ -331,9 +331,13 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            if (isEventTradeActive && currentPosition != PositionType.None && Time.time >= eventProtectionEndTime)
+            if (isEventTradeActive && currentPosition != PositionType.None)
             {
-                HandleEventProtectionExpired();
+                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
+                if (Time.time >= eventProtectionEndTime || isMarketEventOver)
+                {
+                    HandleEventProtectionExpired();
+                }
             }
         }
 
@@ -693,18 +697,19 @@ namespace FXOverdose.Trading
             }
 
             // ⭐ 이벤트 보호 쉴드 작동 중: 이벤트 결과에 따른 포지션 보유, 정리, 버티기 등 맞춤형 반응 로직 수행
-            if (Time.time < eventProtectionEndTime)
+            if (isEventTradeActive)
             {
-                if (isEventTradeActive)
+                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
+                if (Time.time < eventProtectionEndTime && !isMarketEventOver)
                 {
                     ProcessEventPositionReaction(price);
+                    return;
                 }
-                return;
-            }
-            else if (isEventTradeActive)
-            {
-                HandleEventProtectionExpired();
-                if (currentPosition == PositionType.None) return;
+                else
+                {
+                    HandleEventProtectionExpired();
+                    if (currentPosition == PositionType.None) return;
+                }
             }
 
             // 2. AI 목표 주가(Target Price) 도달 익절 자동 청산 (플레이어 수동 조작 중에는 비활성화, 단 Overdose 시 강제 실행)
@@ -777,6 +782,12 @@ namespace FXOverdose.Trading
 
             if (gameManager == null || marketEngine == null || type == PositionType.None)
             {
+                return false;
+            }
+
+            if (gameManager.CurrentState == GameManager.GameState.Settlement || gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                Debug.LogWarning("[TradingController] 정산 중이거나 게임오버 상태에서는 포지션을 개설할 수 없습니다.");
                 return false;
             }
 
@@ -874,6 +885,12 @@ namespace FXOverdose.Trading
 
             if (gameManager == null || marketEngine == null || type == PositionType.None)
             {
+                return false;
+            }
+
+            if (gameManager.CurrentState == GameManager.GameState.Settlement || gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                Debug.LogWarning("[TradingController] 정산 중이거나 게임오버 상태에서는 플레이어 포지션을 개설할 수 없습니다.");
                 return false;
             }
 
@@ -1320,6 +1337,12 @@ namespace FXOverdose.Trading
             yield return new WaitForSecondsRealtime(2.0f);
 
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver) yield break;
+
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Settlement)
+            {
+                Debug.Log("[TradingController] 일일 정산(Settlement) 중이므로 Overdose 강제 진입을 취소합니다.");
+                yield break;
+            }
 
             if (traderStatus != null && traderStatus.CurrentMentalState != TraderStatus.MentalState.Overdose)
             {

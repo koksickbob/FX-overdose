@@ -310,6 +310,12 @@ public class GameManager : MonoBehaviour
 
             currentState = GameState.Playing;
             Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+            
+            // 💡 [자동저장 개선] 24:00 마감 직후에 저장된 데이터를 로드한 경우, 즉시 일일 정산 프로세스로 진입합니다.
+            if (IsGameLoaded && currentHour >= 24)
+            {
+                ProcessDailySettlementWithStory();
+            }
         }
     }
 
@@ -382,6 +388,14 @@ public class GameManager : MonoBehaviour
             {
                 tradingCtrl.ClosePosition();
                 Debug.Log("[GameManager] 24:00 마감 시간 도달. 당일 정산을 위해 열려 있는 포지션을 강제로 종료 및 수익/손실 확정.");
+            }
+
+            // 💡 [자동저장 개선] 일일 정산 모드 진입 직전(24:00 마감)에 당일의 최종 상태를 자동 저장합니다.
+            // 플레이어가 정산 화면을 보고 게임을 끄더라도 당일 진행 상황을 잃지 않게 됩니다.
+            if (FXOverdose.Core.SaveLoadManager.Instance != null)
+            {
+                bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
+                if (saved) Debug.Log("[GameManager] 24:00 마감 직전(일일 정산 진입 전) 자동 저장 완료.");
             }
 
             ProcessDailySettlementWithStory();

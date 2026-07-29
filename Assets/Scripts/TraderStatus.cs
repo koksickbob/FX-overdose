@@ -50,6 +50,10 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private bool hasTraumaCureItemBuff = false;
     [SerializeField] private bool hasTraumaCureTradeBuff = false;
 
+    [Header("지속 멘탈 감소 누적기")]
+    [SerializeField] private float healthDropMentalDrainAccumulator = 0f;
+    [SerializeField] private float healthDropMentalDrainTimer = 0f;
+
     [Header("현재 상태")]
     [SerializeField] private MentalState currentMentalState;
     private MentalState lastTrackedMentalState = MentalState.Stable;
@@ -231,6 +235,9 @@ public class TraderStatus : MonoBehaviour
             this.traumaConsumedMental = canonical.traumaConsumedMental;
             this.hasTraumaCureItemBuff = canonical.hasTraumaCureItemBuff;
             this.hasTraumaCureTradeBuff = canonical.hasTraumaCureTradeBuff;
+
+            this.healthDropMentalDrainAccumulator = canonical.healthDropMentalDrainAccumulator;
+            this.healthDropMentalDrainTimer = canonical.healthDropMentalDrainTimer;
         }
     }
 
@@ -287,6 +294,17 @@ public class TraderStatus : MonoBehaviour
         }
 
         DecreaseStatusOverTime();
+
+        healthDropMentalDrainTimer += Time.deltaTime;
+        if (healthDropMentalDrainTimer >= 2.0f)
+        {
+            if (healthDropMentalDrainAccumulator <= -0.01f)
+            {
+                ChangeMental(healthDropMentalDrainAccumulator, false, "체력 저하");
+                healthDropMentalDrainAccumulator = 0f;
+            }
+            healthDropMentalDrainTimer = 0f;
+        }
     }
 
     // 새 게임 시작 시 체력과 멘탈 초기화
@@ -318,6 +336,9 @@ public class TraderStatus : MonoBehaviour
         hasTraumaCureItemBuff = false;
         hasTraumaCureTradeBuff = false;
 
+        healthDropMentalDrainAccumulator = 0f;
+        healthDropMentalDrainTimer = 0f;
+
         UpdateMentalState();
         SyncAllInstances();
     }
@@ -339,12 +360,12 @@ public class TraderStatus : MonoBehaviour
         // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
         if (currentHealth <= 0f)
         {
-            ChangeMental(-mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime, false, "TimeDrain");
+            healthDropMentalDrainAccumulator += -mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime;
         }
         else if (currentHealth <= maxHealth * 0.5f)
         {
             // 체력이 절반 이하일 때는 기본 멘탈 지속 감소 속도 적용
-            ChangeMental(-mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime, false, "TimeDrain");
+            healthDropMentalDrainAccumulator += -mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime;
         }
     }
 
@@ -390,14 +411,14 @@ public class TraderStatus : MonoBehaviour
         // 체력이 감소할 때마다 멘탈 수치도 동일한 비율로 함께 감소하도록 연동
         if (amount < 0f && prevHealth <= MaxHealth * 0.5f)
         {
-            ChangeMental(amount, false, "HealthDrop");
+            healthDropMentalDrainAccumulator += amount;
         }
         else if (amount < 0f && prevHealth > MaxHealth * 0.5f && currentHealth < MaxHealth * 0.5f)
         {
             float excessDrop = currentHealth - (MaxHealth * 0.5f);
             if (excessDrop < 0f)
             {
-                ChangeMental(excessDrop, false, "HealthDrop");
+                healthDropMentalDrainAccumulator += excessDrop;
             }
         }
 
