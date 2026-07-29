@@ -551,6 +551,22 @@ public class TraderStatus : MonoBehaviour
         SyncAllInstances();
     }
 
+    public void IncreaseMaxMental(float amount)
+    {
+        if (this != CanonicalInstance && CanonicalInstance != null)
+        {
+            CanonicalInstance.IncreaseMaxMental(amount);
+            return;
+        }
+
+        if (amount <= 0f) return;
+        maxMental += amount;
+        maxMentalLimit += amount;
+        currentMental = Mathf.Min(currentMental + amount, EffectiveMaxMental);
+        UpdateMentalState();
+        SyncAllInstances();
+    }
+
     public void CureLeverageAddiction()
     {
         if (this != CanonicalInstance && CanonicalInstance != null)

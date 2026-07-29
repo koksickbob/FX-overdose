@@ -15,7 +15,8 @@ public class ItemData : ScriptableObject
         ProfitBoost,      // 수익률 추가 보정 (액티브 - 최대 2회 구매, 중첩)
         LossReduction,    // 손해 감소 보정 (액티브 - 최대 2회 구매, 중첩)
         MentalDrainGuard, // 멘탈 감소치 보정 (액티브 - 단회 영구)
-        HealthDrainGuard  // 체력 감소치 보정 (액티브 - 단회 영구)
+        HealthDrainGuard, // 체력 감소치 보정 (액티브 - 단회 영구)
+        DeliveryFood      // 체력/멘탈 복합 회복 및 배달 음식 전용 효과
     }
 
     [Header("기본 정보")]
@@ -51,6 +52,7 @@ public class ItemData : ScriptableObject
     public float EffectAmount => effectAmount;
     public int Price => price;
     public bool IsActiveItem => isActiveItem;
+    public bool IsDeliveryFood => effectType == EffectType.DeliveryFood;
     public int MaxLevel => maxLevel;
     public float PriceMultiplierPerLevel => priceMultiplierPerLevel;
 }

@@ -10,7 +10,10 @@ namespace FXOverdose.Core
         [SerializeField] private GameManager gameManager;
         [SerializeField] private float baseSecondsPerMinute = 1.0f;
         private float targetSecondsPerMinute = 1.0f;
+        private float foodTimeMultiplier = 1f;
+        private bool isDramaticOverrideActive;
         private Coroutine slowMotionCoroutine;
+        public float BaseSecondsPerMinute => baseSecondsPerMinute;
 
         private void Awake()
         {
@@ -72,12 +75,20 @@ namespace FXOverdose.Core
 
         private IEnumerator SlowMotionRoutine(float targetSpeed, float duration)
         {
+            isDramaticOverrideActive = true;
             targetSecondsPerMinute = targetSpeed;
             yield return new WaitForSecondsRealtime(duration);
             
-            // 지정된 시간(현실 시간)이 끝나면 원래 속도로 복귀합니다.
-            targetSecondsPerMinute = baseSecondsPerMinute;
+            isDramaticOverrideActive = false;
+            targetSecondsPerMinute = baseSecondsPerMinute / foodTimeMultiplier;
             slowMotionCoroutine = null;
+        }
+
+        public void SetFoodTimeMultiplier(float multiplier)
+        {
+            foodTimeMultiplier = Mathf.Max(0.01f, multiplier);
+            if (!isDramaticOverrideActive)
+                targetSecondsPerMinute = baseSecondsPerMinute / foodTimeMultiplier;
         }
     }
 }

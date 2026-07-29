@@ -64,6 +64,9 @@ public class ItemUser : MonoBehaviour
             case ItemData.EffectType.Mental:
                 return RestoreMental(item);
 
+            case ItemData.EffectType.DeliveryFood:
+                return UseDeliveryFood(item);
+
             case ItemData.EffectType.ProfitBoost:
             case ItemData.EffectType.LossReduction:
             case ItemData.EffectType.MentalDrainGuard:
@@ -75,6 +78,47 @@ public class ItemUser : MonoBehaviour
                 Debug.LogWarning($"[ItemUser] 지원하지 않는 아이템 효과입니다: {item.Type}", item);
                 return false;
         }
+    }
+
+    private bool UseDeliveryFood(ItemData item)
+    {
+        float health = 0f;
+        float mental = 0f;
+        bool specialEffect = false;
+
+        switch (item.ItemId)
+        {
+            case "malatang": health = 25f; mental = 50f; break;
+            case "sushi": health = 30f; mental = 55f; break;
+            case "tteokbokki": health = 30f; mental = 60f; break;
+            case "pasta":
+                health = 15f;
+                mental = 15f;
+                DeliveryFoodManager.EnsureInstance().ActivateOrRefreshPasta();
+                specialEffect = true;
+                break;
+            case "steak":
+                traderStatus.IncreaseMaxMental(10f);
+                traderStatus.ChangeHealth(traderStatus.MaxHealth);
+                traderStatus.ChangeMental(traderStatus.MaxMental, true);
+                specialEffect = true;
+                break;
+            default:
+                Debug.LogWarning($"[ItemUser] 알 수 없는 배달 음식입니다: {item.ItemId}", item);
+                return false;
+        }
+
+        bool canHealHealth = health > 0f && traderStatus.CurrentHealth < traderStatus.MaxHealth;
+        bool canHealMental = mental > 0f && traderStatus.CurrentMental < traderStatus.EffectiveMaxMental;
+        if (!canHealHealth && !canHealMental && !specialEffect) return false;
+
+        if (canHealHealth) traderStatus.ChangeHealth(health);
+        if (canHealMental) traderStatus.ChangeMental(mental, true);
+        Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
+        TriggerItemDialogue(item);
+        FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
+        Debug.Log($"[ItemUser] 배달 음식 {item.ItemName} 사용: HP +{health}, Mental +{mental}");
+        return true;
     }
 
     
@@ -155,5 +199,4 @@ public class ItemUser : MonoBehaviour
         return true;
     }
 }
-
 

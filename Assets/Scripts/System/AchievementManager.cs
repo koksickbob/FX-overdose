@@ -51,8 +51,14 @@ namespace FXOverdose.Core
         // For other custom flags
         private const string Pref_TraumaCured = "Stat_TraumaCured";
         private const string Pref_Level9Reached = "Stat_Level9Reached";
+        private const string Pref_HighestLevel = "Stat_HighestLevel";
 
         public event Action OnAchievementsChanged;
+
+        public bool IsAchievementUnlocked(string achievementId)
+        {
+            return !string.IsNullOrEmpty(achievementId) && unlockedAchievements.Contains(achievementId);
+        }
 
         private void Awake()
         {
@@ -71,6 +77,7 @@ namespace FXOverdose.Core
 
         private void InitializeAchievements()
         {
+            achievements.Clear();
             // Populating the achievements
             achievements.Add(new AchievementDefinition { Id = "ending_first_gameover", Title = "첫 쓴맛", Description = "최초 게임 오버 달성", Type = AchievementType.Ending, StringParameter = "FirstGameOver" });
             achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear" });
@@ -228,12 +235,14 @@ namespace FXOverdose.Core
 
         public void RecordLevelUp(int level)
         {
+            int highestLevel = Mathf.Max(PlayerPrefs.GetInt(Pref_HighestLevel, 0), level);
+            PlayerPrefs.SetInt(Pref_HighestLevel, highestLevel);
             if (level >= 9)
             {
                 PlayerPrefs.SetInt(Pref_Level9Reached, 1);
-                PlayerPrefs.Save();
-                CheckAchievements();
             }
+            PlayerPrefs.Save();
+            CheckAchievements();
         }
 
         public void RecordTraumaCured()
@@ -275,6 +284,49 @@ namespace FXOverdose.Core
             return unlockedAchievements.Contains(id);
         }
 
+        public float GetProgress01(AchievementDefinition achievement)
+        {
+            if (achievement == null) return 0f;
+            if (unlockedAchievements.Contains(achievement.Id)) return 1f;
+
+            float current = 0f;
+            float target = achievement.TargetValue > 0f ? achievement.TargetValue : 1f;
+            switch (achievement.Type)
+            {
+                case AchievementType.Custom:
+                    current = achievement.StringParameter == "TraumaCured"
+                        ? PlayerPrefs.GetInt(Pref_TraumaCured, 0)
+                        : 0f;
+                    break;
+                case AchievementType.Ending:
+                    if (achievement.StringParameter == "FirstGameOver") current = PlayerPrefs.GetInt(Pref_EndingFirstGameOver, 0);
+                    else if (achievement.StringParameter == "TrueClear") current = PlayerPrefs.GetInt(Pref_EndingTrueClear, 0);
+                    else if (achievement.StringParameter == "Bankruptcy") current = PlayerPrefs.GetInt(Pref_EndingBankruptcy, 0);
+                    else if (achievement.StringParameter == "Overdose") current = PlayerPrefs.GetInt(Pref_EndingOverdose, 0);
+                    break;
+                case AchievementType.ItemUsage:
+                    if (achievement.StringParameter == "EnergyDrink") current = PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0);
+                    else if (achievement.StringParameter == "Parfait") current = PlayerPrefs.GetInt(Pref_ParfaitUsed, 0);
+                    break;
+                case AchievementType.ItemPurchase:
+                    current = PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0);
+                    break;
+                case AchievementType.PeakBalance:
+                    current = PlayerPrefs.GetFloat(Pref_PeakBalance, 0f);
+                    break;
+                case AchievementType.RiskyEventSuccess:
+                    current = PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0);
+                    break;
+                case AchievementType.LevelUp:
+                    current = PlayerPrefs.GetInt(Pref_HighestLevel,
+                        PlayerPrefs.GetInt(Pref_Level9Reached, 0) == 1 ? 9 : 0);
+                    if (FXOverdose.Trading.TraderLevelSystem.Instance != null)
+                        current = Mathf.Max(current, FXOverdose.Trading.TraderLevelSystem.Instance.ProtagonistLevel);
+                    break;
+            }
+            return Mathf.Clamp01(current / target);
+        }
+
         [ContextMenu("Reset Achievements")]
         public void ResetAchievements()
         {
@@ -289,6 +341,7 @@ namespace FXOverdose.Core
             PlayerPrefs.DeleteKey(Pref_EndingOverdose);
             PlayerPrefs.DeleteKey(Pref_TraumaCured);
             PlayerPrefs.DeleteKey(Pref_Level9Reached);
+            PlayerPrefs.DeleteKey(Pref_HighestLevel);
             
             foreach (var ach in achievements)
             {

@@ -8,6 +8,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(RectTransform), typeof(Image))]
 public class DynamicShopUI : MonoBehaviour
 {
+    private const float ShopFontScale = 1.1f;
     private const string BrowserShellResource = "UI/Shop/MarketplaceBrowserShell";
     private const string ProductCardResource = "UI/Shop/MarketplaceProductCard";
     private const string CareBadgeResource = "UI/Shop/CareBadgeFrame";
@@ -25,11 +26,13 @@ public class DynamicShopUI : MonoBehaviour
     private static readonly Color SuccessGreen = new Color32(34, 197, 94, 255);
     private static readonly Color SpecialGold = new Color32(234, 179, 8, 255);
     private static readonly Color ApparelMagenta = new Color32(217, 70, 239, 255);
+    private static readonly Color DeliveryOrange = new Color32(249, 115, 22, 255);
 
     private enum CategoryFilter
     {
         All,
         Care,
+        DeliveryFood,
         ActiveGear,
         Apparel
     }
@@ -37,7 +40,7 @@ public class DynamicShopUI : MonoBehaviour
     [SerializeField] private ShopManager shopManager;
     [SerializeField] private Sprite cardFrameSprite;
     [SerializeField] private TMP_FontAsset font;
-    [SerializeField, Min(1)] private int maxColumns = 3;
+    [SerializeField, Min(1)] private int maxColumns = 2;
     [Header("Marketplace Skin")]
     [SerializeField] private Sprite browserShellSprite;
     [SerializeField] private Sprite productCardSprite;
@@ -52,8 +55,8 @@ public class DynamicShopUI : MonoBehaviour
     private TMP_Text resultCountText;
     private TMP_Text emptyStateText;
     private TMP_InputField searchInput;
-    private readonly Button[] categoryButtons = new Button[4];
-    private readonly Image[] categoryButtonBackgrounds = new Image[4];
+    private readonly Button[] categoryButtons = new Button[5];
+    private readonly Image[] categoryButtonBackgrounds = new Image[5];
     private readonly List<GameObject> cards = new();
     private float lastDisplayedBalance = -1f;
     private CategoryFilter activeFilter = CategoryFilter.All;
@@ -332,14 +335,15 @@ public class DynamicShopUI : MonoBehaviour
 
         CreateCategoryButton(bar, 0, "ALL ITEMS", CategoryFilter.All, new Vector2(0.012f, 0.12f), new Vector2(0.13f, 0.88f));
         CreateCategoryButton(bar, 1, "CARE", CategoryFilter.Care, new Vector2(0.138f, 0.12f), new Vector2(0.235f, 0.88f));
-        CreateCategoryButton(bar, 2, "ACTIVE GEAR", CategoryFilter.ActiveGear, new Vector2(0.243f, 0.12f), new Vector2(0.40f, 0.88f));
-        CreateCategoryButton(bar, 3, "APPAREL", CategoryFilter.Apparel, new Vector2(0.408f, 0.12f), new Vector2(0.52f, 0.88f));
+        CreateCategoryButton(bar, 2, "DELIVERY FOOD", CategoryFilter.DeliveryFood, new Vector2(0.243f, 0.12f), new Vector2(0.39f, 0.88f));
+        CreateCategoryButton(bar, 3, "ACTIVE GEAR", CategoryFilter.ActiveGear, new Vector2(0.398f, 0.12f), new Vector2(0.53f, 0.88f));
+        CreateCategoryButton(bar, 4, "APPAREL", CategoryFilter.Apparel, new Vector2(0.538f, 0.12f), new Vector2(0.64f, 0.88f));
 
         resultCountText = GetOrCreateText(bar, "ResultCount", 15f, TextAlignmentOptions.MidlineLeft, true);
         resultCountText.text = "0 PRODUCTS";
         resultCountText.color = MutedText;
         resultCountText.characterSpacing = 0.8f;
-        SetRect(resultCountText.rectTransform, new Vector2(0.54f, 0f), new Vector2(0.67f, 1f), Vector2.zero, Vector2.zero);
+        SetRect(resultCountText.rectTransform, new Vector2(0.66f, 0f), new Vector2(0.76f, 1f), Vector2.zero, Vector2.zero);
 
         TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight, true);
         delivery.text = "INSTANT DELIVERY  /  BUFFS APPLY NOW";
@@ -417,7 +421,7 @@ public class DynamicShopUI : MonoBehaviour
         cardOutline.enabled = frame.sprite == null;
 
         bool isActive = item.IsActiveItem;
-        Color accent = isActive ? SpecialGold : Cyan;
+        Color accent = item.IsDeliveryFood ? DeliveryOrange : isActive ? SpecialGold : Cyan;
 
         RectTransform topAccent = GetOrCreateRect(card.transform, "CategoryAccent");
         SetRect(topAccent, new Vector2(0.045f, 0.952f), new Vector2(0.955f, 0.967f), Vector2.zero, Vector2.zero);
@@ -431,7 +435,7 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(badgeObject, accent, new Vector2(2f, -2f));
         SetRect(badgeObject.GetComponent<RectTransform>(), new Vector2(0.055f, 0.84f), new Vector2(0.36f, 0.935f), Vector2.zero, Vector2.zero);
         TMP_Text badge = CreateText(badgeObject.transform, "Label", 14f, TextAlignmentOptions.Center);
-        badge.text = isActive ? "ACTIVE GEAR" : "CARE ITEM";
+        badge.text = item.IsDeliveryFood ? "DELIVERY FOOD" : isActive ? "ACTIVE GEAR" : "CARE ITEM";
         badge.color = accent;
         badge.fontStyle = FontStyles.Bold;
         SetRect(badge.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
@@ -458,20 +462,41 @@ public class DynamicShopUI : MonoBehaviour
             case ItemData.EffectType.LossReduction: effectString = $"LOSS -{item.EffectAmount:0}% (UPGRADE)"; break;
             case ItemData.EffectType.MentalDrainGuard: effectString = $"MENTAL DRAIN -{item.EffectAmount:0}%"; break;
             case ItemData.EffectType.HealthDrainGuard: effectString = $"HP DRAIN -{item.EffectAmount:0}%"; break;
+            case ItemData.EffectType.DeliveryFood: effectString = GetDeliveryFoodEffect(item.ItemId); break;
             default: effectString = $"EFFECT +{item.EffectAmount:0}"; break;
         }
         effect.text = effectString;
         effect.color = accent;
         effect.fontStyle = FontStyles.Bold;
-        SetRect(effect.rectTransform, new Vector2(0.52f, 0.59f), new Vector2(0.95f, 0.73f), Vector2.zero, Vector2.zero);
+        if (item.IsDeliveryFood)
+        {
+            effect.enableAutoSizing = true;
+            effect.fontSizeMin = 15f;
+            effect.fontSizeMax = 19f;
+            effect.textWrappingMode = TextWrappingModes.Normal;
+            effect.overflowMode = TextOverflowModes.Truncate;
+            effect.maxVisibleLines = 2;
+            effect.lineSpacing = -4f;
+            effect.margin = new Vector4(0f, 0f, 10f, 0f);
+            SetRect(effect.rectTransform, new Vector2(0.52f, 0.57f), new Vector2(0.93f, 0.74f), Vector2.zero, new Vector2(-4f, 0f));
+        }
+        else
+        {
+            SetRect(effect.rectTransform, new Vector2(0.52f, 0.59f), new Vector2(0.95f, 0.73f), Vector2.zero, Vector2.zero);
+        }
 
-        TMP_Text description = CreateText(card.transform, "Description", 15f, TextAlignmentOptions.TopLeft);
+        TMP_Text description = CreateText(card.transform, "Description", 17f, TextAlignmentOptions.TopLeft);
         description.text = item.Description;
         description.color = BodyText;
+        description.enableAutoSizing = true;
+        description.fontSizeMin = 14f;
+        description.fontSizeMax = 19f;
         description.textWrappingMode = TextWrappingModes.Normal;
-        description.overflowMode = TextOverflowModes.Ellipsis;
+        description.overflowMode = TextOverflowModes.Truncate;
+        description.maxVisibleLines = 3;
         description.lineSpacing = 2f;
-        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.95f, 0.58f), Vector2.zero, Vector2.zero);
+        description.margin = new Vector4(0f, 1f, 8f, 1f);
+        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.94f, 0.58f), Vector2.zero, new Vector2(-4f, 0f));
 
         TMP_Text owned = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
         owned.color = MutedText;
@@ -484,7 +509,7 @@ public class DynamicShopUI : MonoBehaviour
         purchaseBackground.color = new Color32(11, 15, 25, 245);
         ApplyOutline(purchaseBar.gameObject, BorderColor, new Vector2(2f, -2f));
 
-        TMP_Text price = CreateText(purchaseBar, "Price", 25f, TextAlignmentOptions.MidlineLeft);
+        TMP_Text price = CreateText(purchaseBar, "Price", 21f, TextAlignmentOptions.MidlineLeft);
         price.text = $"$ {item.Price:N0}";
         price.color = SpecialGold;
         price.fontStyle = FontStyles.Bold;
@@ -517,8 +542,8 @@ public class DynamicShopUI : MonoBehaviour
         buyLabel.color = Color.white;
         buyLabel.fontStyle = FontStyles.Bold;
         buyLabel.enableAutoSizing = true;
-        buyLabel.fontSizeMin = 11f;
-        buyLabel.fontSizeMax = 21f;
+        buyLabel.fontSizeMin = 12f;
+        buyLabel.fontSizeMax = 23f;
         buyLabel.textWrappingMode = TextWrappingModes.NoWrap;
         buyLabel.overflowMode = TextOverflowModes.Ellipsis;
         buyLabel.margin = new Vector4(8f, 2f, 8f, 2f);
@@ -581,12 +606,18 @@ public class DynamicShopUI : MonoBehaviour
         effect.fontStyle = FontStyles.Bold;
         SetRect(effect.rectTransform, new Vector2(0.52f, 0.59f), new Vector2(0.95f, 0.73f), Vector2.zero, Vector2.zero);
 
-        TMP_Text description = CreateText(card.transform, "Description", 15f, TextAlignmentOptions.TopLeft);
+        TMP_Text description = CreateText(card.transform, "Description", 17f, TextAlignmentOptions.TopLeft);
         description.text = costume.Description;
         description.color = BodyText;
+        description.enableAutoSizing = true;
+        description.fontSizeMin = 14f;
+        description.fontSizeMax = 19f;
         description.textWrappingMode = TextWrappingModes.Normal;
-        description.overflowMode = TextOverflowModes.Ellipsis;
-        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.95f, 0.58f), Vector2.zero, Vector2.zero);
+        description.overflowMode = TextOverflowModes.Truncate;
+        description.maxVisibleLines = 3;
+        description.lineSpacing = 2f;
+        description.margin = new Vector4(0f, 1f, 8f, 1f);
+        SetRect(description.rectTransform, new Vector2(0.52f, 0.37f), new Vector2(0.94f, 0.58f), Vector2.zero, new Vector2(-4f, 0f));
 
         bool owned = CostumeManager.Instance != null && CostumeManager.Instance.IsOwned(costume.Id);
         bool equipped = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id);
@@ -603,14 +634,14 @@ public class DynamicShopUI : MonoBehaviour
         GetOrAdd<Image>(purchaseBar.gameObject).color = new Color32(11, 15, 25, 245);
         ApplyOutline(purchaseBar.gameObject, BorderColor, new Vector2(2f, -2f));
 
-        TMP_Text price = CreateText(purchaseBar, "Price", 25f, TextAlignmentOptions.MidlineLeft);
+        TMP_Text price = CreateText(purchaseBar, "Price", 21f, TextAlignmentOptions.MidlineLeft);
         price.text = !isUnlocked ? $"REQ: {requirementText}" : (owned ? "OWNED" : costume.Price <= 0 ? "FREE" : $"${costume.Price:N0}");
         price.color = !isUnlocked ? new Color32(239, 68, 68, 255) : (owned ? SuccessGreen : SpecialGold);
         if (!isUnlocked)
         {
             price.enableAutoSizing = true;
             price.fontSizeMin = 10f;
-            price.fontSizeMax = 25f;
+            price.fontSizeMax = 27f;
             price.textWrappingMode = TextWrappingModes.Normal;
             price.overflowMode = TextOverflowModes.Ellipsis;
         }
@@ -638,8 +669,8 @@ public class DynamicShopUI : MonoBehaviour
         label.color = Color.white;
         label.fontStyle = FontStyles.Bold;
         label.enableAutoSizing = true;
-        label.fontSizeMin = 11f;
-        label.fontSizeMax = 21f;
+        label.fontSizeMin = 12f;
+        label.fontSizeMax = 23f;
         label.textWrappingMode = TextWrappingModes.NoWrap;
         label.margin = new Vector4(8f, 2f, 8f, 2f);
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 2f), new Vector2(-6f, -2f));
@@ -752,7 +783,9 @@ public class DynamicShopUI : MonoBehaviour
             bool selected = filter == activeFilter;
             Color accent = filter == CategoryFilter.ActiveGear
                 ? SpecialGold
-                : filter == CategoryFilter.Apparel ? ApparelMagenta : Cyan;
+                : filter == CategoryFilter.Apparel
+                    ? ApparelMagenta
+                    : filter == CategoryFilter.DeliveryFood ? DeliveryOrange : Cyan;
             background.color = selected
                 ? Color.Lerp(HeaderBackground, accent, 0.28f)
                 : new Color32(11, 15, 25, 238);
@@ -784,7 +817,11 @@ public class DynamicShopUI : MonoBehaviour
             return false;
         }
 
-        if (activeFilter == CategoryFilter.Care && item.IsActiveItem)
+        if (activeFilter == CategoryFilter.Care && (item.IsActiveItem || item.IsDeliveryFood))
+        {
+            return false;
+        }
+        if (activeFilter == CategoryFilter.DeliveryFood && !item.IsDeliveryFood)
         {
             return false;
         }
@@ -805,6 +842,19 @@ public class DynamicShopUI : MonoBehaviour
         return ContainsIgnoreCase(item.ItemName, searchQuery)
             || ContainsIgnoreCase(item.ItemId, searchQuery)
             || ContainsIgnoreCase(item.Description, searchQuery);
+    }
+
+    private static string GetDeliveryFoodEffect(string itemId)
+    {
+        return itemId switch
+        {
+            "malatang" => "HP +25 / MENTAL +50",
+            "sushi" => "HP +30 / MENTAL +55",
+            "tteokbokki" => "HP +30 / MENTAL +60",
+            "pasta" => "HP +15 / MENTAL +15\nTIME ×1.5",
+            "steak" => "FULL RECOVERY\nMAX MENTAL +10",
+            _ => "DELIVERY FOOD"
+        };
     }
 
     private bool ShouldShowCostume(CostumeManager.CostumeDefinition costume)
@@ -897,12 +947,13 @@ public class DynamicShopUI : MonoBehaviour
     private void ApplyTextStyle(TMP_Text text, float size, TextAlignmentOptions alignment, bool autoSize = false)
     {
         text.font = font != null ? font : TMP_Settings.defaultFontAsset;
-        text.fontSize = size;
+        float scaledSize = size * ShopFontScale;
+        text.fontSize = scaledSize;
         text.enableAutoSizing = autoSize;
         if (autoSize)
         {
-            text.fontSizeMin = Mathf.Max(10f, size - 6f);
-            text.fontSizeMax = size;
+            text.fontSizeMin = Mathf.Max(11f, scaledSize - 6f);
+            text.fontSizeMax = scaledSize;
         }
         text.alignment = alignment;
         text.textWrappingMode = TextWrappingModes.NoWrap;

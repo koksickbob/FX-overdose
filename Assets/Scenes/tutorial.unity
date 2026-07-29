@@ -14643,14 +14643,15 @@ MonoBehaviour:
   inventory: {fileID: 1021043943}
   slotFrameSprite: {fileID: 21300000, guid: 049b6cd24aca34a729aebb23d3f190ae, type: 3}
   font: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
-  maxColumns: 5
-  maxPanelWidth: 700
-  preferredSlotSize: 122
-  minSlotSize: 78
-  spacing: 10
-  horizontalPadding: 18
-  topPadding: 48
-  bottomPadding: 14
+  minimumVisibleSlots: 4
+  maxColumns: 6
+  maxPanelWidth: 660
+  preferredSlotSize: 96
+  minSlotSize: 70
+  spacing: 8
+  horizontalPadding: 14
+  topPadding: 44
+  bottomPadding: 12
 --- !u!114 &1262495972
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17446,7 +17447,7 @@ MonoBehaviour:
   shopManager: {fileID: 1254065219}
   cardFrameSprite: {fileID: 21300000, guid: 049b6cd24aca34a729aebb23d3f190ae, type: 3}
   font: {fileID: 11400000, guid: d1468a85461624a529d0385449060eb0, type: 2}
-  maxColumns: 3
+  maxColumns: 2
   browserShellSprite: {fileID: 21300000, guid: 71bd5d9de4644ca19a8b0b7cb78fd1f4, type: 3}
   productCardSprite: {fileID: 21300000, guid: 0f3905dd325e4db99f7ee790c008cc9a, type: 3}
   careBadgeSprite: {fileID: 21300000, guid: 02188f293818f4fd8b26cc140ba2c18d, type: 3}
