@@ -58,40 +58,56 @@ namespace FXOverdose.Editor
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
-                // 1. 단순 파싱 (JSONL 구조가 단순하므로 Regex나 단순 문자열 검색 활용)
-                // "user", "content": "... \n[System_Status]\n- Market_Trend: Sideways..." 
-                // "assistant", "content": "대사 내용"
-                
-                string marketTrend = ExtractValue(line, "Market_Trend");
-                string mentalState = ExtractValue(line, "Mental_State");
-                string positionInfo = ExtractValue(line, "Position"); // e.g. "Short (20x Leverage)" or "None (10x Leverage)"
+                string marketTrend = "";
+                string mentalState = "";
+                string positionInfo = "";
                 string position = "None";
-                if (positionInfo.Contains("Long")) position = "Long";
-                else if (positionInfo.Contains("Short")) position = "Short";
-
                 int lev = 0;
-                Match levMatch = Regex.Match(positionInfo, @"(\d+)x Leverage");
-                if (levMatch.Success) int.TryParse(levMatch.Groups[1].Value, out lev);
-
-                string roeStr = ExtractValue(line, "Current_ROE"); // e.g. "-47.6%"
+                string roeStr = "";
                 bool isProfit = false;
-                if (!string.IsNullOrEmpty(roeStr) && roeStr.Contains("+"))
+                int heroLv = 0;
+                int skillLv = 0;
+                string evCategory = "";
+                string dialogue = "";
+
+                if (line.Contains("\"Dialogue\""))
                 {
-                    isProfit = true;
+                    // 새 템플릿 포맷: {"Event_Category": "...", "Mental_State": "...", "Dialogue": "..."}
+                    evCategory = ExtractJsonValue(line, "Event_Category");
+                    mentalState = ExtractJsonValue(line, "Mental_State");
+                    dialogue = ExtractJsonValue(line, "Dialogue");
+                    dialogue = dialogue.Replace("\\n", "\n").Replace("\\\"", "\"").Replace("\\\\", "\\");
+                }
+                else
+                {
+                    // 1. 단순 파싱 (JSONL 구조가 단순하므로 Regex나 단순 문자열 검색 활용)
+                    marketTrend = ExtractValue(line, "Market_Trend");
+                    mentalState = ExtractValue(line, "Mental_State");
+                    positionInfo = ExtractValue(line, "Position"); // e.g. "Short (20x Leverage)" or "None (10x Leverage)"
+                    if (positionInfo.Contains("Long")) position = "Long";
+                    else if (positionInfo.Contains("Short")) position = "Short";
+
+                    Match levMatch = Regex.Match(positionInfo, @"(\d+)x Leverage");
+                    if (levMatch.Success) int.TryParse(levMatch.Groups[1].Value, out lev);
+
+                    roeStr = ExtractValue(line, "Current_ROE"); // e.g. "-47.6%"
+                    if (!string.IsNullOrEmpty(roeStr) && roeStr.Contains("+"))
+                    {
+                        isProfit = true;
+                    }
+
+                    string heroStr = ExtractValue(line, "Hero_Level");
+                    if (!string.IsNullOrEmpty(heroStr)) int.TryParse(heroStr, out heroLv);
+                    
+                    string skillStr = ExtractValue(line, "Skill_Level");
+                    if (!string.IsNullOrEmpty(skillStr)) int.TryParse(skillStr, out skillLv);
+                    
+                    evCategory = ExtractValue(line, "Event_Category");
+
+                    // Assistant 대사 추출
+                    dialogue = ExtractAssistantContent(line);
                 }
 
-                string heroStr = ExtractValue(line, "Hero_Level");
-                int heroLv = 0;
-                if (!string.IsNullOrEmpty(heroStr)) int.TryParse(heroStr, out heroLv);
-                
-                string skillStr = ExtractValue(line, "Skill_Level");
-                int skillLv = 0;
-                if (!string.IsNullOrEmpty(skillStr)) int.TryParse(skillStr, out skillLv);
-                
-                string evCategory = ExtractValue(line, "Event_Category");
-
-                // Assistant 대사 추출
-                string dialogue = ExtractAssistantContent(line);
                 if (string.IsNullOrEmpty(dialogue)) continue; // 대사가 없으면 건너뜀
 
                 // Auto-Tagging 단기 방향성 및 하이 리스크 태깅
@@ -106,6 +122,17 @@ namespace FXOverdose.Editor
             EditorUtility.SetDirty(db);
             AssetDatabase.SaveAssets();
             Debug.Log($"Successfully converted {count} entries to {db.name}.");
+        }
+
+        private string ExtractJsonValue(string jsonLine, string key)
+        {
+            string pattern = $@"""{key}""\s*:\s*""(.*?)""";
+            Match m = Regex.Match(jsonLine, pattern);
+            if (m.Success)
+            {
+                return m.Groups[1].Value.Trim();
+            }
+            return "";
         }
 
         private string ExtractValue(string jsonLine, string key)

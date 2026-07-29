@@ -339,7 +339,27 @@ namespace FXOverdose.AI
                         break;
                 }
 
+                // --- [신규 기믹: 수동 매매 책임 전가] ---
+                bool isManualTradeLoss = tradingController != null && tradingController.CurrentOwner == TradingController.OwnerType.Player;
+                if (isManualTradeLoss && penalty > 0f) 
+                {
+                    penalty *= 1.5f; // 페널티 1.5배 증폭
+                    
+                    string blameDialogue = $"거봐! 요미 말 안 듣고 마스터가 맘대로 쳐서 돈 날렸잖아!!"; // Fallback
+                    var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
+                    if (matcher != null)
+                    {
+                        float marginRatio = (gameManager != null && gameManager.CurrentBalance > 0) ? (tradingController.LastMarginAmount / gameManager.CurrentBalance) : 0f;
+                        string fetched = matcher.GetEventDialogue("수동매매책임전가", currentLeverage: tradingController.CurrentLeverage, currentMarginRatio: marginRatio);
+                        if (!string.IsNullOrEmpty(fetched)) blameDialogue = fetched;
+                    }
+
+                    TriggerGimmickDialogue("수동 매매 책임 전가 기믹 발동", blameDialogue);
+                    Debug.LogWarning($"[MentalDrainGimmickController] 😡 [책임 전가] 플레이어 수동 매매 손실로 멘탈 페널티 증폭: -{penalty:F1}");
+                }
+
                 string reason = streak == 1 ? "손실 청산 스트레스" : $"{streak}연속 손절 스트레스";
+                if (isManualTradeLoss) reason += " (수동 매매 원망)";
                 traderStatus.ChangeMental(-penalty, false, reason);
             }
         }
