@@ -350,63 +350,90 @@ public class SettingsMenuController : MonoBehaviour
         overlayCanvas.sortingOrder = 200;
 
         Image dim = overlay.GetComponent<Image>();
-        dim.color = new Color(0.005f, 0.012f, 0.035f, 0.82f);
+        dim.color = new Color(0.002f, 0.008f, 0.022f, 0.90f);
         dim.raycastTarget = true;
 
         GameObject panel = CreateUIObject("SettingsPanel", overlay.transform);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(570f, 780f);
+        panelRect.sizeDelta = new Vector2(640f, 900f);
         panelRect.anchoredPosition = Vector2.zero;
         Image panelImage = panel.GetComponent<Image>();
-        panelImage.color = new Color(0.025f, 0.065f, 0.13f, 0.99f);
+        panelImage.color = new Color32(7, 16, 31, 255);
+        Outline panelOutline = panel.AddComponent<Outline>();
+        panelOutline.effectColor = new Color32(6, 182, 212, 255);
+        panelOutline.effectDistance = new Vector2(3f, -3f);
 
         GameObject inner = CreateUIObject("InnerFrame", panel.transform);
         RectTransform innerRect = inner.GetComponent<RectTransform>();
         innerRect.anchorMin = new Vector2(0.025f, 0.03f);
         innerRect.anchorMax = new Vector2(0.975f, 0.97f);
         innerRect.offsetMin = innerRect.offsetMax = Vector2.zero;
-        inner.GetComponent<Image>().color = new Color(0.05f, 0.11f, 0.20f, 1f);
+        inner.GetComponent<Image>().color = new Color32(13, 26, 46, 255);
+        Outline innerOutline = inner.AddComponent<Outline>();
+        innerOutline.effectColor = new Color32(51, 76, 105, 255);
+        innerOutline.effectDistance = new Vector2(2f, -2f);
 
-        TMP_Text title = CreateText(inner.transform, "SettingsTitle", "SETTINGS", 46f, TextAlignmentOptions.Center);
-        SetRect(title.rectTransform, new Vector2(0.08f, 0.84f), new Vector2(0.92f, 0.965f));
-        title.color = new Color(0.55f, 0.90f, 1f, 1f);
+        GameObject headerSurface = CreateSectionPanel(inner.transform, "HeaderSurface",
+            new Vector2(0.04f, 0.815f), new Vector2(0.96f, 0.96f), new Color32(19, 38, 63, 255));
+        GameObject audioSurface = CreateSectionPanel(inner.transform, "AudioSurface",
+            new Vector2(0.06f, 0.535f), new Vector2(0.94f, 0.79f), new Color32(9, 20, 37, 255));
+        GameObject displaySurface = CreateSectionPanel(inner.transform, "DisplaySurface",
+            new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.515f), new Color32(9, 20, 37, 255));
+        GameObject actionSurface = CreateSectionPanel(inner.transform, "ActionSurface",
+            new Vector2(0.06f, 0.025f), new Vector2(0.94f, 0.36f), new Color32(9, 20, 37, 255));
+        headerSurface.transform.SetAsFirstSibling();
+        audioSurface.transform.SetSiblingIndex(1);
+        displaySurface.transform.SetSiblingIndex(2);
+        actionSurface.transform.SetSiblingIndex(3);
 
-        TMP_Text paused = CreateText(inner.transform, "PausedLabel", "GAME PAUSED", 23f, TextAlignmentOptions.Center);
-        SetRect(paused.rectTransform, new Vector2(0.08f, 0.77f), new Vector2(0.92f, 0.825f));
-        paused.color = new Color(0.75f, 0.80f, 0.90f, 1f);
+        TMP_Text title = CreateText(inner.transform, "SettingsTitle", "SETTINGS", 44f, TextAlignmentOptions.MidlineLeft);
+        SetRect(title.rectTransform, new Vector2(0.09f, 0.885f), new Vector2(0.72f, 0.95f));
+        title.color = new Color32(207, 250, 254, 255);
 
-        TMP_Text bgmLabel = CreateText(inner.transform, "Label_BGM", "BGM", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(bgmLabel.rectTransform, new Vector2(0.13f, 0.71f), new Vector2(0.87f, 0.75f));
-        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.13f, 0.64f), new Vector2(0.87f, 0.695f), new Color32(0, 255, 255, 255));
+        TMP_Text paused = CreateText(inner.transform, "PausedLabel", "●  GAME PAUSED", 18f, TextAlignmentOptions.MidlineLeft);
+        SetRect(paused.rectTransform, new Vector2(0.09f, 0.825f), new Vector2(0.72f, 0.875f));
+        paused.color = new Color32(34, 197, 94, 255);
 
-        TMP_Text sfxLabel = CreateText(inner.transform, "Label_SFX", "SFX", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(sfxLabel.rectTransform, new Vector2(0.13f, 0.55f), new Vector2(0.87f, 0.59f));
-        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.13f, 0.48f), new Vector2(0.87f, 0.535f), new Color32(0, 255, 255, 255));
+        TMP_Text audioHeader = CreateText(inner.transform, "AudioHeader", "AUDIO", 18f, TextAlignmentOptions.MidlineLeft);
+        SetRect(audioHeader.rectTransform, new Vector2(0.09f, 0.745f), new Vector2(0.35f, 0.785f));
+        audioHeader.color = new Color32(6, 182, 212, 255);
 
-        TMP_Text fpsLabel = CreateText(inner.transform, "Label_FPS", "MAX FPS (FRAME LIMIT)", 18f, TextAlignmentOptions.BottomLeft);
-        SetRect(fpsLabel.rectTransform, new Vector2(0.13f, 0.40f), new Vector2(0.87f, 0.44f));
+        TMP_Text bgmLabel = CreateText(inner.transform, "Label_BGM", "BGM VOLUME", 19f, TextAlignmentOptions.BottomLeft);
+        SetRect(bgmLabel.rectTransform, new Vector2(0.11f, 0.685f), new Vector2(0.89f, 0.725f));
+        bgmVolumeSlider = CreateSlider(inner.transform, "Slider_BGM", new Vector2(0.11f, 0.635f), new Vector2(0.89f, 0.68f), new Color32(6, 182, 212, 255));
+
+        TMP_Text sfxLabel = CreateText(inner.transform, "Label_SFX", "SFX VOLUME", 19f, TextAlignmentOptions.BottomLeft);
+        SetRect(sfxLabel.rectTransform, new Vector2(0.11f, 0.585f), new Vector2(0.89f, 0.625f));
+        sfxVolumeSlider = CreateSlider(inner.transform, "Slider_SFX", new Vector2(0.11f, 0.545f), new Vector2(0.89f, 0.585f), new Color32(34, 211, 238, 255));
+
+        TMP_Text displayHeader = CreateText(inner.transform, "DisplayHeader", "DISPLAY", 18f, TextAlignmentOptions.MidlineLeft);
+        SetRect(displayHeader.rectTransform, new Vector2(0.09f, 0.475f), new Vector2(0.35f, 0.51f));
+        displayHeader.color = new Color32(6, 182, 212, 255);
+
+        TMP_Text fpsLabel = CreateText(inner.transform, "Label_FPS", "FRAME LIMIT", 19f, TextAlignmentOptions.MidlineLeft);
+        SetRect(fpsLabel.rectTransform, new Vector2(0.11f, 0.405f), new Vector2(0.45f, 0.465f));
         
         int currentFps = FXOverdose.Core.SystemSettingsManager.GetCurrentFPS();
         fpsMenuButton = CreateButton(inner.transform, "FpsButton", $"{currentFps} FPS", new Color(0.10f, 0.35f, 0.48f, 1f));
-        SetRect(fpsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.33f), new Vector2(0.87f, 0.385f));
+        SetRect(fpsMenuButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.405f), new Vector2(0.89f, 0.465f));
         fpsMenuButton.onClick.AddListener(CycleFPS);
         fpsButtonText = fpsMenuButton.GetComponentInChildren<TMP_Text>();
 
         Button achievementsMenuButton = CreateButton(inner.transform, "AchievementsButton", "ACHIEVEMENTS", new Color(0.35f, 0.15f, 0.48f, 1f));
-        SetRect(achievementsMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.23f), new Vector2(0.87f, 0.30f));
+        SetRect(achievementsMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.29f), new Vector2(0.89f, 0.355f));
         achievementsMenuButton.onClick.AddListener(OpenAchievements);
 
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
-        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.15f), new Vector2(0.87f, 0.22f));
+        SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.205f), new Vector2(0.89f, 0.27f));
         saveMenuButton.onClick.AddListener(SaveGame);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.075f), new Vector2(0.87f, 0.14f));
+        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.12f), new Vector2(0.89f, 0.185f));
         resumeButton.onClick.AddListener(CloseMenu);
 
         Button quitButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.015f), new Vector2(0.87f, 0.065f));
+        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.035f), new Vector2(0.89f, 0.10f));
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();
@@ -429,6 +456,18 @@ public class SettingsMenuController : MonoBehaviour
         }
     }
 
+    private GameObject CreateSectionPanel(Transform parent, string objectName, Vector2 min, Vector2 max, Color color)
+    {
+        GameObject section = CreateUIObject(objectName, parent);
+        SetRect(section.GetComponent<RectTransform>(), min, max);
+        section.GetComponent<Image>().color = color;
+        Outline outline = section.AddComponent<Outline>();
+        outline.effectColor = new Color32(45, 69, 95, 255);
+        outline.effectDistance = new Vector2(2f, -2f);
+        outline.useGraphicAlpha = true;
+        return section;
+    }
+
     private Button CreateButton(Transform parent, string objectName, string label, Color color)
     {
         GameObject go = CreateUIObject(objectName, parent, typeof(Button));
@@ -436,7 +475,7 @@ public class SettingsMenuController : MonoBehaviour
         image.color = color;
 
         Outline outline = go.AddComponent<Outline>();
-        outline.effectColor = UIStrokeStyle.DefaultColor;
+        outline.effectColor = Color.Lerp(color, Color.white, 0.42f);
         outline.effectDistance = UIStrokeStyle.EffectDistance;
         outline.useGraphicAlpha = true;
 
@@ -448,7 +487,7 @@ public class SettingsMenuController : MonoBehaviour
         colors.pressedColor = new Color(0.68f, 0.76f, 0.90f, 1f);
         button.colors = colors;
 
-        TMP_Text text = CreateText(go.transform, "Label", label, 27f, TextAlignmentOptions.Center);
+        TMP_Text text = CreateText(go.transform, "Label", label, 29f, TextAlignmentOptions.Center);
         Stretch(text.rectTransform);
         return button;
     }
@@ -506,7 +545,10 @@ public class SettingsMenuController : MonoBehaviour
         GameObject bg = CreateUIObject("Background", root.transform, typeof(Image));
         SetRect(bg.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
         Image background = bg.GetComponent<Image>();
-        background.color = new Color32(3, 10, 22, 255);
+        background.color = new Color32(2, 8, 18, 255);
+        Outline trackOutline = bg.AddComponent<Outline>();
+        trackOutline.effectColor = new Color32(59, 82, 110, 255);
+        trackOutline.effectDistance = new Vector2(2f, -2f);
 
         GameObject fillArea = new("Fill Area", typeof(RectTransform));
         fillArea.transform.SetParent(root.transform, false);
@@ -517,11 +559,27 @@ public class SettingsMenuController : MonoBehaviour
         Image fill = fillObj.GetComponent<Image>();
         fill.color = fillColor;
 
+        GameObject handleArea = new("Handle Slide Area", typeof(RectTransform));
+        handleArea.transform.SetParent(root.transform, false);
+        SetRect(handleArea.GetComponent<RectTransform>(), new Vector2(0.02f, 0f), new Vector2(0.98f, 1f));
+        GameObject handleObject = CreateUIObject("Handle", handleArea.transform, typeof(Image));
+        RectTransform handleRect = handleObject.GetComponent<RectTransform>();
+        handleRect.anchorMin = handleRect.anchorMax = new Vector2(0f, 0.5f);
+        handleRect.pivot = new Vector2(0.5f, 0.5f);
+        handleRect.sizeDelta = new Vector2(20f, 30f);
+        handleRect.anchoredPosition = Vector2.zero;
+        Image handle = handleObject.GetComponent<Image>();
+        handle.color = new Color32(226, 248, 255, 255);
+        Outline handleOutline = handleObject.AddComponent<Outline>();
+        handleOutline.effectColor = fillColor;
+        handleOutline.effectDistance = new Vector2(2f, -2f);
+
         Slider slider = root.GetComponent<Slider>();
         slider.minValue = 0f;
         slider.maxValue = 1f;
         slider.fillRect = fill.rectTransform;
-        slider.targetGraphic = background;
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handle;
         return slider;
     }
 }

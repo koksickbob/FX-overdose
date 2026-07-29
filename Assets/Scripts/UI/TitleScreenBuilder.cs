@@ -174,7 +174,7 @@ namespace FXOverdose.UI
             outline.effectColor = Cyan;
             outline.effectDistance = new Vector2(2f, -2f);
 
-            CreateText(image.transform, "Label", "ACHIEVEMENT", 12f, Cyan, Vector2.zero, Vector2.one, TextAlignmentOptions.Center).fontStyle = FontStyles.Bold;
+            CreateText(image.transform, "Label", "ACHIEVEMENTS", 12f, Cyan, Vector2.zero, Vector2.one, TextAlignmentOptions.Center).fontStyle = FontStyles.Bold;
             return button;
         }
 
