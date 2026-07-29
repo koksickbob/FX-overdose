@@ -6,6 +6,9 @@ namespace FXOverdose.Core
 {
     public class AchievementManager : MonoBehaviour
     {
+        // TEMP: 코스튬/음식 연출 전수 검수용. 테스트 종료 후 false로 되돌립니다.
+        private static readonly bool DisableAchievementRequirementsForTesting = false;
+
         public enum AchievementType
         {
             Custom,
@@ -80,7 +83,7 @@ namespace FXOverdose.Core
             achievements.Clear();
             // Populating the achievements
             achievements.Add(new AchievementDefinition { Id = "ending_first_gameover", Title = "첫 쓴맛", Description = "최초 게임 오버 달성", Type = AchievementType.Ending, StringParameter = "FirstGameOver" });
-            achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear" });
+            achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear", RewardCostumeId = CostumeManager.QipaoId });
             achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose" });
             
@@ -255,6 +258,8 @@ namespace FXOverdose.Core
         public bool IsCostumeUnlocked(string costumeId, out string requirementText)
         {
             requirementText = string.Empty;
+            if (DisableAchievementRequirementsForTesting) return true;
+
             foreach (var ach in achievements)
             {
                 if (!string.IsNullOrEmpty(ach.RewardCostumeId) && ach.RewardCostumeId == costumeId)
