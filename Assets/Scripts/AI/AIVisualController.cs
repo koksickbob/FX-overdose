@@ -328,6 +328,11 @@ namespace FXOverdose.AI
             LoadItemUseSprite("dessert", "Dessert");
             LoadItemUseSprite("supplement", "Supplement");
             LoadItemUseSprite("sedative", "Sedative");
+            LoadItemUseSprite("malatang", "Malatang");
+            LoadItemUseSprite("pasta", "Pasta");
+            LoadItemUseSprite("steak", "Steak");
+            LoadItemUseSprite("sushi", "Sushi");
+            LoadItemUseSprite("tteokbokki", "Tteokbokki");
         }
 
         private void LoadSkillUpgradeSprites()

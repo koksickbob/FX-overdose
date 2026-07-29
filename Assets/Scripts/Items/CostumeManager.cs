@@ -10,6 +10,7 @@ public class CostumeManager : MonoBehaviour
     public const string BikiniId = "bikini";
     public const string JiraiKeiId = "jirai_kei";
     public const string StreetCapId = "street_cap";
+    public const string QipaoId = "qipao";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -68,6 +69,15 @@ public class CostumeManager : MonoBehaviour
             Price = 800,
             IconResourcePath = "Characters/Costumes/StreetCap",
             SpriteRoot = "Characters/Costumes/StreetCap"
+        },
+        new()
+        {
+            Id = QipaoId,
+            DisplayName = "BLACK QIPAO",
+            Description = "Black qipao with gold trim, teal cloud patterns and a traditional hair bun.",
+            Price = 1000,
+            IconResourcePath = "Characters/Costumes/Qipao",
+            SpriteRoot = "Characters/Costumes/Qipao"
         }
     };
 
