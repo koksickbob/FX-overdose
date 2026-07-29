@@ -74,6 +74,12 @@ namespace FXOverdose.AI.LLM
             string jsonText = await llmAgent.Chat(prompt, null, null, false);
             Debug.Log($"[LLMSafeGenerator] 원본 LLM 응답:\n{jsonText}");
             
+            if (string.IsNullOrEmpty(jsonText))
+            {
+                Debug.LogWarning("[LLMSafeGenerator] LLM 응답이 비어있거나 null입니다. 더미 데이터로 대체합니다.");
+                return GetDummyData(themeTag, marketContext);
+            }
+
             try 
             {
                 int start = jsonText.IndexOf('{');
@@ -137,6 +143,12 @@ namespace FXOverdose.AI.LLM
             string result = await llmAgent.Chat(prompt, null, null, false);
             Debug.Log("[LLMSafeGenerator] 일기 생성 완료!");
             
+            if (string.IsNullOrEmpty(result))
+            {
+                Debug.LogWarning("[LLMSafeGenerator] 일기 생성 결과가 비어있거나 null입니다. 더미 일기로 대체합니다.");
+                return $"오늘은 {todayProfit}%의 수익을 내고, {liquidations}번 청산당했다. 알 수 없는 하루였다.";
+            }
+
             int koreanCount = 0;
             foreach (char c in result) { if (c >= 0xAC00 && c <= 0xD7A3) koreanCount++; }
             if (koreanCount < 3) 
