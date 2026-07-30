@@ -108,6 +108,13 @@ public class ItemUser : MonoBehaviour
                 return false;
         }
 
+        // 치파오 스킨 효과: 배달음식의 기본 체력/멘탈 회복량 15% 증가 (특수 효과 수치는 제외)
+        if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.QipaoId)
+        {
+            health *= 1.15f;
+            mental *= 1.15f;
+        }
+
         bool canHealHealth = health > 0f && traderStatus.CurrentHealth < traderStatus.MaxHealth;
         bool canHealMental = mental > 0f && traderStatus.CurrentMental < traderStatus.EffectiveMaxMental;
         if (!canHealHealth && !canHealMental && !specialEffect) return false;

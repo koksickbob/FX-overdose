@@ -4,6 +4,7 @@ using UnityEngine;
 using LLMUnity;
 using FXOverdose.Events;
 using FXOverdose.Trading;
+using System.Text.RegularExpressions;
 
 namespace FXOverdose.AI.LLM
 {
@@ -86,6 +87,12 @@ namespace FXOverdose.AI.LLM
                 int end = jsonText.LastIndexOf('}');
                 if (start >= 0 && end > start) {
                     string cleanJson = jsonText.Substring(start, end - start + 1);
+                    
+                    // JsonUtility는 대소문자를 엄격하게 구분하므로, 키 값을 정규화합니다.
+                    cleanJson = Regex.Replace(cleanJson, "\"scenarioTitle\"", "\"ScenarioTitle\"", RegexOptions.IgnoreCase);
+                    cleanJson = Regex.Replace(cleanJson, "\"scenarioDescription\"", "\"ScenarioDescription\"", RegexOptions.IgnoreCase);
+                    cleanJson = Regex.Replace(cleanJson, "\"aiMonologue\"", "\"AIMonologue\"", RegexOptions.IgnoreCase);
+                    
                     var data = JsonUtility.FromJson<GeneratedChoiceEventData>(cleanJson);
                     if (data != null && !string.IsNullOrEmpty(data.ScenarioTitle))
                     {
@@ -98,11 +105,15 @@ namespace FXOverdose.AI.LLM
                             Debug.LogWarning("[LLMSafeGenerator] LLM이 한국어가 아닌 언어(중국어/영어 등)를 생성했습니다. 폰트 깨짐 방지를 위해 더미 데이터로 대체합니다.");
                         }
                     }
+                    else
+                    {
+                        Debug.LogWarning($"[LLMSafeGenerator] JSON 파싱 결과 필수 필드가 누락되었습니다. cleanJson:\n{cleanJson}");
+                    }
                 }
             } 
             catch (Exception e) 
             {
-                Debug.LogError("[LLMSafeGenerator] JSON 파싱 실패: " + e.Message);
+                Debug.LogError("[LLMSafeGenerator] JSON 파싱 중 예외 발생: " + e.Message);
             }
             
             Debug.LogWarning("[LLMSafeGenerator] 파싱 실패 또는 한글 미검출로 더미 데이터 반환");

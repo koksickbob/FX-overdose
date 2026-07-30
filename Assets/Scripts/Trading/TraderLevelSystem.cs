@@ -10,12 +10,23 @@ namespace FXOverdose.Trading
         BookJudgment   // 책읽기: 판단력 증가 (빠른 손절 타이밍 잡음)
     }
 
+    public interface ITraderLevelProvider
+    {
+        int ChartStudyLevel { get; }
+        int GetMaxAllowedLeverage();
+        float GetMaxAllowedMarginRatio();
+        float GetSignalAccuracy();
+        float GetTakeProfitMultiplier();
+        float GetEntryDelayPenaltyRatio();
+        float GetStopLossTightness();
+    }
+
     /// <summary>
     /// 주인공 레벨(ProtagonistLevel) 및 스킬 레벨(SkillLevel)을 관리하는 통합 성장 시스템입니다.
     /// 주인공 레벨은 거래 성공(익절) 경험치를 통해 성장하며 레버리지/증거금 한도 및 멘탈 회복을 제어합니다.
     /// 스킬 레벨은 시간, 비용, 체력을 소모하는 학습 기믹을 통해 성장하며 AI 매매 타점 및 성공률을 제어합니다.
     /// </summary>
-    public class TraderLevelSystem : MonoBehaviour
+    public class TraderLevelSystem : MonoBehaviour, ITraderLevelProvider
     {
         private static TraderLevelSystem _instance;
         public static TraderLevelSystem Instance
@@ -92,8 +103,8 @@ namespace FXOverdose.Trading
 
         public float GetMaxProtagonistEXP(int level)
         {
-            // LV.1 -> 400 EXP, 매 레벨 50%씩 증가 (초중반 하드코어 밸런스)
-            return 400f * Mathf.Pow(1.5f, Mathf.Max(0, level - 1));
+            // LV.1 -> 600 EXP, 매 레벨 40%씩 증가 (고레벨 달성 난이도 상승)
+            return 600f * Mathf.Pow(1.4f, Mathf.Max(0, level - 1));
         }
 
         /// <summary>
@@ -131,14 +142,25 @@ namespace FXOverdose.Trading
             return protagonistLevel switch
             {
                 1 => 5,
-                2 => 10,
-                3 => 15,
-                4 => 20,
-                5 => 30,
-                6 => 40,
-                7 => 50,
-                8 => 75,
-                _ => 100 // LV 9 이상
+                2 => 7,
+                3 => 10,
+                4 => 15,
+                5 => 20,
+                6 => 25,
+                7 => 30,
+                8 => 35,
+                9 => 40,
+                10 => 50,
+                11 => 60,
+                12 => 70,
+                13 => 80,
+                14 => 90,
+                15 => 100,
+                16 => 105,
+                17 => 110,
+                18 => 115,
+                19 => 120,
+                _ => 125 // LV 20 이상
             };
         }
 
@@ -146,15 +168,26 @@ namespace FXOverdose.Trading
         {
             return protagonistLevel switch
             {
-                1 => 0.25f,
-                2 => 0.30f,
-                3 => 0.40f,
-                4 => 0.50f,
-                5 => 0.60f,
-                6 => 0.70f,
-                7 => 0.80f,
-                8 => 0.90f,
-                _ => 1.0f // LV 9 이상
+                1 => 0.15f,
+                2 => 0.20f,
+                3 => 0.25f,
+                4 => 0.30f,
+                5 => 0.35f,
+                6 => 0.40f,
+                7 => 0.45f,
+                8 => 0.50f,
+                9 => 0.55f,
+                10 => 0.60f,
+                11 => 0.65f,
+                12 => 0.70f,
+                13 => 0.75f,
+                14 => 0.80f,
+                15 => 0.85f,
+                16 => 0.90f,
+                17 => 0.93f,
+                18 => 0.96f,
+                19 => 0.98f,
+                _ => 1.0f // LV 20 이상
             };
         }
 
@@ -165,16 +198,23 @@ namespace FXOverdose.Trading
         {
             return protagonistLevel switch
             {
-                1 => 0.5f,  // 초보 시절 불안감으로 50% 축소
-                2 => 0.6f,
-                3 => 0.8f,
-                4 => 0.9f,
-                5 => 1.0f,  // 100% 정상 회복
-                6 => 1.15f,
-                7 => 1.3f,
-                8 => 1.5f,
-                9 => 1.75f,
-                _ => 2.0f   // LV 10+ 승리의 희열 극대화 (200%)
+                1 => 0.5f,
+                2 => 0.55f,
+                3 => 0.6f,
+                4 => 0.7f,
+                5 => 0.8f,
+                6 => 0.9f,
+                7 => 1.0f,
+                8 => 1.1f,
+                9 => 1.2f,
+                10 => 1.3f,
+                11 => 1.4f,
+                12 => 1.5f,
+                13 => 1.6f,
+                14 => 1.7f,
+                15 => 1.8f,
+                16 => 1.9f,
+                _ => 2.0f   // LV 17+ 
             };
         }
 

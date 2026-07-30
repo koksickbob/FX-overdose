@@ -891,7 +891,7 @@ MonoBehaviour:
   - triggerDay: 5
     isPenalty: 1
     penaltyAmount: 10000
-    dialogueMessage: 
+    dialogueMessage: "“오, 오빠... 방금 밀린 월세 명목으로 통장에서 만 달러가 빠져나갔어...! 집주인 아줌마 장난인 줄 알았는데...”"
     comicPanels:
     - {fileID: -4202979506536964256, guid: 7f955d81dc55d8e4cbdca44e557725c6, type: 3}
     - {fileID: -3550095332120091367, guid: c1afd2e110cfbf240a156d2ced7b6e20, type: 3}
@@ -905,14 +905,14 @@ MonoBehaviour:
   - triggerDay: 11
     isPenalty: 1
     penaltyAmount: 30000
-    dialogueMessage: 
+    dialogueMessage: "“히익...! 사, 사채업자들이 문을 부수고 들어와서 이자 3만 달러를 강제로 뜯어갔어... 오빠, 나 진짜 무서워...”"
     comicPanels:
     - {fileID: -7182121538096426878, guid: 4131b1b9b57514844a8c0492093215c4, type: 3}
     - {fileID: -4838223270971342248, guid: a072f17eb8f01414ebc0bd9717ca2166, type: 3}
   - triggerDay: 16
     isPenalty: 1
     penaltyAmount: 100000
-    dialogueMessage: 
+    dialogueMessage: "“말도 안 돼... 예전 카페 점장님이 배상 청구서 10만 달러를 보냈어... 안 돼... 내 잔고가 박살났어 오빠!!”"
     comicPanels:
     - {fileID: -1245771752553448793, guid: 1ab48503de78b0847af65246e43a6f76, type: 3}
     - {fileID: 6176265872745641517, guid: f1f304a7434d1e4418244a5e21ee078c, type: 3}

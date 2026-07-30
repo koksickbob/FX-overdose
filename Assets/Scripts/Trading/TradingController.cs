@@ -331,9 +331,13 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            if (isEventTradeActive && currentPosition != PositionType.None && Time.time >= eventProtectionEndTime)
+            if (isEventTradeActive && currentPosition != PositionType.None)
             {
-                HandleEventProtectionExpired();
+                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
+                if (Time.time >= eventProtectionEndTime || isMarketEventOver)
+                {
+                    HandleEventProtectionExpired();
+                }
             }
         }
 
@@ -693,18 +697,19 @@ namespace FXOverdose.Trading
             }
 
             // ⭐ 이벤트 보호 쉴드 작동 중: 이벤트 결과에 따른 포지션 보유, 정리, 버티기 등 맞춤형 반응 로직 수행
-            if (Time.time < eventProtectionEndTime)
+            if (isEventTradeActive)
             {
-                if (isEventTradeActive)
+                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
+                if (Time.time < eventProtectionEndTime && !isMarketEventOver)
                 {
                     ProcessEventPositionReaction(price);
+                    return;
                 }
-                return;
-            }
-            else if (isEventTradeActive)
-            {
-                HandleEventProtectionExpired();
-                if (currentPosition == PositionType.None) return;
+                else
+                {
+                    HandleEventProtectionExpired();
+                    if (currentPosition == PositionType.None) return;
+                }
             }
 
             // 2. AI 목표 주가(Target Price) 도달 익절 자동 청산 (플레이어 수동 조작 중에는 비활성화, 단 Overdose 시 강제 실행)
@@ -780,6 +785,12 @@ namespace FXOverdose.Trading
                 return false;
             }
 
+            if (gameManager.CurrentState == GameManager.GameState.Settlement || gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                Debug.LogWarning("[TradingController] 정산 중이거나 게임오버 상태에서는 포지션을 개설할 수 없습니다.");
+                return false;
+            }
+
             // 챌린지에서는 AI 일반/폭주/기믹 매매를 모두 막습니다.
             // 단, 플레이어가 돌발 이벤트에서 직접 방향을 선택한 결과만 플레이어 입력으로 인정합니다.
             bool isPlayerDirectedEvent = isEmergencyTrade && isPlayerDirectedTrade;
@@ -830,7 +841,9 @@ namespace FXOverdose.Trading
 
             currentPosition = type;
             currentOwner = isPlayerDirectedTrade ? OwnerType.Player : OwnerType.AI;
-            entryPrice = customEntryPrice > 0f ? customEntryPrice : marketEngine.CurrentPrice;
+            
+            float expectedEntry = type == PositionType.Long ? marketEngine.CurrentAskPrice : marketEngine.CurrentBidPrice;
+            entryPrice = customEntryPrice > 0f ? customEntryPrice : expectedEntry;
             marginAmount = margin;
             currentLeverage = leverage;
             targetPrice = aiTargetPrice;
@@ -838,7 +851,8 @@ namespace FXOverdose.Trading
             lastReportedROE = 0f;
 
             // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감해야 CheckEnding() 시 TotalEquity에 증거금이 정상 합산됩니다.
-            gameManager.ChangeBalance(-margin);
+            float entryFee = margin * leverage * 0.0006f;
+            gameManager.ChangeBalance(-(margin + entryFee));
 
             // 유지 증거금률 0.5% 반영한 청산가 연산
             float maintenanceMarginRate = 0.005f;
@@ -874,6 +888,12 @@ namespace FXOverdose.Trading
 
             if (gameManager == null || marketEngine == null || type == PositionType.None)
             {
+                return false;
+            }
+
+            if (gameManager.CurrentState == GameManager.GameState.Settlement || gameManager.CurrentState == GameManager.GameState.GameOver)
+            {
+                Debug.LogWarning("[TradingController] 정산 중이거나 게임오버 상태에서는 플레이어 포지션을 개설할 수 없습니다.");
                 return false;
             }
 
@@ -916,13 +936,14 @@ namespace FXOverdose.Trading
             currentPosition = type;
             currentOwner = OwnerType.Player;
 
-            float finalEntryPrice = marketEngine.CurrentPrice;
+            // 매수(Long)는 매도호가(Ask)로 체결, 매도(Short)는 매수호가(Bid)로 체결
+            float finalEntryPrice = type == PositionType.Long ? marketEngine.CurrentAskPrice : marketEngine.CurrentBidPrice;
             if (marketEngine.SlippageRange > 0)
             {
                 // 불리한 방향으로 슬리피지 적용 (SlippageRange 단위 * 틱당 최소 변동폭)
                 float slippageAmount = marketEngine.CurrentPrice * 0.0005f * marketEngine.SlippageRange;
                 finalEntryPrice += (type == PositionType.Long ? slippageAmount : -slippageAmount);
-                Debug.Log($"[TradingController] ⚠️ 슬리피지 발동! 요청가: {marketEngine.CurrentPrice:N1} -> 체결가: {finalEntryPrice:N1}");
+                Debug.Log($"[TradingController] ⚠️ 슬리피지 발동! 체결가: {finalEntryPrice:N1}");
             }
             entryPrice = finalEntryPrice;
 
@@ -983,6 +1004,10 @@ namespace FXOverdose.Trading
             }
 
             float pnl = CalculateUnrealizedPnL();
+
+            // 청산 수수료 적용 (총 포지션 규모의 0.06%)
+            float exitFee = marginAmount * currentLeverage * 0.0006f;
+            pnl -= exitFee;
 
             // 액티브 업그레이드 보정 적용
             if (ActiveItemEffectManager.Instance != null)
@@ -1123,10 +1148,11 @@ namespace FXOverdose.Trading
                 return 0f;
             }
 
-            float currentPrice = marketEngine.CurrentPrice;
+            // 롱(Long) 청산 시 매수호가(Bid)로 팔고, 숏(Short) 청산 시 매도호가(Ask)로 삼
+            float currentPriceToUse = currentPosition == PositionType.Long ? marketEngine.CurrentBidPrice : marketEngine.CurrentAskPrice;
             float priceDiff = currentPosition == PositionType.Long 
-                ? (currentPrice - entryPrice) 
-                : (entryPrice - currentPrice);
+                ? (currentPriceToUse - entryPrice) 
+                : (entryPrice - currentPriceToUse);
 
             float roeDecimal = (priceDiff / entryPrice) * currentLeverage;
             return marginAmount * roeDecimal;
@@ -1145,10 +1171,13 @@ namespace FXOverdose.Trading
             if (currentPosition == PositionType.None) return;
             if (liquidationPrice <= 0f) return;
 
+            // 청산 기준가는 스프레드가 적용된 호가
+            float evalPrice = currentPosition == PositionType.Long ? marketEngine.CurrentBidPrice : marketEngine.CurrentAskPrice;
+
             // [슬로우 모션 기믹] 청산 마진콜 임박 (청산가까지 주가 여유 0.5% 미만)
             if (!isMarginCallSlowMotionTriggered)
             {
-                float priceDiffPct = Mathf.Abs(currentPrice - liquidationPrice) / currentPrice;
+                float priceDiffPct = Mathf.Abs(evalPrice - liquidationPrice) / evalPrice;
                 if (priceDiffPct < 0.005f)
                 {
                     isMarginCallSlowMotionTriggered = true;
@@ -1169,11 +1198,11 @@ namespace FXOverdose.Trading
 
 
             bool isLiquidated = false;
-            if (currentPosition == PositionType.Long && currentPrice <= liquidationPrice)
+            if (currentPosition == PositionType.Long && evalPrice <= liquidationPrice)
             {
                 isLiquidated = true;
             }
-            else if (currentPosition == PositionType.Short && currentPrice >= liquidationPrice)
+            else if (currentPosition == PositionType.Short && evalPrice >= liquidationPrice)
             {
                 isLiquidated = true;
             }
@@ -1320,6 +1349,12 @@ namespace FXOverdose.Trading
             yield return new WaitForSecondsRealtime(2.0f);
 
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver) yield break;
+
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Settlement)
+            {
+                Debug.Log("[TradingController] 일일 정산(Settlement) 중이므로 Overdose 강제 진입을 취소합니다.");
+                yield break;
+            }
 
             if (traderStatus != null && traderStatus.CurrentMentalState != TraderStatus.MentalState.Overdose)
             {

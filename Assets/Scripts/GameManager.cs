@@ -56,6 +56,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private System.Collections.Generic.List<Sprite> bankruptcyEndingComic;
     [SerializeField] private System.Collections.Generic.List<Sprite> overdoseEndingComic;
     public StoryEvent TodayEvent { get; private set; } // DailySettlementUIController 접근용
+    public float TodayRegularDeduction { get; private set; } // 일일 정산 UI 접근용 (정기 지출)
+    public string TodayRegularDeductionReason { get; private set; } // 일일 정산 UI 접근용 (정기 지출 사유)
     public bool isSettlementProcessing = false;
 
     [Header("시간 설정")]
@@ -68,9 +70,9 @@ public class GameManager : MonoBehaviour
     // 구버전 세이브처럼 09:00 기준 자산이 없는 경우, 로드 시점부터 계산 중인지 표시합니다.
     public bool IsDailyPnlPartial { get; private set; }
 
-    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (기본 5.0초 대비 5배/기존 2.0초 대비 2배 빠른 속도 -> 1분 = 1.0초)
-    [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다. (1.0초 = 5배속)")]
-    [SerializeField] private float secondsPerGameMinute = 1.0f;
+    // 현실에서 몇 초마다 게임 속 1분이 흐를지 설정 (기존 1.0초에서 1.5배 가속하여 약 0.666초 -> 하루 현실 시간 10분)
+    [Tooltip("현실에서 몇 초마다 게임 속 1분이 흐르는지 설정합니다. (0.666초 = 하루 10분)")]
+    [SerializeField] private float secondsPerGameMinute = 0.666f;
 
     // 실제로 흐른 시간을 누적하는 변수
     private float timeAccumulator;
@@ -175,6 +177,9 @@ public class GameManager : MonoBehaviour
 
         StartOfDayEquity = startingBalance;
         IsDailyPnlPartial = false;
+
+        TodayRegularDeduction = 0f;
+        TodayRegularDeductionReason = "";
 
         // 시간 누적값 초기화
         timeAccumulator = 0f;
@@ -310,6 +315,12 @@ public class GameManager : MonoBehaviour
 
             currentState = GameState.Playing;
             Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+            
+            // 💡 [자동저장 개선] 24:00 마감 직후에 저장된 데이터를 로드한 경우, 즉시 일일 정산 프로세스로 진입합니다.
+            if (IsGameLoaded && currentHour >= 24)
+            {
+                ProcessDailySettlementWithStory();
+            }
         }
     }
 
@@ -384,6 +395,14 @@ public class GameManager : MonoBehaviour
                 Debug.Log("[GameManager] 24:00 마감 시간 도달. 당일 정산을 위해 열려 있는 포지션을 강제로 종료 및 수익/손실 확정.");
             }
 
+            // 💡 [자동저장 개선] 일일 정산 모드 진입 직전(24:00 마감)에 당일의 최종 상태를 자동 저장합니다.
+            // 플레이어가 정산 화면을 보고 게임을 끄더라도 당일 진행 상황을 잃지 않게 됩니다.
+            if (FXOverdose.Core.SaveLoadManager.Instance != null)
+            {
+                bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
+                if (saved) Debug.Log("[GameManager] 24:00 마감 직전(일일 정산 진입 전) 자동 저장 완료.");
+            }
+
             ProcessDailySettlementWithStory();
         }
     }
@@ -415,6 +434,34 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        // 💡 [새 기능] 특정 일차 정기 지출 시스템 (인플레이션형)
+        float deduction = 0f;
+        string deductionReason = "";
+
+        if (currentDay == 3) { deduction = 5000f; deductionReason = "트레이딩 플랫폼 프리미엄 구독료"; }
+        else if (currentDay == 7) { deduction = 12000f; deductionReason = "불법 거래소 단속 회피를 위한 로비 자금"; }
+        else if (currentDay == 11) { deduction = 20000f; deductionReason = "의문의 해킹 공격 복구 비용"; }
+        else if (currentDay == 15) { deduction = 60000f; deductionReason = "최종 결전을 앞둔 장비 오버클럭 세팅비"; }
+        else if (currentDay == 18) { deduction = 150000f; deductionReason = "작전 세력에게 지불할 정보 수수료"; }
+        else if (currentDay >= 21 && (currentDay - 21) % 3 == 0)
+        {
+            // Endless 모드: 21일부터 3일마다 1.3배씩 증가 (18일차 금액인 150,000 기준)
+            int cycles = (currentDay - 21) / 3 + 1;
+            deduction = 150000f * Mathf.Pow(1.3f, cycles);
+            deductionReason = "시스템 유지보수 비용 지속 청구";
+        }
+
+        TodayRegularDeduction = deduction;
+        TodayRegularDeductionReason = deductionReason;
+
+        if (deduction > 0f)
+        {
+            currentBalance -= deduction;
+            if (TraderStatus.CanonicalInstance != null)
+                TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(deduction);
+            Debug.Log($"[GameManager] 정기 지출 발생: {deductionReason} (-${deduction:N0}) -> 남은 잔고: ${currentBalance:N0}");
+        }
+
         // 컷툰 재생 또는 바로 정산
         if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
         {
@@ -440,25 +487,76 @@ public class GameManager : MonoBehaviour
 
         isSettlementProcessing = false;
 
-        // Day 20 진 엔딩 조건 검사
-        if (currentDay == 20)
-        {
-            var endStatus = TraderStatus.CanonicalInstance;
-            float endEquity = endStatus != null ? endStatus.GetTotalEquity() : currentBalance;
-            float endMentalPercent = endStatus != null ? (endStatus.CurrentMental / endStatus.MaxMental) * 100f : 0f;
+        var status = TraderStatus.CanonicalInstance;
+        float totalEquity = status != null ? status.GetTotalEquity() : currentBalance;
 
-            if (endEquity >= 1000000f && endMentalPercent >= 30f)
+        var bossManager = FXOverdose.Core.BossManager.Instance;
+        if (bossManager != null && bossManager.HasBossToday(currentDay) && bossManager.CurrentBoss != null)
+        {
+            var boss = bossManager.CurrentBoss;
+            bool isWin = bossManager.IsBossBankrupt;
+            
+            if (!isWin)
             {
-                EndGame(EndingType.Success);
+                if (boss.IsFinalBoss)
+                {
+                    isWin = totalEquity > bossManager.BossCurrentAsset;
+                }
+                else
+                {
+                    float playerReturn = ((totalEquity - StartOfDayEquity) / StartOfDayEquity) * 100f;
+                    float bossReturn = bossManager.GetBossDailyReturnRate();
+                    isWin = playerReturn > bossReturn;
+                }
+            }
+
+            if (isWin)
+            {
+                if (boss.IsFinalBoss)
+                {
+                    EndGame(EndingType.Success);
+                    return;
+                }
+                else
+                {
+                    System.Collections.Generic.List<string> winReaction = new System.Collections.Generic.List<string> {
+                        $"[{boss.Name} 격파 결과]", 
+                        $"흐응~ 고작 그 정도 자본으로 나한테 덤빈 거야?", 
+                        $"역시 넌 평생 알바생 피나 빨아먹는 하수일 뿐이야!"
+                    };
+                    StartCoroutine(PlayStoryMonologueAndWait(winReaction, () => {
+                        FinalizeProceedToNextDay();
+                    }));
+                    return;
+                }
             }
             else
             {
-                if (endMentalPercent < 30f) EndGame(EndingType.Overdose);
-                else EndGame(EndingType.Bankruptcy);
+                System.Collections.Generic.List<string> loseReaction = new System.Collections.Generic.List<string> {
+                    $"[{boss.Name} 패배 결과]",
+                    $"말도 안 돼... 내가, 내가 졌다고...?",
+                    $"이건 다 저 차트가 조작된 탓이야!!! 다시 매매해야 해!!!"
+                };
+                StartCoroutine(PlayStoryMonologueAndWait(loseReaction, () => {
+                    EndGame(EndingType.Overdose);
+                }));
+                return;
             }
+        }
+
+        // Day 20 진 엔딩 조건 검사 (보스전 백업)
+        if (currentDay == 20)
+        {
+            if (totalEquity >= 1000000f) EndGame(EndingType.Success);
+            else EndGame(EndingType.Bankruptcy);
             return;
         }
 
+        FinalizeProceedToNextDay();
+    }
+
+    private void FinalizeProceedToNextDay()
+    {
         // 정산 창 닫힐 때 유예된 파산 판정 일괄 검사
         CheckEnding();
         if (currentState == GameState.GameOver) return; // 파산 당했으면 진행 불가
@@ -470,6 +568,9 @@ public class GameManager : MonoBehaviour
         var status = TraderStatus.CanonicalInstance;
         StartOfDayEquity = status != null ? status.GetTotalEquity() : currentBalance;
         IsDailyPnlPartial = false;
+
+        TodayRegularDeduction = 0f;
+        TodayRegularDeductionReason = "";
 
         // 다음 날로 넘어갈 때 체력과 멘탈을 모두 최대로 회복
         if (status != null)
@@ -493,6 +594,18 @@ public class GameManager : MonoBehaviour
             
             // 💡 리셋된 엔진의 마켓을 다시 개장합니다.
             marketEngine.OpenMarketAfterLoading();
+        }
+
+        var bossManager = FXOverdose.Core.BossManager.Instance;
+        bool hasBossMorningEvent = bossManager != null && bossManager.HasBossToday(currentDay);
+        
+        if (hasBossMorningEvent)
+        {
+            bossManager.SpawnBossForDay(currentDay, StartOfDayEquity);
+        }
+        else if (bossManager != null)
+        {
+            bossManager.ClearBoss();
         }
 
         bool hasStoryMorningEvent = false;
@@ -535,6 +648,24 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        if (hasBossMorningEvent)
+        {
+            var oldStoryAction = storyMorningAction;
+            var boss = bossManager.CurrentBoss;
+            storyMorningAction = () => {
+                System.Collections.Generic.List<string> bossIntro = new System.Collections.Generic.List<string> {
+                    $"[{boss.Name} 등장!]",
+                    boss.Description,
+                    $"감히 내 앞길을 막아? 내 트레이딩으로 네 놈의 영혼까지 털어주겠어!"
+                };
+                StartCoroutine(PlayStoryMonologueAndWait(bossIntro, () => {
+                    if (oldStoryAction != null) oldStoryAction();
+                    else currentState = GameState.Playing;
+                }));
+            };
+            hasStoryMorningEvent = true;
+        }
+
         if (hasStoryMorningEvent)
         {
             currentState = GameState.Paused;
@@ -547,6 +678,7 @@ public class GameManager : MonoBehaviour
 
         // 일일 정산(다음날 진입) 시점에 현재 게임 상태 자동 저장
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
+
         {
             bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
             if (saved) Debug.Log("[GameManager] 일일 정산 시점 자동 저장 완료.");

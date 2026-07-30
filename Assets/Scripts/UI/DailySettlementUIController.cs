@@ -269,6 +269,12 @@ namespace FXOverdose.UI
                 reactionStatusText.text = "PENALTY IMPOSED";
                 reactionStatusText.color = LossRed;
             }
+            else if (gameManager.TodayRegularDeduction > 0f)
+            {
+                reactionText.text = $"“하아... 방금 {gameManager.TodayRegularDeductionReason}(으)로 돈이 강제 출금됐어... 내일은 더 벌어야 해.”";
+                reactionStatusText.text = "SYSTEM EXPENSE CHARGED";
+                reactionStatusText.color = LossRed;
+            }
             else
             {
                 reactionText.text = GetImmediateReaction(currentDailyPnl);

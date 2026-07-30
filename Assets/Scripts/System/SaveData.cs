@@ -62,6 +62,7 @@ namespace FXOverdose.Core
         public float Current24hLow;
         public float Current24hVolume;
         public MarketSimulationEngine.MarketRegime CurrentRegime;
+        public MarketSimulationEngine.MarketRegime CurrentDailyRegime;
         public SignalPhase CurrentSignalPhase;
 
         // --- TraderLevelSystem 데이터 ---
