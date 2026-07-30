@@ -44,6 +44,7 @@ public class PrebakeTMPFont
         }
 
         font.TryAddCharacters(sb.ToString());
+        font.atlasPopulationMode = AtlasPopulationMode.Static;
         EditorUtility.SetDirty(font);
         AssetDatabase.SaveAssets();
         Debug.Log($"Successfully prebaked {uniqueChars.Count} characters into the font atlas!");
