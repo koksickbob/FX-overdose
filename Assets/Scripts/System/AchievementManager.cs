@@ -7,7 +7,7 @@ namespace FXOverdose.Core
     public class AchievementManager : MonoBehaviour
     {
         // TEMP: 코스튬/음식 연출 전수 검수용. 테스트 종료 후 false로 되돌립니다.
-        private static readonly bool DisableAchievementRequirementsForTesting = true;
+        private static readonly bool DisableAchievementRequirementsForTesting = false;
 
         public enum AchievementType
         {
