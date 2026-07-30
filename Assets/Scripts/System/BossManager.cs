@@ -70,7 +70,7 @@ namespace FXOverdose.Core
 
         [SerializeField] private List<BossData> bossDatabase = new List<BossData>
         {
-            new BossData { Day = 1, Name = "편의점 사장", Description = "과거 요미의 알바비를 떼먹은 악덕 편의점 점주", AssetScalePercentage = 0.3f, SkillLevel = 3, IsFinalBoss = false },
+            new BossData { Day = 3, Name = "편의점 사장", Description = "과거 요미의 알바비를 떼먹은 악덕 편의점 점주", AssetScalePercentage = 0.3f, SkillLevel = 3, IsFinalBoss = false },
             new BossData { Day = 6, Name = "카페 사장", Description = "갑질을 일삼던 카페 사장", AssetScalePercentage = 0.4f, SkillLevel = 4, IsFinalBoss = false },
             new BossData { Day = 9, Name = "PC방 사장", Description = "야간 수당을 안주던 PC방 사장", AssetScalePercentage = 0.5f, SkillLevel = 5, IsFinalBoss = false },
             new BossData { Day = 12, Name = "고깃집 사장", Description = "불판 닦기를 강요하던 고깃집 사장", AssetScalePercentage = 0.6f, SkillLevel = 5, IsFinalBoss = false },
