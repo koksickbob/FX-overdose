@@ -24,6 +24,9 @@ namespace FXOverdose.Trading
 
         [Header("현재 시장 상태 (읽기 전용)")]
         [SerializeField] private float currentPrice;
+        [SerializeField] private float currentBidPrice;
+        [SerializeField] private float currentAskPrice;
+        [SerializeField] private float currentSpread;
         [SerializeField] private float current24hHigh;
         [SerializeField] private float current24hLow;
         [SerializeField] private float current24hVolume;
@@ -121,6 +124,9 @@ namespace FXOverdose.Trading
 
         // 외부에서 캔들 및 가격 정보에 접근하기 위한 프로퍼티 및 이벤트
         public float CurrentPrice => currentPrice;
+        public float CurrentBidPrice => currentBidPrice;
+        public float CurrentAskPrice => currentAskPrice;
+        public float CurrentSpread => currentSpread;
         public float Current24hHigh => current24hHigh;
         public float Current24hLow => current24hLow;
         public float Current24hVolume => current24hVolume;
@@ -465,6 +471,29 @@ namespace FXOverdose.Trading
             else if (currentDailyRegime == MarketRegime.Bear) macroDrift = -0.00015f;
             else if (currentDailyRegime == MarketRegime.Squeeze) macroDrift = UnityEngine.Random.Range(-0.0003f, 0.0003f);
 
+            // 🌟 [Realistic Feature 3] 세션(Session) 기반 시장 성격 변화
+            float sessionVolMultiplier = 1.0f;
+            float activeFakeoutProb = fakeoutProbability;
+            if (gameManager != null && !isOverdoseTrapOverride && !IsOverridingTrend)
+            {
+                int h = gameManager.CurrentHour;
+                if (h >= 0 && h < 8) // 아시아장: 거래량/변동성 감소, 횡보 강함
+                {
+                    sessionVolMultiplier = 0.5f;
+                    activeFakeoutProb = Mathf.Max(0.05f, fakeoutProbability * 0.5f);
+                }
+                else if (h >= 8 && h < 16) // 런던장: 변동성 증가 시작
+                {
+                    sessionVolMultiplier = 1.2f;
+                }
+                else // 뉴욕장 (16~24): 최고 변동성, 휩쏘 및 돌파 빈도 증가
+                {
+                    sessionVolMultiplier = 2.0f;
+                    activeFakeoutProb = Mathf.Min(0.85f, fakeoutProbability * 1.5f);
+                }
+            }
+            targetVol *= sessionVolMultiplier;
+
             drift += waveDrift + macroDrift;
 
             // 2. GARCH 스타일 변동성 군집 (TargetVol로 서서히 수렴하거나 스파이크 후 유지)
@@ -569,12 +598,33 @@ namespace FXOverdose.Trading
                 ouTerm = 0f;
             }
 
+            // 🌟 [Realistic Feature 2] 눈에 보이지 않는 오더블록(저항/지지선) 로직
+            // 라운드 피겨(1000단위) 근처에서 저항/지지가 발생 (오버도즈 및 강제 빔 중에는 절대 무시)
+            if (!isOverdoseTrapOverride && currentSignalPhase != SignalPhase.GuaranteedOverride && !IsOverridingTrend)
+            {
+                float roundNumber = Mathf.Round(currentPrice / 1000f) * 1000f;
+                if (roundNumber > 10f)
+                {
+                    float distanceToRound = Mathf.Abs(currentPrice - roundNumber) / currentPrice;
+                    if (distanceToRound < 0.002f) // 라운드 피겨 ±0.2% 이내 접근 시
+                    {
+                        // 튕겨내는 힘 (저항선 역할)
+                        float pushBackForce = Mathf.Sign(currentPrice - roundNumber) * 0.1f;
+                        // 돌파 모멘텀 (fakeout 확률이 낮을수록 돌파를 잘함)
+                        if (UnityEngine.Random.value > (1f - activeFakeoutProb))
+                        {
+                            ouTerm += pushBackForce;
+                        }
+                    }
+                }
+            }
+
             // 5. 최종 수익률 
             float totalReturn = (drift * dtFraction) + (ouTerm * dtFraction) + stochasticNoise;
 
             // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어 (자연스러운 스프링 꼬리 효과)]
             // 주의: 오버도즈 폭주(isOverdoseTrapOverride) 발동 중에는 어떠한 가드도 무시하고 청산(-100%)을 우선시합니다.
-            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride)
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride && isExternalEventOverride && activeSignal.IsTrueSignal)
             {
                 var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
                 if (tradingCtrl != null && tradingCtrl.CurrentPosition != TradingController.PositionType.None)
@@ -641,6 +691,34 @@ namespace FXOverdose.Trading
 
             // 이벤트 알림
             OnPriceUpdated?.Invoke(currentPrice);
+
+            // 🌟 [Realistic Feature 1] 스프레드(Spread) 계산 및 적용
+            currentSpread = currentPrice * currentVolatility * 0.5f;
+            if (isServerLagging) currentSpread *= 3.0f;
+            if (isExternalEventOverride) currentSpread *= 5.0f;
+
+            // 레버리지 즉사 방지 (소프트 캡: 최대 0.5%)
+            float maxSpread = currentPrice * 0.005f;
+            if (currentSpread > maxSpread) currentSpread = maxSpread;
+
+            // 오버도즈 발동 중에는 연출 방해를 막기 위해 스프레드 최소화
+            if (isOverdoseTrapOverride) currentSpread = currentPrice * 0.0001f;
+
+            currentBidPrice = currentPrice - (currentSpread * 0.5f);
+            currentAskPrice = currentPrice + (currentSpread * 0.5f);
+        }
+
+        // 🌟 [Realistic Feature 4] 거시 경제 이벤트 연동 (Fundamental Events)
+        public void TriggerMacroEvent(float intensity = 5.0f)
+        {
+            // 오버도즈 발동 중에는 빔 궤적을 흩트리지 않기 위해 거시 이벤트의 변동성 폭발을 무시합니다.
+            if (isOverdoseTrapOverride) return;
+
+            Debug.Log($"[MarketEngine] 🚨 거시 경제 이벤트 발동! 시장 변동성 {intensity}배 폭증");
+            currentVolatility *= intensity;
+            
+            // GARCH 모델에 의해 변동성은 서서히 원래 타겟 변동성(targetVol)으로 회귀하게 됩니다.
+            // Spread는 currentVolatility에 비례하므로 자동으로 폭증합니다.
         }
 
         // 스킬 공부 및 시간 패스 등으로 1분 단위 고속 경과 시 차트 캔들이 비거나 0-Volume 일직선으로 굳는 현상을 방지하기 위한 실시간 틱 시뮬레이션
@@ -1036,7 +1114,7 @@ namespace FXOverdose.Trading
                         // 확정적 구간 종료 -> 3단계 쿨다운 돌입
                         currentSignalPhase = SignalPhase.Cooldown;
                         isExternalEventOverride = false;
-                        signalPhaseTimerMinutes = UnityEngine.Random.Range(10, 16); // 10~15분 쿨다운
+                        signalPhaseTimerMinutes = UnityEngine.Random.Range(15, 26); // 15~25분 쿨다운
                         Debug.Log($"[MarketEngine] 🛑 [확정 주가 제어 종료 -> 쿨다운 돌입] ({signalPhaseTimerMinutes}분 유지)");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
@@ -1053,7 +1131,7 @@ namespace FXOverdose.Trading
                                 {
                                     Debug.Log("[MarketEngine] ⏩ AI 무포지션 상태 10초 경과 감지 -> 장기 관망 방지를 위해 확정 구간 및 쿨다운을 생략하고 즉각 신규 신호 주기를 시작합니다.");
                                     currentSignalPhase = SignalPhase.None;
-                                    minutesUntilNextSignal = UnityEngine.Random.Range(3, 6);
+                                    minutesUntilNextSignal = UnityEngine.Random.Range(5, 11);
                                     OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                                 }
                             }
@@ -1067,7 +1145,7 @@ namespace FXOverdose.Trading
                     {
                         currentSignalPhase = SignalPhase.None;
                         isExternalEventOverride = false;
-                        minutesUntilNextSignal = UnityEngine.Random.Range(5, 11); // 쿨다운 종료 후 5~10초 내 신속 재진입
+                        minutesUntilNextSignal = UnityEngine.Random.Range(8, 16); // 쿨다운 종료 후 8~15분 내 신속 재진입
                     }
                     else
                     {
@@ -1095,9 +1173,9 @@ namespace FXOverdose.Trading
             // 강도 설정 (65% 확률로 Strong, 35% 확률로 Weak)
             SignalStrength strength = UnityEngine.Random.value < 0.65f ? SignalStrength.Strong : SignalStrength.Weak;
 
-            // IsTrueSignal 결정: Breakout은 75% 확률로 진짜, Trap은 100% 가짜 속임수. 
+            // IsTrueSignal 결정: Breakout은 60% 확률로 진짜, Trap은 100% 가짜 속임수. 
             // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가
-            float trueSignalProb = 0.75f - (fakeoutProbability * 0.5f); // fakeoutProbability가 0.5면 trueSignalProb은 0.5가 됨
+            float trueSignalProb = 0.60f - (fakeoutProbability * 0.5f); // fakeoutProbability가 0.5면 trueSignalProb은 0.35가 됨
             bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
 
             int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);

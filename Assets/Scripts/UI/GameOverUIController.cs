@@ -36,7 +36,9 @@ namespace FXOverdose.UI
 
         [Header("타이밍 설정")]
         [Tooltip("게임오버 독백 루프 시작 후 UI를 표시할 실제 시간입니다.")]
+#pragma warning disable 0414
         [SerializeField, Min(0f)] private float displayDelay = 13f;
+#pragma warning restore 0414
         [SerializeField, Min(0.05f)] private float fadeDuration = 0.4f;
         [SerializeField] private string titleSceneName = "TitleScene";
 
@@ -136,19 +138,27 @@ namespace FXOverdose.UI
 
         private IEnumerator ShowGameOverUI(GameManager.EndingType endingType)
         {
-            float elapsed = 0f;
-            while (elapsed < displayDelay)
+            if (endingType == GameManager.EndingType.Overdose)
             {
-                if (gameManager != null && gameManager.CurrentState != GameManager.GameState.GameOver)
+                FXOverdose.AI.AIVisualController aiVisual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                if (aiVisual != null)
                 {
-                    presentationQueued = false;
-                    presentationCoroutine = null;
-                    HideImmediate();
-                    yield break;
-                }
+                    // 독백 출력이 시작될 여유 프레임을 잠시 대기
+                    yield return null;
+                    yield return null;
 
-                elapsed += Time.unscaledDeltaTime;
-                yield return null;
+                    while (aiVisual.IsBalloonActive)
+                    {
+                        if (gameManager != null && gameManager.CurrentState != GameManager.GameState.GameOver)
+                        {
+                            presentationQueued = false;
+                            presentationCoroutine = null;
+                            HideImmediate();
+                            yield break;
+                        }
+                        yield return null;
+                    }
+                }
             }
 
             ApplyEndingData(endingType);

@@ -109,6 +109,7 @@ namespace FXOverdose.AI
         // 우선순위 큐 및 쿨타임/Lock 관리 제어부
         private Queue<DialogueRequest> dialogueQueue = new Queue<DialogueRequest>();
         private bool isBalloonLocked = false;
+        public bool IsBalloonActive => isBalloonLocked;
         private float balloonUnlockTime = 0f;
         private Dictionary<EventCategory, float> lastCategoryOutputTimes = new Dictionary<EventCategory, float>();
 

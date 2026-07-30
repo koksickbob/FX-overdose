@@ -15,7 +15,7 @@ namespace FXOverdose.AI
 
         [Header("AI 판단 매개변수")]
         [SerializeField] [Range(1, 125)] private int defaultLeverage = 10;
-        [SerializeField] [Range(0.1f, 0.9f)] private float tradeMarginRatio = 0.3f; // 1회 진입 시 시드 투자 비율
+        [SerializeField] [Range(0.1f, 0.9f)] private float tradeMarginRatio = 0.20f; // 1회 진입 시 시드 투자 비율
 
         [Header("현재 AI 판단 상태 (읽기 전용)")]
         [SerializeField] private bool isProcessingSignal = false;
@@ -30,8 +30,22 @@ namespace FXOverdose.AI
         
         public bool ForceNextTradeHighLeverage = false;
 
+        private ITraderLevelProvider levelProvider;
+        public bool IsBossAI { get; set; } = false;
+        
+        public void SetLevelProvider(ITraderLevelProvider provider)
+        {
+            levelProvider = provider;
+        }
+
+        public Func<TradingController.PositionType, float, int, float, float, bool, float, bool> TradeExecutor;
+        public Func<float> GetAvailableBalance;
+
         private void Start()
         {
+            if (TradeExecutor == null) TradeExecutor = (pos, margin, lev, tgt, sl, crazy, price) => tradingController != null && tradingController.OpenPosition(pos, margin, lev, tgt, sl, crazy, price);
+            if (GetAvailableBalance == null) GetAvailableBalance = () => gameManager != null ? gameManager.CurrentBalance : 4000f;
+
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             traderStatus = TraderStatus.CanonicalInstance;
@@ -50,12 +64,15 @@ namespace FXOverdose.AI
             }
 
             // 상시 멘탈 소모 6대 기믹 코어 컨트롤러 자동 바인딩
-            MentalDrainGimmickController drainController = FindAnyObjectByType<MentalDrainGimmickController>();
-            if (drainController == null)
+            if (!IsBossAI)
             {
-                drainController = gameObject.AddComponent<MentalDrainGimmickController>();
+                MentalDrainGimmickController drainController = FindAnyObjectByType<MentalDrainGimmickController>();
+                if (drainController == null)
+                {
+                    drainController = gameObject.AddComponent<MentalDrainGimmickController>();
+                }
+                drainController.Initialize(traderStatus, tradingController, marketEngine);
             }
-            drainController.Initialize(traderStatus, tradingController, marketEngine);
         }
 
         private void OnDestroy()
@@ -124,17 +141,21 @@ namespace FXOverdose.AI
             var visual = UnityEngine.Object.FindAnyObjectByType<AIVisualController>();
             if (visual == null || tradingController == null) return;
 
+            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
+
             if (tradingController.IsEventPlayerChoice)
             {
                 if (tradingController.IsEventTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
-                    visual.DisplayDialogueBalloon("오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
+                    string dbText = matcher?.GetEventDialogue("EventSignal_PlayerTrue");
+                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
-                    visual.DisplayDialogueBalloon("오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, EventCategory.ChartMovement);
+                    string dbText = matcher?.GetEventDialogue("EventSignal_PlayerFalse");
+                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
             else
@@ -142,12 +163,14 @@ namespace FXOverdose.AI
                 if (signal.IsTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
-                    visual.DisplayDialogueBalloon("이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
+                    string dbText = matcher?.GetEventDialogue("EventSignal_AITrue");
+                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
-                    visual.DisplayDialogueBalloon("이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, EventCategory.ChartMovement);
+                    string dbText = matcher?.GetEventDialogue("EventSignal_AIFalse");
+                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
         }
@@ -224,7 +247,7 @@ namespace FXOverdose.AI
 
             float healthRatio = traderStatus.HealthRatio;
             TraderStatus.MentalState mentalState = traderStatus.CurrentMentalState;
-            float availableBalance = gameManager.CurrentBalance;
+            float availableBalance = GetAvailableBalance();
 
             if (availableBalance < 10f)
             {
@@ -245,7 +268,7 @@ namespace FXOverdose.AI
                 ForceNextTradeHighLeverage = false;
                 tradingController.UnlockManualMode(); // 포지션 진입을 시도하므로 수동 전환 잠금 해제
 
-                var levelSys = TraderLevelSystem.Instance;
+                var levelSys = levelProvider ?? TraderLevelSystem.Instance;
                 int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
                 int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
                 
@@ -283,7 +306,7 @@ namespace FXOverdose.AI
                         _ => TradingController.PositionType.Long
                     };
 
-                    var levelSystem = TraderLevelSystem.Instance;
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float marginRatio = levelSystem != null ? levelSystem.GetStopLossTightness() * 10f : 0.8f;
                     float margin = availableBalance * marginRatio; // 기계적 손절비율 * 10배 (최대 90% ~ 최소 15%)
                     int leverage = defaultLeverage * 3;
@@ -300,7 +323,7 @@ namespace FXOverdose.AI
                     float aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.15f : startPrice * 0.85f;
                     float aiStopLoss = trapPos == TradingController.PositionType.Long ? startPrice * 0.95f : startPrice * 1.05f;
 
-                    bool opened = tradingController.OpenPosition(trapPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
+                    bool opened = TradeExecutor(trapPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
                     if (opened)
                     {
@@ -336,9 +359,9 @@ namespace FXOverdose.AI
                         _ => TradingController.PositionType.Long
                     };
 
-                    float margin = availableBalance * 0.25f; // 가볍게 25% 진입
+                    float margin = availableBalance * 0.15f; // 가볍게 15% 진입
                     int leverage = defaultLeverage;
-                    var levelSystem = TraderLevelSystem.Instance;
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     if (levelSystem != null)
                     {
                         int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
@@ -352,7 +375,7 @@ namespace FXOverdose.AI
                     float aiTarget = weakPos == TradingController.PositionType.Long ? startPrice * 1.03f : startPrice * 0.97f;
                     float aiStopLoss = weakPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
 
-                    bool opened = tradingController.OpenPosition(weakPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
+                    bool opened = TradeExecutor(weakPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
                     if (opened)
                     {
                         float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
@@ -366,22 +389,22 @@ namespace FXOverdose.AI
                 }
                 else if (signal.Strength == SignalStrength.Strong && signal.IsTrueSignal)
                 {
-                    // 💡 적당히 속는 상태에서도 확실한 신호는 수익을 위해 고배율(80%) 사용
+                    // 💡 적당히 속는 상태에서도 확실한 신호는 수익을 위해 고배율(60%) 사용
                     int leverage = defaultLeverage;
-                    var levelSystem = TraderLevelSystem.Instance;
-                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.8f);
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
+                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
                     OpenNormalPosition(signal, availableBalance, tradeMarginRatio, leverage);
                 }
                 else
                 {
-                    var levelSystem = TraderLevelSystem.Instance;
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float trapProb = levelSystem != null ? Mathf.Clamp01((1.0f - levelSystem.GetSignalAccuracy()) * 2f) : 0.6f;
                     // 함정에 빠질 확률 (LV.1: 60%, LV.10: 0%)
                     if (UnityEngine.Random.value < trapProb)
                     {
-                        // 💡 [함정 진입] 함정인데도 낚여서 들어감. 적당히 속는 상태이므로 최대 레버리지의 70% 사용
+                        // 💡 [함정 진입] 함정인데도 낚여서 들어감. 적당히 속는 상태이므로 최대 레버리지의 60% 사용
                         int leverage = defaultLeverage;
-                        if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.7f);
+                        if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
                         OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 0.8f, leverage);
                     }
                     else
@@ -402,9 +425,9 @@ namespace FXOverdose.AI
                     {
                         // 💡 진짜 약한 신호는 가볍게 단타 스캘핑 진입 (단타이므로 안전하게 저배율)
                         int leverage = defaultLeverage;
-                        var levelSystem = TraderLevelSystem.Instance;
+                        ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                         if (levelSystem != null) leverage = Mathf.Min(levelSystem.GetMaxAllowedLeverage(), Mathf.Max(defaultLeverage, 20));
-                        OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 0.6f, leverage);
+                        OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 0.4f, leverage);
                     }
                     else
                     {
@@ -414,15 +437,15 @@ namespace FXOverdose.AI
                 }
                 else if (signal.Strength == SignalStrength.Strong && signal.IsTrueSignal)
                 {
-                    // 💡 [확실한 수익 신호] 확정 신호이므로 해금된 최대 레버리지의 90%를 과감하게 베팅!
+                    // 💡 [확실한 수익 신호] 확정 신호이므로 해금된 최대 레버리지의 70%를 과감하게 베팅!
                     int leverage = defaultLeverage * 2;
-                    var levelSystem = TraderLevelSystem.Instance;
-                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.9f);
-                    OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 1.5f, leverage);
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
+                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.7f);
+                    OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 1.2f, leverage);
                 }
                 else if (signal.Strength == SignalStrength.Strong && !signal.IsTrueSignal)
                 {
-                    var levelSystem = TraderLevelSystem.Instance;
+                    ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float counterTrapProb = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.75f;
                     // 💡 대형 속임수(Trap/False Breakout)를 날카롭게 간파하고 신호 정확도 확률(70~100%)로 함정을 역이용하는 역매매(Counter-Trap) 진입!
                     if (UnityEngine.Random.value < counterTrapProb)
@@ -465,7 +488,7 @@ namespace FXOverdose.AI
                             ? startPrice * (1f + waveSlippage)
                             : startPrice * (1f - waveSlippage);
 
-                        bool opened = tradingController.OpenPosition(counterPos, margin, leverage, aiTarget, aiStopLoss, false, injectedEntryPrice);
+                        bool opened = TradeExecutor(counterPos, margin, leverage, aiTarget, aiStopLoss, false, injectedEntryPrice);
                         if (opened)
                         {
                             float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
@@ -490,7 +513,7 @@ namespace FXOverdose.AI
         // 정상/확실한 진입
         private void OpenNormalPosition(MarketSignal signal, float balance, float ratio, int leverage)
         {
-            var levelSystem = TraderLevelSystem.Instance;
+            ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
 
             TradingController.PositionType posType = signal.Type switch
             {
@@ -551,7 +574,7 @@ namespace FXOverdose.AI
                 ? startPrice * (1f - stopLossTightness) 
                 : startPrice * (1f + stopLossTightness);
 
-            bool opened = tradingController.OpenPosition(posType, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
+            bool opened = TradeExecutor(posType, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
             if (opened)
             {
@@ -578,7 +601,7 @@ namespace FXOverdose.AI
             float aiTarget = crazyPos == TradingController.PositionType.Long ? startPrice * 1.5f : startPrice * 0.5f;
 
             // 💡 isEmergencyTrade: true를 전달하여 레벨에 따른 레버리지 클램핑을 무시하고 125배 뇌동/반대매매 보장
-            bool opened = tradingController.OpenPosition(crazyPos, margin, leverage, aiTarget, 0f, true, startPrice);
+            bool opened = TradeExecutor(crazyPos, margin, leverage, aiTarget, 0f, true, startPrice);
             if (opened)
             {
                 int actualLev = tradingController != null ? tradingController.CurrentLeverage : leverage;
@@ -595,7 +618,7 @@ namespace FXOverdose.AI
         // 포지션 종료 시 리액션 (약한 손해 구간/적당히 속았을 때의 반응 등)
         private void HandlePositionClosed(float returnedAmount, float pnl)
         {
-            float balance = gameManager != null ? gameManager.CurrentBalance : returnedAmount;
+            float balance = GetAvailableBalance();
             float baseMargin = tradingController != null 
                 ? (tradingController.MarginAmount > 0f ? tradingController.MarginAmount : tradingController.LastMarginAmount) 
                 : 0f;
@@ -635,27 +658,33 @@ namespace FXOverdose.AI
         /// </summary>
         public void ProvideChartHintToPlayer(TradingController.PositionType playerPos)
         {
-            var levelSystem = TraderLevelSystem.Instance;
+            ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
             int chartLv = levelSystem != null ? levelSystem.ChartStudyLevel : 1;
             float accuracy = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.7f;
 
             bool isAccurateHint = UnityEngine.Random.value <= accuracy;
 
             string hintText = "";
+            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
+            string posStr = playerPos.ToString();
+
             if (chartLv >= 7 || (chartLv >= 4 && isAccurateHint))
             {
                 // 고레벨 / 정확한 간파 힌트
                 if (isProcessingSignal && !currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"꺄아악 오빠 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 요미 말 들어줘 흐윽...!!";
+                    hintText = matcher?.GetEventDialogue("ChartHint_TrapDetected_High");
+                    if (string.IsNullOrEmpty(hintText)) hintText = $"꺄아악 오빠 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 요미 말 들어줘 흐윽...!!";
                 }
                 else if (isProcessingSignal && currentActiveSignal.IsTrueSignal)
                 {
-                    hintText = $"앗...! 우리 오빠 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
+                    hintText = matcher?.GetEventDialogue("ChartHint_GoodEntry_High");
+                    if (string.IsNullOrEmpty(hintText)) hintText = $"앗...! 우리 오빠 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
                 }
                 else
                 {
-                    hintText = $"오빠가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 요미 지금 심장 엄청 떨려 ♥";
+                    hintText = matcher?.GetEventDialogue("ChartHint_Normal_High");
+                    if (string.IsNullOrEmpty(hintText)) hintText = $"오빠가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 요미 지금 심장 엄청 떨려 ♥";
                 }
             }
             else
@@ -663,13 +692,17 @@ namespace FXOverdose.AI
                 // 차트 공부 레벨이 낮아 불안하거나 감에 의존하는 멘헤라 리액션
                 if (UnityEngine.Random.value < 0.5f)
                 {
-                    hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 요미 미워하거나 버리면 안 돼 오빠...? 약속해... 흐윽...";
+                    hintText = matcher?.GetEventDialogue("ChartHint_Confused_Low");
+                    if (string.IsNullOrEmpty(hintText)) hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 요미 미워하거나 버리면 안 돼 오빠...? 약속해... 흐윽...";
                 }
                 else
                 {
-                    hintText = $"꺄아아 오빠가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 오빠 돈 뺏어가는 세력 놈들은 요미가 다 저주해 버릴 거야!! ♥";
+                    hintText = matcher?.GetEventDialogue("ChartHint_BlindTrust_Low");
+                    if (string.IsNullOrEmpty(hintText)) hintText = $"꺄아아 오빠가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 오빠 돈 뺏어가는 세력 놈들은 요미가 다 저주해 버릴 거야!! ♥";
                 }
             }
+            
+            hintText = hintText.Replace("{position}", posStr);
             // 힌트를 텍스트로만 만들고 버려지던 버그 수정 -> 요미 말풍선으로 직접 띄움
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include);
             if (visual != null)
