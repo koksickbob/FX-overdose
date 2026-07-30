@@ -21,13 +21,13 @@ public static class GlobalPFStardustFont
 
     private static void OnTextChanged(Object obj)
     {
-        if (obj is TMP_Text text)
+        TMP_Text text = obj as TMP_Text;
+        if (text == null) return; // Unity의 null 체크를 사용하여 파괴된 객체 접근 방지
+
+        TMP_FontAsset font = TMP_Settings.defaultFontAsset;
+        if (font != null && text.font != font)
         {
-            TMP_FontAsset font = TMP_Settings.defaultFontAsset;
-            if (font != null && text.font != font)
-            {
-                text.font = font;
-            }
+            text.font = font;
         }
     }
 
@@ -36,13 +36,12 @@ public static class GlobalPFStardustFont
         TMP_FontAsset font = TMP_Settings.defaultFontAsset;
         if (font == null) return;
 
-        foreach (GameObject root in scene.GetRootGameObjects())
+        // DontDestroyOnLoad 씬 및 활성화되지 않은 오브젝트를 포함한 모든 TMP_Text에 폰트 적용
+        foreach (TMP_Text text in UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include))
         {
-            foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+            if (text != null && text.font != font) 
             {
-                // fontSharedMaterial을 강제로 덮으면 개별 Outline/패딩 Material이
-                // 씬 콜백 순서에 따라 사라질 수 있으므로 폰트가 다를 때만 교체합니다.
-                if (text.font != font) text.font = font;
+                text.font = font;
             }
         }
     }
@@ -93,6 +92,7 @@ public static class GlobalPFStardustFont
 
     private static void EnsureCompactHudCharacters(TMP_FontAsset font)
     {
+#if !UNITY_EDITOR
         if (!WarmedFonts.Add(font)) return;
         if (font.HasCharacters(CompactHudCharacters)) return;
         
@@ -100,6 +100,7 @@ public static class GlobalPFStardustFont
 
         if (!font.TryAddCharacters(CompactHudCharacters, out string missing) && !string.IsNullOrEmpty(missing))
             Debug.LogWarning($"[GlobalPFStardustFont] 소형 HUD 글리프 준비 실패: {missing}", font);
+#endif
     }
 }
 

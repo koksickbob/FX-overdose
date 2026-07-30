@@ -62,6 +62,8 @@ public static class PFStardustGlobalFontApplicator
         if (font == null) return;
 
         int changed = 0;
+        
+        // 1. 씬 내의 텍스트 처리
         foreach (TMP_Text text in Resources.FindObjectsOfTypeAll<TMP_Text>()
                      .Where(text => text.gameObject.scene.IsValid()))
         {
@@ -72,6 +74,35 @@ public static class PFStardustGlobalFontApplicator
             changed++;
         }
 
+        // 2. 프로젝트 내 모든 프리팹의 텍스트 처리 (에디터 모드에서만)
+        if (!EditorApplication.isPlaying)
+        {
+            string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
+            foreach (string guid in prefabGuids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                bool prefabModified = false;
+                TMP_Text[] prefabTexts = prefab.GetComponentsInChildren<TMP_Text>(true);
+                
+                foreach (TMP_Text text in prefabTexts)
+                {
+                    if (text.font == font) continue;
+                    
+                    text.font = font;
+                    prefabModified = true;
+                    changed++;
+                }
+
+                if (prefabModified)
+                {
+                    EditorUtility.SetDirty(prefab);
+                }
+            }
+        }
+
         if (changed > 0 && !EditorApplication.isPlaying)
         {
             EditorSceneManager.MarkAllScenesDirty();
@@ -80,7 +111,7 @@ public static class PFStardustGlobalFontApplicator
         if (!EditorApplication.isPlaying) AssetDatabase.SaveAssets();
 
         if (showResult)
-            EditorUtility.DisplayDialog("PF Stardust 적용 완료", $"현재 열린 씬의 TMP 텍스트 {changed}개와 프로젝트 기본 폰트를 변경했습니다.", "확인");
+            EditorUtility.DisplayDialog("PF Stardust 적용 완료", $"현재 열린 씬과 프리팹의 TMP 텍스트 총 {changed}개를 변경했습니다.", "확인");
     }
 }
 #endif
