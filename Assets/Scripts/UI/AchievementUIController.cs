@@ -234,11 +234,23 @@ namespace FXOverdose.UI
             element.preferredHeight = 138f;
             element.minHeight = 138f;
 
+            GameObject iconObject = new("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(item.transform, false);
+            Image icon = iconObject.GetComponent<Image>();
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            RectTransform iconRect = icon.rectTransform;
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(96f, 96f);
+            iconRect.anchoredPosition = new Vector2(68f, 5f);
+
             TMP_Text title = CreateText(item.transform, "Title", "???", 23f, Text,
-                new Vector2(0.035f, 0.57f), new Vector2(0.58f, 0.9f), TextAlignmentOptions.Left);
+                new Vector2(0.145f, 0.57f), new Vector2(0.58f, 0.9f), TextAlignmentOptions.Left);
             title.fontStyle = FontStyles.Bold;
             TMP_Text description = CreateText(item.transform, "Description", string.Empty, 16f, Muted,
-                new Vector2(0.035f, 0.25f), new Vector2(0.68f, 0.58f), TextAlignmentOptions.Left);
+                new Vector2(0.145f, 0.25f), new Vector2(0.68f, 0.58f), TextAlignmentOptions.Left);
             description.textWrappingMode = TextWrappingModes.Normal;
             description.overflowMode = TextOverflowModes.Ellipsis;
             TMP_Text reward = CreateText(item.transform, "Reward", string.Empty, 15f, Gold,
@@ -254,7 +266,7 @@ namespace FXOverdose.UI
             lockText.fontStyle = FontStyles.Bold;
 
             Image progressTrack = CreatePanel(item.transform, "ProgressTrack", new Color32(5, 13, 25, 255),
-                new Vector2(0.035f, 0.08f), new Vector2(0.88f, 0.19f));
+                new Vector2(0.145f, 0.08f), new Vector2(0.88f, 0.19f));
             AddOutline(progressTrack.gameObject, Border, new Vector2(1f, -1f));
             Image progressFill = CreatePanel(progressTrack.transform, "Fill", Cyan, Vector2.zero, Vector2.one);
             progressFill.raycastTarget = false;
@@ -263,7 +275,7 @@ namespace FXOverdose.UI
             percentage.fontStyle = FontStyles.Bold;
 
             item.GetComponent<AchievementItemUI>().Configure(
-                title, description, reward, lockBadge.gameObject, background, progressFill, percentage);
+                title, description, reward, lockBadge.gameObject, background, icon, progressFill, percentage);
             return item;
         }
 

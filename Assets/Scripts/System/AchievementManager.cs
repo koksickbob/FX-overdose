@@ -57,6 +57,7 @@ namespace FXOverdose.Core
         private const string Pref_HighestLevel = "Stat_HighestLevel";
 
         public event Action OnAchievementsChanged;
+        public event Action<AchievementDefinition> OnAchievementUnlocked;
 
         public bool IsAchievementUnlocked(string achievementId)
         {
@@ -85,7 +86,7 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "ending_first_gameover", Title = "첫 쓴맛", Description = "최초 게임 오버 달성", Type = AchievementType.Ending, StringParameter = "FirstGameOver" });
             achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear", RewardCostumeId = CostumeManager.QipaoId });
             achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
-            achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose" });
+            achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
             achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9 });
             achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
@@ -124,6 +125,7 @@ namespace FXOverdose.Core
                 
                 Debug.Log($"[AchievementManager] 업적 달성: {ach.Title} - {ach.Description}");
                 OnAchievementsChanged?.Invoke();
+                OnAchievementUnlocked?.Invoke(ach);
             }
         }
 

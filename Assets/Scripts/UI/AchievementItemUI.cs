@@ -11,6 +11,7 @@ namespace FXOverdose.UI
         [SerializeField] private TMP_Text rewardText;
         [SerializeField] private GameObject lockedOverlay;
         [SerializeField] private UnityEngine.UI.Image background;
+        [SerializeField] private UnityEngine.UI.Image iconImage;
         [SerializeField] private UnityEngine.UI.Image progressFill;
         [SerializeField] private TMP_Text progressText;
 
@@ -20,6 +21,7 @@ namespace FXOverdose.UI
             TMP_Text reward,
             GameObject locked,
             UnityEngine.UI.Image cardBackground,
+            UnityEngine.UI.Image icon,
             UnityEngine.UI.Image fill,
             TMP_Text percentage)
         {
@@ -28,12 +30,23 @@ namespace FXOverdose.UI
             rewardText = reward;
             lockedOverlay = locked;
             background = cardBackground;
+            iconImage = icon;
             progressFill = fill;
             progressText = percentage;
         }
 
         public void Setup(AchievementManager.AchievementDefinition ach, bool isUnlocked)
         {
+            if (iconImage != null)
+            {
+                iconImage.sprite = Resources.Load<Sprite>($"UI/Achievements/{ach.Id}");
+                iconImage.enabled = iconImage.sprite != null;
+                iconImage.preserveAspect = true;
+                iconImage.color = isUnlocked
+                    ? Color.white
+                    : new Color32(112, 124, 143, 150);
+            }
+
             float progress = AchievementManager.Instance != null
                 ? AchievementManager.Instance.GetProgress01(ach)
                 : (isUnlocked ? 1f : 0f);

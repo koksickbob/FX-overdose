@@ -15,6 +15,7 @@ namespace FXOverdose.UI
         private static readonly Color32 Panel = new(12, 27, 47, 245);
         private static readonly Color32 Cyan = new(6, 182, 212, 255);
         private static readonly Color32 Pink = new(255, 72, 114, 255);
+        private static readonly Color32 Gold = new(234, 179, 8, 255);
         private static readonly Color32 Text = new(225, 242, 255, 255);
         private static readonly Color32 Muted = new(126, 160, 184, 255);
 
@@ -169,24 +170,94 @@ namespace FXOverdose.UI
             if (parent == null) return null;
 
             Transform existing = parent.Find("Btn_Achievements");
-            if (existing != null) return existing.GetComponent<Button>();
+            if (existing != null)
+            {
+                Button existingButton = existing.GetComponent<Button>();
+                if (existingButton != null)
+                {
+                    StyleAchievementButton(existingButton);
+                    return existingButton;
+                }
+            }
 
             return CreateAchievementButton(parent);
         }
 
         private static Button CreateAchievementButton(Transform parent)
         {
-            Image image = CreateImage(parent, "Btn_Achievements", Panel, new Vector2(0.92f, 0.02f), new Vector2(0.97f, 0.11f));
+            Image image = CreateImage(parent, "Btn_Achievements", Panel,
+                new Vector2(0.755f, 0.875f), new Vector2(0.955f, 0.955f));
             Button button = image.gameObject.AddComponent<Button>();
+            StyleAchievementButton(button);
+            return button;
+        }
+
+        private static void StyleAchievementButton(Button button)
+        {
+            if (button == null) return;
+
+            Image image = button.GetComponent<Image>();
+            if (image == null) image = button.gameObject.AddComponent<Image>();
+            image.color = Panel;
             button.targetGraphic = image;
             button.colors = CreateButtonColors();
 
-            Outline outline = image.gameObject.AddComponent<Outline>();
-            outline.effectColor = Cyan;
-            outline.effectDistance = new Vector2(2f, -2f);
+            RectTransform rect = button.GetComponent<RectTransform>();
+            SetRect(rect, new Vector2(0.755f, 0.875f), new Vector2(0.955f, 0.955f));
 
-            CreateText(image.transform, "Label", "ACHIEVEMENTS", 12f, Cyan, Vector2.zero, Vector2.one, TextAlignmentOptions.Center).fontStyle = FontStyles.Bold;
-            return button;
+            Outline outline = button.GetComponent<Outline>();
+            if (outline == null) outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = Cyan;
+            outline.effectDistance = new Vector2(3f, -3f);
+
+            Transform oldLabel = button.transform.Find("Label");
+            TMP_Text title = oldLabel != null ? oldLabel.GetComponent<TMP_Text>() : null;
+            if (title == null)
+            {
+                title = CreateText(button.transform, "Label", "ACHIEVEMENTS", 24f, Text,
+                    new Vector2(0.25f, 0.38f), new Vector2(0.91f, 0.88f), TextAlignmentOptions.Left);
+            }
+            title.text = "ACHIEVEMENTS";
+            title.fontSize = 24f;
+            title.color = Text;
+            title.alignment = TextAlignmentOptions.Left;
+            title.fontStyle = FontStyles.Bold;
+            SetRect(title.rectTransform, new Vector2(0.25f, 0.38f), new Vector2(0.91f, 0.88f));
+
+            TMP_Text icon = button.transform.Find("Icon")?.GetComponent<TMP_Text>();
+            if (icon == null)
+            {
+                icon = CreateText(button.transform, "Icon", "★", 34f, Gold,
+                    new Vector2(0.035f, 0.12f), new Vector2(0.22f, 0.88f), TextAlignmentOptions.Center);
+            }
+            icon.text = "★";
+            icon.color = Gold;
+            icon.fontSize = 34f;
+            icon.fontStyle = FontStyles.Bold;
+            SetRect(icon.rectTransform, new Vector2(0.035f, 0.12f), new Vector2(0.22f, 0.88f));
+
+            TMP_Text subtitle = button.transform.Find("Subtitle")?.GetComponent<TMP_Text>();
+            if (subtitle == null)
+            {
+                subtitle = CreateText(button.transform, "Subtitle", "VIEW PROGRESS", 13f, Cyan,
+                    new Vector2(0.25f, 0.08f), new Vector2(0.91f, 0.4f), TextAlignmentOptions.Left);
+            }
+            subtitle.text = "VIEW PROGRESS";
+            subtitle.color = Cyan;
+            subtitle.fontSize = 13f;
+            subtitle.characterSpacing = 2f;
+            SetRect(subtitle.rectTransform, new Vector2(0.25f, 0.08f), new Vector2(0.91f, 0.4f));
+
+            TMP_Text arrow = button.transform.Find("Arrow")?.GetComponent<TMP_Text>();
+            if (arrow == null)
+            {
+                arrow = CreateText(button.transform, "Arrow", ">", 25f, Muted,
+                    new Vector2(0.89f, 0.12f), new Vector2(0.98f, 0.88f), TextAlignmentOptions.Center);
+            }
+            arrow.text = ">";
+            arrow.color = Muted;
+            arrow.fontSize = 25f;
+            SetRect(arrow.rectTransform, new Vector2(0.89f, 0.12f), new Vector2(0.98f, 0.88f));
         }
 
         /// <summary>

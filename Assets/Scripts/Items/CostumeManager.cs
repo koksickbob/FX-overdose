@@ -11,6 +11,7 @@ public class CostumeManager : MonoBehaviour
     public const string JiraiKeiId = "jirai_kei";
     public const string StreetCapId = "street_cap";
     public const string QipaoId = "qipao";
+    public const string PajamaId = "pajama";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -78,6 +79,15 @@ public class CostumeManager : MonoBehaviour
             Price = 1000,
             IconResourcePath = "Characters/Costumes/Qipao",
             SpriteRoot = "Characters/Costumes/Qipao"
+        },
+        new()
+        {
+            Id = PajamaId,
+            DisplayName = "MIDNIGHT PAJAMA",
+            Description = "[외형 전용]\n달과 별이 수놓인 파스텔 네이비 잠옷",
+            Price = 1200,
+            IconResourcePath = "Characters/Costumes/Pajama",
+            SpriteRoot = "Characters/Costumes/Pajama"
         }
     };
 
