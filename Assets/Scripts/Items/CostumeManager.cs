@@ -13,6 +13,7 @@ public class CostumeManager : MonoBehaviour
     public const string QipaoId = "qipao";
     public const string PajamaId = "pajama";
     public const string OfficeLookId = "office_look";
+    public const string BartenderId = "bartender";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -98,6 +99,15 @@ public class CostumeManager : MonoBehaviour
             Price = 1400,
             IconResourcePath = "Characters/Costumes/OfficeLook",
             SpriteRoot = "Characters/Costumes/OfficeLook"
+        },
+        new()
+        {
+            Id = BartenderId,
+            DisplayName = "BARTENDER",
+            Description = "[외형 전용]\n화이트 셔츠와 블랙 베스트의 클래식 바텐더 룩",
+            Price = 1600,
+            IconResourcePath = "Characters/Costumes/Bartender",
+            SpriteRoot = "Characters/Costumes/Bartender"
         }
     };
 
