@@ -12,6 +12,7 @@ public class CostumeManager : MonoBehaviour
     public const string StreetCapId = "street_cap";
     public const string QipaoId = "qipao";
     public const string PajamaId = "pajama";
+    public const string OfficeLookId = "office_look";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -88,6 +89,15 @@ public class CostumeManager : MonoBehaviour
             Price = 1200,
             IconResourcePath = "Characters/Costumes/Pajama",
             SpriteRoot = "Characters/Costumes/Pajama"
+        },
+        new()
+        {
+            Id = OfficeLookId,
+            DisplayName = "OFFICE LOOK",
+            Description = "[외형 전용]\n아이보리 블라우스와 네이비 펜슬스커트",
+            Price = 1400,
+            IconResourcePath = "Characters/Costumes/OfficeLook",
+            SpriteRoot = "Characters/Costumes/OfficeLook"
         }
     };
 

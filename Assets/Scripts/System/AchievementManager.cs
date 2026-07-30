@@ -88,7 +88,7 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
-            achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9 });
+            achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9, RewardCostumeId = CostumeManager.OfficeLookId });
             achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
             
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50, RewardCostumeId = "street_cap" });
