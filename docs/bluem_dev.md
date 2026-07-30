@@ -1729,6 +1729,24 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Scripts/Items/CostumeManager.cs`
 - `Assets/Scripts/System/AchievementManager.cs`
 
+## 2026-07-31 — 동탄룩 스킨 스프라이트 초안 세트
+
+- 원본 요미의 얼굴, 체형, 머리색과 상태별 포즈를 기준으로 동탄룩 스프라이트 35종을 제작했다.
+- 검정 골지 슬림핏 미니 원피스, 아이보리 크롭 가디건, 차콜 시스루 스타킹, 검정 포인트 토 로우힐과 실버 펜던트를 모든 변형에 공통 적용했다.
+- 기본·오버도즈 2종, 감정 19종, 포지션 2종, 스킬 업그레이드 3종, 아이템 사용 9종으로 기존 완성 스킨과 같은 구성을 맞췄다.
+- 음식 5종을 포함한 아이템 사용 스프라이트에는 각 음식과 식기 및 섭취 동작을 유지했다.
+- 모든 이미지는 투명 배경 RGBA PNG 및 600×1180 크기로 통일했다.
+- 검수 후 `DONGTAN LOOK`을 상점 APPAREL 카테고리에 `$2,200` 외형 전용 코스튬으로 등록했다.
+- `큰손 고객` 업적(배달음식 누적 200개 구매)을 달성해야 구매할 수 있다.
+- 구매·장착·저장 복원 및 상태별 스프라이트 교체는 기존 `CostumeManager` 흐름에 연결했다.
+
+관련 경로:
+
+- `Assets/Resources/Characters/Costumes/DongtanLook.png`
+- `Assets/Resources/Characters/Costumes/DongtanLook/`
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/System/AchievementManager.cs`
+
 ## 2026-07-30 — 간호사 스킨 스프라이트 초안 세트
 
 - 승인된 몸에 밀착되는 파스텔 핑크 간호복 디자인을 기준으로 전체 변형 스프라이트 35종을 제작했다.

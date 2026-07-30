@@ -1,25 +1,7 @@
 fileFormatVersion: 2
 guid: 6c6d58b9ad964c46980dbbb764693c7a
 TextureImporter:
-  internalIDToNameTable:
-  - first:
-      213: 15431581391235883
-    second: Overdose_0
-  - first:
-      213: 6911004370401613684
-    second: Overdose_1
-  - first:
-      213: -6519881408644616189
-    second: Overdose_2
-  - first:
-      213: -6742477506563454190
-    second: Overdose_3
-  - first:
-      213: -2762839554876229070
-    second: Overdose_4
-  - first:
-      213: 149004069176676337
-    second: Overdose_5
+  internalIDToNameTable: []
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -61,9 +43,9 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
@@ -152,144 +134,12 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites:
-    - serializedVersion: 2
-      name: Overdose_0
-      rect:
-        serializedVersion: 2
-        x: 66
-        y: 82
-        width: 466
-        height: 1080
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: b2ba52701f2d63000800000000000000
-      internalID: 15431581391235883
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Overdose_1
-      rect:
-        serializedVersion: 2
-        x: 308
-        y: 1157
-        width: 7
-        height: 9
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 477d5fadbd1d8ef50800000000000000
-      internalID: 6911004370401613684
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Overdose_2
-      rect:
-        serializedVersion: 2
-        x: 528
-        y: 747
-        width: 6
-        height: 11
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 3007014176ab485a0800000000000000
-      internalID: -6519881408644616189
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Overdose_3
-      rect:
-        serializedVersion: 2
-        x: 531
-        y: 699
-        width: 6
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 21b49335e68ed62a0800000000000000
-      internalID: -6742477506563454190
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Overdose_4
-      rect:
-        serializedVersion: 2
-        x: 528
-        y: 690
-        width: 6
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 23a3430201c68a9d0800000000000000
-      internalID: -2762839554876229070
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Overdose_5
-      rect:
-        serializedVersion: 2
-        x: 530
-        y: 667
-        width: 9
-        height: 14
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 1ff0d55596e511200800000000000000
-      internalID: 149004069176676337
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
+    sprites: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -298,13 +148,7 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable:
-      Overdose_0: 15431581391235883
-      Overdose_1: 6911004370401613684
-      Overdose_2: -6519881408644616189
-      Overdose_3: -6742477506563454190
-      Overdose_4: -2762839554876229070
-      Overdose_5: 149004069176676337
+    nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

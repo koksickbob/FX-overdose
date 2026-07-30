@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: EnergyDrink
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: energy_drink
-  itemName: Energy Drink
+  itemName: 에너지 드링크
   description: "\uCCB4\uB825 30 \uD68C\uBCF5"
   icon: {fileID: 21300000, guid: 5d8d60fb78df64dbc8cfaca146de81c1, type: 3}
   effectType: 0

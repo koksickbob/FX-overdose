@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TherapyPass
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: therapy_pass
-  itemName: Therapy Pass
+  itemName: 심리 상담권
   description: "\uC190\uC2E4\uACFC \uC5F0\uC18D \uB9E4\uB9E4\uB85C \uC778\uD55C \uBA58\uD0C8
     \uC18C\uBAA8\uB97C \uC644\uD654\uD569\uB2C8\uB2E4."
   icon: {fileID: 21300000, guid: 0df4ecee463a3475cb33c520374c52d2, type: 3}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Sedative
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: sedative
-  itemName: Sedative
+  itemName: 진정제
   description: "\uBA58\uD0C8 40 \uD68C\uBCF5"
   icon: {fileID: 21300000, guid: 1fd1b5076a98c4bf4aaed9298b254c2d, type: 3}
   effectType: 1

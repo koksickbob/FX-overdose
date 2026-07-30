@@ -111,7 +111,7 @@ public class DynamicShopUI : MonoBehaviour
         if (targetFont != null)
         {
             System.Text.StringBuilder sb = new();
-            sb.Append("FX MARKET BALANCE $0123456789.,-+% ALL ITEMS CARE ACTIVE GEAR APPAREL INSTANT DELIVERY UPGRADE OWNED x MAXED BUY EQUIP EQUIPPED LV ✓ ");
+            sb.Append("FX 마켓 보유 자산 $0123456789.,-+% 전체 상품 회복 아이템 배달 음식 장비 의상 즉시 적용 업그레이드 보유 최대 레벨 구매 장착 중 잠김 무료 검색 결과 없음 x ✓ ");
             foreach (ItemData item in shopManager.CatalogItems)
             {
                 if (item == null) continue;
@@ -158,7 +158,7 @@ public class DynamicShopUI : MonoBehaviour
         LayoutCards();
         if (resultCountText != null)
         {
-            resultCountText.text = $"{visibleCount} PRODUCT{(visibleCount == 1 ? string.Empty : "S")}";
+            resultCountText.text = $"상품 {visibleCount}개";
         }
         if (emptyStateText != null)
         {
@@ -229,7 +229,7 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(addressBar.gameObject, new Color32(44, 59, 82, 255), new Vector2(2f, -2f));
 
         TMP_Text address = GetOrCreateText(addressBar, "AddressText", 15f, TextAlignmentOptions.MidlineLeft, true);
-        address.text = "https://fxmarket.local/store/all-items";
+        address.text = "https://fxmarket.local/store/전체-상품";
         address.color = MutedText;
         SetRect(address.rectTransform, Vector2.zero, Vector2.one, new Vector2(14f, 0f), new Vector2(-12f, 0f));
 
@@ -264,13 +264,13 @@ public class DynamicShopUI : MonoBehaviour
         brandImage.color = new Color32(11, 15, 25, 242);
 
         TMP_Text title = GetOrCreateText(brand, "Title", 31f, TextAlignmentOptions.MidlineLeft, true);
-        title.text = "<color=#06B6D4>FX</color> MARKET";
+        title.text = "<color=#06B6D4>FX</color> 마켓";
         title.color = Color.white;
         title.fontStyle = FontStyles.Bold;
         SetRect(title.rectTransform, new Vector2(0f, 0.25f), Vector2.one, new Vector2(16f, 0f), new Vector2(-8f, 0f));
 
         TMP_Text brandCaption = GetOrCreateText(brand, "Caption", 12f, TextAlignmentOptions.MidlineLeft, true);
-        brandCaption.text = "TRADING DESK SUPPLY";
+        brandCaption.text = "트레이딩 데스크 전문 상점";
         brandCaption.color = MutedText;
         brandCaption.characterSpacing = 0.8f;
         SetRect(brandCaption.rectTransform, Vector2.zero, new Vector2(1f, 0.32f), new Vector2(16f, 0f), new Vector2(-8f, 0f));
@@ -306,7 +306,7 @@ public class DynamicShopUI : MonoBehaviour
         SetRect(inputText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         TMP_Text placeholder = GetOrCreateText(viewport, "Placeholder", 16f, TextAlignmentOptions.MidlineLeft, false);
-        placeholder.text = "SEARCH ITEMS, BUFFS, GEAR...";
+        placeholder.text = "아이템, 효과, 장비 검색...";
         placeholder.color = MutedText;
         placeholder.fontStyle = FontStyles.Italic;
         SetRect(placeholder.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -323,7 +323,7 @@ public class DynamicShopUI : MonoBehaviour
         searchInput.onValueChanged.AddListener(HandleSearchChanged);
 
         TMP_Text searchLabel = GetOrCreateText(searchBox, "SearchLabel", 14f, TextAlignmentOptions.Center, true);
-        searchLabel.text = "SEARCH";
+        searchLabel.text = "검색";
         searchLabel.color = Cyan;
         searchLabel.fontStyle = FontStyles.Bold;
         SetRect(searchLabel.rectTransform, new Vector2(0.82f, 0f), Vector2.one, Vector2.zero, Vector2.zero);
@@ -336,20 +336,20 @@ public class DynamicShopUI : MonoBehaviour
         Image background = GetOrAdd<Image>(bar.gameObject);
         background.color = new Color32(20, 29, 51, 238);
 
-        CreateCategoryButton(bar, 0, "ALL ITEMS", CategoryFilter.All, new Vector2(0.012f, 0.12f), new Vector2(0.13f, 0.88f));
-        CreateCategoryButton(bar, 1, "CARE", CategoryFilter.Care, new Vector2(0.138f, 0.12f), new Vector2(0.235f, 0.88f));
-        CreateCategoryButton(bar, 2, "DELIVERY FOOD", CategoryFilter.DeliveryFood, new Vector2(0.243f, 0.12f), new Vector2(0.39f, 0.88f));
-        CreateCategoryButton(bar, 3, "ACTIVE GEAR", CategoryFilter.ActiveGear, new Vector2(0.398f, 0.12f), new Vector2(0.53f, 0.88f));
-        CreateCategoryButton(bar, 4, "APPAREL", CategoryFilter.Apparel, new Vector2(0.538f, 0.12f), new Vector2(0.64f, 0.88f));
+        CreateCategoryButton(bar, 0, "전체 상품", CategoryFilter.All, new Vector2(0.012f, 0.12f), new Vector2(0.13f, 0.88f));
+        CreateCategoryButton(bar, 1, "회복", CategoryFilter.Care, new Vector2(0.138f, 0.12f), new Vector2(0.235f, 0.88f));
+        CreateCategoryButton(bar, 2, "배달 음식", CategoryFilter.DeliveryFood, new Vector2(0.243f, 0.12f), new Vector2(0.39f, 0.88f));
+        CreateCategoryButton(bar, 3, "장비", CategoryFilter.ActiveGear, new Vector2(0.398f, 0.12f), new Vector2(0.53f, 0.88f));
+        CreateCategoryButton(bar, 4, "의상", CategoryFilter.Apparel, new Vector2(0.538f, 0.12f), new Vector2(0.64f, 0.88f));
 
         resultCountText = GetOrCreateText(bar, "ResultCount", 15f, TextAlignmentOptions.MidlineLeft, true);
-        resultCountText.text = "0 PRODUCTS";
+        resultCountText.text = "상품 0개";
         resultCountText.color = MutedText;
         resultCountText.characterSpacing = 0.8f;
         SetRect(resultCountText.rectTransform, new Vector2(0.66f, 0f), new Vector2(0.76f, 1f), Vector2.zero, Vector2.zero);
 
         TMP_Text delivery = GetOrCreateText(bar, "Delivery", 16f, TextAlignmentOptions.MidlineRight, true);
-        delivery.text = "INSTANT DELIVERY  /  BUFFS APPLY NOW";
+        delivery.text = "즉시 배송  /  구매 효과 즉시 적용";
         delivery.color = SpecialGold;
         SetRect(delivery.rectTransform, new Vector2(0.66f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
 
@@ -379,7 +379,7 @@ public class DynamicShopUI : MonoBehaviour
         scroll.scrollSensitivity = 38f;
 
         emptyStateText = GetOrCreateText(viewport, "EmptyState", 24f, TextAlignmentOptions.Center, true);
-        emptyStateText.text = "NO PRODUCTS FOUND\n<size=65%><color=#66758F>TRY ANOTHER SEARCH OR CATEGORY</color></size>";
+        emptyStateText.text = "상품을 찾을 수 없습니다\n<size=65%><color=#66758F>다른 검색어나 카테고리를 선택해 보세요</color></size>";
         emptyStateText.color = BodyText;
         emptyStateText.textWrappingMode = TextWrappingModes.Normal;
         SetRect(emptyStateText.rectTransform, new Vector2(0.25f, 0.34f), new Vector2(0.75f, 0.66f), Vector2.zero, Vector2.zero);
@@ -395,12 +395,12 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(footerBackground.gameObject, BorderColor, new Vector2(2f, -2f));
 
         TMP_Text footer = GetOrCreateText(footerBackground, "Footer", 15f, TextAlignmentOptions.MidlineLeft, true);
-        footer.text = "SECURE CHECKOUT  /  PURCHASES APPLY IMMEDIATELY  /  TRADE RESPONSIBLY";
+        footer.text = "안전 결제  /  구매 즉시 적용  /  신중하게 거래하세요";
         footer.color = BodyText;
         SetRect(footer.rectTransform, Vector2.zero, new Vector2(0.78f, 1f), new Vector2(18f, 0f), Vector2.zero);
 
         TMP_Text status = GetOrCreateText(footerBackground, "StoreStatus", 15f, TextAlignmentOptions.MidlineRight, true);
-        status.text = "●  STORE ONLINE";
+        status.text = "●  상점 운영 중";
         status.color = SuccessGreen;
         SetRect(status.rectTransform, new Vector2(0.78f, 0f), Vector2.one, Vector2.zero, new Vector2(-18f, 0f));
     }
@@ -438,7 +438,7 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(badgeObject, accent, new Vector2(2f, -2f));
         SetRect(badgeObject.GetComponent<RectTransform>(), new Vector2(0.055f, 0.84f), new Vector2(0.36f, 0.935f), Vector2.zero, Vector2.zero);
         TMP_Text badge = CreateText(badgeObject.transform, "Label", 14f, TextAlignmentOptions.Center);
-        badge.text = item.IsDeliveryFood ? "DELIVERY FOOD" : isActive ? "ACTIVE GEAR" : "CARE ITEM";
+        badge.text = item.IsDeliveryFood ? "배달 음식" : isActive ? "활성 장비" : "회복 아이템";
         badge.color = accent;
         badge.fontStyle = FontStyles.Bold;
         SetRect(badge.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
@@ -459,14 +459,14 @@ public class DynamicShopUI : MonoBehaviour
         string effectString = "";
         switch (item.Type)
         {
-            case ItemData.EffectType.Health: effectString = $"HP +{item.EffectAmount:0}"; break;
-            case ItemData.EffectType.Mental: effectString = $"MENTAL +{item.EffectAmount:0}"; break;
-            case ItemData.EffectType.ProfitBoost: effectString = $"PROFIT +{item.EffectAmount:0}% (UPGRADE)"; break;
-            case ItemData.EffectType.LossReduction: effectString = $"LOSS -{item.EffectAmount:0}% (UPGRADE)"; break;
-            case ItemData.EffectType.MentalDrainGuard: effectString = $"MENTAL DRAIN -{item.EffectAmount:0}%"; break;
-            case ItemData.EffectType.HealthDrainGuard: effectString = $"HP DRAIN -{item.EffectAmount:0}%"; break;
+            case ItemData.EffectType.Health: effectString = $"체력 +{item.EffectAmount:0}"; break;
+            case ItemData.EffectType.Mental: effectString = $"멘탈 +{item.EffectAmount:0}"; break;
+            case ItemData.EffectType.ProfitBoost: effectString = $"수익 +{item.EffectAmount:0}% (강화)"; break;
+            case ItemData.EffectType.LossReduction: effectString = $"손실 -{item.EffectAmount:0}% (강화)"; break;
+            case ItemData.EffectType.MentalDrainGuard: effectString = $"멘탈 감소 -{item.EffectAmount:0}%"; break;
+            case ItemData.EffectType.HealthDrainGuard: effectString = $"체력 감소 -{item.EffectAmount:0}%"; break;
             case ItemData.EffectType.DeliveryFood: effectString = GetDeliveryFoodEffect(item.ItemId); break;
-            default: effectString = $"EFFECT +{item.EffectAmount:0}"; break;
+            default: effectString = $"효과 +{item.EffectAmount:0}"; break;
         }
         effect.text = effectString;
         effect.color = accent;
@@ -541,7 +541,7 @@ public class DynamicShopUI : MonoBehaviour
         buy.colors = buyColors;
 
         TMP_Text buyLabel = CreateText(buyObject.transform, "Label", 21f, TextAlignmentOptions.Center);
-        buyLabel.text = "BUY";
+        buyLabel.text = "구매";
         buyLabel.color = Color.white;
         buyLabel.fontStyle = FontStyles.Bold;
         buyLabel.enableAutoSizing = true;
@@ -584,7 +584,7 @@ public class DynamicShopUI : MonoBehaviour
         GetOrAdd<Image>(badgeRect.gameObject).color = HeaderBackground;
         ApplyOutline(badgeRect.gameObject, ApparelMagenta, new Vector2(2f, -2f));
         TMP_Text badge = GetOrCreateText(badgeRect, "Label", 14f, TextAlignmentOptions.Center, true);
-        badge.text = "APPAREL";
+        badge.text = "의상";
         badge.color = ApparelMagenta;
         badge.fontStyle = FontStyles.Bold;
         SetRect(badge.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
@@ -603,13 +603,13 @@ public class DynamicShopUI : MonoBehaviour
 
         TMP_Text effect = CreateText(card.transform, "Effect", 18f, TextAlignmentOptions.MidlineLeft);
         effect.text = CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)
-            ? "CURRENT LOOK"
-            : "CHANGE YOMI LOOK";
-        if (costume.Id == CostumeManager.BunnyGirlId) effect.text = "PROFIT +15% (AI)";
-        else if (costume.Id == CostumeManager.BikiniId) effect.text = "PROFIT +15% (PLAYER)";
-        else if (costume.Id == CostumeManager.JiraiKeiId) effect.text = "PROFIT +20% (HIGH RISK)";
-        else if (costume.Id == CostumeManager.StreetCapId) effect.text = "MAX HP +30";
-        if (CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)) effect.text += " (EQUIPPED)";
+            ? "현재 착용 중"
+            : "요미 외형 변경";
+        if (costume.Id == CostumeManager.BunnyGirlId) effect.text = "자동매매 수익 +15%";
+        else if (costume.Id == CostumeManager.BikiniId) effect.text = "수동매매 수익 +15%";
+        else if (costume.Id == CostumeManager.JiraiKeiId) effect.text = "전체 수익 +20% (고위험)";
+        else if (costume.Id == CostumeManager.StreetCapId) effect.text = "최대 체력 +30";
+        if (CostumeManager.Instance != null && CostumeManager.Instance.IsEquipped(costume.Id)) effect.text += " (착용 중)";
         
         effect.color = ApparelMagenta;
         effect.fontStyle = FontStyles.Bold;
@@ -634,7 +634,7 @@ public class DynamicShopUI : MonoBehaviour
         bool isUnlocked = FXOverdose.Core.AchievementManager.Instance == null || FXOverdose.Core.AchievementManager.Instance.IsCostumeUnlocked(costume.Id, out requirementText);
         
         TMP_Text ownedText = CreateText(card.transform, "Owned", 15f, TextAlignmentOptions.MidlineRight);
-        ownedText.text = !isUnlocked ? "LOCKED" : (equipped ? "EQUIPPED ✓" : owned ? "OWNED ✓" : "NOT OWNED");
+        ownedText.text = !isUnlocked ? "잠김" : (equipped ? "착용 중 ✓" : owned ? "보유 중 ✓" : "미보유");
         ownedText.color = !isUnlocked ? new Color32(239, 68, 68, 255) : (equipped ? SuccessGreen : MutedText);
         SetRect(ownedText.rectTransform, new Vector2(0.52f, 0.28f), new Vector2(0.95f, 0.37f), Vector2.zero, new Vector2(-14f, 0f));
 
@@ -644,7 +644,7 @@ public class DynamicShopUI : MonoBehaviour
         ApplyOutline(purchaseBar.gameObject, BorderColor, new Vector2(2f, -2f));
 
         TMP_Text price = CreateText(purchaseBar, "Price", 21f, TextAlignmentOptions.MidlineLeft);
-        price.text = !isUnlocked ? $"REQ: {requirementText}" : (owned ? "OWNED" : costume.Price <= 0 ? "FREE" : $"${costume.Price:N0}");
+        price.text = !isUnlocked ? $"필요 업적: {requirementText}" : (owned ? "보유 중" : costume.Price <= 0 ? "무료" : $"${costume.Price:N0}");
         price.color = !isUnlocked ? new Color32(239, 68, 68, 255) : (owned ? SuccessGreen : SpecialGold);
         if (!isUnlocked)
         {
@@ -674,7 +674,7 @@ public class DynamicShopUI : MonoBehaviour
         action.colors = colors;
 
         TMP_Text label = CreateText(actionObject.transform, "Label", 21f, TextAlignmentOptions.Center);
-        label.text = !isUnlocked ? "LOCKED" : (equipped ? "EQUIPPED" : owned ? "EQUIP" : "BUY");
+        label.text = !isUnlocked ? "잠김" : (equipped ? "착용 중" : owned ? "장착" : "구매");
         label.color = Color.white;
         label.fontStyle = FontStyles.Bold;
         label.enableAutoSizing = true;
@@ -857,12 +857,12 @@ public class DynamicShopUI : MonoBehaviour
     {
         return itemId switch
         {
-            "malatang" => "HP +25 / MENTAL +50",
-            "sushi" => "HP +30 / MENTAL +55",
-            "tteokbokki" => "HP +30 / MENTAL +60",
-            "pasta" => "HP +15 / MENTAL +15\nTIME ×1.5",
-            "steak" => "FULL RECOVERY\nMAX MENTAL +10",
-            _ => "DELIVERY FOOD"
+            "malatang" => "체력 +25 / 멘탈 +50",
+            "sushi" => "체력 +30 / 멘탈 +55",
+            "tteokbokki" => "체력 +30 / 멘탈 +60",
+            "pasta" => "체력 +15 / 멘탈 +15\n시간 ×1.5",
+            "steak" => "체력·멘탈 완전 회복\n최대 멘탈 +10",
+            _ => "배달 음식"
         };
     }
 
@@ -894,7 +894,7 @@ public class DynamicShopUI : MonoBehaviour
             if (Mathf.Abs(cur - lastDisplayedBalance) > 0.01f)
             {
                 lastDisplayedBalance = cur;
-                balanceText.text = $"WALLET  ${cur:N0}";
+                balanceText.text = $"보유 자산  ${cur:N0}";
             }
         }
     }

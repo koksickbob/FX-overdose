@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: LossInsurance
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: loss_insurance
-  itemName: Loss Insurance
+  itemName: 손실 보험
   description: "\uC190\uC2E4 \uD3EC\uC9C0\uC158\uC758 \uD655\uC815 \uC190\uD574\uB97C
     \uC77C\uBD80 \uBCF4\uC804\uD569\uB2C8\uB2E4."
   icon: {fileID: 21300000, guid: 55440b28eeb0d47a9a9b18e1ace39443, type: 3}

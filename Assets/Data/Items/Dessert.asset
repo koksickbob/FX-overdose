@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Dessert
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: dessert
-  itemName: Dessert
+  itemName: 파르페
   description: "\uBA58\uD0C8 20\uD68C\uBCF5"
   icon: {fileID: 21300000, guid: ff2b8913b8ba447cca57be3c34a53f3c, type: 3}
   effectType: 1

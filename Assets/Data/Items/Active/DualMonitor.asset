@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DualMonitor
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: dual_monitor
-  itemName: Dual Monitor
+  itemName: 듀얼 모니터
   description: "\uCC28\uD2B8 \uC2DC\uC57C\uB97C \uD655\uC7A5\uD574 \uC218\uC775 \uC2E4\uD604\uC561\uC744
     \uB192\uC785\uB2C8\uB2E4."
   icon: {fileID: 21300000, guid: 8c509122258c24e81aa4724a9b29fbf3, type: 3}

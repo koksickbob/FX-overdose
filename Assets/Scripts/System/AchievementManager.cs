@@ -7,7 +7,7 @@ namespace FXOverdose.Core
     public class AchievementManager : MonoBehaviour
     {
         // TEMP: 코스튬/음식 연출 전수 검수용. 테스트 종료 후 false로 되돌립니다.
-        private static readonly bool DisableAchievementRequirementsForTesting = false;
+        private static readonly bool DisableAchievementRequirementsForTesting = true;
 
         public enum AchievementType
         {
@@ -97,7 +97,7 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100, RewardCostumeId = CostumeManager.BartenderId });
             achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100, RewardCostumeId = CostumeManager.MaidId });
             achievements.Add(new AchievementDefinition { Id = "use_maratang_50", Title = "마라탕 중독자", Description = "마라탕 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "Maratang", TargetValue = 50, RewardCostumeId = CostumeManager.QipaoId });
-            achievements.Add(new AchievementDefinition { Id = "purchase_delivery_200", Title = "큰손 고객", Description = "배달음식 구매 수량 총 200개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 200 });
+            achievements.Add(new AchievementDefinition { Id = "purchase_delivery_200", Title = "큰손 고객", Description = "배달음식 구매 수량 총 200개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 200, RewardCostumeId = CostumeManager.DongtanLookId });
             
             achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20, RewardCostumeId = "jirai_kei" });
             

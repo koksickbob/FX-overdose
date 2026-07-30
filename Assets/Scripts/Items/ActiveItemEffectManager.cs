@@ -240,7 +240,7 @@ public class ActiveItemEffectManager : MonoBehaviour
 
     /// <summary>
     /// 상점 버튼/카드에 표시할 액티브 아이템 상태 문자열을 반환합니다.
-    /// 예: "LV.1 ➔ MAX LV.2", "PERMANENT BUFF", "MAX LV.2 ✓", "ACTIVE ✓"
+    /// 예: "레벨 1 ➔ 최대 레벨 2", "영구 효과", "최대 레벨 2 ✓", "활성화 ✓"
     /// </summary>
     public string GetItemStatusLabel(ItemData item)
     {
@@ -251,12 +251,12 @@ public class ActiveItemEffectManager : MonoBehaviour
 
         if (item.MaxLevel <= 1)
         {
-            return isMax ? "ACTIVE ✓" : "PERMANENT BUFF";
+            return isMax ? "활성화 ✓" : "영구 효과";
         }
         else
         {
-            if (isMax) return $"MAX LV.{item.MaxLevel} ✓";
-            return $"LV.{currentLevel} ➔ LV.{currentLevel + 1} (MAX {item.MaxLevel})";
+            if (isMax) return $"최대 레벨 {item.MaxLevel} ✓";
+            return $"레벨 {currentLevel} ➔ {currentLevel + 1} (최대 {item.MaxLevel})";
         }
     }
 
@@ -265,17 +265,17 @@ public class ActiveItemEffectManager : MonoBehaviour
     /// </summary>
     public string GetSummaryText()
     {
-        if (itemLevels.Count == 0) return "ACTIVE BUFFS: NONE";
+        if (itemLevels.Count == 0) return "활성 효과: 없음";
 
-        StringBuilder sb = new StringBuilder("ACTIVE BUFFS: ");
+        StringBuilder sb = new StringBuilder("활성 효과: ");
         List<string> buffs = new List<string>();
 
-        if (ProfitBoostRate > 0f) buffs.Add($"PROFIT +{ProfitBoostRate * 100:0}%");
-        if (LossReductionRate > 0f) buffs.Add($"LOSS -{LossReductionRate * 100:0}%");
-        if (MentalDrainReduction > 0f) buffs.Add($"MENTAL DRAIN -{MentalDrainReduction * 100:0}%");
-        if (HealthDrainReduction > 0f) buffs.Add($"HP DRAIN -{HealthDrainReduction * 100:0}%");
+        if (ProfitBoostRate > 0f) buffs.Add($"수익 +{ProfitBoostRate * 100:0}%");
+        if (LossReductionRate > 0f) buffs.Add($"손실 -{LossReductionRate * 100:0}%");
+        if (MentalDrainReduction > 0f) buffs.Add($"멘탈 감소 -{MentalDrainReduction * 100:0}%");
+        if (HealthDrainReduction > 0f) buffs.Add($"체력 감소 -{HealthDrainReduction * 100:0}%");
 
-        if (buffs.Count == 0) return "ACTIVE BUFFS: NONE";
+        if (buffs.Count == 0) return "활성 효과: 없음";
         sb.Append(string.Join("  |  ", buffs));
         return sb.ToString();
     }

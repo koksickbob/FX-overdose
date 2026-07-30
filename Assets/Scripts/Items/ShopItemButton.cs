@@ -117,15 +117,15 @@ public class ShopItemButton : MonoBehaviour
                 ConfigureContainedLabel(buttonLabel, 23f, 12f, 8f);
                 if (isSteakBlocked)
                 {
-                    buttonLabel.text = "LOCKED";
+                    buttonLabel.text = "잠김";
                 }
                 else if (isMax)
                 {
-                    buttonLabel.text = item.MaxLevel <= 1 ? "ACTIVE ✓" : "MAX LV ✓";
+                    buttonLabel.text = item.MaxLevel <= 1 ? "활성화 ✓" : "최대 레벨 ✓";
                 }
                 else
                 {
-                    buttonLabel.text = "BUY";
+                    buttonLabel.text = "구매";
                 }
             }
         }
@@ -140,11 +140,11 @@ public class ShopItemButton : MonoBehaviour
             priceText.overflowMode = TextOverflowModes.Ellipsis;
             if (isSteakBlocked)
             {
-                priceText.text = "LOCKED";
+                priceText.text = "잠김";
             }
             else if (isMax)
             {
-                priceText.text = "MAXED";
+                priceText.text = "최대 레벨";
             }
             else if (isActive && ActiveItemEffectManager.Instance != null)
             {
@@ -172,7 +172,7 @@ public class ShopItemButton : MonoBehaviour
             else
             {
                 int owned = inventory != null ? inventory.GetQuantity(item) : 0;
-                ownedText.text = $"OWNED x{owned}";
+                ownedText.text = $"보유 x{owned}";
             }
         }
     }

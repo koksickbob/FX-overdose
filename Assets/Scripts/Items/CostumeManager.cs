@@ -16,6 +16,7 @@ public class CostumeManager : MonoBehaviour
     public const string BartenderId = "bartender";
     public const string MaidId = "maid";
     public const string NurseId = "nurse";
+    public const string DongtanLookId = "dongtan_look";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -33,7 +34,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = StandardId,
-            DisplayName = "STANDARD",
+            DisplayName = "기본 복장",
             Description = "[기본 외형]\n능력치 보너스 없음",
             Price = 0,
             IconResourcePath = "Characters/States/Standard",
@@ -42,7 +43,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = BunnyGirlId,
-            DisplayName = "BUNNY GIRL",
+            DisplayName = "바니걸",
             Description = "[효과: 자동매매 익절 시 수익금 +15%]",
             Price = 1000000,
             IconResourcePath = "Characters/Costumes/BunnyGirl",
@@ -51,7 +52,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = BikiniId,
-            DisplayName = "WHITE BIKINI",
+            DisplayName = "화이트 비키니",
             Description = "[효과: 수동매매 익절 시 수익금 +15%]",
             Price = 1000000,
             IconResourcePath = "Characters/Costumes/Bikini",
@@ -60,7 +61,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = JiraiKeiId,
-            DisplayName = "JIRAI KEI",
+            DisplayName = "지뢰계 패션",
             Description = "[효과: 전체 익절 시 수익금 +20% 및 체력/멘탈 +10 회복]\n[패널티: 모든 멘탈 데미지 1.25배 가속]",
             Price = 80000,
             IconResourcePath = "Characters/Costumes/JiraiKei_TwinTails",
@@ -69,7 +70,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = StreetCapId,
-            DisplayName = "STREET CAP",
+            DisplayName = "스트리트 볼캡",
             Description = "[효과: 최대 체력 +30 확장]",
             Price = 5000,
             IconResourcePath = "Characters/Costumes/StreetCap",
@@ -78,7 +79,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = QipaoId,
-            DisplayName = "BLACK QIPAO",
+            DisplayName = "블랙 치파오",
             Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
             Price = 8000,
             IconResourcePath = "Characters/Costumes/Qipao",
@@ -87,7 +88,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = PajamaId,
-            DisplayName = "MIDNIGHT PAJAMA",
+            DisplayName = "미드나잇 잠옷",
             Description = "[효과: 최대 멘탈 +15 확장]",
             Price = 12000,
             IconResourcePath = "Characters/Costumes/Pajama",
@@ -96,7 +97,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = OfficeLookId,
-            DisplayName = "OFFICE LOOK",
+            DisplayName = "오피스룩",
             Description = "[효과: 거래 정확도 5% 상승]",
             Price = 250000,
             IconResourcePath = "Characters/Costumes/OfficeLook",
@@ -105,7 +106,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = BartenderId,
-            DisplayName = "BARTENDER",
+            DisplayName = "바텐더",
             Description = "[효과: 에너지 드링크 사용 시 체력 회복량 +15%]",
             Price = 30000,
             IconResourcePath = "Characters/Costumes/Bartender",
@@ -114,7 +115,7 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = MaidId,
-            DisplayName = "CLASSIC MAID",
+            DisplayName = "클래식 메이드",
             Description = "[외형 전용]\n프릴 앞치마와 메리제인 슈즈의 클래식 메이드 룩",
             Price = 1800,
             IconResourcePath = "Characters/Costumes/Maid",
@@ -123,11 +124,20 @@ public class CostumeManager : MonoBehaviour
         new()
         {
             Id = NurseId,
-            DisplayName = "PINK NURSE",
+            DisplayName = "핑크 간호사",
             Description = "[외형 전용]\n슬림핏 파스텔 핑크 간호사 룩",
             Price = 2000,
             IconResourcePath = "Characters/Costumes/Nurse",
             SpriteRoot = "Characters/Costumes/Nurse"
+        },
+        new()
+        {
+            Id = DongtanLookId,
+            DisplayName = "동탄룩",
+            Description = "[외형 전용]\n블랙 니트 원피스와 아이보리 크롭 가디건",
+            Price = 2200,
+            IconResourcePath = "Characters/Costumes/DongtanLook",
+            SpriteRoot = "Characters/Costumes/DongtanLook"
         }
     };
 
