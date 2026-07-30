@@ -44,7 +44,7 @@ namespace FXOverdose.AI
         private void Start()
         {
             if (TradeExecutor == null) TradeExecutor = (pos, margin, lev, tgt, sl, crazy, price) => tradingController != null && tradingController.OpenPosition(pos, margin, lev, tgt, sl, crazy, price);
-            if (GetAvailableBalance == null) GetAvailableBalance = () => gameManager != null ? gameManager.CurrentBalance : 4000f;
+            if (GetAvailableBalance == null) GetAvailableBalance = () => gameManager != null ? gameManager.CurrentBalance : 7000f;
 
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
@@ -190,7 +190,7 @@ namespace FXOverdose.AI
                     {
                         Debug.Log($"[AITradingBrain] ⚡ 확정적 주가 제어(GuaranteedOverride) 본격 궤도 돌입: 차트 빔 발사 개시");
                     }
-                    else if (phase == SignalPhase.Cooldown)
+                    else if (phase == SignalPhase.Cooldown || phase == SignalPhase.None)
                     {
                         isProcessingSignal = false;
                         Debug.Log($"[AITradingBrain] 🏁 이벤트 시그널 주가 오버라이드 궤도 종료 (Cooldown 돌입)");
@@ -203,7 +203,7 @@ namespace FXOverdose.AI
             {
                 Debug.Log($"[AITradingBrain] ⚡ 확정적 주가 제어 2단계 작동: 진입 포지션 관리 중");
             }
-            else if (phase == SignalPhase.Cooldown)
+            else if (phase == SignalPhase.Cooldown || phase == SignalPhase.None)
             {
                 isProcessingSignal = false;
                 if (tradingController != null && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))

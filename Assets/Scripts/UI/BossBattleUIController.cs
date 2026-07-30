@@ -181,6 +181,29 @@ namespace FXOverdose.UI
             if (entranceRoutine != null)
                 StopCoroutine(entranceRoutine);
             entranceRoutine = StartCoroutine(AnimateBossEntrance());
+            
+            TriggerYomiBossDialogue(boss);
+        }
+
+        private void TriggerYomiBossDialogue(BossData boss)
+        {
+            var aiVisual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+            if (aiVisual != null)
+            {
+                string dialogue = boss.Day switch
+                {
+                    3 => "“저, 저 인간은...! 내 알바비 떼먹고 도망간 그 악덕 편의점 사장!! 오빠, 저 자식 돈 다 털어버려!!”",
+                    6 => "“앗... 저 사람, 나한테 맨날 컵 닦으라고 소리 지르던 카페 사장이잖아! 으으... 오빠가 혼내줘!!”",
+                    9 => "“뭐야, 야간 수당도 안 주고 도망갔던 PC방 사장이잖아?! 저런 놈은 시장에서 퇴출당해야 해! 가즈아!!”",
+                    12 => "“윽... 불판 닦다가 손 덴 거 생각나네... 저 고깃집 사장, 오빠 실력으로 완전히 숯덩이로 만들어버려!”",
+                    15 => "“콜센터 사장...? 나한테 말도 안 되는 진상 손님들 다 떠넘기더니! 오빠, 저 사람 멘탈 좀 박살내줘!!”",
+                    18 => "“어라? 내 외모 지적하던 그 매장 사장이네? 오늘 오빠의 매매 실력으로 누가 진짜 강자인지 보여주자구!”",
+                    20 => "“드, 드디어 이 날이 왔어... 우리를 이렇게 괴롭혔던 모든 빚의 원흉... 오빠...! 이번엔 절대 물러설 수 없어! 요미도 모든 걸 걸게!!”",
+                    _ => $"“{boss.Name} 등장!! 오빠, 우리 실력을 보여주자!!”"
+                };
+                
+                aiVisual.DisplayDialogueBalloon(dialogue, FXOverdose.AI.DialoguePriority.Critical, FXOverdose.AI.EventCategory.GimmickTriggered);
+            }
         }
 
         private IEnumerator AnimateBossEntrance()

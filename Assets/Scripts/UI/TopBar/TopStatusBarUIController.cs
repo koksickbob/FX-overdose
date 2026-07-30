@@ -236,7 +236,7 @@ namespace FXOverdose.UI.TopBar
         private void UpdatePnLUI(float currentEquity)
         {
             float startingBalance = gameManager != null && gameManager.StartingBalance > 0 
-                ? gameManager.StartingBalance : 4000f;
+                ? gameManager.StartingBalance : 7000f;
 
             float pnlDiff = currentEquity - startingBalance;
             float pnlPercentage = (pnlDiff / startingBalance) * 100f;

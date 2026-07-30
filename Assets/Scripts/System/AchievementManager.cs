@@ -55,6 +55,7 @@ namespace FXOverdose.Core
         // For other custom flags
         private const string Pref_TraumaCured = "Stat_TraumaCured";
         private const string Pref_Level9Reached = "Stat_Level9Reached";
+        private const string Pref_AllSkillsMaxed = "Stat_AllSkillsMaxed";
         private const string Pref_HighestLevel = "Stat_HighestLevel";
 
         public event Action OnAchievementsChanged;
@@ -89,7 +90,7 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
-            achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9, RewardCostumeId = CostumeManager.OfficeLookId });
+            achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "모든 스킬 레벨 10 달성", Type = AchievementType.LevelUp, RewardCostumeId = CostumeManager.OfficeLookId });
             achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured", RewardCostumeId = CostumeManager.NurseId });
             
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50, RewardCostumeId = "street_cap" });
@@ -164,7 +165,7 @@ namespace FXOverdose.Core
                         if (PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0) >= ach.TargetValue) isMet = true;
                         break;
                     case AchievementType.LevelUp:
-                        if (PlayerPrefs.GetInt(Pref_Level9Reached, 0) == 1) isMet = true;
+                        if (PlayerPrefs.GetInt(Pref_AllSkillsMaxed, 0) == 1) isMet = true;
                         break;
                 }
 
@@ -258,6 +259,21 @@ namespace FXOverdose.Core
             CheckAchievements();
         }
 
+        public void RecordSkillLevelUp()
+        {
+            if (FXOverdose.Trading.TraderLevelSystem.Instance != null)
+            {
+                if (FXOverdose.Trading.TraderLevelSystem.Instance.ChartStudyLevel >= 10 &&
+                    FXOverdose.Trading.TraderLevelSystem.Instance.CubePatienceLevel >= 10 &&
+                    FXOverdose.Trading.TraderLevelSystem.Instance.BookJudgmentLevel >= 10)
+                {
+                    PlayerPrefs.SetInt(Pref_AllSkillsMaxed, 1);
+                }
+            }
+            PlayerPrefs.Save();
+            CheckAchievements();
+        }
+
         public void RecordTraumaCured()
         {
             PlayerPrefs.SetInt(Pref_TraumaCured, 1);
@@ -334,10 +350,7 @@ namespace FXOverdose.Core
                     current = PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0);
                     break;
                 case AchievementType.LevelUp:
-                    current = PlayerPrefs.GetInt(Pref_HighestLevel,
-                        PlayerPrefs.GetInt(Pref_Level9Reached, 0) == 1 ? 9 : 0);
-                    if (FXOverdose.Trading.TraderLevelSystem.Instance != null)
-                        current = Mathf.Max(current, FXOverdose.Trading.TraderLevelSystem.Instance.ProtagonistLevel);
+                    current = PlayerPrefs.GetInt(Pref_AllSkillsMaxed, 0);
                     break;
             }
             return Mathf.Clamp01(current / target);
@@ -358,6 +371,7 @@ namespace FXOverdose.Core
             PlayerPrefs.DeleteKey(Pref_EndingOverdose);
             PlayerPrefs.DeleteKey(Pref_TraumaCured);
             PlayerPrefs.DeleteKey(Pref_Level9Reached);
+            PlayerPrefs.DeleteKey(Pref_AllSkillsMaxed);
             PlayerPrefs.DeleteKey(Pref_HighestLevel);
             
             foreach (var ach in achievements)

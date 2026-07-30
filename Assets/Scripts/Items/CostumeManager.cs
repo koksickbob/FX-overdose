@@ -44,7 +44,7 @@ public class CostumeManager : MonoBehaviour
             Id = BunnyGirlId,
             DisplayName = "BUNNY GIRL",
             Description = "[효과: 자동매매 익절 시 수익금 +15%]",
-            Price = 200,
+            Price = 1000000,
             IconResourcePath = "Characters/Costumes/BunnyGirl",
             SpriteRoot = "Characters/Costumes/BunnyGirl"
         },
@@ -53,7 +53,7 @@ public class CostumeManager : MonoBehaviour
             Id = BikiniId,
             DisplayName = "WHITE BIKINI",
             Description = "[효과: 수동매매 익절 시 수익금 +15%]",
-            Price = 400,
+            Price = 1000000,
             IconResourcePath = "Characters/Costumes/Bikini",
             SpriteRoot = "Characters/Costumes/Bikini"
         },
@@ -62,7 +62,7 @@ public class CostumeManager : MonoBehaviour
             Id = JiraiKeiId,
             DisplayName = "JIRAI KEI",
             Description = "[효과: 전체 익절 시 수익금 +20% 및 체력/멘탈 +10 회복]\n[패널티: 모든 멘탈 데미지 1.25배 가속]",
-            Price = 600,
+            Price = 80000,
             IconResourcePath = "Characters/Costumes/JiraiKei_TwinTails",
             SpriteRoot = "Characters/Costumes/JiraiKei_TwinTails"
         },
@@ -71,7 +71,7 @@ public class CostumeManager : MonoBehaviour
             Id = StreetCapId,
             DisplayName = "STREET CAP",
             Description = "[효과: 최대 체력 +30 확장]",
-            Price = 800,
+            Price = 5000,
             IconResourcePath = "Characters/Costumes/StreetCap",
             SpriteRoot = "Characters/Costumes/StreetCap"
         },
@@ -80,7 +80,7 @@ public class CostumeManager : MonoBehaviour
             Id = QipaoId,
             DisplayName = "BLACK QIPAO",
             Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
-            Price = 1000,
+            Price = 8000,
             IconResourcePath = "Characters/Costumes/Qipao",
             SpriteRoot = "Characters/Costumes/Qipao"
         },
@@ -88,8 +88,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = PajamaId,
             DisplayName = "MIDNIGHT PAJAMA",
-            Description = "[외형 전용]\n달과 별이 수놓인 파스텔 네이비 잠옷",
-            Price = 1200,
+            Description = "[효과: 최대 멘탈 +15 확장]",
+            Price = 12000,
             IconResourcePath = "Characters/Costumes/Pajama",
             SpriteRoot = "Characters/Costumes/Pajama"
         },
@@ -97,8 +97,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = OfficeLookId,
             DisplayName = "OFFICE LOOK",
-            Description = "[외형 전용]\n아이보리 블라우스와 네이비 펜슬스커트",
-            Price = 1400,
+            Description = "[효과: 거래 정확도 5% 상승]",
+            Price = 250000,
             IconResourcePath = "Characters/Costumes/OfficeLook",
             SpriteRoot = "Characters/Costumes/OfficeLook"
         },
@@ -106,8 +106,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = BartenderId,
             DisplayName = "BARTENDER",
-            Description = "[외형 전용]\n화이트 셔츠와 블랙 베스트의 클래식 바텐더 룩",
-            Price = 1600,
+            Description = "[효과: 에너지 드링크 사용 시 체력 회복량 +15%]",
+            Price = 30000,
             IconResourcePath = "Characters/Costumes/Bartender",
             SpriteRoot = "Characters/Costumes/Bartender"
         },

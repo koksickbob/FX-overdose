@@ -83,6 +83,12 @@ namespace FXOverdose.Core
                 return false;
             }
 
+            if (status.CurrentMentalState == TraderStatus.MentalState.Overdose || (trading != null && trading.IsOverdoseTradeActive))
+            {
+                Debug.LogWarning("[SaveLoadManager] 오버도즈 상태 또는 기믹 발동 중에는 저장할 수 없습니다.");
+                return false;
+            }
+
             SaveData data = new SaveData
             {
                 GameMode = CurrentGameMode,

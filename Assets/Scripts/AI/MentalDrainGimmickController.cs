@@ -42,10 +42,9 @@ namespace FXOverdose.AI
 
         private void TriggerGimmickDialogue(string gimmickContext, string fallbackDialogue = "")
         {
-            if (visualController != null)
+            if (visualController != null && !string.IsNullOrEmpty(fallbackDialogue))
             {
-                string dialogue = string.IsNullOrEmpty(fallbackDialogue) ? gimmickContext : fallbackDialogue;
-                visualController.DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
+                visualController.DisplayDialogueBalloon(fallbackDialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
             }
         }
 
@@ -278,7 +277,7 @@ namespace FXOverdose.AI
                     {
                         // 2회 누적 시 요미가 강제로 매매 주도권을 뺏음
                         Debug.LogWarning("[MentalDrainGimmickController] 😡 [고배율 중독 폭주] 요미가 답답함을 못 참고 매매 주도권을 강탈합니다!");
-                        TriggerGimmickDialogue("[고배율 중독 폭주 기믹 발동] 쫄보 같은 저배율 매매에 극도의 답답함과 짜증을 느끼며 강제로 마우스를 뺏어버리는 상황. 트레이더는 도파민 부족으로 손을 떨며 '비켜봐, 내가 시원하게 긁어줄게'라는 식의 미친듯한 탐욕과 참을 수 없는 짜증을 강렬하게 표출해 줘.", "아 진짜 답답해 미치겠네!! 장난쳐?! 그딴 푼돈으로 언제 부자 될 건데?! 이리 내, 내가 직접 할 거야!!");
+                        TriggerGimmickDialogue("고배율 중독 폭주 기믹 발동", "아 진짜 답답해 미치겠네!! 장난쳐?! 그딴 푼돈으로 언제 부자 될 건데?! 이리 내, 내가 직접 할 거야!!");
                         
                         tradingController.LockManualMode();
                         tradingController.SetTradingMode(TradingController.TradingMode.AI_Auto);
@@ -386,6 +385,13 @@ namespace FXOverdose.AI
 
             if (!didEnter)
             {
+                // 이미 포지션이 있어서 진입에 실패한 경우는 휩소에 쫄아서 안 들어간 게 아니므로 후회(FOMO) 대상에서 제외!
+                if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+                {
+                    isTrackingMissedSignal = false;
+                    return;
+                }
+
                 trackedMissedSignal = signal;
                 isTrackingMissedSignal = true;
                 missedSignalStartPrice = (signal.SignalStartPrice > 0f) ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 0f);
@@ -460,7 +466,6 @@ namespace FXOverdose.AI
                 return;
             }
 
-            EvaluateDrawdownTrauma();
         }
 
         // --- [기믹 3: 수면 부족 연쇄 (Sleep Deprivation Cascade)] ---
@@ -468,86 +473,7 @@ namespace FXOverdose.AI
 
 
 
-        // --- [기믹 5: 드로다운(Drawdown) 트라우마] ---
-        private void EvaluateDrawdownTrauma()
-        {
-            float currentBal = traderStatus != null ? traderStatus.GetTotalEquity() : gameManager.CurrentBalance;
-            float peak = traderStatus.PeakBalance;
 
-            // 최고 자산 갱신 시 트라우마 완치 및 버프 적용
-            if (currentBal > peak)
-            {
-                traderStatus.PeakBalance = currentBal;
-                
-                if (traderStatus.HasDrawdownTrauma || traderStatus.Trauma20Applied || traderStatus.Trauma30Applied || traderStatus.Trauma50Applied)
-                {
-                    traderStatus.HasDrawdownTrauma = false;
-                    traderStatus.Trauma20Applied = false;
-                    traderStatus.Trauma30Applied = false;
-                    traderStatus.Trauma50Applied = false;
-                    traderStatus.TraumaConsumedMental = 0f;
-                    
-                    traderStatus.HasTraumaCureItemBuff = true;
-                    traderStatus.HasTraumaCureTradeBuff = true;
-                    
-                    traderStatus.ChangeMental(20.0f, true);
-                    TriggerGimmickDialogue("역대 최고 자산(High Watermark) 돌파 및 트라우마 해방 기믹 발동", "끔찍했던 계좌 반토막의 공포를 이겨내고 마침내 역대 최고 자산을 갱신했어! 과거의 손실 트라우마에서 완전히 해방된 극도의 희열과, 이제 무슨 짓을 해도 다 돈을 벌 수 있을 것 같은 무적의 자신감을 광기 서린 느낌으로 표출해 줘.");
-                    Debug.Log("[MentalDrainGimmickController] ✨ 신고점 갱신으로 드로다운 트라우마가 완치되었습니다! (멘탈 +20, 아이템 1.5배 버프, 다음 거래 수익 버프 획득)");
-                }
-                return;
-            }
-
-            float ddPercent = (peak - currentBal) / Mathf.Max(1f, peak) * 100f;
-            traderStatus.CurrentDrawdownPercent = ddPercent;
-
-            // 회복 조건: 15% 미만으로 회복 시 소모된 멘탈 + 5 회복
-            if (ddPercent < 15.0f && (traderStatus.Trauma20Applied || traderStatus.Trauma30Applied || traderStatus.Trauma50Applied))
-            {
-                float recoveryAmount = traderStatus.TraumaConsumedMental + 5f;
-                traderStatus.ChangeMental(recoveryAmount, true);
-                
-                traderStatus.Trauma20Applied = false;
-                traderStatus.Trauma30Applied = false;
-                traderStatus.Trauma50Applied = false;
-                traderStatus.TraumaConsumedMental = 0f;
-                traderStatus.HasDrawdownTrauma = false;
-                
-                TriggerGimmickDialogue("드로다운 트라우마 부분 회복 기믹 발동", "계좌가 고점 대비 15% 이내로 복구됐어. 그동안 깎였던 멘탈이 조금 돌아오며 안도의 한숨을 내쉬지만, 아직 신고점을 뚫지 못해 불안감이 살짝 남아있는 심정을 표현해 줘.");
-                Debug.Log($"[MentalDrainGimmickController] ✨ 드로다운이 15% 미만으로 회복되어 멘탈 {recoveryAmount} 회복되었습니다.");
-                return;
-            }
-
-            // 각 구간 돌파 시 즉시 멘탈 소모 누적 (총 40 소모)
-            if (ddPercent >= 20.0f && !traderStatus.Trauma20Applied)
-            {
-                traderStatus.Trauma20Applied = true;
-                traderStatus.HasDrawdownTrauma = true;
-                traderStatus.TraumaConsumedMental += 10f;
-                traderStatus.ChangeMental(-10.0f, false, "드로다운 20% 돌파 트라우마");
-                TriggerGimmickDialogue("고점 대비 -20% 하락 트라우마 기믹 발동", "고점 대비 20% 하락했어. 조금씩 깎여나가는 자산을 보며 초조하고 불안해지기 시작하는 감정을 짧게 표현해 줘.");
-                Debug.Log("[MentalDrainGimmickController] 📉 드로다운 20% 돌파: 멘탈 -10 소모");
-            }
-            
-            if (ddPercent >= 30.0f && !traderStatus.Trauma30Applied)
-            {
-                traderStatus.Trauma30Applied = true;
-                traderStatus.HasDrawdownTrauma = true;
-                traderStatus.TraumaConsumedMental += 10f;
-                traderStatus.ChangeMental(-10.0f, false, "드로다운 30% 돌파 트라우마");
-                TriggerGimmickDialogue("고점 대비 -30% 하락 트라우마 기믹 발동", "고점 대비 30% 하락했어. 손실이 커지자 호흡이 가빠지고 멘탈이 무너져내리며 뇌동매매의 충동을 느끼는 패닉 상태를 표현해 줘.");
-                Debug.Log("[MentalDrainGimmickController] 📉 드로다운 30% 돌파: 멘탈 -10 소모");
-            }
-
-            if (ddPercent >= 50.0f && !traderStatus.Trauma50Applied)
-            {
-                traderStatus.Trauma50Applied = true;
-                traderStatus.HasDrawdownTrauma = true;
-                traderStatus.TraumaConsumedMental += 20f;
-                traderStatus.ChangeMental(-20.0f, false, "드로다운 50% 반토막 트라우마");
-                TriggerGimmickDialogue("고점 대비 -50% 반토막 트라우마 기믹 발동", "고점 대비 50% 하락으로 계좌가 반토막 났어. 눈앞이 깜깜해지고, 과거의 실패 트라우마가 겹쳐오며 모든 걸 포기하고 싶은 극심한 절망과 우울감을 생생하게 표현해 줘.");
-                Debug.Log("[MentalDrainGimmickController] 📉 드로다운 50% 돌파: 멘탈 -20 소모");
-            }
-        }
     }
 }
 

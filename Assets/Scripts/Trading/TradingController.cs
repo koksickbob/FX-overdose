@@ -210,20 +210,6 @@ namespace FXOverdose.Trading
                 else if (pnl < 0f) pnl *= (1f - ActiveItemEffectManager.Instance.LossReductionRate);
             }
 
-            if (traderStatus != null && traderStatus.HasTraumaCureTradeBuff)
-            {
-                if (pnl > 0f) 
-                {
-                    pnl *= 1.25f;
-                    OutputYomiDialogue(FXOverdose.AI.EventCategory.GimmickTriggered);
-                }
-                else if (pnl < 0f) 
-                {
-                    pnl *= 0.75f;
-                    OutputYomiDialogue(FXOverdose.AI.EventCategory.GimmickTriggered);
-                }
-                traderStatus.HasTraumaCureTradeBuff = false;
-            }
 
             float returned = marginAmount + pnl;
             if (returned < 0f) returned = 0f;
@@ -1045,23 +1031,6 @@ namespace FXOverdose.Trading
                 }
             }
 
-            // 트라우마 극복 직후 첫 매매 보너스 적용
-            if (traderStatus != null && traderStatus.HasTraumaCureTradeBuff)
-            {
-                if (pnl > 0f)
-                {
-                    pnl *= 1.25f;
-                    OutputYomiDialogue(FXOverdose.AI.EventCategory.GimmickTriggered);
-                    Debug.Log($"[TradingController] ✨ 트라우마 극복 버프! 다음 거래 수익 1.25배 증가 적용 (PnL: {pnl:N1})");
-                }
-                else if (pnl < 0f)
-                {
-                    pnl *= 0.75f;
-                    OutputYomiDialogue(FXOverdose.AI.EventCategory.GimmickTriggered);
-                    Debug.Log($"[TradingController] ✨ 트라우마 극복 버프! 다음 거래 손실 0.75배 방어 적용 (PnL: {pnl:N1})");
-                }
-                traderStatus.HasTraumaCureTradeBuff = false;
-            }
 
             float totalReturn = marginAmount + pnl;
 
@@ -1223,7 +1192,15 @@ namespace FXOverdose.Trading
             // AI 트레이더 멘탈 붕괴 (Overdose 가속)
             if (traderStatus != null)
             {
-                traderStatus.ChangeMental(-40f);
+                // 기획 요청: 돌발 이벤트 실패로 인한 강제 청산일 경우 멘탈 감소 기믹 제거
+                if (isEventTradeActive && !isEventTrueSignal)
+                {
+                    Debug.Log("[TradingController] 이벤트 실패(트랩)로 인한 청산이므로 멘탈 감소(-40)를 면제합니다.");
+                }
+                else
+                {
+                    traderStatus.ChangeMental(-40f);
+                }
             }
 
             // 💡 [이벤트 순서 수정] 강제청산 이벤트 발송을 포지션/증거금 초기화 직전에 진행하여 수신자가 손실 정보를 인지할 수 있게 보완

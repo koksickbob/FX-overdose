@@ -226,7 +226,7 @@ namespace FXOverdose.Trading
         /// </summary>
         public float GetSignalAccuracy()
         {
-            return chartStudyLevel switch
+            float accuracy = chartStudyLevel switch
             {
                 1 => 0.60f, // 40% 오진입
                 2 => 0.65f,
@@ -237,6 +237,13 @@ namespace FXOverdose.Trading
                 7 => 0.87f,
                 _ => 0.90f  // LV 8 이상 오진입 최소 10% 남음
             };
+
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.OfficeLookId)
+            {
+                accuracy += 0.05f;
+            }
+
+            return accuracy;
         }
 
         /// <summary>
@@ -481,6 +488,7 @@ namespace FXOverdose.Trading
                 visual.DisplayDialogueBalloon(dialogue, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.SkillUpgraded);
             }
 
+            FXOverdose.Core.AchievementManager.Instance?.RecordSkillLevelUp();
             return true;
         }
 

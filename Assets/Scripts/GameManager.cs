@@ -46,7 +46,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private EndingType currentEnding = EndingType.None;
 
     [Header("자산 설정")]
-    [SerializeField] private float startingBalance = 4000f; // 시작 자산 (초기 4,000)
+    [SerializeField] private float startingBalance = 7000f; // 시작 자산 (초기 7,000)
     [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
 
@@ -188,6 +188,12 @@ public class GameManager : MonoBehaviour
         // 돌발 선택 이벤트 컨트롤러(ChoiceEventController) 자동 부착 및 초기화
         InitializeChoiceEventController();
         InitializeTraderLevelSystem();
+        // 초기 아이템 수량 세팅 (에너지드링크/파르페 5개, 약품들 2개)
+        var inventory = UnityEngine.Object.FindAnyObjectByType<Inventory>(UnityEngine.FindObjectsInactive.Include);
+        if (inventory != null)
+        {
+            inventory.ResetForNewGame();
+        }
 
         // 동적 시간 완급 조절기(DynamicTimeRegulator) 부착
         EnsureDynamicTimeRegulator();
@@ -631,12 +637,9 @@ public class GameManager : MonoBehaviour
 
         var bossManager = FXOverdose.Core.BossManager.Instance;
         bool hasBossMorningEvent = bossManager != null && bossManager.HasBossToday(currentDay);
+        FXOverdose.Core.BossData pendingBossData = hasBossMorningEvent ? bossManager.GetBossData(currentDay) : null;
         
-        if (hasBossMorningEvent)
-        {
-            bossManager.SpawnBossForDay(currentDay, StartOfDayEquity);
-        }
-        else if (bossManager != null)
+        if (!hasBossMorningEvent && bossManager != null)
         {
             bossManager.ClearBoss();
         }
@@ -663,8 +666,16 @@ public class GameManager : MonoBehaviour
                             
                             var monologue = currentDay == 6 ? day6Monologue : day16Monologue;
                             StartCoroutine(PlayStoryMonologueAndWait(monologue, () => {
-                                currentState = GameState.Playing;
                                 Debug.Log($"[GameManager] {currentDay}일차 스토리 시작 컷씬 및 독백 종료.");
+                                
+                                if (hasBossMorningEvent)
+                                {
+                                    PlayBossMorningSequence(pendingBossData, bossManager);
+                                }
+                                else
+                                {
+                                    currentState = GameState.Playing;
+                                }
                             }));
                         };
 
@@ -681,28 +692,15 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        if (hasBossMorningEvent)
-        {
-            var oldStoryAction = storyMorningAction;
-            var boss = bossManager.CurrentBoss;
-            storyMorningAction = () => {
-                System.Collections.Generic.List<string> bossIntro = new System.Collections.Generic.List<string> {
-                    $"[{boss.Name} 등장!]",
-                    boss.Description,
-                    $"감히 내 앞길을 막아? 내 트레이딩으로 네 놈의 영혼까지 털어주겠어!"
-                };
-                StartCoroutine(PlayStoryMonologueAndWait(bossIntro, () => {
-                    if (oldStoryAction != null) oldStoryAction();
-                    else currentState = GameState.Playing;
-                }));
-            };
-            hasStoryMorningEvent = true;
-        }
-
         if (hasStoryMorningEvent)
         {
             currentState = GameState.Paused;
             storyMorningAction?.Invoke();
+        }
+        else if (hasBossMorningEvent)
+        {
+            currentState = GameState.Paused;
+            PlayBossMorningSequence(pendingBossData, bossManager);
         }
         else
         {
@@ -723,6 +721,20 @@ public class GameManager : MonoBehaviour
             remainingFastForwardMinutes = 0;
             AdvanceGameMinutes(resumeMinutes);
         }
+    }
+
+    private void PlayBossMorningSequence(FXOverdose.Core.BossData boss, FXOverdose.Core.BossManager bossManager)
+    {
+        System.Collections.Generic.List<string> bossIntro = new System.Collections.Generic.List<string> {
+            $"[{boss.Name} 등장!]",
+            boss.Description,
+            $"감히 내 앞길을 막아? 내 트레이딩으로 네 놈의 영혼까지 털어주겠어!"
+        };
+        StartCoroutine(PlayStoryMonologueAndWait(bossIntro, () => {
+            // 보스 스폰을 이 시점으로 지연시킴 (보스 등장 연출 UI 트리거)
+            bossManager.SpawnBossForDay(currentDay, StartOfDayEquity);
+            currentState = GameState.Playing;
+        }));
     }
 
     // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출

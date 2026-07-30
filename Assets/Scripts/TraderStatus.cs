@@ -37,18 +37,11 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private bool isLeverageAddicted = false; // 고배율 중독 상태
     [SerializeField] private int consecutiveHighLevWins = 0; // 50배 이상 연속 익절 카운터
     [SerializeField] private int consecutiveLowLevTrades = 0; // 중독 상태에서 50배 이하 매매 카운터
-    [SerializeField] private bool hasDrawdownTrauma = false; // 드로다운 트라우마 여부
     [SerializeField] private float peakBalance = 0f; // 역대 최고 자산(High Water Mark)
-    [SerializeField] private float currentDrawdownPercent = 0f; // 실시간 드로다운 비율
     [SerializeField] private bool canRegenMental = true; // 자연 회복 허용 여부 (체력 30% 이하 시 false)
 
     [Header("트라우마 기믹 변수")]
-    [SerializeField] private bool trauma20Applied = false;
-    [SerializeField] private bool trauma30Applied = false;
-    [SerializeField] private bool trauma50Applied = false;
-    [SerializeField] private float traumaConsumedMental = 0f;
-    [SerializeField] private bool hasTraumaCureItemBuff = false;
-    [SerializeField] private bool hasTraumaCureTradeBuff = false;
+    // (트라우마 변수 삭제됨)
 
     [Header("지속 멘탈 감소 누적기")]
     [SerializeField] private float healthDropMentalDrainAccumulator = 0f;
@@ -79,9 +72,31 @@ public class TraderStatus : MonoBehaviour
         }
     }
     public float CurrentMental => currentMental;
-    public float MaxMental => maxMental;
-    public float MaxMentalLimit => maxMentalLimit;
-    public float EffectiveMaxMental => Mathf.Min(maxMental, maxMentalLimit);
+    public float MaxMental 
+    {
+        get
+        {
+            float bonus = 0f;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.PajamaId)
+            {
+                bonus = 15f;
+            }
+            return maxMental + bonus;
+        }
+    }
+    public float MaxMentalLimit 
+    {
+        get
+        {
+            float bonus = 0f;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.PajamaId)
+            {
+                bonus = 15f;
+            }
+            return maxMentalLimit + bonus;
+        }
+    }
+    public float EffectiveMaxMental => Mathf.Min(MaxMental, MaxMentalLimit);
     public MentalState CurrentMentalState => currentMentalState;
 
     public int CurrentLosingStreak
@@ -104,20 +119,10 @@ public class TraderStatus : MonoBehaviour
         get => consecutiveLowLevTrades;
         set => consecutiveLowLevTrades = Mathf.Max(0, value);
     }
-    public bool HasDrawdownTrauma
-    {
-        get => hasDrawdownTrauma;
-        set => hasDrawdownTrauma = value;
-    }
     public float PeakBalance
     {
         get => peakBalance;
-        set => peakBalance = Mathf.Max(peakBalance, value);
-    }
-    public float CurrentDrawdownPercent
-    {
-        get => currentDrawdownPercent;
-        set => currentDrawdownPercent = value;
+        set => peakBalance = value;
     }
     public bool CanRegenMental
     {
@@ -125,14 +130,7 @@ public class TraderStatus : MonoBehaviour
         set => canRegenMental = value;
     }
 
-    public bool Trauma20Applied { get => trauma20Applied; set => trauma20Applied = value; }
-    public bool Trauma30Applied { get => trauma30Applied; set => trauma30Applied = value; }
-    public bool Trauma50Applied { get => trauma50Applied; set => trauma50Applied = value; }
-    public float TraumaConsumedMental { get => traumaConsumedMental; set => traumaConsumedMental = value; }
-    public bool HasTraumaCureItemBuff { get => hasTraumaCureItemBuff; set => hasTraumaCureItemBuff = value; }
-    public bool HasTraumaCureTradeBuff { get => hasTraumaCureTradeBuff; set => hasTraumaCureTradeBuff = value; }
 
-    // 아이템 및 스킬 구매 등으로 자산을 지출할 때 드로다운 트라우마(Drawdown Trauma)가 발생하거나 증가하지 않도록,
     // 지출 전후의 드로다운 비율(%)이 정확히 유지되게 역대 최고 자산(PeakBalance)을 비례 하향 조정합니다.
     public void AdjustPeakBalanceForExpenditure(float expenditureAmount)
     {
@@ -196,7 +194,7 @@ public class TraderStatus : MonoBehaviour
         {
             if (wasLoaded)
             {
-                Debug.Log("[TraderStatus] 로드 중이므로 HP/멘탈 초기화를 건너뜁니다.");
+                Debug.Log("[TraderStatus] 로드 중이므로 HP/멘탈 초기화를 건너롼뜁니다.");
             }
             else
             {
@@ -223,18 +221,9 @@ public class TraderStatus : MonoBehaviour
             this.isLeverageAddicted = canonical.isLeverageAddicted;
             this.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
             this.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
-            this.hasDrawdownTrauma = canonical.hasDrawdownTrauma;
             this.peakBalance = canonical.peakBalance;
-            this.currentDrawdownPercent = canonical.currentDrawdownPercent;
             this.canRegenMental = canonical.canRegenMental;
             this.currentMentalState = canonical.currentMentalState;
-
-            this.trauma20Applied = canonical.trauma20Applied;
-            this.trauma30Applied = canonical.trauma30Applied;
-            this.trauma50Applied = canonical.trauma50Applied;
-            this.traumaConsumedMental = canonical.traumaConsumedMental;
-            this.hasTraumaCureItemBuff = canonical.hasTraumaCureItemBuff;
-            this.hasTraumaCureTradeBuff = canonical.hasTraumaCureTradeBuff;
 
             this.healthDropMentalDrainAccumulator = canonical.healthDropMentalDrainAccumulator;
             this.healthDropMentalDrainTimer = canonical.healthDropMentalDrainTimer;
@@ -262,9 +251,7 @@ public class TraderStatus : MonoBehaviour
                 st.isLeverageAddicted = canonical.isLeverageAddicted;
                 st.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
                 st.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
-                st.hasDrawdownTrauma = canonical.hasDrawdownTrauma;
                 st.peakBalance = canonical.peakBalance;
-                st.currentDrawdownPercent = canonical.currentDrawdownPercent;
                 st.canRegenMental = canonical.canRegenMental;
                 st.currentMentalState = canonical.currentMentalState;
             }
@@ -323,18 +310,9 @@ public class TraderStatus : MonoBehaviour
         isLeverageAddicted = false;
         consecutiveHighLevWins = 0;
         consecutiveLowLevTrades = 0;
-        hasDrawdownTrauma = false;
         if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
-        peakBalance = gameManager != null ? gameManager.StartingBalance : 4000f;
-        currentDrawdownPercent = 0f;
+        peakBalance = 0f;
         canRegenMental = true;
-
-        trauma20Applied = false;
-        trauma30Applied = false;
-        trauma50Applied = false;
-        traumaConsumedMental = 0f;
-        hasTraumaCureItemBuff = false;
-        hasTraumaCureTradeBuff = false;
 
         healthDropMentalDrainAccumulator = 0f;
         healthDropMentalDrainTimer = 0f;
@@ -625,6 +603,12 @@ public class TraderStatus : MonoBehaviour
         if (tradingController == null)
         {
             tradingController = FindAnyObjectByType<FXOverdose.Trading.TradingController>();
+        }
+
+        if (currentMentalState == MentalState.Overdose || (tradingController != null && tradingController.IsOverdoseTradeActive))
+        {
+            Debug.Log("[TraderStatus] 오버도즈 중이므로 뇌동매매(TriggerImpulsiveTrade) 발동을 무시합니다.");
+            return;
         }
 
         if (tradingController != null)
