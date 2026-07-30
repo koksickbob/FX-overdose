@@ -70,6 +70,7 @@ namespace FXOverdose.UI.Chart
 
         private void Start()
         {
+            ApplyMainHudHorizontalMargins();
             if (marketEngine == null)
             {
                 marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
@@ -107,6 +108,15 @@ namespace FXOverdose.UI.Chart
             {
                 gameManager.OnFastForwardEnded -= HandleFastForwardEnded;
             }
+        }
+
+        private void ApplyMainHudHorizontalMargins()
+        {
+            RectTransform rect = transform as RectTransform;
+            if (rect == null) return;
+
+            rect.offsetMin = new Vector2(UIStrokeStyle.ScreenEdgeMargin, rect.offsetMin.y);
+            rect.offsetMax = new Vector2(-UIStrokeStyle.CenterGutterHalf, rect.offsetMax.y);
         }
 
         private void CleanupOldScrollView()

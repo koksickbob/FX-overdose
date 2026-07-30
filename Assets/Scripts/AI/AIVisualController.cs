@@ -36,6 +36,7 @@ namespace FXOverdose.AI
         private const float DialogueContentPadding = 52f;
         private const float DialogueTailCenterOffset = 6f;
         private const float CharacterDialogueVerticalOffset = 36f;
+        private const float DialogueBalloonAdditionalVerticalOffset = 48f;
 
         public enum ExpressionState
         {
@@ -305,7 +306,10 @@ namespace FXOverdose.AI
             if (characterRect == null || balloonRect == null) return;
 
             characterRect.anchoredPosition += Vector2.up * CharacterDialogueVerticalOffset;
-            balloonRect.anchoredPosition += Vector2.up * CharacterDialogueVerticalOffset;
+            // 우측 하단에 세로 배치된 스킬 버튼 상단과 말풍선 하단이 겹치지 않도록,
+            // 캐릭터 이동량은 유지하고 말풍선만 조금 더 위로 올립니다.
+            balloonRect.anchoredPosition += Vector2.up *
+                (CharacterDialogueVerticalOffset + DialogueBalloonAdditionalVerticalOffset);
             visualLayoutOffsetApplied = true;
         }
 

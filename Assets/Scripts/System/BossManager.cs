@@ -44,11 +44,24 @@ namespace FXOverdose.Core
             {
                 if (_instance == null)
                 {
-                    _instance = FindAnyObjectByType<BossManager>();
+                    _instance = FindAnyObjectByType<BossManager>(FindObjectsInactive.Include);
                     if (_instance == null)
                     {
-                        GameObject go = new GameObject("BossManager");
-                        _instance = go.AddComponent<BossManager>();
+                        // Additive 로딩 중 활성 씬이 LoadingScene일 수 있으므로,
+                        // 가능하면 GameManager에 붙여 반드시 게임 씬 소속으로 생성합니다.
+                        GameManager gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                        if (gameManager != null)
+                        {
+                            _instance = gameManager.GetComponent<BossManager>();
+                            if (_instance == null)
+                                _instance = gameManager.gameObject.AddComponent<BossManager>();
+                        }
+                        else
+                        {
+                            GameObject go = new GameObject("BossManager");
+                            _instance = go.AddComponent<BossManager>();
+                            DontDestroyOnLoad(go);
+                        }
                     }
                 }
                 return _instance;
@@ -57,7 +70,7 @@ namespace FXOverdose.Core
 
         [SerializeField] private List<BossData> bossDatabase = new List<BossData>
         {
-            new BossData { Day = 3, Name = "편의점 사장", Description = "과거 요미의 알바비를 떼먹은 악덕 편의점 점주", AssetScalePercentage = 0.3f, SkillLevel = 3, IsFinalBoss = false },
+            new BossData { Day = 1, Name = "편의점 사장", Description = "과거 요미의 알바비를 떼먹은 악덕 편의점 점주", AssetScalePercentage = 0.3f, SkillLevel = 3, IsFinalBoss = false },
             new BossData { Day = 6, Name = "카페 사장", Description = "갑질을 일삼던 카페 사장", AssetScalePercentage = 0.4f, SkillLevel = 4, IsFinalBoss = false },
             new BossData { Day = 9, Name = "PC방 사장", Description = "야간 수당을 안주던 PC방 사장", AssetScalePercentage = 0.5f, SkillLevel = 5, IsFinalBoss = false },
             new BossData { Day = 12, Name = "고깃집 사장", Description = "불판 닦기를 강요하던 고깃집 사장", AssetScalePercentage = 0.6f, SkillLevel = 5, IsFinalBoss = false },
@@ -75,6 +88,23 @@ namespace FXOverdose.Core
 
         public event Action<float, float> OnBossAssetChanged; // current, starting
         public event Action OnBossBankrupted;
+
+        private void Awake()
+        {
+            if (_instance != null && _instance != this)
+            {
+                Destroy(this);
+                return;
+            }
+
+            _instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance == this)
+                _instance = null;
+        }
 
         public bool HasBossToday(int day)
         {
@@ -105,10 +135,13 @@ namespace FXOverdose.Core
             CurrentBoss = GetBossData(day);
             if (CurrentBoss != null)
             {
+                FXOverdose.UI.BossBattleUIBootstrap.EnsureInstalled(gameObject.scene);
                 BossStartingAsset = playerCurrentAssets * CurrentBoss.AssetScalePercentage;
                 BossCurrentAsset = BossStartingAsset;
                 IsBossBankrupt = false;
-                Debug.Log($"[BossManager] {day}일차 보스 '{CurrentBoss.Name}' 등장! 초기 자산: {BossStartingAsset:N0}");
+                Debug.Log(
+                    $"[BossManager] {day}일차 보스 '{CurrentBoss.Name}' 등장! " +
+                    $"초기 자산: {BossStartingAsset:N0} / 소속 씬: {gameObject.scene.name}");
                 
                 activeBossObject = new GameObject($"BossAI_{CurrentBoss.Name}");
                 activeBossObject.transform.SetParent(this.transform);

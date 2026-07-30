@@ -40,11 +40,22 @@ public class DynamicInventoryUI : MonoBehaviour
     private void Awake()
     {
         panelRect = GetComponent<RectTransform>();
+        AlignToScreenEdge();
         if (inventory == null) inventory = FindAnyObjectByType<Inventory>();
         CreateBackgroundDesign();
         CreateTitleIfNeeded();
         HideLegacyButtons();
         Rebuild();
+    }
+
+    private void AlignToScreenEdge()
+    {
+        if (panelRect == null) return;
+        panelRect.anchorMin = panelRect.anchorMax = new Vector2(1f, 0f);
+        panelRect.pivot = new Vector2(1f, 0f);
+        panelRect.anchoredPosition = new Vector2(
+            -UIStrokeStyle.ScreenEdgeMargin,
+            panelRect.anchoredPosition.y);
     }
 
     private void OnEnable()

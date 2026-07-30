@@ -17,6 +17,7 @@ public class ShopButtonInventoryFollower : MonoBehaviour
     private void Awake()
     {
         buttonRect = GetComponent<RectTransform>();
+        rightMargin = UIStrokeStyle.ScreenEdgeMargin;
         ApplyButtonDesign();
         UpdatePosition();
     }

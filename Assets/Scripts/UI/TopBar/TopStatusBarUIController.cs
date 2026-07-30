@@ -213,7 +213,12 @@ namespace FXOverdose.UI.TopBar
             HorizontalLayoutGroup rootLayout = GetComponent<HorizontalLayoutGroup>();
             if (rootLayout != null)
             {
-                rootLayout.padding = new RectOffset(10, 10, BarVerticalPadding, BarVerticalPadding);
+                int horizontalMargin = Mathf.RoundToInt(UIStrokeStyle.ScreenEdgeMargin);
+                rootLayout.padding = new RectOffset(
+                    horizontalMargin,
+                    horizontalMargin,
+                    BarVerticalPadding,
+                    BarVerticalPadding);
                 rootLayout.spacing = 7f;
                 rootLayout.childAlignment = TextAnchor.MiddleLeft;
             }

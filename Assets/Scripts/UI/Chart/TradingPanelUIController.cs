@@ -113,6 +113,7 @@ namespace FXOverdose.UI.Chart
 
         private void Start()
         {
+            ApplyMainHudHorizontalMargins();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
 
@@ -143,6 +144,15 @@ namespace FXOverdose.UI.Chart
             SelectMarginRatio(currentSelectedMarginPercent);
             SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
             RefreshPanelUI();
+        }
+
+        private void ApplyMainHudHorizontalMargins()
+        {
+            RectTransform rect = transform as RectTransform;
+            if (rect == null) return;
+
+            rect.offsetMin = new Vector2(UIStrokeStyle.ScreenEdgeMargin, rect.offsetMin.y);
+            rect.offsetMax = new Vector2(-UIStrokeStyle.CenterGutterHalf, rect.offsetMax.y);
         }
 
         private void CreateServerLagOverlay()

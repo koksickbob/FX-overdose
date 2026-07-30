@@ -14,11 +14,8 @@ namespace FXOverdose.UI
     [DisallowMultipleComponent]
     public sealed class BossBattleUIController : MonoBehaviour
     {
-        private const float TopBarHeight = 108f;
-        private const float TopBarGap = 12f;
-        private const float SkillRowHeight = UIStrokeStyle.CompactHudHeight;
-        private const float SkillRowGap = 12f;
-        private const float RightMargin = 24f;
+        private const float FallbackTopOffset = 65f;
+        private const float RightMargin = UIStrokeStyle.ScreenEdgeMargin;
         private const float PanelWidth = 460f;
         private const float PanelHeight = 194f;
 
@@ -35,6 +32,7 @@ namespace FXOverdose.UI
         private GameManager gameManager;
         private BossManager bossManager;
         private RectTransform panelRect;
+        private RectTransform characterLevelHudRect;
         private CanvasGroup panelGroup;
         private Image liveDot;
         private TMP_Text dayBadge;
@@ -75,8 +73,18 @@ namespace FXOverdose.UI
 
         private IEnumerator SubscribeWhenReady()
         {
-            yield return null;
-            BindManager(BossManager.Instance);
+            while (this != null && bossManager == null)
+            {
+                BossManager existing = FindAnyObjectByType<BossManager>(FindObjectsInactive.Include);
+                if (existing != null)
+                {
+                    BindManager(existing);
+                    break;
+                }
+
+                yield return null;
+            }
+
             RefreshFromManager();
         }
 
@@ -85,13 +93,17 @@ namespace FXOverdose.UI
             if (gameManager == null)
                 gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
 
-            BossManager currentManager = BossManager.Instance;
+            BossManager currentManager = bossManager != null
+                ? bossManager
+                : FindAnyObjectByType<BossManager>(FindObjectsInactive.Include);
             if (currentManager != bossManager)
                 BindManager(currentManager);
 
             BossData currentBoss = bossManager != null ? bossManager.CurrentBoss : null;
             if (currentBoss != displayedBoss)
                 RefreshFromManager();
+
+            AlignWithCharacterLevelHud();
 
             if (liveDot != null && panelRect != null && panelRect.gameObject.activeSelf &&
                 bossManager != null && !bossManager.IsBossBankrupt)
@@ -126,8 +138,10 @@ namespace FXOverdose.UI
         private void RefreshFromManager()
         {
             BossData boss = bossManager != null ? bossManager.CurrentBoss : null;
-            bool isBossDay = boss != null &&
-                (gameManager == null || bossManager.HasBossToday(gameManager.CurrentDay));
+            // CurrentBoss는 실제 스폰 성공 여부를 나타내는 권위 상태입니다.
+            // 비동기 씬 로딩 중 GameManager의 일차 복구보다 보스 스폰 이벤트가 먼저 오더라도
+            // 이미 생성된 보스 HUD를 다시 숨기지 않습니다.
+            bool isBossDay = boss != null;
 
             displayedBoss = boss;
             SetVisible(isBossDay);
@@ -238,6 +252,28 @@ namespace FXOverdose.UI
             panelGroup.blocksRaycasts = false;
         }
 
+        private void AlignWithCharacterLevelHud()
+        {
+            if (panelRect == null) return;
+
+            if (characterLevelHudRect == null)
+            {
+                GameObject levelHud = GameObject.Find("CharacterLevelExpHUD");
+                characterLevelHudRect = levelHud != null ? levelHud.GetComponent<RectTransform>() : null;
+            }
+
+            RectTransform parentRect = panelRect.parent as RectTransform;
+            if (characterLevelHudRect == null || parentRect == null) return;
+
+            Vector3[] levelCorners = new Vector3[4];
+            characterLevelHudRect.GetWorldCorners(levelCorners);
+            Vector3 levelTopRight = parentRect.InverseTransformPoint(levelCorners[2]);
+
+            panelRect.anchoredPosition = new Vector2(
+                -RightMargin,
+                levelTopRight.y - parentRect.rect.yMax);
+        }
+
         private void BuildRuntimeUI()
         {
             GameObject panelObject = new("BossBattleLivePanel",
@@ -250,7 +286,7 @@ namespace FXOverdose.UI
             panelRect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
             panelRect.anchoredPosition = new Vector2(
                 -RightMargin,
-                -(TopBarHeight + TopBarGap + SkillRowHeight + SkillRowGap));
+                -FallbackTopOffset);
 
             Image background = panelObject.GetComponent<Image>();
             background.color = Panel;
@@ -426,6 +462,16 @@ namespace FXOverdose.UI
         private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             if (scene.name != "GameScene") return;
+            EnsureInstalled(scene);
+        }
+
+        /// <summary>
+        /// 씬 로드 콜백과 보스 스폰 양쪽에서 호출할 수 있는 멱등 설치 진입점입니다.
+        /// Endless의 비동기 로딩 순서에서도 HUD가 반드시 준비되도록 합니다.
+        /// </summary>
+        public static void EnsureInstalled(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded || scene.name != "GameScene") return;
 
             Canvas fallback = null;
             Canvas target = null;

@@ -113,6 +113,7 @@ public class GameManager : MonoBehaviour
     {
         // 모든 컴포넌트의 Start보다 먼저 코스튬 관리자를 준비하여
         // AIVisualController가 첫 프레임부터 장착 변경 이벤트를 구독할 수 있게 합니다.
+        EnsureBossManager();
         EnsureCostumeManager();
     }
 
@@ -220,6 +221,13 @@ public class GameManager : MonoBehaviour
         if (manager == null) gameObject.AddComponent<CostumeManager>();
     }
 
+    private void EnsureBossManager()
+    {
+        var manager = GetComponent<FXOverdose.Core.BossManager>();
+        if (manager == null)
+            gameObject.AddComponent<FXOverdose.Core.BossManager>();
+    }
+
     private void EnsureDynamicTimeRegulator()
     {
         if (FXOverdose.Core.DynamicTimeRegulator.Instance != null) return;
@@ -231,6 +239,29 @@ public class GameManager : MonoBehaviour
     {
         if (GetComponent<FXOverdose.UI.DayTimeBackgroundController>() == null)
             gameObject.AddComponent<FXOverdose.UI.DayTimeBackgroundController>();
+    }
+
+    /// <summary>
+    /// 새 게임 첫날과 불러온 현재 일차 모두 보스 데이터와 실제 AI 인스턴스를 동기화합니다.
+    /// 기존에는 다음 날로 넘어갈 때만 보스를 생성해 1일차 보스가 표시되지 않았습니다.
+    /// </summary>
+    private void SyncBossForCurrentDay()
+    {
+        var bossManager = FXOverdose.Core.BossManager.Instance;
+        if (bossManager == null) return;
+
+        if (!bossManager.HasBossToday(currentDay))
+        {
+            bossManager.ClearBoss();
+            return;
+        }
+
+        var status = TraderStatus.CanonicalInstance;
+        float currentEquity = status != null ? status.GetTotalEquity() : currentBalance;
+        if (!float.IsFinite(currentEquity) || currentEquity <= 0f)
+            currentEquity = StartOfDayEquity > 0f ? StartOfDayEquity : startingBalance;
+
+        bossManager.SpawnBossForDay(currentDay, currentEquity);
     }
 
     private System.Collections.Generic.List<string> day1Monologue = new System.Collections.Generic.List<string> {
@@ -304,6 +335,7 @@ public class GameManager : MonoBehaviour
                         Debug.Log("[GameManager] 1일차 오프닝 컷씬 시작 (시간 정지)");
                         FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(introEvent.comicPanels, () => {
                             StartCoroutine(PlayStoryMonologueAndWait(day1Monologue, () => {
+                                SyncBossForCurrentDay();
                                 currentState = GameState.Playing;
                                 Debug.Log("[GameManager] 오프닝 컷씬 및 독백 종료. 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
                             }));
@@ -313,6 +345,7 @@ public class GameManager : MonoBehaviour
                 }
             }
 
+            SyncBossForCurrentDay();
             currentState = GameState.Playing;
             Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
             

@@ -10,7 +10,8 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 {
     private const float SkillButtonSize = UIStrokeStyle.CompactHudHeight;
     private const float SkillButtonGap = 12f;
-    private const float InventoryRightMargin = 24f;
+    private const float InventoryRightMargin = UIStrokeStyle.ScreenEdgeMargin;
+    private const float ShopButtonGap = 12f;
 
     private static readonly SkillType[] SkillOrder =
     {
@@ -21,6 +22,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
     private TraderLevelSystem levelSystem;
     private RectTransform skillRow;
+    private RectTransform shopButtonRect;
     private GameObject infoOverlay;
     private Image infoIcon;
     private TMP_Text infoTitle;
@@ -57,7 +59,8 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         yield return null;
         yield return new WaitForEndOfFrame();
         Canvas.ForceUpdateCanvases();
-        LayoutBelowTopBar();
+        ResolveShopButton();
+        LayoutAboveShopButton();
 
         levelSystem = TraderLevelSystem.Instance;
         if (levelSystem != null)
@@ -71,6 +74,13 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private void OnDisable()
     {
         if (levelSystem != null) levelSystem.OnSkillLevelChanged -= OnSkillLevelChanged;
+    }
+
+    private void LateUpdate()
+    {
+        if (shopButtonRect == null)
+            ResolveShopButton();
+        LayoutAboveShopButton();
     }
 
     private void EnsureLevelSystem()
@@ -88,20 +98,22 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         row.transform.SetParent(transform, false);
         skillRow = row.GetComponent<RectTransform>();
         skillRow.anchorMin = skillRow.anchorMax = new Vector2(0.5f, 0.5f);
-        skillRow.pivot = new Vector2(1f, 1f);
+        skillRow.pivot = new Vector2(1f, 0f);
         skillRow.sizeDelta = new Vector2(
-            SkillButtonSize * SkillOrder.Length + SkillButtonGap * (SkillOrder.Length - 1),
-            SkillButtonSize);
+            SkillButtonSize,
+            SkillButtonSize * SkillOrder.Length + SkillButtonGap * (SkillOrder.Length - 1));
 
         for (int i = 0; i < SkillOrder.Length; i++)
         {
             SkillType type = SkillOrder[i];
             Button button = CreateSkillButton(row.transform, type, i);
             RectTransform rect = button.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
             rect.sizeDelta = new Vector2(SkillButtonSize, SkillButtonSize);
-            rect.anchoredPosition = new Vector2(i * (SkillButtonSize + SkillButtonGap), 0f);
+            rect.anchoredPosition = new Vector2(
+                0f,
+                skillRow.sizeDelta.y - SkillButtonSize - i * (SkillButtonSize + SkillButtonGap));
         }
     }
 
@@ -139,32 +151,35 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         return button;
     }
 
-    private void LayoutBelowTopBar()
+    private void ResolveShopButton()
+    {
+        GameObject shopButton = GameObject.Find("ShopOpenButton");
+        shopButtonRect = shopButton != null ? shopButton.GetComponent<RectTransform>() : null;
+    }
+
+    private void LayoutAboveShopButton()
     {
         if (skillRow == null) return;
 
-        const float topBarHeight = 108f;
-        const float topBarGap = 12f;
-
-        // 루트 캔버스의 우측 상단 앵커만 사용해 Canvas Scaler나 서로 다른 UI 계층의
-        // localPosition 좌표가 섞이면서 화면 밖으로 밀리는 문제를 방지합니다.
-        skillRow.anchorMin = skillRow.anchorMax = new Vector2(1f, 1f);
-        skillRow.pivot = new Vector2(1f, 1f);
-        float alignedY = -(topBarHeight + topBarGap);
-
         RectTransform canvasRect = GetComponent<RectTransform>();
-        RectTransform modeRect = GameObject.Find("Temp_TradingModeToggleBtn")?.GetComponent<RectTransform>();
-        if (canvasRect != null && modeRect != null)
+        skillRow.anchorMin = skillRow.anchorMax = new Vector2(1f, 0f);
+        skillRow.pivot = new Vector2(1f, 0f);
+
+        if (canvasRect != null && shopButtonRect != null)
         {
-            Vector3[] modeCorners = new Vector3[4];
-            modeRect.GetWorldCorners(modeCorners);
-            Vector3 modeTopRight = canvasRect.InverseTransformPoint(modeCorners[2]);
-            alignedY = modeTopRight.y - canvasRect.rect.yMax;
+            Vector3[] shopCorners = new Vector3[4];
+            shopButtonRect.GetWorldCorners(shopCorners);
+            Vector3 shopTopRight = canvasRect.InverseTransformPoint(shopCorners[2]);
+            skillRow.anchoredPosition = new Vector2(
+                shopTopRight.x - canvasRect.rect.xMax,
+                shopTopRight.y - canvasRect.rect.yMin + ShopButtonGap);
+        }
+        else
+        {
+            // 씬 참조를 아직 찾지 못한 첫 프레임의 안전한 임시 위치입니다.
+            skillRow.anchoredPosition = new Vector2(-InventoryRightMargin, 270f);
         }
 
-        skillRow.anchoredPosition = new Vector2(
-            -InventoryRightMargin,
-            alignedY);
         skillRow.SetAsLastSibling();
     }
 
