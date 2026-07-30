@@ -540,16 +540,24 @@ namespace FXOverdose.Trading
                 // Wave Style 0: 자잘하게 요동치며 꾸준히 이동 (stochasticNoise 크게 증폭)
                 // Wave Style 1: 큰 눌림목(파동)을 형성하며 이동 (stochasticNoise 약간 증폭, 주기 긴 강한 사인파 결합)
                 
-                if (currentOverdriveWaveStyle == 0)
+                if (!isExternalEventOverride && activeSignal.IsTrueSignal)
                 {
-                    stochasticNoise *= 1.5f; // 기존 0.35f에서 대폭 상향하여 음봉/양봉 섞임 유도
-                    drift += Mathf.Sin(Time.time * 2.5f) * 0.00015f + Mathf.Cos(Time.time * 5.0f) * 0.0001f;
+                    // 일반 스킬(AI) 확정 수익 구간: 노이즈를 대폭 억제하여 좁은 스탑로스가 터지지 않게 보호
+                    stochasticNoise *= 0.15f; 
                 }
                 else
                 {
-                    stochasticNoise *= 0.8f;
-                    // 주기 20~30초 가량의 꽤 큰 역추세 파동 형성
-                    drift += Mathf.Sin(Time.time * 0.5f) * 0.0006f + Mathf.Cos(Time.time * 0.2f) * 0.0003f;
+                    if (currentOverdriveWaveStyle == 0)
+                    {
+                        stochasticNoise *= 1.5f; // 기존 0.35f에서 대폭 상향하여 음봉/양봉 섞임 유도
+                        drift += Mathf.Sin(Time.time * 2.5f) * 0.00015f + Mathf.Cos(Time.time * 5.0f) * 0.0001f;
+                    }
+                    else
+                    {
+                        stochasticNoise *= 0.8f;
+                        // 주기 20~30초 가량의 꽤 큰 역추세 파동 형성
+                        drift += Mathf.Sin(Time.time * 0.5f) * 0.0006f + Mathf.Cos(Time.time * 0.2f) * 0.0003f;
+                    }
                 }
 
                 if (isExternalEventOverride && !activeSignal.IsTrueSignal)
@@ -626,13 +634,18 @@ namespace FXOverdose.Trading
 
             // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어 (자연스러운 스프링 꼬리 효과)]
             // 주의: 오버도즈 폭주(isOverdoseTrapOverride) 발동 중에는 어떠한 가드도 무시하고 청산(-100%)을 우선시합니다.
-            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride && isExternalEventOverride && activeSignal.IsTrueSignal)
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride && activeSignal.IsTrueSignal)
             {
                 var tradingCtrl = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
                 if (tradingCtrl != null && tradingCtrl.CurrentPosition != TradingController.PositionType.None)
                 {
-                    float expectedPrice = currentPrice * (1f + totalReturn);
-                    float expectedRoe = 0f;
+                    bool isCorrectDirection = (tradingCtrl.CurrentPosition == TradingController.PositionType.Long && activeSignal.TargetPercentageDelta > 0) ||
+                                              (tradingCtrl.CurrentPosition == TradingController.PositionType.Short && activeSignal.TargetPercentageDelta < 0);
+
+                    if (isCorrectDirection)
+                    {
+                        float expectedPrice = currentPrice * (1f + totalReturn);
+                        float expectedRoe = 0f;
                     
                     if (tradingCtrl.CurrentPosition == TradingController.PositionType.Long)
                     {
@@ -678,6 +691,7 @@ namespace FXOverdose.Trading
                                 totalReturn = (expectedPrice - currentPrice) / currentPrice;
                             }
                         }
+                    }
                     }
                 }
             }
@@ -898,8 +912,8 @@ namespace FXOverdose.Trading
         // 유동성 사냥 (꼬리 휩소 스파이크 발생 - 스탑 헌팅 기믹 강화)
         private void CheckLiquidationSweep()
         {
-            // 오버도즈 발동 중이거나 고속 스킵 중일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
-            if (isOverdoseTrapOverride || IsFastForwarding) return;
+            // 오버도즈 발동 중이거나 고속 스킵 중, 확정 주가 구간일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
+            if (isOverdoseTrapOverride || IsFastForwarding || currentSignalPhase == SignalPhase.GuaranteedOverride) return;
 
             // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
             float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;

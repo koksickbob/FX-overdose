@@ -111,7 +111,7 @@ namespace FXOverdose.AI
             }
 
             // 💡 [이벤트/Overdose 오버라이드 능동적 반응 처리 및 방해 차단]
-            if (tradingController != null && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
+            if (!IsBossAI && tradingController != null && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
             {
                 if (tradingController.IsOverdoseTradeActive)
                 {
@@ -182,7 +182,7 @@ namespace FXOverdose.AI
             {
                 return;
             }
-            if (tradingController != null && tradingController.IsEventProtected)
+            if (!IsBossAI && tradingController != null && tradingController.IsEventProtected)
             {
                 if (marketEngine != null && marketEngine.IsExternalEventOverride)
                 {
@@ -206,7 +206,7 @@ namespace FXOverdose.AI
             else if (phase == SignalPhase.Cooldown || phase == SignalPhase.None)
             {
                 isProcessingSignal = false;
-                if (tradingController != null && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
+                if (tradingController != null && (!IsBossAI && (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual || tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive)))
                 {
                     return;
                 }
@@ -214,7 +214,7 @@ namespace FXOverdose.AI
                 // 만약 True Signal(정상 확정 신호)을 따라 진입한 포지션이 캔들 노이즈 등으로 인해 
                 // TargetPrice에 미세하게 닿지 못한 채 보장 구간(GuaranteedOverride)이 종료되더라도,
                 // 기획상 설계된 상승/하락 수익률을 확실하게 보장받기 위해 Cooldown 돌입 즉시 자동 익절 청산!
-                if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
+                if (!IsBossAI && tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
                 {
                     if (currentActiveSignal.IsTrueSignal && traderStatus != null && traderStatus.HealthRatio > 0.40f)
                     {
@@ -238,15 +238,15 @@ namespace FXOverdose.AI
             if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
 
             if (traderStatus == null || tradingController == null || gameManager == null) return;
-            if (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive)
+            if (!IsBossAI && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))
             {
                 Debug.Log("[AITradingBrain] 🛡️ 이벤트/Overdose 보호 쉴드 작동 중: AI 자동매매 판단을 보류합니다.");
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;
             }
 
-            float healthRatio = traderStatus.HealthRatio;
-            TraderStatus.MentalState mentalState = traderStatus.CurrentMentalState;
+            float healthRatio = IsBossAI ? 1.0f : traderStatus.HealthRatio;
+            TraderStatus.MentalState mentalState = IsBossAI ? TraderStatus.MentalState.Stable : traderStatus.CurrentMentalState;
             float availableBalance = GetAvailableBalance();
 
             if (availableBalance < 10f)
@@ -280,7 +280,7 @@ namespace FXOverdose.AI
             }
 
             // 💡 [매매 모드 분기] 플레이어 수동 매매 모드일 때는 AI가 자동으로 포지션을 개설하지 않고 시그널 브리핑만 제공
-            if (tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
+            if (!IsBossAI && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
             {
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
                 return;

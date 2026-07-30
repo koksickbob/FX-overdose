@@ -537,16 +537,7 @@ public class GameManager : MonoBehaviour
             
             if (!isWin)
             {
-                if (boss.IsFinalBoss)
-                {
-                    isWin = totalEquity > bossManager.BossCurrentAsset;
-                }
-                else
-                {
-                    float playerReturn = ((totalEquity - StartOfDayEquity) / StartOfDayEquity) * 100f;
-                    float bossReturn = bossManager.GetBossDailyReturnRate();
-                    isWin = playerReturn > bossReturn;
-                }
+                isWin = totalEquity > bossManager.BossCurrentAsset;
             }
 
             if (isWin)

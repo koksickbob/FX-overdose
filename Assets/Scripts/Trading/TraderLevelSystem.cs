@@ -103,8 +103,8 @@ namespace FXOverdose.Trading
 
         public float GetMaxProtagonistEXP(int level)
         {
-            // LV.1 -> 600 EXP, 매 레벨 40%씩 증가 (고레벨 달성 난이도 상승)
-            return 600f * Mathf.Pow(1.4f, Mathf.Max(0, level - 1));
+            // LV.1 -> 400 EXP, 매 레벨 40%씩 증가 (고레벨 달성 난이도 상승)
+            return 400f * Mathf.Pow(1.4f, Mathf.Max(0, level - 1));
         }
 
         /// <summary>
