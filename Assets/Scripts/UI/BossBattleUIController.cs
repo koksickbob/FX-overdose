@@ -44,10 +44,18 @@ namespace FXOverdose.UI
         private Image assetFill;
         private GameObject bankruptStamp;
         private RectTransform bankruptStampRect;
+        private RectTransform entranceRoot;
+        private RectTransform entranceBand;
+        private RectTransform entranceVsBadge;
+        private CanvasGroup entranceGroup;
+        private TMP_Text entranceDay;
+        private TMP_Text entranceBossName;
+        private TMP_Text entranceDescription;
         private BossData displayedBoss;
         private bool subscribed;
         private bool bankruptAnimationPlayed;
         private Coroutine bankruptRoutine;
+        private Coroutine entranceRoutine;
 
         private void Awake()
         {
@@ -143,6 +151,7 @@ namespace FXOverdose.UI
             // 이미 생성된 보스 HUD를 다시 숨기지 않습니다.
             bool isBossDay = boss != null;
 
+            bool shouldPlayEntrance = boss != null && boss != displayedBoss;
             displayedBoss = boss;
             SetVisible(isBossDay);
             if (!isBossDay) return;
@@ -156,6 +165,75 @@ namespace FXOverdose.UI
 
             if (bossManager.IsBossBankrupt)
                 ShowBankruptState(false);
+            else if (shouldPlayEntrance)
+                PlayBossEntrance(boss);
+        }
+
+        private void PlayBossEntrance(BossData boss)
+        {
+            if (entranceRoot == null || boss == null) return;
+
+            entranceDay.text = $"DAY {boss.Day:00} · BOSS DETECTED";
+            entranceBossName.text = boss.IsFinalBoss ? $"FINAL BOSS  /  {boss.Name}" : boss.Name;
+            entranceDescription.text = boss.Description;
+            RefreshTextMeshes();
+
+            if (entranceRoutine != null)
+                StopCoroutine(entranceRoutine);
+            entranceRoutine = StartCoroutine(AnimateBossEntrance());
+        }
+
+        private IEnumerator AnimateBossEntrance()
+        {
+            entranceRoot.gameObject.SetActive(true);
+            entranceRoot.SetAsLastSibling();
+            entranceGroup.alpha = 0f;
+            entranceBand.anchoredPosition = new Vector2(-760f, 0f);
+            entranceVsBadge.localScale = Vector3.one * 2.2f;
+
+            const float revealDuration = 0.42f;
+            float elapsed = 0f;
+            while (elapsed < revealDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / revealDuration);
+                float eased = 1f - Mathf.Pow(1f - t, 3f);
+                entranceGroup.alpha = Mathf.Clamp01(t * 2.2f);
+                entranceBand.anchoredPosition = Vector2.LerpUnclamped(
+                    new Vector2(-760f, 0f), Vector2.zero, eased);
+                entranceVsBadge.localScale = Vector3.one *
+                    Mathf.Lerp(2.2f, 1f, 1f - Mathf.Pow(1f - t, 4f));
+                yield return null;
+            }
+
+            entranceGroup.alpha = 1f;
+            entranceBand.anchoredPosition = Vector2.zero;
+            entranceVsBadge.localScale = Vector3.one;
+
+            const float holdDuration = 1.25f;
+            elapsed = 0f;
+            while (elapsed < holdDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float pulse = 1f + Mathf.Sin(Time.unscaledTime * 11f) * 0.035f;
+                entranceVsBadge.localScale = Vector3.one * pulse;
+                yield return null;
+            }
+
+            const float exitDuration = 0.34f;
+            elapsed = 0f;
+            while (elapsed < exitDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / exitDuration);
+                entranceGroup.alpha = 1f - t;
+                entranceBand.anchoredPosition = Vector2.Lerp(
+                    Vector2.zero, new Vector2(760f, 0f), t * t);
+                yield return null;
+            }
+
+            entranceRoot.gameObject.SetActive(false);
+            entranceRoutine = null;
         }
 
         private void HandleBossAssetChanged(float currentAsset, float startingAsset)
@@ -380,6 +458,77 @@ namespace FXOverdose.UI
             bankruptStamp.SetActive(false);
 
             panelRect.SetAsLastSibling();
+            BuildEntranceUI();
+        }
+
+        private void BuildEntranceUI()
+        {
+            GameObject root = new("BossEntranceOverlay",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CanvasGroup));
+            root.transform.SetParent(transform, false);
+            entranceRoot = root.GetComponent<RectTransform>();
+            Stretch(entranceRoot);
+
+            Image dim = root.GetComponent<Image>();
+            dim.color = new Color32(2, 8, 18, 226);
+            dim.raycastTarget = false;
+            entranceGroup = root.GetComponent<CanvasGroup>();
+            entranceGroup.interactable = false;
+            entranceGroup.blocksRaycasts = false;
+
+            Image topLine = CreateImage(entranceRoot, "TopWarningLine", Red);
+            SetRect(topLine.rectTransform, new Vector2(0f, 0.72f), new Vector2(1f, 0.72f),
+                new Vector2(0f, -3f), new Vector2(0f, 3f));
+            Image bottomLine = CreateImage(entranceRoot, "BottomWarningLine", Red);
+            SetRect(bottomLine.rectTransform, new Vector2(0f, 0.28f), new Vector2(1f, 0.28f),
+                new Vector2(0f, -3f), new Vector2(0f, 3f));
+
+            Image band = CreateImage(entranceRoot, "WarningBand", new Color32(10, 25, 42, 250));
+            entranceBand = band.rectTransform;
+            SetRect(entranceBand, new Vector2(0f, 0.28f), new Vector2(1f, 0.72f),
+                new Vector2(120f, 0f), new Vector2(-120f, 0f));
+            Outline bandOutline = band.gameObject.AddComponent<Outline>();
+            bandOutline.effectColor = new Color32(239, 68, 68, 210);
+            bandOutline.effectDistance = new Vector2(5f, -5f);
+
+            entranceDay = CreateText(entranceBand, "DetectedLabel", "DAY 00 · BOSS DETECTED",
+                25f, Red, TextAlignmentOptions.Center);
+            entranceDay.fontStyle = FontStyles.Bold;
+            SetRect(entranceDay.rectTransform, new Vector2(0f, 1f), Vector2.one,
+                new Vector2(36f, -64f), new Vector2(-36f, -18f));
+
+            entranceBossName = CreateText(entranceBand, "EntranceBossName", "BOSS",
+                66f, Text, TextAlignmentOptions.Center);
+            entranceBossName.fontStyle = FontStyles.Bold;
+            SetRect(entranceBossName.rectTransform, new Vector2(0f, 0.28f), new Vector2(1f, 0.78f),
+                new Vector2(150f, 0f), new Vector2(-150f, 0f));
+
+            entranceDescription = CreateText(entranceBand, "EntranceDescription", string.Empty,
+                19f, Muted, TextAlignmentOptions.Center);
+            SetRect(entranceDescription.rectTransform, Vector2.zero, new Vector2(1f, 0.28f),
+                new Vector2(60f, 12f), new Vector2(-60f, 0f));
+
+            GameObject vsObject = new("VsBadge",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            vsObject.transform.SetParent(entranceBand, false);
+            entranceVsBadge = vsObject.GetComponent<RectTransform>();
+            entranceVsBadge.anchorMin = entranceVsBadge.anchorMax = new Vector2(0.5f, 0.5f);
+            entranceVsBadge.pivot = new Vector2(0.5f, 0.5f);
+            entranceVsBadge.sizeDelta = new Vector2(104f, 104f);
+            entranceVsBadge.anchoredPosition = new Vector2(-470f, 0f);
+            Image vsBackground = vsObject.GetComponent<Image>();
+            vsBackground.color = new Color32(127, 29, 29, 255);
+            vsBackground.raycastTarget = false;
+            Outline vsOutline = vsObject.GetComponent<Outline>();
+            vsOutline.effectColor = Gold;
+            vsOutline.effectDistance = new Vector2(4f, -4f);
+
+            TMP_Text vsText = CreateText(entranceVsBadge, "VsText", "VS",
+                43f, Color.white, TextAlignmentOptions.Center);
+            vsText.fontStyle = FontStyles.Bold;
+            Stretch(vsText.rectTransform);
+
+            entranceRoot.gameObject.SetActive(false);
         }
 
         private static void CreateLabel(Transform parent, string name, string value, Vector2 min, Vector2 max)
@@ -426,6 +575,8 @@ namespace FXOverdose.UI
             GlobalPFStardustFont.RefreshCompactHudText(assetValue);
             GlobalPFStardustFont.RefreshCompactHudText(returnValue);
             GlobalPFStardustFont.RefreshCompactHudText(statusValue);
+            GlobalPFStardustFont.RefreshCompactHudText(entranceDay);
+            GlobalPFStardustFont.RefreshCompactHudText(entranceBossName);
         }
 
         private static void SetRect(
