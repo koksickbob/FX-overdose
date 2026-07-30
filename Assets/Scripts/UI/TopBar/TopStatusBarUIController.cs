@@ -54,6 +54,8 @@ namespace FXOverdose.UI.TopBar
         private List<float> equityHistory = new List<float>();
         private int lastRecordedMinute = -1;
         private Image pnlAccent;
+        private float lastLayoutWidth = -1f;
+        private readonly Dictionary<Transform, float> baseCardWidths = new();
 
         private void Start()
         {
@@ -62,6 +64,9 @@ namespace FXOverdose.UI.TopBar
             if (sparklineRenderer == null) sparklineRenderer = GetComponentInChildren<SparklineRenderer>();
             ConfigureDayTimeCardLayout();
             ApplyVisualRedesign();
+            baseCardWidths.Clear();
+            lastLayoutWidth = -1f;
+            RefreshDistributedCardLayout();
 
             if (gameManager != null)
             {
@@ -121,6 +126,66 @@ namespace FXOverdose.UI.TopBar
             {
                 sparklineRenderer.RefreshSparkline(equityHistory, currentEquity);
             }
+        }
+
+        private void OnRectTransformDimensionsChange()
+        {
+            if (!isActiveAndEnabled) return;
+            RefreshDistributedCardLayout();
+        }
+
+        private void RefreshDistributedCardLayout()
+        {
+            RectTransform rootRect = transform as RectTransform;
+            HorizontalLayoutGroup rootLayout = GetComponent<HorizontalLayoutGroup>();
+            if (rootRect == null || rootLayout == null) return;
+
+            float availableWidth = rootRect.rect.width;
+            if (availableWidth <= 0f || Mathf.Approximately(availableWidth, lastLayoutWidth)) return;
+            lastLayoutWidth = availableWidth;
+
+            List<LayoutElement> cardLayouts = new();
+            float baseCardsWidth = 0f;
+            int activeCardCount = 0;
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                RectTransform child = transform.GetChild(i) as RectTransform;
+                if (child == null || !child.gameObject.activeSelf) continue;
+
+                LayoutElement layout = child.GetComponent<LayoutElement>();
+                if (layout != null && layout.ignoreLayout) continue;
+
+                float currentWidth = layout != null && layout.preferredWidth > 0f
+                    ? layout.preferredWidth
+                    : child.rect.width;
+                if (!baseCardWidths.TryGetValue(child, out float baseWidth))
+                {
+                    baseWidth = Mathf.Max(0f, currentWidth);
+                    baseCardWidths[child] = baseWidth;
+                }
+
+                baseCardsWidth += baseWidth;
+                if (layout != null) cardLayouts.Add(layout);
+                activeCardCount++;
+            }
+
+            int gaps = Mathf.Max(0, activeCardCount - 1);
+            float contentWidth = availableWidth - rootLayout.padding.horizontal;
+            float targetCardsWidth = Mathf.Max(baseCardsWidth, contentWidth - gaps * 7f);
+            float widthScale = baseCardsWidth > 0f ? targetCardsWidth / baseCardsWidth : 1f;
+
+            foreach (LayoutElement layout in cardLayouts)
+            {
+                if (!baseCardWidths.TryGetValue(layout.transform, out float baseWidth)) continue;
+                layout.preferredWidth = baseWidth * widthScale;
+            }
+
+            float cardsWidth = baseCardsWidth * widthScale;
+            rootLayout.spacing = gaps > 0
+                ? Mathf.Max(7f, (contentWidth - cardsWidth) / gaps)
+                : 0f;
+            rootLayout.childAlignment = TextAnchor.MiddleCenter;
+            LayoutRebuilder.MarkLayoutForRebuild(rootRect);
         }
 
         private void HandleGameMinuteAdvanced()
@@ -220,7 +285,7 @@ namespace FXOverdose.UI.TopBar
                     BarVerticalPadding,
                     BarVerticalPadding);
                 rootLayout.spacing = 7f;
-                rootLayout.childAlignment = TextAnchor.MiddleLeft;
+                rootLayout.childAlignment = TextAnchor.MiddleCenter;
             }
 
             RemoveRule(transform, "TopHudUpperRule");
@@ -245,6 +310,19 @@ namespace FXOverdose.UI.TopBar
             if (sparklineRenderer != null)
             {
                 sparklineRenderer.SetVisualWeight(3.5f);
+                LayoutElement sparklineLayout = sparklineRenderer.GetComponent<LayoutElement>();
+                if (sparklineLayout != null) sparklineLayout.ignoreLayout = true;
+
+                RectTransform sparklineRect = sparklineRenderer.GetComponent<RectTransform>();
+                if (sparklineRect != null)
+                {
+                    sparklineRect.anchorMin = new Vector2(1f, 0.5f);
+                    sparklineRect.anchorMax = new Vector2(1f, 0.5f);
+                    sparklineRect.pivot = new Vector2(1f, 0.5f);
+                    sparklineRect.anchoredPosition = new Vector2(-10f, 0f);
+                    sparklineRect.sizeDelta = new Vector2(160f, 64f);
+                }
+
                 sparklineRenderer.transform.SetAsLastSibling();
             }
 

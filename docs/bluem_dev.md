@@ -1710,3 +1710,39 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 관련 파일:
 
 - `Assets/Scripts/UI/ResponsiveCanvasScaler.cs`
+
+## 2026-07-30 — 메이드 스킨 스프라이트 초안 세트
+
+- 원본 요미의 체형, 머리색, 긴 머리 실루엣과 상태별 포즈를 기준으로 클래식 메이드복 스프라이트 35종을 제작했다.
+- 검정 반소매 원피스, 흰색 프릴 앞치마와 헤드드레스, 흰 발목 양말, 검정 메리제인 슈즈 디자인을 모든 변형에 공통 적용했다.
+- 기본·오버도즈 2종, 감정 19종, 포지션 2종, 스킬 업그레이드 3종, 아이템 사용 9종으로 기존 완성 스킨과 같은 파일 구성을 맞췄다.
+- 모든 이미지는 투명 배경 RGBA PNG 및 600×1180 크기로 통일했다.
+- 초기 제작 단계에서는 게임 로직에 연결하지 않고 `Costumes/Maid` 에셋 폴더에서 먼저 검수했다.
+- 검수 완료 후 `CLASSIC MAID`를 상점 APPAREL 카테고리에 `$1,800` 외형 전용 코스튬으로 등록했다.
+- `당분 중독` 업적(파르페 총 100개 사용)을 달성해야 구매할 수 있으며, 잠금 상태에서는 기존 코스튬과 동일하게 필요 업적을 표시한다.
+- 구매·장착·저장 복원 및 상태별 스프라이트 교체는 기존 `CostumeManager` 흐름에 연결했다.
+
+관련 경로:
+
+- `Assets/Resources/Characters/Costumes/Maid.png`
+- `Assets/Resources/Characters/Costumes/Maid/`
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/System/AchievementManager.cs`
+
+## 2026-07-30 — 간호사 스킨 스프라이트 초안 세트
+
+- 승인된 몸에 밀착되는 파스텔 핑크 간호복 디자인을 기준으로 전체 변형 스프라이트 35종을 제작했다.
+- 기본·오버도즈 2종, 감정 19종, 포지션 2종, 스킬 업그레이드 3종, 아이템 사용 9종 구성을 맞췄다.
+- 긴 차콜 퍼플 머리와 라벤더 하이라이트, 흰 양말, 더스티 로즈 슈즈 및 간호사 모자의 색상·디자인을 공통 적용했다.
+- 모든 이미지는 투명 배경 RGBA PNG 및 600×1180 크기로 통일했다.
+- 음식 5종을 포함한 아이템 사용 스프라이트에는 기존 아이템별 음식·식기·복용 동작을 유지했다.
+- 검수 후 `PINK NURSE`를 상점 APPAREL 카테고리에 `$2,000` 외형 전용 코스튬으로 등록했다.
+- `트라우마 극복` 업적(드로다운 트라우마 상태에서 회복 아이템으로 최대 멘탈 한계치 완치)을 달성해야 구매할 수 있다.
+- 구매·장착·저장 복원 및 상태별 스프라이트 교체는 기존 `CostumeManager` 흐름에 연결했다.
+
+관련 경로:
+
+- `Assets/Resources/Characters/Costumes/Nurse.png`
+- `Assets/Resources/Characters/Costumes/Nurse/`
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/System/AchievementManager.cs`

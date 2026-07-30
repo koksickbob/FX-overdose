@@ -90,11 +90,11 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
             achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "트레이더 레벨 만렙(LV.9) 달성", Type = AchievementType.LevelUp, TargetValue = 9, RewardCostumeId = CostumeManager.OfficeLookId });
-            achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
+            achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured", RewardCostumeId = CostumeManager.NurseId });
             
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50, RewardCostumeId = "street_cap" });
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100, RewardCostumeId = CostumeManager.BartenderId });
-            achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100 });
+            achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100, RewardCostumeId = CostumeManager.MaidId });
             achievements.Add(new AchievementDefinition { Id = "use_maratang_50", Title = "마라탕 중독자", Description = "마라탕 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "Maratang", TargetValue = 50, RewardCostumeId = CostumeManager.QipaoId });
             achievements.Add(new AchievementDefinition { Id = "purchase_delivery_200", Title = "큰손 고객", Description = "배달음식 구매 수량 총 200개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 200 });
             

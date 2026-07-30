@@ -14,6 +14,8 @@ public class CostumeManager : MonoBehaviour
     public const string PajamaId = "pajama";
     public const string OfficeLookId = "office_look";
     public const string BartenderId = "bartender";
+    public const string MaidId = "maid";
+    public const string NurseId = "nurse";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -108,6 +110,24 @@ public class CostumeManager : MonoBehaviour
             Price = 1600,
             IconResourcePath = "Characters/Costumes/Bartender",
             SpriteRoot = "Characters/Costumes/Bartender"
+        },
+        new()
+        {
+            Id = MaidId,
+            DisplayName = "CLASSIC MAID",
+            Description = "[외형 전용]\n프릴 앞치마와 메리제인 슈즈의 클래식 메이드 룩",
+            Price = 1800,
+            IconResourcePath = "Characters/Costumes/Maid",
+            SpriteRoot = "Characters/Costumes/Maid"
+        },
+        new()
+        {
+            Id = NurseId,
+            DisplayName = "PINK NURSE",
+            Description = "[외형 전용]\n슬림핏 파스텔 핑크 간호사 룩",
+            Price = 2000,
+            IconResourcePath = "Characters/Costumes/Nurse",
+            SpriteRoot = "Characters/Costumes/Nurse"
         }
     };
 
