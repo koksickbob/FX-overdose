@@ -174,32 +174,20 @@ public class ItemUser : MonoBehaviour
 
         // 💡 [트라우마 천장 극복 기믹] 만약 드로다운 트라우마 등으로 인해 멘탈 한계치(MaxMentalLimit)가 100 미만으로 제한된 상태라면,
         // 디저트 및 멘탈 회복 아이템 사용 시 제한된 천장(한계치) 자체를 함께 상승시켜 트라우마 극복을 돕습니다!
-        if (traderStatus.MaxMentalLimit < traderStatus.MaxMental || traderStatus.HasDrawdownTrauma)
+        if (traderStatus.MaxMentalLimit < traderStatus.MaxMental)
         {
             float newLimit = Mathf.Min(traderStatus.MaxMental, traderStatus.MaxMentalLimit + item.EffectAmount);
             traderStatus.SetMaxMentalCeiling(newLimit);
 
             if (newLimit >= traderStatus.MaxMental)
             {
-                traderStatus.HasDrawdownTrauma = false;
-                Debug.Log("[ItemUser] ✨ 당분 및 진정제 효과로 드로다운 트라우마 천장 제한이 완전히 극복되었습니다!");
-                FXOverdose.Core.AchievementManager.Instance?.RecordTraumaCured();
+                Debug.Log("[ItemUser] ✨ 당분 및 진정제 효과로 멘탈 한계치 제한이 완전히 극복되었습니다!");
             }
         }
 
         Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
         
         float finalEffectAmount = item.EffectAmount;
-        if (traderStatus.HasTraumaCureItemBuff)
-        {
-            finalEffectAmount *= 1.5f;
-            traderStatus.HasTraumaCureItemBuff = false;
-            
-            
-            var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include); if (visual != null) visual.DisplayDialogueBalloon($"[트라우마 완치 후 아이템 효과 1.5배 증폭] 트라우마 극복 후 처음으로 {item.ItemName}을(를) 먹었어. 몸속 깊은 곳부터 약효가 1.5배로 퍼져나가는 쾌감을 느끼며, 이전과는 비교도 안 되는 엄청난 활력을 되찾은 기쁨을 표현해 줘.", FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.ItemUsed);
-            
-            Debug.Log($"[ItemUser] ✨ 트라우마 극복 아이템 1.5배 버프 적용! 원래: {item.EffectAmount} -> 버프: {finalEffectAmount}");
-        }
 
         traderStatus.ChangeMental(finalEffectAmount, true);
 

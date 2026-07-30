@@ -25,6 +25,11 @@ public class InventorySlot
         quantity += amount;
     }
 
+    public void SetQuantity(int amount)
+    {
+        quantity = Mathf.Max(0, amount);
+    }
+
     public bool RemoveOne()
     {
         if (quantity <= 0)
@@ -71,6 +76,29 @@ public class Inventory : MonoBehaviour
     {
         slots.Clear();
         QuantityChanged?.Invoke(null, 0); // Optional event broadcast
+    }
+
+    public void ResetForNewGame()
+    {
+        foreach (var slot in slots)
+        {
+            if (slot.Item == null) continue;
+            
+            string assetName = slot.Item.name.ToLower();
+            if (assetName.Contains("energydrink") || assetName.Contains("dessert") || assetName.Contains("parfait"))
+            {
+                slot.SetQuantity(5);
+            }
+            else if (assetName.Contains("sedative") || assetName.Contains("supplement"))
+            {
+                slot.SetQuantity(2);
+            }
+            else
+            {
+                slot.SetQuantity(0);
+            }
+        }
+        QuantityChanged?.Invoke(null, 0);
     }
 
     private void Awake()

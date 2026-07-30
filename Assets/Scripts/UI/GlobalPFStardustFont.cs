@@ -15,6 +15,20 @@ public static class GlobalPFStardustFont
         WarmedFonts.Clear();
         SceneManager.sceneLoaded -= ApplyToScene;
         SceneManager.sceneLoaded += ApplyToScene;
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
+    }
+
+    private static void OnTextChanged(Object obj)
+    {
+        if (obj is TMP_Text text)
+        {
+            TMP_FontAsset font = TMP_Settings.defaultFontAsset;
+            if (font != null && text.font != font)
+            {
+                text.font = font;
+            }
+        }
     }
 
     private static void ApplyToScene(Scene scene, LoadSceneMode mode)

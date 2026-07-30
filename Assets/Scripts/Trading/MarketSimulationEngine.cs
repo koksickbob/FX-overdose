@@ -135,6 +135,7 @@ namespace FXOverdose.Trading
         // 가격이나 캔들이 갱신될 때 UI 및 트레이딩 컨트롤러에 알리는 이벤트
         public event Action<float> OnPriceUpdated;
         public event Action<Timeframe, CandleData> OnCandleClosed;
+        public event Action OnEngineReset;
 
         private float tickTimer = 0f;
 
@@ -311,6 +312,7 @@ namespace FXOverdose.Trading
             // 첫 실시간 1분봉 열기 (과거 캔들의 마지막 종가와 정확히 맞닿아 갭 없이 연결)
             StartNewLiveCandle(currentPrice);
             IsDataPrepared = true;
+            OnEngineReset?.Invoke();
         }
 
         private void Update()
@@ -1291,6 +1293,7 @@ namespace FXOverdose.Trading
                 overdoseTrapEndTime = -1f;
                 currentSignalPhase = SignalPhase.None;
                 minutesUntilNextSignal = 3;
+                OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                 Debug.Log("[MarketEngine] 💊 [Overdose 차트 함정 해제] 플레이어의 멘탈 회복 조치로 죽음의 차트 빔이 해제되고 정상 차트로 복귀합니다.");
             }
         }

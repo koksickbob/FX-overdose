@@ -510,8 +510,9 @@ namespace FXOverdose.Events
         {
             if (option == null) return;
 
-            // AI 상태 변경
-            if (traderStatus != null)
+            // AI 상태 변경 (방향성 선택지는 성공 시에만 적용하기 위해 분리)
+            bool isDirectional = option.OptionType == ChoiceOptionType.DirectionalLong || option.OptionType == ChoiceOptionType.DirectionalShort;
+            if (traderStatus != null && !isDirectional)
             {
                 traderStatus.ModifyMentalState(option.MentalChangeAmount);
                 traderStatus.ModifyHealthState(option.HealthChangeAmount);
@@ -600,6 +601,13 @@ namespace FXOverdose.Events
             if (isSuccess)
             {
                 FXOverdose.Core.AchievementManager.Instance?.RecordRiskyEventSuccess();
+                
+                // 방향성 선택지 성공 시에만 멘탈/체력 보상 지급 (실패 시 감소 없음 - 기획 요청)
+                if (traderStatus != null)
+                {
+                    traderStatus.ModifyMentalState(option.MentalChangeAmount);
+                    traderStatus.ModifyHealthState(option.HealthChangeAmount);
+                }
             }
 
             TradingController.EventPositionHandlingMode handlingMode = option.PositionHandlingMode;

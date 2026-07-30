@@ -86,6 +86,7 @@ namespace FXOverdose.UI.Chart
             {
                 marketEngine.OnPriceUpdated += HandlePriceUpdated;
                 marketEngine.OnCandleClosed += HandleCandleClosed;
+                marketEngine.OnEngineReset += HandleEngineReset;
             }
             if (gameManager != null)
             {
@@ -103,6 +104,7 @@ namespace FXOverdose.UI.Chart
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
                 marketEngine.OnCandleClosed -= HandleCandleClosed;
+                marketEngine.OnEngineReset -= HandleEngineReset;
             }
             if (gameManager != null)
             {
@@ -185,6 +187,11 @@ namespace FXOverdose.UI.Chart
                 if (marketEngine != null && marketEngine.IsFastForwarding) return;
                 RefreshChartDisplay();
             }
+        }
+
+        private void HandleEngineReset()
+        {
+            RefreshChartDisplay();
         }
 
         private void HandleFastForwardEnded()
