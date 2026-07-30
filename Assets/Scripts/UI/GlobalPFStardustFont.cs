@@ -81,6 +81,8 @@ public static class GlobalPFStardustFont
     {
         if (!WarmedFonts.Add(font)) return;
         if (font.HasCharacters(CompactHudCharacters)) return;
+        
+        if (font.atlasPopulationMode != AtlasPopulationMode.Dynamic) return;
 
         if (!font.TryAddCharacters(CompactHudCharacters, out string missing) && !string.IsNullOrEmpty(missing))
             Debug.LogWarning($"[GlobalPFStardustFont] 소형 HUD 글리프 준비 실패: {missing}", font);

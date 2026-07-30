@@ -130,7 +130,10 @@ public class DynamicShopUI : MonoBehaviour
                     sb.Append(costume.Description);
                 }
             }
-            targetFont.TryAddCharacters(sb.ToString(), out _);
+            if (targetFont.atlasPopulationMode == AtlasPopulationMode.Dynamic)
+            {
+                targetFont.TryAddCharacters(sb.ToString(), out _);
+            }
         }
 
         int visibleCount = 0;

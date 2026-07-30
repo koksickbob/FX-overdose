@@ -145,9 +145,19 @@ public class ItemUser : MonoBehaviour
             return false;
         }
 
-        traderStatus.ChangeHealth(item.EffectAmount);
+        float effectAmount = item.EffectAmount;
+
+        if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.BartenderId)
+        {
+            if (!string.IsNullOrEmpty(item.ItemId) && item.ItemId.ToLowerInvariant().Contains("energy"))
+            {
+                effectAmount *= 1.15f;
+            }
+        }
+
+        traderStatus.ChangeHealth(effectAmount);
         TriggerItemDialogue(item);
-        Debug.Log($"[ItemUser] {item.ItemName} 사용: 체력 +{item.EffectAmount}");
+        Debug.Log($"[ItemUser] {item.ItemName} 사용: 체력 +{effectAmount}");
         
         FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
         return true;

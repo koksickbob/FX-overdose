@@ -79,9 +79,31 @@ public class TraderStatus : MonoBehaviour
         }
     }
     public float CurrentMental => currentMental;
-    public float MaxMental => maxMental;
-    public float MaxMentalLimit => maxMentalLimit;
-    public float EffectiveMaxMental => Mathf.Min(maxMental, maxMentalLimit);
+    public float MaxMental 
+    {
+        get
+        {
+            float bonus = 0f;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.PajamaId)
+            {
+                bonus = 15f;
+            }
+            return maxMental + bonus;
+        }
+    }
+    public float MaxMentalLimit 
+    {
+        get
+        {
+            float bonus = 0f;
+            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.PajamaId)
+            {
+                bonus = 15f;
+            }
+            return maxMentalLimit + bonus;
+        }
+    }
+    public float EffectiveMaxMental => Mathf.Min(MaxMental, MaxMentalLimit);
     public MentalState CurrentMentalState => currentMentalState;
 
     public int CurrentLosingStreak

@@ -12,39 +12,20 @@ public class TMPFixer
 
     static void RunFix()
     {
-        if (SessionState.GetBool("TMPFixer_Run2", false))
+        if (SessionState.GetBool("TMPFixer_Run3", false))
             return;
 
-        SessionState.SetBool("TMPFixer_Run2", true);
+        SessionState.SetBool("TMPFixer_Run3", true);
 
         string[] guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
         foreach (var guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
-            if (fontAsset != null)
+            if (path.Contains("PFStardustBold Dynamic SDF"))
             {
-                if (fontAsset.atlasPopulationMode == AtlasPopulationMode.Dynamic)
-                {
-                    try
-                    {
-                        if (fontAsset.atlasTextures != null && fontAsset.atlasTextures.Length > 0 && fontAsset.atlasTextures[0] != null)
-                        {
-                            fontAsset.ClearFontAssetData(true);
-                            EditorUtility.SetDirty(fontAsset);
-                            Debug.Log($"[TMPFixer] Cleared dynamic data for {fontAsset.name}.");
-                        }
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogWarning($"[TMPFixer] Could not clear data for {fontAsset.name}: {e.Message}");
-                    }
-                }
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                Debug.Log($"[TMPFixer] Force reimported {path} to restore font.");
             }
         }
-
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-        Debug.Log("[TMPFixer] Font assets reimported successfully. The NativeFormatImporter error should now be gone.");
     }
 }
