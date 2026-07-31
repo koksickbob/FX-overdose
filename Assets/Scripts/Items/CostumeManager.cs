@@ -17,6 +17,8 @@ public class CostumeManager : MonoBehaviour
     public const string MaidId = "maid";
     public const string NurseId = "nurse";
     public const string DongtanLookId = "dongtan_look";
+    public const string HanbokId = "hanbok";
+    public const string YukataId = "yukata";
 
     [Serializable]
     public sealed class CostumeDefinition
@@ -138,6 +140,24 @@ public class CostumeManager : MonoBehaviour
             Price = 2200,
             IconResourcePath = "Characters/Costumes/DongtanLook",
             SpriteRoot = "Characters/Costumes/DongtanLook"
+        },
+        new()
+        {
+            Id = HanbokId,
+            DisplayName = "전통 한복",
+            Description = "[외형 전용]\n아이보리 저고리와 금빛 문양의 남색 치마",
+            Price = 2500,
+            IconResourcePath = "Characters/Costumes/Hanbok",
+            SpriteRoot = "Characters/Costumes/Hanbok"
+        },
+        new()
+        {
+            Id = YukataId,
+            DisplayName = "나팔꽃 유카타",
+            Description = "[외형 전용]\n남색 바탕에 청록·연보라 나팔꽃을 수놓은 여름 유카타",
+            Price = 3000,
+            IconResourcePath = "Characters/Costumes/Yukata",
+            SpriteRoot = "Characters/Costumes/Yukata"
         }
     };
 

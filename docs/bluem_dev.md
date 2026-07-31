@@ -1764,3 +1764,35 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/Costumes/Nurse/`
 - `Assets/Scripts/Items/CostumeManager.cs`
 - `Assets/Scripts/System/AchievementManager.cs`
+
+## 2026-07-31 — 전통 한복 코스튬 등록
+
+- 승인된 아이보리 저고리, 자주색 깃·고름, 금색 문양의 남색 치마 디자인을 기준으로 한복 스프라이트 35종을 적용했다.
+- 기본·오버도스 상태 2종, 감정 19종, 아이템 사용 9종, 롱·숏 포지션 2종, 스킬 강화 3종을 기존 코스튬 리소스 구조에 맞췄다.
+- 모든 이미지를 `600×1180` RGBA 투명 PNG로 정규화하고 기존 Unity `.meta` 파일을 유지했다.
+- `전통 한복`을 외형 전용 `$2,500` APPAREL 상품으로 등록했다.
+- 게임 최초 진엔딩 클리어 업적 `자본주의의 기적`을 달성해야 구매할 수 있다.
+- 구매·장착·저장 복원과 상태별 스프라이트 전환은 기존 `CostumeManager` 흐름을 그대로 사용한다.
+
+관련 경로:
+
+- `Assets/Resources/Characters/Costumes/Hanbok.png`
+- `Assets/Resources/Characters/Costumes/Hanbok/`
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/System/AchievementManager.cs`
+
+## 2026-07-31 — 나팔꽃 유카타 코스튬 등록
+
+- 남색 바탕, 청록·연보라 나팔꽃 문양, 아이보리 오비와 자주색 포인트로 구성된 유카타 스프라이트 35종을 적용했다.
+- 기본·오버도스 상태 2종, 감정 19종, 아이템 사용 9종, 롱·숏 포지션 2종, 스킬 강화 3종을 기존 코스튬 리소스 구조에 맞췄다.
+- 모든 이미지를 `600×1180` RGBA 투명 PNG로 정규화하고 신규 Unity `.meta`와 고유 GUID를 추가했다.
+- `나팔꽃 유카타`를 외형 전용 `$3,000` APPAREL 상품으로 등록했다.
+- 최고 자산 100만 달러 업적 `첫 목표 달성`을 달성해야 구매할 수 있다.
+- 구매·장착·저장 복원과 상태별 스프라이트 전환은 기존 `CostumeManager` 흐름을 그대로 사용한다.
+
+관련 경로:
+
+- `Assets/Resources/Characters/Costumes/Yukata.png`
+- `Assets/Resources/Characters/Costumes/Yukata/`
+- `Assets/Scripts/Items/CostumeManager.cs`
+- `Assets/Scripts/System/AchievementManager.cs`

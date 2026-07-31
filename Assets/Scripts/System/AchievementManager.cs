@@ -86,7 +86,7 @@ namespace FXOverdose.Core
             achievements.Clear();
             // Populating the achievements
             achievements.Add(new AchievementDefinition { Id = "ending_first_gameover", Title = "첫 쓴맛", Description = "최초 게임 오버 달성", Type = AchievementType.Ending, StringParameter = "FirstGameOver" });
-            achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear" });
+            achievements.Add(new AchievementDefinition { Id = "ending_true_clear", Title = "자본주의의 기적", Description = "게임 최초 클리어 (진엔딩 달성)", Type = AchievementType.Ending, StringParameter = "TrueClear", RewardCostumeId = CostumeManager.HanbokId });
             achievements.Add(new AchievementDefinition { Id = "ending_bankruptcy", Title = "빈털터리", Description = "배드 엔딩 - 파산 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Bankruptcy" });
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
@@ -101,7 +101,7 @@ namespace FXOverdose.Core
             
             achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20, RewardCostumeId = "jirai_kei" });
             
-            achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "첫 목표 달성", Description = "100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000 });
+            achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "첫 목표 달성", Description = "100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000, RewardCostumeId = CostumeManager.YukataId });
             achievements.Add(new AchievementDefinition { Id = "balance_25m", Title = "억만장자의 길 I", Description = "누적 최고 자산 2,500만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 25000000 });
             achievements.Add(new AchievementDefinition { Id = "balance_50m", Title = "억만장자의 길 II", Description = "누적 최고 자산 5,000만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 50000000, RewardCostumeId = "bunny_girl,bikini" });
         }
