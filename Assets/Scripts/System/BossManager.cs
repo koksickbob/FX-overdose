@@ -88,6 +88,7 @@ namespace FXOverdose.Core
         public float LoadedBossCurrentAsset { get; set; } = -1f;
         
         private GameObject activeBossObject;
+        public FXOverdose.AI.BossAIController CurrentBossAI { get; private set; }
 
         public event Action<float, float> OnBossAssetChanged; // current, starting
         public event Action OnBossBankrupted;
@@ -126,6 +127,7 @@ namespace FXOverdose.Core
                 Destroy(activeBossObject);
                 activeBossObject = null;
             }
+            CurrentBossAI = null;
             CurrentBoss = null;
             BossStartingAsset = 0;
             BossCurrentAsset = 0;
@@ -143,7 +145,7 @@ namespace FXOverdose.Core
                 if (LoadedBossStartingAsset > 0f)
                 {
                     BossStartingAsset = LoadedBossStartingAsset;
-                    BossCurrentAsset = LoadedBossCurrentAsset > 0f ? LoadedBossCurrentAsset : BossStartingAsset;
+                    BossCurrentAsset = LoadedBossCurrentAsset >= 0f ? LoadedBossCurrentAsset : BossStartingAsset;
                     LoadedBossStartingAsset = -1f;
                     LoadedBossCurrentAsset = -1f;
                     Debug.Log($"[BossManager] 세이브 데이터에서 보스 에셋 복원: {BossStartingAsset:N0} (현재: {BossCurrentAsset:N0})");
@@ -162,8 +164,8 @@ namespace FXOverdose.Core
                 activeBossObject = new GameObject($"BossAI_{CurrentBoss.Name}");
                 activeBossObject.transform.SetParent(this.transform);
                 
-                var bossAI = activeBossObject.AddComponent<FXOverdose.AI.BossAIController>();
-                bossAI.InitializeForBoss(CurrentBoss, BossStartingAsset);
+                CurrentBossAI = activeBossObject.AddComponent<FXOverdose.AI.BossAIController>();
+                CurrentBossAI.InitializeForBoss(CurrentBoss, BossStartingAsset);
 
                 OnBossAssetChanged?.Invoke(BossCurrentAsset, BossStartingAsset);
             }

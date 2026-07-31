@@ -286,6 +286,8 @@ namespace FXOverdose.AI
                 return;
             }
 
+            TradingController.AITradingStyle aiStyle = tradingController != null ? tradingController.CurrentAITradingStyle : TradingController.AITradingStyle.Balanced;
+
             // 🔴 Tier 4: Overdose / 통제 불능 상태 (체력 <= 15% 또는 Danger/Overdose)
             if (healthRatio <= 0.15f || mentalState == TraderStatus.MentalState.Danger || mentalState == TraderStatus.MentalState.Overdose)
             {
@@ -296,9 +298,16 @@ namespace FXOverdose.AI
             // 🟠 Tier 3: 심각한 피로/오인 상태 (Heavily Deceived, 체력 15% ~ 40%)
             if (healthRatio > 0.15f && healthRatio <= 0.40f)
             {
-                // 강한 가짜 신호(불트랩/베어트랩)를 진짜 대박 자리로 오인하여 풀시드 고레버리지 진입!
+                // 강한 가짜 신호(불트랩/베어트랩)를 진짜 대박 자리로 오인하여 진입!
                 if (signal.Strength == SignalStrength.Strong && !signal.IsTrueSignal)
                 {
+                    if (aiStyle == TradingController.AITradingStyle.Safe)
+                    {
+                         Debug.Log("[AITradingBrain] 🟢 안전(Safe) 모드: 함정을 의심하여 진입을 회피합니다.");
+                         OnSignalEvaluationCompleted?.Invoke(signal, false);
+                         return;
+                    }
+
                     TradingController.PositionType trapPos = signal.Type switch
                     {
                         MarketSignalType.BullTrap => TradingController.PositionType.Long,
@@ -308,27 +317,36 @@ namespace FXOverdose.AI
 
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float marginRatio = levelSystem != null ? levelSystem.GetStopLossTightness() * 10f : 0.8f;
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) marginRatio = 1.0f;
+
                     float margin = availableBalance * marginRatio; // 기계적 손절비율 * 10배 (최대 90% ~ 최소 15%)
+                    
                     int leverage = defaultLeverage * 3;
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = 125;
+
                     if (levelSystem != null)
                     {
-                        // 💡 [대박 오인] 이성을 잃고 함정에 개방된 최대 레버리지 100% 쏟아부음
+                        // 💡 [대박 오인] 이성을 잃고 함정에 개방된 최대 레버리지 쏟아부음
                         leverage = levelSystem.GetMaxAllowedLeverage();
-
                         float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
                         if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
                     }
                     float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
+                    
                     // 오인 진입 시 대박(+15%)을 꿈꾸며 목표가 설정
                     float aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.15f : startPrice * 0.85f;
                     float aiStopLoss = trapPos == TradingController.PositionType.Long ? startPrice * 0.95f : startPrice * 1.05f;
+
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive)
+                    {
+                        aiTarget = trapPos == TradingController.PositionType.Long ? startPrice * 1.30f : startPrice * 0.70f;
+                        aiStopLoss = 0f; // 노손절
+                    }
 
                     bool opened = TradeExecutor(trapPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
                     if (opened)
                     {
-                        float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.8f;
-
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -338,7 +356,6 @@ namespace FXOverdose.AI
                 }
                 else
                 {
-
                     OnSignalEvaluationCompleted?.Invoke(signal, false);
                 }
                 return;
@@ -350,6 +367,13 @@ namespace FXOverdose.AI
                 // 약한 신호(Weak Signal)나 가짜 단타 미끼에 적당히 속아서 진입
                 if (signal.Strength == SignalStrength.Weak)
                 {
+                    if (aiStyle == TradingController.AITradingStyle.Safe)
+                    {
+                         Debug.Log("[AITradingBrain] 🟢 안전(Safe) 모드: 약한 신호는 관망합니다.");
+                         OnSignalEvaluationCompleted?.Invoke(signal, false);
+                         return;
+                    }
+
                     TradingController.PositionType weakPos = signal.Type switch
                     {
                         MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
@@ -359,14 +383,18 @@ namespace FXOverdose.AI
                         _ => TradingController.PositionType.Long
                     };
 
-                    float margin = availableBalance * 0.15f; // 가볍게 15% 진입
+                    float marginRatio = 0.15f;
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) marginRatio = 0.40f;
+                    float margin = availableBalance * marginRatio;
+                    
                     int leverage = defaultLeverage;
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = defaultLeverage * 3;
+
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     if (levelSystem != null)
                     {
                         int maxAllowedLev = levelSystem.GetMaxAllowedLeverage();
-                        // 💡 [약한 신호/단타] 리스크 관리를 위해 무조건 안전한 저배율(최대 20배 이하)로 제한
-                        leverage = Mathf.Min(maxAllowedLev, Mathf.Max(defaultLeverage, 20));
+                        leverage = Mathf.Min(maxAllowedLev, Mathf.Max(leverage, 20));
 
                         float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
                         if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
@@ -375,11 +403,11 @@ namespace FXOverdose.AI
                     float aiTarget = weakPos == TradingController.PositionType.Long ? startPrice * 1.03f : startPrice * 0.97f;
                     float aiStopLoss = weakPos == TradingController.PositionType.Long ? startPrice * 0.98f : startPrice * 1.02f;
 
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) aiStopLoss = 0f;
+
                     bool opened = TradeExecutor(weakPos, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
                     if (opened)
                     {
-                        float actualRatio = availableBalance > 0f ? margin / availableBalance : 0.25f;
-
                         OnSignalEvaluationCompleted?.Invoke(signal, true);
                     }
                     else
@@ -389,27 +417,51 @@ namespace FXOverdose.AI
                 }
                 else if (signal.Strength == SignalStrength.Strong && signal.IsTrueSignal)
                 {
-                    // 💡 적당히 속는 상태에서도 확실한 신호는 수익을 위해 고배율(60%) 사용
                     int leverage = defaultLeverage;
+                    if (aiStyle == TradingController.AITradingStyle.Safe) leverage = 5;
+                    else if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = 50;
+
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
-                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
-                    OpenNormalPosition(signal, availableBalance, tradeMarginRatio, leverage);
+                    if (levelSystem != null) 
+                    {
+                         if (aiStyle == TradingController.AITradingStyle.Balanced) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
+                         else if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = levelSystem.GetMaxAllowedLeverage();
+                    }
+                    float ratio = tradeMarginRatio;
+                    if (aiStyle == TradingController.AITradingStyle.Safe) ratio = 0.15f;
+                    else if (aiStyle == TradingController.AITradingStyle.Aggressive) ratio = 0.8f;
+
+                    OpenNormalPosition(signal, availableBalance, ratio, leverage);
                 }
                 else
                 {
+                    if (aiStyle == TradingController.AITradingStyle.Safe)
+                    {
+                         OnSignalEvaluationCompleted?.Invoke(signal, false);
+                         return;
+                    }
+
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float trapProb = levelSystem != null ? Mathf.Clamp01((1.0f - levelSystem.GetSignalAccuracy()) * 2f) : 0.6f;
-                    // 함정에 빠질 확률 (LV.1: 60%, LV.10: 0%)
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive) trapProb = 1.0f; // 무조건 낚임
+
                     if (UnityEngine.Random.value < trapProb)
                     {
-                        // 💡 [함정 진입] 함정인데도 낚여서 들어감. 적당히 속는 상태이므로 최대 레버리지의 60% 사용
                         int leverage = defaultLeverage;
-                        if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
-                        OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 0.8f, leverage);
+                        if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = 50;
+
+                        if (levelSystem != null) 
+                        {
+                             if (aiStyle == TradingController.AITradingStyle.Balanced) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.6f);
+                             else if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = levelSystem.GetMaxAllowedLeverage();
+                        }
+                        float ratio = tradeMarginRatio * 0.8f;
+                        if (aiStyle == TradingController.AITradingStyle.Aggressive) ratio = 1.0f;
+
+                        OpenNormalPosition(signal, availableBalance, ratio, leverage);
                     }
                     else
                     {
-
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -423,31 +475,65 @@ namespace FXOverdose.AI
                 {
                     if (signal.IsTrueSignal)
                     {
-                        // 💡 진짜 약한 신호는 가볍게 단타 스캘핑 진입 (단타이므로 안전하게 저배율)
+                        if (aiStyle == TradingController.AITradingStyle.Safe)
+                        {
+                             OnSignalEvaluationCompleted?.Invoke(signal, false);
+                             return;
+                        }
+
                         int leverage = defaultLeverage;
+                        if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = defaultLeverage * 3;
                         ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
-                        if (levelSystem != null) leverage = Mathf.Min(levelSystem.GetMaxAllowedLeverage(), Mathf.Max(defaultLeverage, 20));
-                        OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 0.4f, leverage);
+                        if (levelSystem != null) leverage = Mathf.Min(levelSystem.GetMaxAllowedLeverage(), Mathf.Max(leverage, 20));
+                        
+                        float ratio = tradeMarginRatio * 0.4f;
+                        if (aiStyle == TradingController.AITradingStyle.Aggressive) ratio = tradeMarginRatio * 1.5f;
+
+                        OpenNormalPosition(signal, availableBalance, ratio, leverage);
                     }
                     else
                     {
-
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
                 else if (signal.Strength == SignalStrength.Strong && signal.IsTrueSignal)
                 {
-                    // 💡 [확실한 수익 신호] 확정 신호이므로 해금된 최대 레버리지의 70%를 과감하게 베팅!
                     int leverage = defaultLeverage * 2;
+                    if (aiStyle == TradingController.AITradingStyle.Safe) leverage = 5;
+                    else if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = 50;
+
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
-                    if (levelSystem != null) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.7f);
-                    OpenNormalPosition(signal, availableBalance, tradeMarginRatio * 1.2f, leverage);
+                    if (levelSystem != null) 
+                    {
+                         if (aiStyle == TradingController.AITradingStyle.Balanced) leverage = (int)Mathf.Max(leverage, levelSystem.GetMaxAllowedLeverage() * 0.7f);
+                         else if (aiStyle == TradingController.AITradingStyle.Aggressive) leverage = levelSystem.GetMaxAllowedLeverage();
+                    }
+                    float ratio = tradeMarginRatio * 1.2f;
+                    if (aiStyle == TradingController.AITradingStyle.Safe) ratio = 0.20f;
+                    else if (aiStyle == TradingController.AITradingStyle.Aggressive) ratio = 1.0f;
+
+                    OpenNormalPosition(signal, availableBalance, ratio, leverage);
                 }
                 else if (signal.Strength == SignalStrength.Strong && !signal.IsTrueSignal)
                 {
+                    if (aiStyle == TradingController.AITradingStyle.Safe)
+                    {
+                         OnSignalEvaluationCompleted?.Invoke(signal, false);
+                         return;
+                    }
+
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
+                    
+                    if (aiStyle == TradingController.AITradingStyle.Aggressive)
+                    {
+                         // 공격 모드: 간파 안하고 함정 방향으로 무지성 진입
+                         float ratio = 1.0f;
+                         int lev = levelSystem != null ? levelSystem.GetMaxAllowedLeverage() : 125;
+                         OpenNormalPosition(signal, availableBalance, ratio, lev);
+                         return;
+                    }
+
                     float counterTrapProb = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.75f;
-                    // 💡 대형 속임수(Trap/False Breakout)를 날카롭게 간파하고 신호 정확도 확률(70~100%)로 함정을 역이용하는 역매매(Counter-Trap) 진입!
                     if (UnityEngine.Random.value < counterTrapProb)
                     {
                         TradingController.PositionType counterPos = signal.Type switch
@@ -463,15 +549,12 @@ namespace FXOverdose.AI
                         int leverage = defaultLeverage * 2;
                         if (levelSystem != null)
                         {
-                            // 💡 [역매매] 완벽하게 속임수를 간파했으므로 개방된 최대 레버리지 100% 풀배율 역매매!
                             leverage = levelSystem.GetMaxAllowedLeverage();
-
                             float maxAllowedRatio = levelSystem.GetMaxAllowedMarginRatio();
                             if (margin > availableBalance * maxAllowedRatio) margin = availableBalance * maxAllowedRatio;
                         }
                         float startPrice = signal.SignalStartPrice > 0f ? signal.SignalStartPrice : (marketEngine != null ? marketEngine.CurrentPrice : 65000f);
                         
-                        // 💡 [큐브 레벨 적용] 역매매 시에도 정상 진입처럼 큐브 인내심(takeProfitMult)과 차트 지연(delayRatio) 페널티를 적용합니다.
                         float deltaPct = Mathf.Abs(signal.TargetPercentageDelta) > 0.1f ? Mathf.Abs(signal.TargetPercentageDelta) / 100f : 0.045f;
                         float takeProfitMult = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 1.0f;
                         float delayRatio = levelSystem != null ? levelSystem.GetEntryDelayPenaltyRatio() : 0.0f;
@@ -491,8 +574,6 @@ namespace FXOverdose.AI
                         bool opened = TradeExecutor(counterPos, margin, leverage, aiTarget, aiStopLoss, false, injectedEntryPrice);
                         if (opened)
                         {
-                            float actualRatio = availableBalance > 0f ? margin / availableBalance : tradeMarginRatio;
-
                             OnSignalEvaluationCompleted?.Invoke(signal, true);
                         }
                         else
@@ -502,7 +583,6 @@ namespace FXOverdose.AI
                     }
                     else
                     {
-
                         OnSignalEvaluationCompleted?.Invoke(signal, false);
                     }
                 }
@@ -513,12 +593,15 @@ namespace FXOverdose.AI
         // 정상/확실한 진입
         private void OpenNormalPosition(MarketSignal signal, float balance, float ratio, int leverage)
         {
+            TradingController.AITradingStyle aiStyle = tradingController != null ? tradingController.CurrentAITradingStyle : TradingController.AITradingStyle.Balanced;
             ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
 
             TradingController.PositionType posType = signal.Type switch
             {
                 MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
                 MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
+                MarketSignalType.BullTrap => TradingController.PositionType.Long,
+                MarketSignalType.BearTrap => TradingController.PositionType.Short,
                 _ => TradingController.PositionType.Long
             };
 
@@ -562,24 +645,29 @@ namespace FXOverdose.AI
 
             // 💡 [큐브 풀기 귀속] 인내심 계수 반영: 확정 수익 구간에서도 목표 수익의 일부만 먹고 조기 익절하거나 100% 홀딩
             float takeProfitMult = levelSystem != null ? levelSystem.GetTakeProfitMultiplier() : 1.0f;
+            if (aiStyle == TradingController.AITradingStyle.Safe) takeProfitMult *= 0.5f;
+            else if (aiStyle == TradingController.AITradingStyle.Aggressive) takeProfitMult *= 2.0f;
+
             float aiTarget = posType == TradingController.PositionType.Long 
                 ? startPrice * (1f + deltaPct * takeProfitMult) 
                 : startPrice * (1f - deltaPct * takeProfitMult);
 
-            Debug.Log($"[AITradingBrain 진입 계산] 방향:{posType}, Delta:{deltaPct}, 지연패널티적용타점:{startPrice}, 익절배율:{takeProfitMult}, 최종목표가:{aiTarget}");
+            Debug.Log($"[AITradingBrain 진입 계산] 방향:{posType}, 성향:{aiStyle}, Delta:{deltaPct}, 지연패널티적용타점:{startPrice}, 익절배율:{takeProfitMult}, 최종목표가:{aiTarget}");
 
             // 💡 [책읽기 귀속] 판단력 계수 반영: 손절 타점 단축/확대 (LV 낮을수록 큰 손절 -9%, 높을수록 빠른 칼손절 -1.5%)
             float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.02f;
+            if (aiStyle == TradingController.AITradingStyle.Safe) stopLossTightness *= 0.5f;
+
             float aiStopLoss = posType == TradingController.PositionType.Long 
                 ? startPrice * (1f - stopLossTightness) 
                 : startPrice * (1f + stopLossTightness);
+
+            if (aiStyle == TradingController.AITradingStyle.Aggressive) aiStopLoss = 0f;
 
             bool opened = TradeExecutor(posType, margin, leverage, aiTarget, aiStopLoss, false, startPrice);
 
             if (opened)
             {
-                float actualRatio = balance > 0f ? margin / balance : ratio;
-
                 OnSignalEvaluationCompleted?.Invoke(signal, true);
             }
             else

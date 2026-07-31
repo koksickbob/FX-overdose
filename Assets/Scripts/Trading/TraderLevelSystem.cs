@@ -323,9 +323,9 @@ namespace FXOverdose.Trading
             int lv = GetSkillLevel(type);
             float baseCost = type switch
             {
-                SkillType.ChartStudy => 500f * Mathf.Pow(1.6f, lv - 1),
-                SkillType.CubePatience => 300f * Mathf.Pow(1.5f, lv - 1),
-                SkillType.BookJudgment => 400f * Mathf.Pow(1.55f, lv - 1),
+                SkillType.ChartStudy => 3500f * Mathf.Pow(1.65f, lv - 1),
+                SkillType.CubePatience => 2000f * Mathf.Pow(1.6f, lv - 1),
+                SkillType.BookJudgment => 2500f * Mathf.Pow(1.62f, lv - 1),
                 _ => 100f
             };
             

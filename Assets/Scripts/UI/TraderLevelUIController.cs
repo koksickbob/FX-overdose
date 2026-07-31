@@ -124,7 +124,9 @@ public sealed class TraderLevelUIController : MonoBehaviour
         for (int attempt = 0; attempt < 10 && modeRect == null; attempt++)
         {
             yield return null;
-            modeRect = GameObject.Find("Temp_TradingModeToggleBtn")?.GetComponent<RectTransform>();
+            Transform t = parentCanvas.transform.Find("Temp_TradingModeToggleBtn");
+            if (t != null) modeRect = t.GetComponent<RectTransform>();
+            if (modeRect == null) modeRect = GameObject.Find("Temp_TradingModeToggleBtn")?.GetComponent<RectTransform>();
         }
 
         if (modeRect == null || levelHudRect == null) yield break;

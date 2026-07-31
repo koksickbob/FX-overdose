@@ -22,6 +22,7 @@ public class SettingsMenuController : MonoBehaviour
     private Button saveMenuButton;
     private Button fpsMenuButton;
     private TMP_Text fpsButtonText;
+    private GameObject overwriteConfirmPanel;
 
     [Header("오디오 설정 UI (UI 담당자 할당)")]
     [SerializeField] private Slider bgmVolumeSlider;
@@ -90,7 +91,13 @@ public class SettingsMenuController : MonoBehaviour
         }
         if (floatingModeImage != null) floatingModeImage.color = new Color32(20, 29, 51, 255); // #141D33
 
-        if (floatingModeButton != null) floatingModeButton.interactable = !isChallenge;
+        if (floatingModeButton != null)
+        {
+            floatingModeButton.interactable = !isChallenge;
+            bool hasPosition = controller != null && controller.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
+            bool isAutoTrading = isAuto && hasPosition;
+            floatingModeButton.gameObject.SetActive(!isAutoTrading);
+        }
 
         if (saveMenuButton != null)
         {
@@ -145,6 +152,8 @@ public class SettingsMenuController : MonoBehaviour
         {
             FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged -= _ => UpdateModeButtonVisuals();
             FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged += _ => UpdateModeButtonVisuals();
+            FXOverdose.Trading.TradingController.Instance.OnPositionChanged -= UpdateModeButtonVisuals;
+            FXOverdose.Trading.TradingController.Instance.OnPositionChanged += UpdateModeButtonVisuals;
         }
 
         // 로딩 직후 Time.timeScale이 0이어도 Challenge 잠금 상태가 잘 안보일 수 있어, Invoke로 지연 반영
@@ -274,8 +283,26 @@ public class SettingsMenuController : MonoBehaviour
         RestoreGameState();
     }
 
+    private void OnSaveButtonClicked()
+    {
+        if (FXOverdose.Core.SaveLoadManager.Instance != null)
+        {
+            int slotIndex = FXOverdose.Core.SaveLoadManager.Instance.ActiveStorySlotIndex;
+            if (FXOverdose.Core.SaveLoadManager.Instance.HasSave(slotIndex))
+            {
+                if (overwriteConfirmPanel != null) overwriteConfirmPanel.SetActive(true);
+            }
+            else
+            {
+                SaveGame();
+            }
+        }
+    }
+
     public void SaveGame()
     {
+        if (overwriteConfirmPanel != null) overwriteConfirmPanel.SetActive(false);
+
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
         {
             bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
@@ -426,7 +453,7 @@ public class SettingsMenuController : MonoBehaviour
 
         saveMenuButton = CreateButton(inner.transform, "SaveButton", "SAVE STORY 01", new Color(0.18f, 0.55f, 0.34f, 1f));
         SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.205f), new Vector2(0.89f, 0.27f));
-        saveMenuButton.onClick.AddListener(SaveGame);
+        saveMenuButton.onClick.AddListener(OnSaveButtonClicked);
 
         Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
         SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.12f), new Vector2(0.89f, 0.185f));
@@ -437,7 +464,46 @@ public class SettingsMenuController : MonoBehaviour
         quitButton.onClick.AddListener(QuitGame);
 
         UpdateModeButtonVisuals();
+        CreateOverwriteConfirmDialog();
         overlay.SetActive(false);
+    }
+
+    private void CreateOverwriteConfirmDialog()
+    {
+        if (overlay == null) return;
+
+        overwriteConfirmPanel = CreateUIObject("OverwriteConfirmPanel", overlay.transform);
+        Stretch(overwriteConfirmPanel.GetComponent<RectTransform>());
+        Image dim = overwriteConfirmPanel.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.85f);
+        dim.raycastTarget = true;
+
+        GameObject box = CreateUIObject("Box", overwriteConfirmPanel.transform);
+        RectTransform boxRect = box.GetComponent<RectTransform>();
+        boxRect.anchorMin = boxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        boxRect.sizeDelta = new Vector2(460f, 240f);
+        boxRect.anchoredPosition = Vector2.zero;
+        
+        Image boxBg = box.GetComponent<Image>();
+        boxBg.color = new Color32(13, 26, 46, 255);
+        Outline outline = box.AddComponent<Outline>();
+        outline.effectColor = new Color32(255, 114, 142, 255);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        TMP_Text msg = CreateText(box.transform, "Message", "기존 저장 데이터가 존재합니다.\n정말 덮어씌우시겠습니까?", 24f, TextAlignmentOptions.Center);
+        SetRect(msg.rectTransform, new Vector2(0.05f, 0.45f), new Vector2(0.95f, 0.95f));
+
+        Button yesBtn = CreateButton(box.transform, "YesButton", "OVERWRITE", new Color(0.60f, 0.15f, 0.22f, 1f));
+        SetRect(yesBtn.GetComponent<RectTransform>(), new Vector2(0.1f, 0.15f), new Vector2(0.45f, 0.35f));
+        yesBtn.onClick.AddListener(SaveGame);
+        yesBtn.GetComponentInChildren<TMP_Text>().fontSize = 20f;
+
+        Button noBtn = CreateButton(box.transform, "NoButton", "CANCEL", new Color(0.10f, 0.35f, 0.48f, 1f));
+        SetRect(noBtn.GetComponent<RectTransform>(), new Vector2(0.55f, 0.15f), new Vector2(0.9f, 0.35f));
+        noBtn.onClick.AddListener(() => overwriteConfirmPanel.SetActive(false));
+        noBtn.GetComponentInChildren<TMP_Text>().fontSize = 20f;
+
+        overwriteConfirmPanel.SetActive(false);
     }
 
     private void CycleFPS()

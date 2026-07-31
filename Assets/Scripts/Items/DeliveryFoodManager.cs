@@ -33,6 +33,14 @@ public class DeliveryFoodManager : MonoBehaviour
         Instance = this;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
     private void Update()
     {
         if (pastaRemainingSeconds <= 0f) return;
@@ -58,6 +66,7 @@ public class DeliveryFoodManager : MonoBehaviour
         int daysRemaining = 7 - (currentDay - lastSteakPurchaseDay);
         if (daysRemaining > 0)
         {
+            Debug.Log($"[DeliveryFoodManager] 스테이크 구매 불가 - {daysRemaining}일 남음 (현재: {currentDay}, 최근구매: {lastSteakPurchaseDay})");
             reason = $"{daysRemaining}일 후 재구매 가능";
             return false;
         }
@@ -66,13 +75,18 @@ public class DeliveryFoodManager : MonoBehaviour
         return true;
     }
 
-    public void RecordSteakPurchase(int currentDay) => lastSteakPurchaseDay = currentDay;
+    public void RecordSteakPurchase(int currentDay)
+    {
+        lastSteakPurchaseDay = currentDay;
+        Debug.Log($"[DeliveryFoodManager] 스테이크 구매 기록 완료: Day {currentDay}");
+    }
 
     public void Restore(int savedLastSteakDay, float savedPastaSeconds)
     {
         lastSteakPurchaseDay = savedLastSteakDay;
         pastaRemainingSeconds = Mathf.Max(0f, savedPastaSeconds);
         ApplyPastaSpeed();
+        Debug.Log($"[DeliveryFoodManager] 데이터 복원 완료: 스테이크 최근 구매일 = {lastSteakPurchaseDay}");
     }
 
     private void ApplyPastaSpeed()

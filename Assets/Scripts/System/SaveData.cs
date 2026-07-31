@@ -84,6 +84,7 @@ namespace FXOverdose.Core
 
         // --- 현재 활성 포지션 및 거래 모드 데이터 ---
         public TradingController.TradingMode ActiveTradingMode;
+        public TradingController.AITradingStyle AITradingStyle = TradingController.AITradingStyle.Balanced;
         public bool HasActivePosition;
         public TradingController.PositionType PositionType;
         public TradingController.OwnerType CurrentOwner;

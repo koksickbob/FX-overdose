@@ -121,6 +121,60 @@ namespace FXOverdose.UI
                 color.a = pulse;
                 liveDot.color = color;
             }
+
+            UpdateLiveAssetDisplay();
+        }
+
+        private void UpdateLiveAssetDisplay()
+        {
+            if (bossManager == null || bossManager.CurrentBoss == null) return;
+            if (bossManager.IsBossBankrupt || bankruptAnimationPlayed) return;
+
+            float startingAsset = bossManager.BossStartingAsset;
+            float currentRealizedAsset = bossManager.BossCurrentAsset;
+            
+            bool isHolding = false;
+            float unrealizedPnL = 0f;
+            string posTypeString = "";
+            
+            if (bossManager.CurrentBossAI != null && bossManager.CurrentBossAI.IsHoldingPosition)
+            {
+                isHolding = true;
+                unrealizedPnL = bossManager.CurrentBossAI.CurrentRealTimePnL;
+                posTypeString = bossManager.CurrentBossAI.CurrentPositionType == FXOverdose.Trading.TradingController.PositionType.Long ? "LONG" : "SHORT";
+            }
+
+            float totalCurrentAsset = currentRealizedAsset + unrealizedPnL;
+            float totalReturnRate = startingAsset > 0f
+                ? ((totalCurrentAsset - startingAsset) / startingAsset) * 100f
+                : 0f;
+
+            float remainingRatio = startingAsset > 0f
+                ? Mathf.Clamp01(totalCurrentAsset / startingAsset)
+                : 0f;
+
+            assetValue.text = $"${Mathf.Max(0f, totalCurrentAsset):N0}";
+            returnValue.text = $"{(totalReturnRate >= 0f ? "+" : string.Empty)}{totalReturnRate:F2}%";
+            returnValue.color = totalReturnRate >= 0f ? Green : Red;
+            
+            assetFill.fillAmount = remainingRatio;
+            assetFill.color = remainingRatio > 0.55f ? Gold :
+                remainingRatio > 0.25f ? new Color32(249, 115, 22, 255) : Red;
+
+            if (isHolding)
+            {
+                statusValue.text = $"{posTypeString} POS";
+                statusValue.color = posTypeString == "LONG" ? Green : Red;
+            }
+            else
+            {
+                statusValue.text = "WAITING";
+                statusValue.color = Muted;
+            }
+
+            // 너무 빈번한 텍스트 갱신 렌더링 호출을 방지하기 위해 내용이 바뀔 때만 Refresh하면 좋지만,
+            // 실시간 갱신이므로 Update마다 RefreshTextMeshes를 호출합니다.
+            RefreshTextMeshes();
         }
 
         private void BindManager(BossManager manager)
@@ -271,31 +325,12 @@ namespace FXOverdose.UI
 
             SetVisible(true);
 
-            float returnRate = startingAsset > 0f
-                ? ((currentAsset - startingAsset) / startingAsset) * 100f
-                : 0f;
-            float remainingRatio = startingAsset > 0f
-                ? Mathf.Clamp01(currentAsset / startingAsset)
-                : 0f;
-
-            assetValue.text = $"${Mathf.Max(0f, currentAsset):N0}";
-            returnValue.text = $"{(returnRate >= 0f ? "+" : string.Empty)}{returnRate:F2}%";
-            returnValue.color = returnRate >= 0f ? Green : Red;
-            assetFill.fillAmount = remainingRatio;
-            assetFill.color = remainingRatio > 0.55f ? Gold :
-                remainingRatio > 0.25f ? new Color32(249, 115, 22, 255) : Red;
-
             if (bossManager != null && bossManager.IsBossBankrupt)
             {
                 ShowBankruptState(true);
             }
-            else
-            {
-                statusValue.text = returnRate >= 0f ? "PROFIT" : "DRAWDOWN";
-                statusValue.color = returnRate >= 0f ? Green : Red;
-            }
-
-            RefreshTextMeshes();
+            
+            UpdateLiveAssetDisplay();
         }
 
         private void HandleBossBankrupted()

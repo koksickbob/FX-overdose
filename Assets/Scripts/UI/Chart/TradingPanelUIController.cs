@@ -15,7 +15,8 @@ namespace FXOverdose.UI.Chart
         public enum ControlMode
         {
             Leverage,
-            MarginRatio
+            MarginRatio,
+            AIStyle
         }
 
         [Header("시스템 연결")]
@@ -32,9 +33,17 @@ namespace FXOverdose.UI.Chart
         [Header("조작부 모드 전환 탭 (우측 상단)")]
         [SerializeField] private Button btnTabLeverageMode;   // "LEVERAGE 배율" 탭
         [SerializeField] private Button btnTabMarginRatioMode; // "MARGIN 비율" 탭
+        [SerializeField] private Button btnTabAIStyleMode;     // "AI STYLE 성향" 탭 (신설)
         [SerializeField] private GameObject leverageControlContainer;    // 레버리지 조작부 컨테이너
         [SerializeField] private GameObject marginRatioControlContainer; // 투자비율 조작부 컨테이너
+        [SerializeField] private GameObject aiStyleControlContainer;     // AI 성향 조작부 컨테이너 (신설)
         [SerializeField] private GameObject tabsBarContainer;            // 모드 전환 탭 바 컨테이너
+
+        [Header("AI 성향(AI Style) 설정 (신설)")]
+        [SerializeField] private Button btnPresetSafe;
+        [SerializeField] private Button btnPresetBalanced;
+        [SerializeField] private Button btnPresetAggressive;
+        [SerializeField] private TMP_Text aiStyleDescText; // 선택 시 설명 텍스트
 
         [Header("증거금(Margin Ratio) 설정 [10% 단위 스태퍼 + 프리셋 + 슬라이더 호환]")]
         [SerializeField] private Slider marginPercentageSlider; // 기존 슬라이더 (호환 유지)
@@ -133,6 +142,7 @@ namespace FXOverdose.UI.Chart
                 tradingController.OnPositionOpened += HandlePositionOpened;
                 tradingController.OnPositionClosed += HandlePositionClosed;
                 tradingController.OnTradingModeChanged += (mode) => RefreshPanelUI();
+                tradingController.OnAITradingStyleChanged += OnAITradingStyleChangedCallback;
             }
 
             BuildPositionFx();
@@ -140,6 +150,12 @@ namespace FXOverdose.UI.Chart
             ConfigureDynamicValueText(marginRatioDisplayText, 22f, 12f);
             ConfigureDynamicValueText(marginAmountText, 18f, 10f);
             SetupButtons();
+            
+            if (tradingController != null)
+            {
+                SelectAITradingStyle(tradingController.CurrentAITradingStyle);
+            }
+
             SelectLeverage(currentSelectedLeverage);
             SelectMarginRatio(currentSelectedMarginPercent);
             SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
@@ -209,6 +225,7 @@ namespace FXOverdose.UI.Chart
                 tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
                 tradingController.OnPositionOpened -= HandlePositionOpened;
                 tradingController.OnPositionClosed -= HandlePositionClosed;
+                tradingController.OnAITradingStyleChanged -= OnAITradingStyleChangedCallback;
             }
         }
 
@@ -380,6 +397,12 @@ namespace FXOverdose.UI.Chart
             // 모드 전환 탭 버튼 바인딩
             if (btnTabLeverageMode != null) btnTabLeverageMode.onClick.AddListener(() => SwitchControlMode(ControlMode.Leverage));
             if (btnTabMarginRatioMode != null) btnTabMarginRatioMode.onClick.AddListener(() => SwitchControlMode(ControlMode.MarginRatio));
+            if (btnTabAIStyleMode != null) btnTabAIStyleMode.onClick.AddListener(() => SwitchControlMode(ControlMode.AIStyle));
+
+            // AI 성향 바인딩
+            if (btnPresetSafe != null) btnPresetSafe.onClick.AddListener(() => SelectAITradingStyle(TradingController.AITradingStyle.Safe));
+            if (btnPresetBalanced != null) btnPresetBalanced.onClick.AddListener(() => SelectAITradingStyle(TradingController.AITradingStyle.Balanced));
+            if (btnPresetAggressive != null) btnPresetAggressive.onClick.AddListener(() => SelectAITradingStyle(TradingController.AITradingStyle.Aggressive));
 
             // 레버리지 조작 버튼 바인딩
             if (btnLeverageMinus != null) btnLeverageMinus.onClick.AddListener(() => SelectLeverage(currentSelectedLeverage - 1));
@@ -428,9 +451,41 @@ namespace FXOverdose.UI.Chart
                 marginRatioControlContainer.SetActive(!hasPosition && mode == ControlMode.MarginRatio);
             }
 
+            if (aiStyleControlContainer != null)
+            {
+                aiStyleControlContainer.SetActive(!hasPosition && mode == ControlMode.AIStyle);
+            }
+
             // 탭 버튼 하이라이트 색상 갱신
             UpdatePresetHighlight(btnTabLeverageMode, mode == ControlMode.Leverage);
             UpdatePresetHighlight(btnTabMarginRatioMode, mode == ControlMode.MarginRatio);
+            UpdatePresetHighlight(btnTabAIStyleMode, mode == ControlMode.AIStyle);
+        }
+
+        private void OnAITradingStyleChangedCallback(TradingController.AITradingStyle style)
+        {
+            UpdatePresetHighlight(btnPresetSafe, style == TradingController.AITradingStyle.Safe);
+            UpdatePresetHighlight(btnPresetBalanced, style == TradingController.AITradingStyle.Balanced);
+            UpdatePresetHighlight(btnPresetAggressive, style == TradingController.AITradingStyle.Aggressive);
+
+            if (aiStyleDescText != null)
+            {
+                aiStyleDescText.text = style switch
+                {
+                    TradingController.AITradingStyle.Safe => "안전(Safe): 소액 분산투자. 확실할 때만 진입.",
+                    TradingController.AITradingStyle.Balanced => "균형(Balanced): 파동에 맞춘 유연한 매매. (기본값)",
+                    TradingController.AITradingStyle.Aggressive => "공격(Aggressive): 고배율 풀시드, 손절없이 청산까지 버팀.",
+                    _ => ""
+                };
+            }
+        }
+
+        public void SelectAITradingStyle(TradingController.AITradingStyle style)
+        {
+            if (tradingController != null)
+            {
+                tradingController.SetAITradingStyle(style);
+            }
         }
 
         // 2. 투자 사용 비율 설정 (10% 단위 또는 프리셋)
@@ -599,6 +654,10 @@ namespace FXOverdose.UI.Chart
             if (marginRatioControlContainer != null)
             {
                 marginRatioControlContainer.SetActive(!hasPosition && currentControlMode == ControlMode.MarginRatio);
+            }
+            if (aiStyleControlContainer != null)
+            {
+                aiStyleControlContainer.SetActive(!hasPosition && currentControlMode == ControlMode.AIStyle);
             }
 
             if (hasPosition)

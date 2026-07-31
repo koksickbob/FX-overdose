@@ -59,9 +59,13 @@ namespace FXOverdose.UI.TopBar
             List<float> allPoints = new List<float>();
             if (historicalPoints != null)
             {
-                allPoints.AddRange(historicalPoints);
+                foreach (float pt in historicalPoints)
+                {
+                    allPoints.Add(float.IsNaN(pt) || float.IsInfinity(pt) ? 0f : pt);
+                }
             }
-            allPoints.Add(liveTipValue);
+            float safeLiveTipValue = float.IsNaN(liveTipValue) || float.IsInfinity(liveTipValue) ? 0f : liveTipValue;
+            allPoints.Add(safeLiveTipValue);
 
             if (allPoints.Count < 2)
             {
@@ -93,7 +97,7 @@ namespace FXOverdose.UI.TopBar
             range = maxVal - minVal;
 
             // 3. 색상 결정 (시작점 대비 마지막 실시간 값이 같거나 높으면 양봉 색상)
-            bool isPositive = liveTipValue >= allPoints[0];
+            bool isPositive = safeLiveTipValue >= allPoints[0];
             Color targetColor = isPositive ? positiveColor : negativeColor;
 
             // 4. 기존 활성화 선분 반환
@@ -132,10 +136,12 @@ namespace FXOverdose.UI.TopBar
 
                 // 길이 및 두께
                 float distance = Vector2.Distance(pA, pB);
+                if (float.IsNaN(distance) || float.IsInfinity(distance)) distance = 0f;
                 rect.sizeDelta = new Vector2(distance, lineWidth);
 
                 // 각도 회전
                 float angle = Mathf.Atan2(pB.y - pA.y, pB.x - pA.x) * Mathf.Rad2Deg;
+                if (float.IsNaN(angle) || float.IsInfinity(angle)) angle = 0f;
                 rect.localRotation = Quaternion.Euler(0f, 0f, angle);
 
                 activeSegments.Add(segment);

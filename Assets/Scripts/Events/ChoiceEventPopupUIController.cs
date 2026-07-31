@@ -205,7 +205,7 @@ namespace FXOverdose.Events
                     if (option.OptionType == ChoiceOptionType.SpecialItem && !string.IsNullOrWhiteSpace(option.RequiredItemId))
                     {
                         requirement =
-                            $"\n<size=65%><color=#EAB308>REQUIRED: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
+                            $"\n<size=65%><color=#EAB308>필요 물자: {option.RequiredItemId.ToUpperInvariant()} ×{option.RequiredItemCount}</color></size>";
                     }
 
                     if (option.ForceLeverage > 0)
@@ -215,9 +215,28 @@ namespace FXOverdose.Events
                         requirement += $"\n<size=68%><color=#EF4444>[강제 레버리지: {dynamicLeverage}배 적용]</color></size>";
                     }
 
-                    string unavailable = isAvailable
-                        ? string.Empty
-                        : "\n<size=65%><color=#FF4D4D><b>REQUIRED ITEM MISSING</b></color></size>";
+                    bool isLimitReached = false;
+                    if (option.OptionType == ChoiceOptionType.SpecialItem)
+                    {
+                        var choiceCtrl = UnityEngine.Object.FindAnyObjectByType<ChoiceEventController>();
+                        if (choiceCtrl != null && choiceCtrl.SpecialItemOptionsUsedToday >= 1)
+                        {
+                            isLimitReached = true;
+                        }
+                    }
+
+                    string unavailable = string.Empty;
+                    if (!isAvailable)
+                    {
+                        if (isLimitReached)
+                        {
+                            unavailable = "\n<size=65%><color=#FF4D4D><b>일일 사용 횟수 초과 (1/1)</b></color></size>";
+                        }
+                        else
+                        {
+                            unavailable = "\n<size=65%><color=#FF4D4D><b>필요 물자 부족</b></color></size>";
+                        }
+                    }
 
                     string safeTitle = option.OptionTitle;
                     if (!string.IsNullOrEmpty(safeTitle))
@@ -1120,6 +1139,12 @@ namespace FXOverdose.Events
             if (option.OptionType != ChoiceOptionType.SpecialItem || string.IsNullOrWhiteSpace(option.RequiredItemId))
             {
                 return true;
+            }
+
+            var choiceCtrl = UnityEngine.Object.FindAnyObjectByType<ChoiceEventController>();
+            if (choiceCtrl != null && choiceCtrl.SpecialItemOptionsUsedToday >= 1)
+            {
+                return false;
             }
 
             return traderStatus != null && traderStatus.HasItem(option.RequiredItemId, option.RequiredItemCount);

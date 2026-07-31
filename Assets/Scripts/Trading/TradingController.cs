@@ -36,10 +36,22 @@ namespace FXOverdose.Trading
             Player_Manual
         }
 
+        public enum AITradingStyle
+        {
+            Safe,
+            Balanced,
+            Aggressive
+        }
+
         [Header("매매 조작 모드 설정")]
         [SerializeField] private TradingMode activeTradingMode = TradingMode.AI_Auto;
         public TradingMode ActiveTradingMode => activeTradingMode;
         public event Action<TradingMode> OnTradingModeChanged;
+
+        [Header("AI 성향 설정")]
+        [SerializeField] private AITradingStyle currentAITradingStyle = AITradingStyle.Balanced;
+        public AITradingStyle CurrentAITradingStyle => currentAITradingStyle;
+        public event Action<AITradingStyle> OnAITradingStyleChanged;
 
         /// <summary>챌린지 모드는 AI 자동매매를 허용하지 않습니다.</summary>
         public bool IsAITradingLockedByGameMode =>
@@ -145,6 +157,14 @@ namespace FXOverdose.Trading
                     OutputSpecificEventDialogue("ToggleManualAuto");
                 }
             }
+        }
+
+        public void SetAITradingStyle(AITradingStyle style)
+        {
+            if (currentAITradingStyle == style) return;
+            currentAITradingStyle = style;
+            Debug.Log($"[TradingController ⚙️] AI 매매 성향 전환: {style}");
+            OnAITradingStyleChanged?.Invoke(style);
         }
 
         public void ToggleTradingMode()

@@ -131,6 +131,7 @@ namespace FXOverdose.Core
             if (trading != null)
             {
                 data.ActiveTradingMode = trading.ActiveTradingMode;
+                data.AITradingStyle = trading.CurrentAITradingStyle;
                 if (trading.CurrentPosition != TradingController.PositionType.None)
                 {
                     data.HasActivePosition = true;
@@ -395,6 +396,7 @@ namespace FXOverdose.Core
             if (trading != null)
             {
                 trading.SetTradingMode(CurrentData.ActiveTradingMode, forceRestore: true);
+                trading.SetAITradingStyle(CurrentData.AITradingStyle);
                 if (CurrentData.HasActivePosition)
                 {
                     trading.RestorePosition(CurrentData);

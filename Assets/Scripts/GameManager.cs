@@ -356,8 +356,16 @@ public class GameManager : MonoBehaviour
             }
 
             SyncBossForCurrentDay();
-            currentState = GameState.Playing;
-            Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+            var bossManager = FXOverdose.Core.BossManager.Instance;
+            if (bossManager != null && bossManager.HasBossToday(currentDay) && bossManager.CurrentBoss != null)
+            {
+                StartCoroutine(WaitBossEntranceAndStartPlaying());
+            }
+            else
+            {
+                currentState = GameState.Playing;
+                Debug.Log("[GameManager] 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+            }
             
             // 💡 [자동저장 개선] 24:00 마감 직후에 저장된 데이터를 로드한 경우, 즉시 일일 정산 프로세스로 진입합니다.
             if (IsGameLoaded && currentHour >= 24)
@@ -766,8 +774,23 @@ public class GameManager : MonoBehaviour
         StartCoroutine(PlayStoryMonologueAndWait(bossIntro, () => {
             // 보스 스폰을 이 시점으로 지연시킴 (보스 등장 연출 UI 트리거)
             bossManager.SpawnBossForDay(currentDay, StartOfDayEquity);
-            currentState = GameState.Playing;
+            
+            // 보스 등장 연출 애니메이션(약 2초) 동안 시장이 멈춰있도록 대기 후 게임 재개
+            StartCoroutine(WaitBossEntranceAndPlay());
         }));
+    }
+
+    private System.Collections.IEnumerator WaitBossEntranceAndStartPlaying()
+    {
+        yield return new UnityEngine.WaitForSecondsRealtime(2.1f);
+        currentState = GameState.Playing;
+        Debug.Log("[GameManager] 보스 등장 연출 종료. 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
+    }
+
+    private System.Collections.IEnumerator WaitBossEntranceAndPlay()
+    {
+        yield return new UnityEngine.WaitForSecondsRealtime(2.1f);
+        ResumeGame(); // ResumeGame을 호출하여 혹시 남아있는 FastForward(고속 진행)도 처리
     }
 
     // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출
