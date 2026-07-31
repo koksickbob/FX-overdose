@@ -267,7 +267,11 @@ public class GameManager : MonoBehaviour
         if (!float.IsFinite(currentEquity) || currentEquity <= 0f)
             currentEquity = StartOfDayEquity > 0f ? StartOfDayEquity : startingBalance;
 
-        bossManager.SpawnBossForDay(currentDay, currentEquity);
+        // 구버전 세이브 등에서 데이터가 복구되지 않았을 때를 대비한 안전망으로, 
+        // 무조건 아침 9시(조우 시점)의 자산을 우선 기준값으로 사용하도록 보정합니다.
+        float encounterEquity = StartOfDayEquity > 0f ? StartOfDayEquity : currentEquity;
+
+        bossManager.SpawnBossForDay(currentDay, encounterEquity);
     }
 
     private System.Collections.Generic.List<string> day1Monologue = new System.Collections.Generic.List<string> {
@@ -434,16 +438,68 @@ public class GameManager : MonoBehaviour
                 Debug.Log("[GameManager] 24:00 마감 시간 도달. 당일 정산을 위해 열려 있는 포지션을 강제로 종료 및 수익/손실 확정.");
             }
 
+            if (currentState == GameState.GameOver)
+            {
+                Debug.Log("[GameManager] 마감 강제 청산으로 인해 게임오버 발생. 일일 정산 및 저장을 중단합니다.");
+                return;
+            }
+
+            // 곧 적용될 페널티와 정기 지출을 계산하여 파산 예정인지 미리 확인 (게임 오버 루프 방지)
+            float expectedPenalty = 0f;
+            if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
+            {
+                var evt = storyEvents.Find(e => e.triggerDay == currentDay);
+                if (currentDay != 16 && evt != null && evt.isPenalty && evt.penaltyAmount > 0)
+                {
+                    expectedPenalty = evt.penaltyAmount;
+                }
+            }
+
+            float expectedDeduction = CalculateExpectedDeduction(currentDay, out string _);
+            
+            var status = TraderStatus.CanonicalInstance;
+            float totalEquity = status != null ? status.GetTotalEquity() : currentBalance;
+            float projectedEquity = totalEquity - expectedDeduction - expectedPenalty;
+            float projectedBalance = currentBalance - expectedDeduction - expectedPenalty;
+
+            bool willGameOver = projectedEquity <= 0f && projectedBalance <= 0f;
+
             // 💡 [자동저장 개선] 일일 정산 모드 진입 직전(24:00 마감)에 당일의 최종 상태를 자동 저장합니다.
             // 플레이어가 정산 화면을 보고 게임을 끄더라도 당일 진행 상황을 잃지 않게 됩니다.
-            if (FXOverdose.Core.SaveLoadManager.Instance != null)
+            // 단, 정산 후 파산이 확정된 상태라면 저장하지 않아 아침 9시 시점부터 다시 시작할 수 있게 합니다.
+            if (!willGameOver && FXOverdose.Core.SaveLoadManager.Instance != null)
             {
                 bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
                 if (saved) Debug.Log("[GameManager] 24:00 마감 직전(일일 정산 진입 전) 자동 저장 완료.");
             }
+            else if (willGameOver)
+            {
+                Debug.Log("[GameManager] 정기 지출/페널티 적용 후 파산이 확정되어 자동 저장을 생략합니다.");
+            }
 
             ProcessDailySettlementWithStory();
         }
+    }
+
+    private float CalculateExpectedDeduction(int day, out string deductionReason)
+    {
+        float deduction = 0f;
+        deductionReason = "";
+
+        if (day == 3) { deduction = 5000f; deductionReason = "트레이딩 플랫폼 프리미엄 구독료"; }
+        else if (day == 7) { deduction = 12000f; deductionReason = "불법 거래소 단속 회피를 위한 로비 자금"; }
+        else if (day == 11) { deduction = 20000f; deductionReason = "의문의 해킹 공격 복구 비용"; }
+        else if (day == 15) { deduction = 60000f; deductionReason = "최종 결전을 앞둔 장비 오버클럭 세팅비"; }
+        else if (day == 18) { deduction = 150000f; deductionReason = "작전 세력에게 지불할 정보 수수료"; }
+        else if (day >= 21 && (day - 21) % 3 == 0)
+        {
+            // Endless 모드: 21일부터 3일마다 1.3배씩 증가 (18일차 금액인 150,000 기준)
+            int cycles = (day - 21) / 3 + 1;
+            deduction = 150000f * Mathf.Pow(1.3f, cycles);
+            deductionReason = "시스템 유지보수 비용 지속 청구";
+        }
+        
+        return deduction;
     }
 
     private void ProcessDailySettlementWithStory()
@@ -474,21 +530,7 @@ public class GameManager : MonoBehaviour
         }
 
         // 💡 [새 기능] 특정 일차 정기 지출 시스템 (인플레이션형)
-        float deduction = 0f;
-        string deductionReason = "";
-
-        if (currentDay == 3) { deduction = 5000f; deductionReason = "트레이딩 플랫폼 프리미엄 구독료"; }
-        else if (currentDay == 7) { deduction = 12000f; deductionReason = "불법 거래소 단속 회피를 위한 로비 자금"; }
-        else if (currentDay == 11) { deduction = 20000f; deductionReason = "의문의 해킹 공격 복구 비용"; }
-        else if (currentDay == 15) { deduction = 60000f; deductionReason = "최종 결전을 앞둔 장비 오버클럭 세팅비"; }
-        else if (currentDay == 18) { deduction = 150000f; deductionReason = "작전 세력에게 지불할 정보 수수료"; }
-        else if (currentDay >= 21 && (currentDay - 21) % 3 == 0)
-        {
-            // Endless 모드: 21일부터 3일마다 1.3배씩 증가 (18일차 금액인 150,000 기준)
-            int cycles = (currentDay - 21) / 3 + 1;
-            deduction = 150000f * Mathf.Pow(1.3f, cycles);
-            deductionReason = "시스템 유지보수 비용 지속 청구";
-        }
+        float deduction = CalculateExpectedDeduction(currentDay, out string deductionReason);
 
         TodayRegularDeduction = deduction;
         TodayRegularDeductionReason = deductionReason;

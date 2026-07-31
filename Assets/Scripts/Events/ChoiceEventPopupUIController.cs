@@ -151,8 +151,24 @@ namespace FXOverdose.Events
 
             HideToast();
 
+            RefreshOptionStates();
+
+            if (popupPanel == null)
+            {
+                return;
+            }
+
+            popupPanel.SetActive(false);
+            if (breakingNewsCoroutine != null) StopCoroutine(breakingNewsCoroutine);
+            breakingNewsCoroutine = StartCoroutine(ShowBreakingNewsThenArticle(category));
+        }
+
+        private void RefreshOptionStates()
+        {
+            if (currentEvent == null) return;
+            
             TraderStatus traderStatus = TraderStatus.CanonicalInstance;
-            ChoiceOptionData[] options = eventData.Options ?? Array.Empty<ChoiceOptionData>();
+            ChoiceOptionData[] options = currentEvent.Options ?? Array.Empty<ChoiceOptionData>();
 
             for (int i = 0; i < OptionCount; i++)
             {
@@ -210,13 +226,13 @@ namespace FXOverdose.Events
                     }
 
                     string safeDesc = option.Description;
-                    if (!string.IsNullOrEmpty(safeDesc) && (safeDesc.Contains("%") || safeDesc.Contains("멘탈") || safeDesc.Contains("체력") || safeDesc.Contains("배 ")))
-                    {
-                        safeDesc = string.Empty;
-                    }
-                    else if (!string.IsNullOrWhiteSpace(safeDesc))
+                    if (!string.IsNullOrWhiteSpace(safeDesc))
                     {
                         safeDesc = $"\n<size=100%><color=#CBD5E1>{safeDesc}</color></size>";
+                    }
+                    else
+                    {
+                        safeDesc = string.Empty;
                     }
 
                     optionTexts[i].text =
@@ -225,15 +241,6 @@ namespace FXOverdose.Events
                         safeDesc + requirement + unavailable;
                 }
             }
-
-            if (popupPanel == null)
-            {
-                return;
-            }
-
-            popupPanel.SetActive(false);
-            if (breakingNewsCoroutine != null) StopCoroutine(breakingNewsCoroutine);
-            breakingNewsCoroutine = StartCoroutine(ShowBreakingNewsThenArticle(category));
         }
 
         public void Hide()
@@ -356,6 +363,7 @@ namespace FXOverdose.Events
             popupPanel.SetActive(true);
             popupPanel.transform.SetAsLastSibling();
             EnsureOverlayPriority();
+            RefreshOptionStates(); // 💡 창 복구 시 상점에서 아이템 구매를 반영하여 옵션 상태를 최신화
             Canvas.ForceUpdateCanvases();
             RefreshArticleLayout();
         }

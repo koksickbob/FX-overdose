@@ -222,6 +222,7 @@ namespace FXOverdose.Trading
             targetPrice = 0f;
             stopLossPrice = 0f;
             isEventTradeActive = false;
+            eventProtectionEndTime = -1f;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
             eventTargetROELimit = 0f;
             eventStopLossROELimit = 0f;
@@ -283,7 +284,7 @@ namespace FXOverdose.Trading
         private float lastROEDialogueTime = 0f;
         private float eventPositionOpenedTime = -1f;
         private float eventProtectionEndTime = -1f;
-        public bool IsEventProtected => Time.time < eventProtectionEndTime;
+        public bool IsEventProtected => isEventTradeActive && Time.time < eventProtectionEndTime;
         public bool IsEventPlayerChoice => isEventPlayerChoice;
         public bool IsEventTrueSignal => isEventTrueSignal;
 
@@ -600,6 +601,7 @@ namespace FXOverdose.Trading
             eventTargetROELimit = 0f;
             eventStopLossROELimit = 0f;
             maxObservedEventROE = 0f;
+            eventProtectionEndTime = -1f;
         }
 
         private void HandlePriceUpdated(float price)
@@ -1098,6 +1100,7 @@ namespace FXOverdose.Trading
             // 포지션 정리 뒤 총자산을 다시 계산해 반환금이 없는 종료도 엔딩 판정에서 누락되지 않게 합니다.
             gameManager?.EvaluateEndingConditions();
             isEventTradeActive = false;
+            eventProtectionEndTime = -1f;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
             eventTargetROELimit = 0f;
             eventStopLossROELimit = 0f;
@@ -1227,6 +1230,7 @@ namespace FXOverdose.Trading
             // 증거금이 완전히 소멸한 뒤 총자산을 재평가해야 일반 올인 청산도 Bankruptcy로 연결됩니다.
             gameManager?.EvaluateEndingConditions();
             isEventTradeActive = false;
+            eventProtectionEndTime = -1f;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
             eventTargetROELimit = 0f;
             eventStopLossROELimit = 0f;

@@ -158,6 +158,13 @@ namespace FXOverdose.Core
             data.LastSteakPurchaseDay = deliveryFood.LastSteakPurchaseDay;
             data.PastaBuffRemainingSeconds = deliveryFood.PastaRemainingSeconds;
 
+            var bossManager = FXOverdose.Core.BossManager.Instance;
+            if (bossManager != null && bossManager.CurrentBoss != null)
+            {
+                data.SavedBossStartingAsset = bossManager.BossStartingAsset;
+                data.SavedBossCurrentAsset = bossManager.BossCurrentAsset;
+            }
+
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
             // SaveLoadManager에서 직접 데이터를 얻거나 GameManager처럼 public Getter가 있으면 좋음.
@@ -396,6 +403,13 @@ namespace FXOverdose.Core
 
             marketEngine?.RestoreFromSaveData(CurrentData);
             deliveryFood.Restore(CurrentData.LastSteakPurchaseDay, CurrentData.PastaBuffRemainingSeconds);
+
+            var bossManager = FXOverdose.Core.BossManager.Instance;
+            if (bossManager != null)
+            {
+                bossManager.LoadedBossStartingAsset = CurrentData.SavedBossStartingAsset;
+                bossManager.LoadedBossCurrentAsset = CurrentData.SavedBossCurrentAsset;
+            }
 
             IsPendingLoad = false;
             CurrentData = null;

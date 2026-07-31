@@ -83,6 +83,9 @@ namespace FXOverdose.Core
         public float BossStartingAsset { get; private set; }
         public float BossCurrentAsset { get; private set; }
         public bool IsBossBankrupt { get; private set; }
+
+        public float LoadedBossStartingAsset { get; set; } = -1f;
+        public float LoadedBossCurrentAsset { get; set; } = -1f;
         
         private GameObject activeBossObject;
 
@@ -136,9 +139,22 @@ namespace FXOverdose.Core
             if (CurrentBoss != null)
             {
                 FXOverdose.UI.BossBattleUIBootstrap.EnsureInstalled(gameObject.scene);
-                BossStartingAsset = playerCurrentAssets * CurrentBoss.AssetScalePercentage;
-                BossCurrentAsset = BossStartingAsset;
-                IsBossBankrupt = false;
+                
+                if (LoadedBossStartingAsset > 0f)
+                {
+                    BossStartingAsset = LoadedBossStartingAsset;
+                    BossCurrentAsset = LoadedBossCurrentAsset > 0f ? LoadedBossCurrentAsset : BossStartingAsset;
+                    LoadedBossStartingAsset = -1f;
+                    LoadedBossCurrentAsset = -1f;
+                    Debug.Log($"[BossManager] 세이브 데이터에서 보스 에셋 복원: {BossStartingAsset:N0} (현재: {BossCurrentAsset:N0})");
+                }
+                else
+                {
+                    BossStartingAsset = playerCurrentAssets * CurrentBoss.AssetScalePercentage;
+                    BossCurrentAsset = BossStartingAsset;
+                }
+                
+                IsBossBankrupt = BossCurrentAsset <= 0f;
                 Debug.Log(
                     $"[BossManager] {day}일차 보스 '{CurrentBoss.Name}' 등장! " +
                     $"초기 자산: {BossStartingAsset:N0} / 소속 씬: {gameObject.scene.name}");

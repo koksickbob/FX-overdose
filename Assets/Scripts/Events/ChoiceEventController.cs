@@ -37,6 +37,7 @@ namespace FXOverdose.Events
         private bool isFetchingLLM = false;
         private long lastEventTriggerGameMinutes = -999999L;
         private int eventsTriggeredToday = 0;
+        private int lowMentalEventsTriggeredToday = 0;
         private float lastMentalTriggerTime = -999f;
         private float lastEventTriggerRealTime = -999f;
 
@@ -96,6 +97,7 @@ namespace FXOverdose.Events
             
             lastTriggerDay = day;
             eventsTriggeredToday = 0;
+            lowMentalEventsTriggeredToday = 0;
 
             // 오전 10시(600분) 이후 첫 이벤트 랜덤 발생 스케줄링
             int minStartMinute = Mathf.Max(10 * 60, currentDayMinutes);
@@ -224,8 +226,8 @@ namespace FXOverdose.Events
                 return;
             }
 
-            // 4. AI 트레이더 멘탈 위기(LowMental) 비상 트리거 판정
-            if (traderStatus != null && traderStatus.MentalRatio <= 0.15f)
+            // 4. AI 트레이더 멘탈 위기(LowMental) 비상 트리거 판정 (하루 최대 1회 제한 적용)
+            if (lowMentalEventsTriggeredToday < 1 && traderStatus != null && traderStatus.MentalRatio <= 0.15f)
             {
                 if (gameManager != null && gameManager.IsFastForwardingTime)
                 {
@@ -241,6 +243,7 @@ namespace FXOverdose.Events
                     {
                         ScheduleNextRandomTrigger(currentDayMinutes);
                     }
+                    lowMentalEventsTriggeredToday++;
                     TriggerRandomEvent(EventTriggerCondition.LowMental);
                 }
             }

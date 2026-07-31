@@ -102,8 +102,11 @@ namespace FXOverdose.Core
         public List<string> ActiveItemIds = new List<string>();
         public List<int> ActiveItemLevels = new List<int>();
 
-        // --- 배달 음식 데이터 ---
         public int LastSteakPurchaseDay = -999;
         public float PastaBuffRemainingSeconds = 0f;
+
+        // --- 보스 데이터 ---
+        public float SavedBossStartingAsset = -1f;
+        public float SavedBossCurrentAsset = -1f;
     }
 }
