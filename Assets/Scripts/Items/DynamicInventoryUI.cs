@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>인벤토리를 네 칸 단위의 가로 페이지로 표시합니다.</summary>
@@ -891,6 +892,14 @@ public class ItemTooltipController : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        if (panelRect == null || !panelRect.gameObject.activeSelf) return;
+        Pointer pointer = Pointer.current;
+        if (pointer != null) pointerPosition = pointer.position.ReadValue();
+        UpdatePosition();
+    }
+
     private void RefreshText()
     {
         if (currentItem == null || label == null) return;
@@ -941,7 +950,8 @@ public class ItemTooltipController : MonoBehaviour
     private void UpdatePosition()
     {
         if (canvasRect == null || panelRect == null) return;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, pointerPosition, null, out Vector2 local);
+        Canvas.ForceUpdateCanvases();
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, pointerPosition, null, out Vector2 local)) return;
         Vector2 offset = new(18f, -18f);
         Vector2 position = local + offset;
         float left = -canvasRect.rect.width * 0.5f + 8f;

@@ -161,6 +161,8 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - 마우스 툴팁은 인벤토리의 소비 아이템 슬롯에만 연결했다.
 - 툴팁에는 아이템명, 기본 설명과 체력·멘탈 회복량, 파스타의 시간 배율 등 실제 사용 효과를 표시한다.
 - 툴팁은 커서를 따라 움직이되 화면 경계를 벗어나지 않고, 별도 Canvas 정렬 순서 190으로 게임 HUD 위에 표시된다.
+- 서로 다른 해상도·Windows DPI·Canvas 배율에서도 위치가 어긋나지 않도록 툴팁과 전역 커서 연출 모두 화면 픽셀 좌표를 실제 Overlay Canvas 로컬 좌표로 변환한다.
+- 툴팁은 포인터 이벤트 발생 시점뿐 아니라 `LateUpdate`에서도 현재 Input System 포인터 좌표를 다시 읽어 커서 위치를 정확히 추적한다.
 - 적용 중인 액티브 아이템과 음식 효과가 모두 없으면 HUD를 자동으로 숨긴다.
 - 런타임 멱등 생성 방식으로 구성하여 구버전 `GameScene`의 Inspector 재할당 없이도 표시된다.
 - 상점에서 액티브 장비와 파스타 효과 HUD를 빠르게 검수할 수 있도록 새 게임 초기 자산을 임시로 `$10,000,000`으로 설정했다.
@@ -169,6 +171,19 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 
 - `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
 - `Assets/Scripts/Items/ActiveItemEffectManager.cs`
+
+## 2026-08-01 — 상단 PnL 수치·그래프 카드 분리
+
+- 기존 `PnLCard` 안에 함께 있던 수익률 텍스트와 `SparklineContainer`를 두 개의 독립 카드로 분리했다.
+- PnL 수치 카드에는 `P&L` 라벨과 실시간 수익률 `%` 숫자만 표시하고 달러 손익과 보조 태그는 숨겼다.
+- `P&L` 라벨은 BALANCE 라벨처럼 좌측 정렬하고 수익률 숫자는 카드 중앙에 독립 정렬했다.
+- 큰 수익률 값에는 TMP 자동 축소·말줄임과 카드 `RectMask2D`를 적용해 UI 테두리 밖으로 넘치지 않도록 했다.
+- 새 `PnLGraphCard`에는 기존 스파크라인만 이동시켜 카드 전체 영역에 색상 선 그래프를 표시한다.
+- 기존 씬 구조도 `TopStatusBarUIController`가 실행 시 멱등 변환하므로 별도의 Inspector 재연결 없이 동일한 데이터와 색상 갱신을 유지한다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/TopBar/TopStatusBarUIController.cs`
 - `Assets/Scripts/Items/InventoryItemButton.cs`
 - `Assets/Editor/ItemButtonsUIBuilder.cs`
 - `Assets/Scripts/Items/ItemUser.cs`

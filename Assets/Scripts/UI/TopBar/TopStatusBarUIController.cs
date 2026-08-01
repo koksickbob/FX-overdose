@@ -294,16 +294,19 @@ namespace FXOverdose.UI.TopBar
             Transform dayCard = FindDescendant(transform, "DayTimeCard");
             Transform balanceCard = FindDescendant(transform, "BalanceCard");
             Transform pnlCard = FindDescendant(transform, "PnLCard");
+            Transform pnlGraphCard = SeparatePnLCard(pnlCard);
             Transform vitalsPanel = FindDescendant(transform, "VitalsPanel");
 
             NormalizeCardHeight(dayCard);
             NormalizeCardHeight(balanceCard);
             NormalizeCardHeight(pnlCard);
+            NormalizeCardHeight(pnlGraphCard);
             NormalizeCardHeight(vitalsPanel);
 
             StyleCard(dayCard, CyanAccent);
             StyleCard(balanceCard, GoldAccent);
             StyleCard(pnlCard, bearishColor);
+            StyleCard(pnlGraphCard, bearishColor);
             StyleCard(vitalsPanel, new Color32(168, 85, 247, 255));
 
             // TMP 텍스트 스타일 처리와 무관하게 손익 그래프는 먼저 가시성을 확보합니다.
@@ -316,11 +319,11 @@ namespace FXOverdose.UI.TopBar
                 RectTransform sparklineRect = sparklineRenderer.GetComponent<RectTransform>();
                 if (sparklineRect != null)
                 {
-                    sparklineRect.anchorMin = new Vector2(1f, 0.5f);
-                    sparklineRect.anchorMax = new Vector2(1f, 0.5f);
-                    sparklineRect.pivot = new Vector2(1f, 0.5f);
-                    sparklineRect.anchoredPosition = new Vector2(-10f, 0f);
-                    sparklineRect.sizeDelta = new Vector2(160f, 64f);
+                    sparklineRect.anchorMin = Vector2.zero;
+                    sparklineRect.anchorMax = Vector2.one;
+                    sparklineRect.pivot = new Vector2(0.5f, 0.5f);
+                    sparklineRect.offsetMin = new Vector2(14f, 14f);
+                    sparklineRect.offsetMax = new Vector2(-14f, -14f);
                 }
 
                 sparklineRenderer.transform.SetAsLastSibling();
@@ -348,7 +351,6 @@ namespace FXOverdose.UI.TopBar
             if (balanceCard != null) AddCornerTag(balanceCard, "AVAILABLE EQUITY", GoldAccent);
             if (pnlCard != null)
             {
-                AddCornerTag(pnlCard, "SESSION RETURN", CyanAccent);
                 pnlAccent = FindDescendant(pnlCard, "CardAccent")?.GetComponent<Image>();
                 if (pnlAccent != null)
                 {
@@ -362,6 +364,85 @@ namespace FXOverdose.UI.TopBar
 
             StyleVitals(vitalsPanel);
             StyleSettingsButton(vitalsPanel);
+        }
+
+        private Transform SeparatePnLCard(Transform pnlCard)
+        {
+            if (pnlCard == null || pnlCard.parent == null) return null;
+            Transform graphCard = pnlCard.parent.Find("PnLGraphCard");
+            if (graphCard == null)
+            {
+                GameObject graphObject = new("PnLGraphCard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+                graphObject.transform.SetParent(pnlCard.parent, false);
+                graphCard = graphObject.transform;
+            }
+            graphCard.SetSiblingIndex(pnlCard.GetSiblingIndex() + 1);
+
+            LayoutElement numberSize = pnlCard.GetComponent<LayoutElement>();
+            if (numberSize == null) numberSize = pnlCard.gameObject.AddComponent<LayoutElement>();
+            numberSize.minWidth = 176f;
+            numberSize.preferredWidth = 176f;
+            LayoutElement graphSize = graphCard.GetComponent<LayoutElement>();
+            if (graphSize == null) graphSize = graphCard.gameObject.AddComponent<LayoutElement>();
+            graphSize.minWidth = 208f;
+            graphSize.preferredWidth = 208f;
+
+            Transform sparkline = FindDescendant(pnlCard, "SparklineContainer");
+            if (sparkline != null) sparkline.SetParent(graphCard, false);
+
+            HorizontalLayoutGroup pnlLayout = pnlCard.GetComponent<HorizontalLayoutGroup>();
+            if (pnlLayout != null)
+            {
+                pnlLayout.padding = new RectOffset(16, 16, 12, 12);
+                pnlLayout.childAlignment = TextAnchor.MiddleCenter;
+                pnlLayout.childControlWidth = true;
+                pnlLayout.childControlHeight = true;
+                pnlLayout.childForceExpandWidth = true;
+                pnlLayout.childForceExpandHeight = true;
+            }
+
+            Transform textGroup = FindDescendant(pnlCard, "PnLTextGroup");
+            if (textGroup != null)
+            {
+                VerticalLayoutGroup textLayout = textGroup.GetComponent<VerticalLayoutGroup>();
+                if (textLayout != null)
+                {
+                    textLayout.childAlignment = TextAnchor.MiddleCenter;
+                    textLayout.childControlWidth = true;
+                    textLayout.childForceExpandWidth = true;
+                }
+                LayoutElement textSize = textGroup.GetComponent<LayoutElement>();
+                if (textSize == null) textSize = textGroup.gameObject.AddComponent<LayoutElement>();
+                textSize.flexibleWidth = 1f;
+            }
+
+            Transform title = FindDescendant(pnlCard, "PnLTitle");
+            if (title != null)
+            {
+                title.gameObject.SetActive(true);
+                TMP_Text titleText = title.GetComponent<TMP_Text>();
+                if (titleText != null)
+                {
+                    titleText.text = "P&L";
+                    titleText.alignment = TextAlignmentOptions.Left;
+                }
+            }
+            if (pnlAmountLabel != null) pnlAmountLabel.gameObject.SetActive(false);
+            Transform tag = pnlCard.Find("TelemetryTag");
+            if (tag != null) tag.gameObject.SetActive(false);
+            if (pnlPercentageLabel != null)
+            {
+                pnlPercentageLabel.alignment = TextAlignmentOptions.Center;
+                pnlPercentageLabel.fontSize = 30f;
+                pnlPercentageLabel.enableAutoSizing = true;
+                pnlPercentageLabel.fontSizeMin = 13f;
+                pnlPercentageLabel.fontSizeMax = 30f;
+                pnlPercentageLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                pnlPercentageLabel.overflowMode = TextOverflowModes.Ellipsis;
+                pnlPercentageLabel.margin = new Vector4(4f, 0f, 4f, 0f);
+            }
+            if (pnlCard.GetComponent<RectMask2D>() == null) pnlCard.gameObject.AddComponent<RectMask2D>();
+            return graphCard;
         }
 
         private void StyleNamedLabel(string objectName, string value)

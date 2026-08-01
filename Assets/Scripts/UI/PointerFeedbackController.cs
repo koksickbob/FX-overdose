@@ -21,6 +21,7 @@ namespace FXOverdose.UI
         private static PointerFeedbackController instance;
 
         private readonly List<FxParticle> particles = new(PoolSize);
+        private Canvas effectCanvas;
         private RectTransform effectRoot;
         private Sprite diamondSprite;
         private Sprite ringSprite;
@@ -142,6 +143,7 @@ namespace FXOverdose.UI
             GameObject canvasObject = new("PointerFeedbackCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
+            effectCanvas = canvas;
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;
             canvas.sortingOrder = OverlaySortingOrder;
@@ -167,8 +169,9 @@ namespace FXOverdose.UI
                 GameObject particleObject = new($"PointerFx_{i:00}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 particleObject.transform.SetParent(effectRoot, false);
                 RectTransform rect = particleObject.GetComponent<RectTransform>();
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.zero;
+                // ScreenPointToLocalPointInRectangle가 반환하는 effectRoot 피벗 기준 좌표와 일치시킵니다.
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 Image image = particleObject.GetComponent<Image>();
                 image.raycastTarget = false;
@@ -210,21 +213,24 @@ namespace FXOverdose.UI
 
         private void SpawnTrail(Vector2 position, Vector2 previousPosition, bool mobile)
         {
-            Vector2 direction = position - previousPosition;
+            Vector2 localPosition = ScreenToEffectLocal(position);
+            Vector2 localPreviousPosition = ScreenToEffectLocal(previousPosition);
+            Vector2 direction = localPosition - localPreviousPosition;
             float speed = direction.magnitude / Mathf.Max(Time.unscaledDeltaTime, 0.001f);
             float size = Mathf.Clamp((mobile ? 13f : 9f) + speed * 0.0025f, mobile ? 13f : 9f, mobile ? 25f : 18f);
             Color color = colorSequence++ % 3 == 2 ? Magenta : (colorSequence % 2 == 0 ? LightCyan : Cyan);
             color.a = mobile ? 0.72f : 0.58f;
 
             FxParticle particle = AcquireParticle();
-            particle.Play(diamondSprite, position, Vector2.zero, size, size * 0.25f,
+            particle.Play(diamondSprite, localPosition, Vector2.zero, size, size * 0.25f,
                 mobile ? 0.32f : 0.24f, color, Random.Range(-20f, 20f));
         }
 
         private void SpawnClickBurst(Vector2 position)
         {
+            Vector2 localPosition = ScreenToEffectLocal(position);
             FxParticle ring = AcquireParticle();
-            ring.Play(ringSprite, position, Vector2.zero, 22f, 78f, 0.38f, LightCyan, 0f);
+            ring.Play(ringSprite, localPosition, Vector2.zero, 22f, 78f, 0.38f, LightCyan, 0f);
 
             const int shardCount = 10;
             for (int i = 0; i < shardCount; i++)
@@ -233,9 +239,21 @@ namespace FXOverdose.UI
                 Vector2 direction = new(Mathf.Cos(angle), Mathf.Sin(angle));
                 Color color = i % 2 == 0 ? Cyan : Magenta;
                 FxParticle shard = AcquireParticle();
-                shard.Play(diamondSprite, position + direction * 10f, direction * Random.Range(95f, 150f),
+                shard.Play(diamondSprite, localPosition + direction * 10f, direction * Random.Range(95f, 150f),
                     i % 3 == 0 ? 13f : 9f, 2f, Random.Range(0.28f, 0.42f), color, i * 18f);
             }
+        }
+
+        private Vector2 ScreenToEffectLocal(Vector2 screenPosition)
+        {
+            if (effectRoot == null) return screenPosition;
+            Camera eventCamera = effectCanvas != null && effectCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? effectCanvas.worldCamera
+                : null;
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                effectRoot, screenPosition, eventCamera, out Vector2 localPosition)
+                ? localPosition
+                : screenPosition;
         }
 
         private FxParticle AcquireParticle()
