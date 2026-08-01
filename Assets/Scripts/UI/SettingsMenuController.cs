@@ -94,9 +94,7 @@ public class SettingsMenuController : MonoBehaviour
         if (floatingModeButton != null)
         {
             floatingModeButton.interactable = !isChallenge;
-            bool hasPosition = controller != null && controller.CurrentPosition != FXOverdose.Trading.TradingController.PositionType.None;
-            bool isAutoTrading = isAuto && hasPosition;
-            floatingModeButton.gameObject.SetActive(!isAutoTrading);
+            floatingModeButton.gameObject.SetActive(true);
         }
 
         if (saveMenuButton != null)

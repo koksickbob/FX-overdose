@@ -20,6 +20,7 @@ namespace FXOverdose.UI
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
         [SerializeField] private GameObject tutorialPromptPanel;
+        [SerializeField] private GameObject overwritePromptPanel;
         [SerializeField] private AchievementUIController achievementUI;
 
         private bool allowCreatingStorySlot;
@@ -173,6 +174,7 @@ namespace FXOverdose.UI
             BindLoadPanelControls();
             BindSettingsPanelControls();
             BindTutorialPromptControls();
+            BindOverwritePromptControls();
         }
 
         private void EnsureGameModePanel()
@@ -188,6 +190,11 @@ namespace FXOverdose.UI
             if (tutorialPromptPanel == null)
             {
                 tutorialPromptPanel = TitleScreenBuilder.EnsureTutorialPromptPanel(canvas.transform);
+            }
+
+            if (overwritePromptPanel == null)
+            {
+                overwritePromptPanel = TitleScreenBuilder.EnsureOverwritePromptPanel(canvas.transform);
             }
         }
 
@@ -392,6 +399,26 @@ namespace FXOverdose.UI
             }
         }
 
+        private void BindOverwritePromptControls()
+        {
+            if (overwritePromptPanel == null) return;
+
+            Button btnYes = overwritePromptPanel.transform.Find("ModalWindow/Btn_Yes")?.GetComponent<Button>();
+            Button btnNo = overwritePromptPanel.transform.Find("ModalWindow/Btn_No")?.GetComponent<Button>();
+
+            if (btnYes != null)
+            {
+                btnYes.onClick.RemoveAllListeners();
+                btnYes.onClick.AddListener(OnClickOverwriteYes);
+            }
+
+            if (btnNo != null)
+            {
+                btnNo.onClick.RemoveAllListeners();
+                btnNo.onClick.AddListener(OnClickOverwriteNo);
+            }
+        }
+
         public void OnClickLoadSlot(int slotIndex)
         {
             if (SaveLoadManager.Instance == null)
@@ -406,14 +433,21 @@ namespace FXOverdose.UI
                 pendingSlotIndex = slotIndex;
                 if (loadGamePanel != null) loadGamePanel.SetActive(false);
                 
-                if (tutorialPromptPanel != null)
+                if (SaveLoadManager.Instance.HasSave(slotIndex))
                 {
-                    tutorialPromptPanel.SetActive(true);
-                    tutorialPromptPanel.transform.SetAsLastSibling();
+                    if (overwritePromptPanel != null)
+                    {
+                        overwritePromptPanel.SetActive(true);
+                        overwritePromptPanel.transform.SetAsLastSibling();
+                    }
+                    else
+                    {
+                        OnClickOverwriteYes();
+                    }
                 }
                 else
                 {
-                    OnClickTutorialNo();
+                    ProceedToTutorialPrompt();
                 }
             }
             else
@@ -430,6 +464,35 @@ namespace FXOverdose.UI
                     Debug.LogWarning($"[MainMenuController] 슬롯 {slotIndex + 1}에 저장 데이터가 없습니다.");
                     return;
                 }
+            }
+        }
+
+        private void OnClickOverwriteYes()
+        {
+            if (overwritePromptPanel != null) overwritePromptPanel.SetActive(false);
+            ProceedToTutorialPrompt();
+        }
+
+        private void OnClickOverwriteNo()
+        {
+            if (overwritePromptPanel != null) overwritePromptPanel.SetActive(false);
+            if (loadGamePanel != null)
+            {
+                loadGamePanel.SetActive(true);
+                loadGamePanel.transform.SetAsLastSibling();
+            }
+        }
+
+        private void ProceedToTutorialPrompt()
+        {
+            if (tutorialPromptPanel != null)
+            {
+                tutorialPromptPanel.SetActive(true);
+                tutorialPromptPanel.transform.SetAsLastSibling();
+            }
+            else
+            {
+                OnClickTutorialNo();
             }
         }
 

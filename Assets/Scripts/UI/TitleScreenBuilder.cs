@@ -334,6 +334,28 @@ namespace FXOverdose.UI
             return overlay;
         }
 
+        public static GameObject EnsureOverwritePromptPanel(Transform parent)
+        {
+            if (parent == null) return null;
+
+            Transform existing = parent.Find("OverwritePromptPanel");
+            if (existing != null) return existing.gameObject;
+
+            GameObject overlay = CreateModalOverlay(parent, "OverwritePromptPanel");
+            Image window = CreateWindow(overlay.transform, "ModalWindow", new Vector2(0.25f, 0.35f), new Vector2(0.75f, 0.65f));
+            CreateModalTitle(window.transform, "OVERWRITE SAVE", "데이터를 덮어씌우시겠습니까?");
+
+            CreateText(window.transform, "Desc", "해당 슬롯에는 이미 저장된 데이터가 있습니다.\n새 게임을 시작하면 기존 데이터는 삭제됩니다.", 18f, Muted,
+                new Vector2(0.05f, 0.40f), new Vector2(0.95f, 0.70f), TextAlignmentOptions.Center);
+
+            CreateSmallButton(window.transform, "Btn_Yes", "예 (덮어쓰기)", new Vector2(0.15f, 0.15f), new Vector2(0.45f, 0.30f));
+            CreateSmallButton(window.transform, "Btn_No", "아니오 (취소)", new Vector2(0.55f, 0.15f), new Vector2(0.85f, 0.30f));
+
+            overlay.SetActive(false);
+            return overlay;
+        }
+
+
         private static void CreateModeCard(
             Transform parent,
             string name,

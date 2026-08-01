@@ -46,7 +46,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private EndingType currentEnding = EndingType.None;
 
     [Header("자산 설정")]
-    [SerializeField] private float startingBalance = 10000000f; // UI/상점 검수용 시작 자산
+    [SerializeField] private float startingBalance = 7000f; // 초기 자본금
     [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
 
@@ -211,6 +211,13 @@ public class GameManager : MonoBehaviour
         FXOverdose.Trading.TraderLevelSystem.Instance?.ResetLevels();
 
         Debug.Log("새 게임 시작 (차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
+        
+        // 새 게임 진입 시 초기 설정된 데이터를 현재 선택된 슬롯에 즉시 저장
+        // SaveLoadManager는 Loading 상태일 때 저장을 막으므로 임시로 Playing 상태로 변경 후 저장합니다.
+        GameState previousState = currentState;
+        currentState = GameState.Playing;
+        FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
+        currentState = previousState;
     }
 
     private void EnsureActiveItemEffectManager()
