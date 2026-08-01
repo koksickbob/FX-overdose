@@ -78,7 +78,6 @@ public class DeliveryFoodManager : MonoBehaviour
         int daysRemaining = 7 - (currentDay - lastSteakPurchaseDay);
         if (daysRemaining > 0)
         {
-            Debug.Log($"[DeliveryFoodManager] 스테이크 구매 불가 - {daysRemaining}일 남음 (현재: {currentDay}, 최근구매: {lastSteakPurchaseDay})");
             reason = $"{daysRemaining}일 후 재구매 가능";
             return false;
         }

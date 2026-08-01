@@ -83,7 +83,7 @@ public class CostumeManager : MonoBehaviour
             Id = QipaoId,
             DisplayName = "블랙 치파오",
             Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
-            Price = 8000,
+            Price = 15000,
             IconResourcePath = "Characters/Costumes/Qipao",
             SpriteRoot = "Characters/Costumes/Qipao"
         },
@@ -118,8 +118,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = MaidId,
             DisplayName = "클래식 메이드",
-            Description = "[외형 전용]\n프릴 앞치마와 메리제인 슈즈의 클래식 메이드 룩",
-            Price = 1800,
+            Description = "[효과: 파르페 사용시 멘탈 회복량 +15%]",
+            Price = 30000,
             IconResourcePath = "Characters/Costumes/Maid",
             SpriteRoot = "Characters/Costumes/Maid"
         },
@@ -127,8 +127,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = NurseId,
             DisplayName = "핑크 간호사",
-            Description = "[외형 전용]\n슬림핏 파스텔 핑크 간호사 룩",
-            Price = 2000,
+            Description = "[효과: 영양제, 진정제 효율 15% 증가]",
+            Price = 10000,
             IconResourcePath = "Characters/Costumes/Nurse",
             SpriteRoot = "Characters/Costumes/Nurse"
         },
@@ -136,8 +136,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = DongtanLookId,
             DisplayName = "동탄룩",
-            Description = "[외형 전용]\n블랙 니트 원피스와 아이보리 크롭 가디건",
-            Price = 2200,
+            Description = "[효과: 아이템 구매 비용 15% 감소]",
+            Price = 150000,
             IconResourcePath = "Characters/Costumes/DongtanLook",
             SpriteRoot = "Characters/Costumes/DongtanLook"
         },
@@ -145,8 +145,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = HanbokId,
             DisplayName = "전통 한복",
-            Description = "[외형 전용]\n아이보리 저고리와 금빛 문양의 남색 치마",
-            Price = 2500,
+            Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
+            Price = 15000,
             IconResourcePath = "Characters/Costumes/Hanbok",
             SpriteRoot = "Characters/Costumes/Hanbok"
         },
@@ -154,8 +154,8 @@ public class CostumeManager : MonoBehaviour
         {
             Id = YukataId,
             DisplayName = "나팔꽃 유카타",
-            Description = "[외형 전용]\n남색 바탕에 청록·연보라 나팔꽃을 수놓은 여름 유카타",
-            Price = 3000,
+            Description = "[효과: 배달음식 체력 및 멘탈 회복량 +15%]",
+            Price = 15000,
             IconResourcePath = "Characters/Costumes/Yukata",
             SpriteRoot = "Characters/Costumes/Yukata"
         }
