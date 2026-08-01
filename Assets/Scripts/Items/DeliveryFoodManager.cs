@@ -9,8 +9,8 @@ public class DeliveryFoodManager : MonoBehaviour
 
     public static DeliveryFoodManager Instance { get; private set; }
 
-    [SerializeField] private float pastaRemainingSeconds;
-    [SerializeField] private int lastSteakPurchaseDay = -999;
+    private static float pastaRemainingSeconds;
+    private static int lastSteakPurchaseDay = -999;
 
     public float PastaRemainingSeconds => pastaRemainingSeconds;
     public int LastSteakPurchaseDay => lastSteakPurchaseDay;
@@ -19,8 +19,14 @@ public class DeliveryFoodManager : MonoBehaviour
     {
         if (Instance != null) return Instance;
         DeliveryFoodManager found = FindAnyObjectByType<DeliveryFoodManager>();
-        if (found != null) return found;
-        return new GameObject("DeliveryFoodManager").AddComponent<DeliveryFoodManager>();
+        if (found != null) 
+        {
+            Instance = found;
+            return found;
+        }
+        GameObject go = new GameObject("DeliveryFoodManager");
+        Instance = go.AddComponent<DeliveryFoodManager>();
+        return Instance;
     }
 
     private void Awake()
@@ -39,6 +45,12 @@ public class DeliveryFoodManager : MonoBehaviour
         {
             Instance = null;
         }
+    }
+
+    public static void ResetStateForNewGame()
+    {
+        lastSteakPurchaseDay = -999;
+        pastaRemainingSeconds = 0f;
     }
 
     private void Update()
@@ -66,7 +78,6 @@ public class DeliveryFoodManager : MonoBehaviour
         int daysRemaining = 7 - (currentDay - lastSteakPurchaseDay);
         if (daysRemaining > 0)
         {
-            Debug.Log($"[DeliveryFoodManager] 스테이크 구매 불가 - {daysRemaining}일 남음 (현재: {currentDay}, 최근구매: {lastSteakPurchaseDay})");
             reason = $"{daysRemaining}일 후 재구매 가능";
             return false;
         }
