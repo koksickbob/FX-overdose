@@ -5,6 +5,10 @@ using UnityEngine;
 /// <summary>요미 코스튬의 구매, 보유, 장착 상태와 리소스 경로를 관리합니다.</summary>
 public class CostumeManager : MonoBehaviour
 {
+    // TEMP REVIEW: 메이드 스킨 검수 종료 후 false로 되돌립니다.
+    private static readonly bool UnlockAllCostumesForReview = false;
+    private static readonly bool UnlockMaidCostumeForReview = false;
+
     public const string StandardId = "standard";
     public const string BunnyGirlId = "bunny_girl";
     public const string BikiniId = "bikini";
@@ -250,9 +254,19 @@ public class CostumeManager : MonoBehaviour
         {
             foreach (string id in ownedIds)
             {
-                if (GetDefinition(id) != null) ownedCostumeIds.Add(id);
+                if (GetDefinition(id) == null) continue;
+
+                // 검수 중 강제로 저장된 메이드는 연결 업적이 잠겨 있으면 보유 목록에서 제거합니다.
+                if (string.Equals(id, MaidId, StringComparison.Ordinal) &&
+                    FXOverdose.Core.AchievementManager.Instance != null &&
+                    !FXOverdose.Core.AchievementManager.Instance.IsAchievementUnlocked("use_parfait_100"))
+                    continue;
+
+                ownedCostumeIds.Add(id);
             }
         }
+
+        ApplyReviewOwnership();
 
         equippedCostumeId = ownedCostumeIds.Contains(equippedId) ? equippedId : StandardId;
         OnCostumesChanged?.Invoke();
@@ -261,7 +275,16 @@ public class CostumeManager : MonoBehaviour
     public void ResetAll()
     {
         ownedCostumeIds.Clear();
-        ownedCostumeIds.Add(StandardId);
+        if (UnlockAllCostumesForReview)
+        {
+            foreach (CostumeDefinition definition in Definitions)
+                ownedCostumeIds.Add(definition.Id);
+        }
+        else
+        {
+            ownedCostumeIds.Add(StandardId);
+        }
+        ApplyReviewOwnership();
         equippedCostumeId = StandardId;
         OnCostumesChanged?.Invoke();
     }
@@ -269,7 +292,21 @@ public class CostumeManager : MonoBehaviour
     private void EnsureDefaults()
     {
         ownedCostumeIds.Add(StandardId);
+        ApplyReviewOwnership();
         if (!ownedCostumeIds.Contains(equippedCostumeId))
             equippedCostumeId = StandardId;
+    }
+
+    private void ApplyReviewOwnership()
+    {
+        if (UnlockAllCostumesForReview)
+        {
+            foreach (CostumeDefinition definition in Definitions)
+                ownedCostumeIds.Add(definition.Id);
+        }
+        else if (UnlockMaidCostumeForReview)
+        {
+            ownedCostumeIds.Add(MaidId);
+        }
     }
 }

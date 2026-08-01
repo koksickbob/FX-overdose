@@ -37,6 +37,8 @@ namespace FXOverdose.AI
         private const float DialogueTailCenterOffset = 6f;
         private const float CharacterDialogueVerticalOffset = 36f;
         private const float DialogueBalloonAdditionalVerticalOffset = 48f;
+        private const float CostumeOpticalScale = 0.95f;
+        private const float CostumeOpticalFootCompensation = -0.020f;
 
         public enum ExpressionState
         {
@@ -87,6 +89,8 @@ namespace FXOverdose.AI
         private readonly Dictionary<string, Sprite> itemUseSprites = new Dictionary<string, Sprite>();
         private readonly Dictionary<SkillType, Sprite> skillUpgradeSprites = new Dictionary<SkillType, Sprite>();
         private readonly Dictionary<TradingController.PositionType, Sprite> positionSprites = new Dictionary<TradingController.PositionType, Sprite>();
+        private readonly Dictionary<Sprite, float> costumeSpriteScales = new Dictionary<Sprite, float>();
+        private readonly Dictionary<Sprite, Vector2> costumeSpriteOffsets = new Dictionary<Sprite, Vector2>();
         private Sprite overdoseStateSprite;
         private float emotionOverrideUntil;
         private bool isItemUseVisualActive;
@@ -106,6 +110,9 @@ namespace FXOverdose.AI
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
         private EventCategory currentDisplayCategory = EventCategory.General;
         private bool visualLayoutOffsetApplied;
+        private bool characterBaseScaleCaptured;
+        private Vector3 characterBaseScale = Vector3.one;
+        private Vector2 characterBaseAnchoredPosition;
 
         // 우선순위 큐 및 쿨타임/Lock 관리 제어부
         private Queue<DialogueRequest> dialogueQueue = new Queue<DialogueRequest>();
@@ -129,6 +136,7 @@ namespace FXOverdose.AI
             LoadPositionSprites();
             overdoseStateSprite = LoadCostumeSprite("States", "Overdose");
             ApplyEmotion(currentEmotion, true);
+            ApplyCostumeVisualScale();
 
             if (CostumeManager.Instance != null)
             {
@@ -288,10 +296,52 @@ namespace FXOverdose.AI
 
         private void ResolveCharacterImage()
         {
-            if (characterImage != null) return;
-            GameObject characterObject = GameObject.Find("ProtagonistCharacterImage");
-            if (characterObject != null)
-                characterImage = characterObject.GetComponent<Image>();
+            if (characterImage == null)
+            {
+                GameObject characterObject = GameObject.Find("ProtagonistCharacterImage");
+                if (characterObject != null)
+                    characterImage = characterObject.GetComponent<Image>();
+            }
+            if (characterImage != null && !characterBaseScaleCaptured)
+            {
+                characterBaseScale = characterImage.rectTransform.localScale;
+                characterBaseAnchoredPosition = characterImage.rectTransform.anchoredPosition;
+                characterBaseScaleCaptured = true;
+            }
+        }
+
+        private void ApplyCostumeVisualScale()
+        {
+            ResolveCharacterImage();
+            if (characterImage == null || !characterBaseScaleCaptured) return;
+            float scale = characterImage.sprite != null && costumeSpriteScales.TryGetValue(characterImage.sprite, out float measuredScale)
+                ? measuredScale
+                : 1f;
+            RectTransform rect = characterImage.rectTransform;
+            Vector2 normalizedOffset = characterImage.sprite != null && costumeSpriteOffsets.TryGetValue(characterImage.sprite, out Vector2 measuredOffset)
+                ? measuredOffset
+                : Vector2.zero;
+            bool usesMeasuredCostumeAdjustment = characterImage.sprite != null && costumeSpriteScales.ContainsKey(characterImage.sprite) &&
+                !Mathf.Approximately(scale, 1f);
+            if (usesMeasuredCostumeAdjustment)
+            {
+                scale *= CostumeOpticalScale;
+                // 중앙 피벗을 기준으로 축소할 때 발끝이 위로 들리지 않도록 600x1180 실루엣의 평균 발끝 거리를 보상합니다.
+                normalizedOffset.y += CostumeOpticalFootCompensation;
+            }
+            rect.localScale = characterBaseScale * scale;
+            rect.anchoredPosition = characterBaseAnchoredPosition + new Vector2(
+                normalizedOffset.x * rect.rect.width,
+                normalizedOffset.y * rect.rect.height);
+        }
+
+        private void SetCharacterSprite(Sprite sprite)
+        {
+            ResolveCharacterImage();
+            if (characterImage == null || sprite == null) return;
+            characterImage.sprite = sprite;
+            characterImage.preserveAspect = true;
+            ApplyCostumeVisualScale();
         }
 
         private void ApplyCharacterDialogueVerticalOffset()
@@ -306,6 +356,7 @@ namespace FXOverdose.AI
             if (characterRect == null || balloonRect == null) return;
 
             characterRect.anchoredPosition += Vector2.up * CharacterDialogueVerticalOffset;
+            characterBaseAnchoredPosition = characterRect.anchoredPosition;
             // 우측 하단에 세로 배치된 스킬 버튼 상단과 말풍선 하단이 겹치지 않도록,
             // 캐릭터 이동량은 유지하고 말풍선만 조금 더 위로 올립니다.
             balloonRect.anchoredPosition += Vector2.up *
@@ -375,11 +426,9 @@ namespace FXOverdose.AI
 
             ResolveCharacterImage();
             if (characterImage == null) return;
-
             isOverdoseStateVisualActive = true;
             currentEmotion = TraderEmotion.Manic;
-            characterImage.sprite = overdoseStateSprite;
-            characterImage.preserveAspect = true;
+            SetCharacterSprite(overdoseStateSprite);
 
             // 전용 이미지 자체에 오오라가 포함되어 있으므로 기존 보조 오오라와 중복되지 않게 합니다.
             if (dangerAuraEffect != null && dangerAuraEffect.activeSelf)
@@ -423,8 +472,7 @@ namespace FXOverdose.AI
             isItemUseVisualActive = true;
             currentItemUseId = itemId;
             itemUseVisualUntil = Time.unscaledTime + Mathf.Max(0.1f, duration);
-            characterImage.sprite = sprite;
-            characterImage.preserveAspect = true;
+            SetCharacterSprite(sprite);
         }
 
         private void HandleItemConsumed(ItemData item)
@@ -444,8 +492,7 @@ namespace FXOverdose.AI
             isSkillUpgradeVisualActive = true;
             currentSkillUpgradeType = type;
             isItemUseVisualActive = false;
-            characterImage.sprite = sprite;
-            characterImage.preserveAspect = true;
+            SetCharacterSprite(sprite);
         }
 
         public void EndSkillUpgradeVisual()
@@ -469,8 +516,7 @@ namespace FXOverdose.AI
             currentPositionVisualType = type;
             isItemUseVisualActive = false;
             positionVisualUntil = Time.unscaledTime + Mathf.Max(0.2f, duration);
-            characterImage.sprite = sprite;
-            characterImage.preserveAspect = true;
+            SetCharacterSprite(sprite);
         }
 
         /// <summary>이벤트나 연출 코드에서 19종 감정을 직접 표시할 때 사용합니다.</summary>
@@ -496,8 +542,7 @@ namespace FXOverdose.AI
             ResolveCharacterImage();
             if (characterImage != null && emotionSprites.TryGetValue(emotion, out Sprite sprite))
             {
-                characterImage.sprite = sprite;
-                characterImage.preserveAspect = true;
+                SetCharacterSprite(sprite);
             }
 
             // 기존 Animator를 사용하는 씬도 0~18 ExpressionState 파라미터로 호환합니다.
@@ -520,16 +565,127 @@ namespace FXOverdose.AI
 
         private Sprite LoadCostumeSprite(string category, string spriteName)
         {
+            string costumeId = CostumeManager.Instance != null
+                ? CostumeManager.Instance.EquippedCostumeId
+                : CostumeManager.StandardId;
             string path = CostumeManager.Instance != null
                 ? CostumeManager.Instance.GetResourcePath(category, spriteName)
                 : $"Characters/{category}/{spriteName}";
             Sprite sprite = Resources.Load<Sprite>(path);
+            bool usedCostumeSprite = sprite != null;
             if (sprite == null && !path.StartsWith("Characters/" + category + "/", StringComparison.Ordinal))
             {
                 sprite = Resources.Load<Sprite>($"Characters/{category}/{spriteName}");
                 Debug.LogWarning($"[AIVisualController] 코스튬 스프라이트가 없어 기본형으로 대체합니다: {path}", this);
             }
+            if (sprite != null)
+            {
+                costumeSpriteScales[sprite] = usedCostumeSprite
+                    ? GetMeasuredCostumeScale(costumeId, category, spriteName)
+                    : 1f;
+                costumeSpriteOffsets[sprite] = usedCostumeSprite
+                    ? GetMeasuredCostumeOffset(costumeId, category, spriteName)
+                    : Vector2.zero;
+            }
             return sprite;
+        }
+
+        // 600x1180 원본의 알파 바운드 높이를 동일 포즈 기본 요미와 맞춘 실측값입니다.
+        private static float GetMeasuredCostumeScale(string costumeId, string category, string spriteName)
+        {
+            string key = $"{category}/{spriteName}";
+            if (costumeId == CostumeManager.HanbokId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => 1.08350f, "SkillUpgrade/CubePatience" => 1.12513f, "SkillUpgrade/BookJudgment" => 1.09421f,
+                    "ItemUse/Supplement" => 1.12286f, "ItemUse/Malatang" => 1.16079f, "ItemUse/Dessert" => 1.15083f,
+                    "ItemUse/Steak" => 1.13604f, "ItemUse/Tteokbokki" => 1.16684f, "ItemUse/Sedative" => 1.15067f,
+                    "ItemUse/Sushi" => 1.07700f, "ItemUse/EnergyDrink" => 1.15904f, "ItemUse/Pasta" => 1.17050f,
+                    "Position/Short" => 1.16008f, "Position/Long" => 1.10934f,
+                    "States/Standard" => 1.18704f, "States/Overdose" => 1.05094f,
+                    "Emotions/Focused" => 1.23614f, "Emotions/Vengeful" => 1.33493f, "Emotions/Confident" => 1.12072f,
+                    "Emotions/Panicked" => 1.13892f, "Emotions/Affectionate" => 1.14344f, "Emotions/Jealous" => 1.16146f,
+                    "Emotions/Tearful" => 1.10626f, "Emotions/Anxious" => 1.24138f, "Emotions/Relieved" => 1.19379f,
+                    "Emotions/Manic" => 1.06903f, "Emotions/Exhausted" => 1.09961f, "Emotions/Despairing" => 1.10069f,
+                    "Emotions/Furious" => 1.07625f, "Emotions/Obsessive" => 1.07729f, "Emotions/Regretful" => 1.12072f,
+                    "Emotions/Pleased" => 1.23725f, "Emotions/Euphoria" => 1.17884f, "Emotions/Suspicious" => 1.14008f,
+                    "Emotions/Frustrated" => 1.15440f,
+                    _ => 1f
+                };
+            }
+
+            if (costumeId == CostumeManager.YukataId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => 1.23043f, "SkillUpgrade/CubePatience" => 1.05288f, "SkillUpgrade/BookJudgment" => 1.10287f,
+                    "ItemUse/Supplement" => 1.16510f, "ItemUse/Malatang" => 1.06877f, "ItemUse/Dessert" => 1.15321f,
+                    "ItemUse/Steak" => 1.10682f, "ItemUse/Tteokbokki" => 1.05268f, "ItemUse/Sedative" => 1.12399f,
+                    "ItemUse/Sushi" => 1.16199f, "ItemUse/EnergyDrink" => 1.09421f, "ItemUse/Pasta" => 1.08852f,
+                    "Position/Short" => 1.06084f, "Position/Long" => 1.09091f,
+                    "States/Standard" => 1.07095f, "States/Overdose" => 1.01921f,
+                    "Emotions/Focused" => 1.37654f, "Emotions/Vengeful" => 1.06999f, "Emotions/Confident" => 1.08577f,
+                    "Emotions/Panicked" => 1.11389f, "Emotions/Affectionate" => 1.07205f, "Emotions/Jealous" => 1.12286f,
+                    "Emotions/Tearful" => 1.14374f, "Emotions/Anxious" => 1.09091f, "Emotions/Relieved" => 1.09852f,
+                    "Emotions/Manic" => 1.06190f, "Emotions/Exhausted" => 1.10835f, "Emotions/Despairing" => 1.06801f,
+                    "Emotions/Furious" => 1.10615f, "Emotions/Obsessive" => 1.08147f, "Emotions/Regretful" => 1.09862f,
+                    "Emotions/Pleased" => 1.12274f, "Emotions/Euphoria" => 1.08471f, "Emotions/Suspicious" => 1.05288f,
+                    "Emotions/Frustrated" => 1.06910f,
+                    _ => 1f
+                };
+            }
+
+            return 1f;
+        }
+
+        // X는 실루엣 중심, Y는 발끝을 기본 요미와 맞춘 600x1180 정규화 좌표입니다.
+        private static Vector2 GetMeasuredCostumeOffset(string costumeId, string category, string spriteName)
+        {
+            string key = $"{category}/{spriteName}";
+            if (costumeId == CostumeManager.HanbokId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => new(-0.013474f, -0.021190f), "SkillUpgrade/CubePatience" => new(-0.020419f, -0.032472f), "SkillUpgrade/BookJudgment" => new(0.022041f, -0.001974f),
+                    "ItemUse/Supplement" => new(-0.028072f, -0.014430f), "ItemUse/Malatang" => new(0.016712f, -0.018267f), "ItemUse/Dessert" => new(-0.025768f, -0.035238f),
+                    "ItemUse/Steak" => new(-0.004620f, -0.029903f), "ItemUse/Tteokbokki" => new(-0.008473f, -0.027758f), "ItemUse/Sedative" => new(-0.011256f, -0.038222f),
+                    "ItemUse/Sushi" => new(-0.003462f, -0.007334f), "ItemUse/EnergyDrink" => new(-0.018086f, -0.019221f), "ItemUse/Pasta" => new(0.006970f, -0.021399f),
+                    "Position/Short" => new(-0.007600f, -0.033562f), "Position/Long" => new(0.012109f, -0.026416f),
+                    "States/Standard" => new(-0.034622f, -0.008285f), "States/Overdose" => new(-0.021937f, -0.025871f),
+                    "Emotions/Focused" => new(-0.007014f, -0.033299f), "Emotions/Vengeful" => new(0.002225f, -0.028566f), "Emotions/Confident" => new(-0.030619f, -0.029545f),
+                    "Emotions/Panicked" => new(-0.001782f, -0.032875f), "Emotions/Affectionate" => new(0.020369f, -0.010902f), "Emotions/Jealous" => new(0.020460f, -0.044853f),
+                    "Emotions/Tearful" => new(-0.007198f, -0.035246f), "Emotions/Anxious" => new(0.015718f, -0.002835f), "Emotions/Relieved" => new(-0.029522f, -0.035997f),
+                    "Emotions/Manic" => new(-0.006954f, -0.016395f), "Emotions/Exhausted" => new(-0.019993f, -0.003388f), "Emotions/Despairing" => new(-0.012590f, -0.014035f),
+                    "Emotions/Furious" => new(-0.037542f, -0.014234f), "Emotions/Obsessive" => new(-0.001795f, -0.021031f), "Emotions/Regretful" => new(-0.038090f, -0.032394f),
+                    "Emotions/Pleased" => new(0.008841f, -0.047384f), "Emotions/Euphoria" => new(0.001816f, -0.019632f), "Emotions/Suspicious" => new(0.014601f, -0.019985f),
+                    "Emotions/Frustrated" => new(-0.000705f, -0.029969f),
+                    _ => Vector2.zero
+                };
+            }
+
+            if (costumeId == CostumeManager.YukataId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => new(-0.000833f, -0.040341f), "SkillUpgrade/CubePatience" => new(0.010617f, -0.012514f), "SkillUpgrade/BookJudgment" => new(0.008443f, -0.049666f),
+                    "ItemUse/Supplement" => new(-0.044662f, -0.048591f), "ItemUse/Malatang" => new(-0.032839f, -0.022673f), "ItemUse/Dessert" => new(-0.006599f, -0.030426f),
+                    "ItemUse/Steak" => new(-0.031271f, -0.023495f), "ItemUse/Tteokbokki" => new(-0.011316f, -0.023217f), "ItemUse/Sedative" => new(-0.011033f, -0.042545f),
+                    "ItemUse/Sushi" => new(-0.014255f, -0.024687f), "ItemUse/EnergyDrink" => new(-0.005314f, -0.022295f), "ItemUse/Pasta" => new(-0.007183f, -0.017103f),
+                    "Position/Short" => new(-0.014978f, -0.018032f), "Position/Long" => new(-0.011742f, -0.034746f),
+                    "States/Standard" => new(0.003570f, -0.016427f), "States/Overdose" => new(-0.014455f, -0.018587f),
+                    "Emotions/Focused" => new(-0.019187f, -0.020893f), "Emotions/Vengeful" => new(-0.007133f, -0.001419f), "Emotions/Confident" => new(-0.029716f, -0.017555f),
+                    "Emotions/Panicked" => new(-0.016613f, -0.026479f), "Emotions/Affectionate" => new(0.000180f, -0.020564f), "Emotions/Jealous" => new(-0.014869f, -0.041921f),
+                    "Emotions/Tearful" => new(-0.014057f, -0.049555f), "Emotions/Anxious" => new(0.000076f, -0.031048f), "Emotions/Relieved" => new(-0.007159f, -0.027039f),
+                    "Emotions/Manic" => new(-0.007810f, -0.024826f), "Emotions/Exhausted" => new(-0.016445f, -0.036300f), "Emotions/Despairing" => new(0.011740f, -0.020393f),
+                    "Emotions/Furious" => new(0.008473f, -0.039975f), "Emotions/Obsessive" => new(-0.001802f, -0.013782f), "Emotions/Regretful" => new(-0.016315f, -0.027084f),
+                    "Emotions/Pleased" => new(-0.024955f, -0.034357f), "Emotions/Euphoria" => new(-0.013630f, -0.038221f), "Emotions/Suspicious" => new(-0.010397f, -0.016128f),
+                    "Emotions/Frustrated" => new(-0.023049f, -0.008213f),
+                    _ => Vector2.zero
+                };
+            }
+
+            return Vector2.zero;
         }
 
         private void HandleCostumeChanged()
@@ -542,7 +698,6 @@ namespace FXOverdose.AI
 
             ResolveCharacterImage();
             if (characterImage == null) return;
-
             if (traderStatus != null &&
                 traderStatus.CurrentMentalState == TraderStatus.MentalState.Overdose)
             {
@@ -554,23 +709,22 @@ namespace FXOverdose.AI
             if (isSkillUpgradeVisualActive &&
                 skillUpgradeSprites.TryGetValue(currentSkillUpgradeType, out Sprite skillSprite))
             {
-                characterImage.sprite = skillSprite;
+                SetCharacterSprite(skillSprite);
             }
             else if (isPositionVisualActive &&
                      positionSprites.TryGetValue(currentPositionVisualType, out Sprite positionSprite))
             {
-                characterImage.sprite = positionSprite;
+                SetCharacterSprite(positionSprite);
             }
             else if (isItemUseVisualActive &&
                      itemUseSprites.TryGetValue(currentItemUseId, out Sprite itemSprite))
             {
-                characterImage.sprite = itemSprite;
+                SetCharacterSprite(itemSprite);
             }
             else if (emotionSprites.TryGetValue(currentEmotion, out Sprite emotionSprite))
             {
-                characterImage.sprite = emotionSprite;
+                SetCharacterSprite(emotionSprite);
             }
-            characterImage.preserveAspect = true;
         }
 
         private void HandleAIDecisionMade(string dialogue, float emotionDelta)

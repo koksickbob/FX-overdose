@@ -8,6 +8,9 @@ namespace FXOverdose.Core
     {
         // TEMP: 코스튬/음식 연출 전수 검수용. 테스트 종료 후 false로 되돌립니다.
         private static readonly bool DisableAchievementRequirementsForTesting = false;
+        // TEMP REVIEW: 메이드 스킨 검수 종료 후 false로 되돌립니다.
+        private static readonly bool UnlockMaidAchievementForReview = false;
+        private const string Pref_MaidReviewRollbackApplied = "ReviewRollback_MaidGrant_v1";
 
         public enum AchievementType
         {
@@ -42,6 +45,8 @@ namespace FXOverdose.Core
         private const string Pref_EnergyDrinkUsed = "Stat_EnergyDrinkUsed";
         private const string Pref_ParfaitUsed = "Stat_ParfaitUsed";
         private const string Pref_MaratangUsed = "Stat_MaratangUsed";
+        private const string Pref_SushiUsed = "Stat_SushiUsed";
+        private const string Pref_TteokbokkiUsed = "Stat_TteokbokkiUsed";
         private const string Pref_ConsumablesPurchased = "Stat_ConsumablesPurchased";
         private const string Pref_RiskyEventSuccess = "Stat_RiskyEventSuccess";
         private const string Pref_PeakBalance = "Stat_GlobalPeakBalance";
@@ -97,6 +102,8 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100, RewardCostumeId = CostumeManager.BartenderId });
             achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100, RewardCostumeId = CostumeManager.MaidId });
             achievements.Add(new AchievementDefinition { Id = "use_maratang_50", Title = "마라탕 중독자", Description = "마라탕 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "Maratang", TargetValue = 50, RewardCostumeId = CostumeManager.QipaoId });
+            achievements.Add(new AchievementDefinition { Id = "use_sushi_50", Title = "초밥 애호가", Description = "초밥 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "Sushi", TargetValue = 50 });
+            achievements.Add(new AchievementDefinition { Id = "use_tteokbokki_50", Title = "떡볶이 마니아", Description = "떡볶이 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "Tteokbokki", TargetValue = 50 });
             achievements.Add(new AchievementDefinition { Id = "purchase_delivery_200", Title = "큰손 고객", Description = "배달음식 구매 수량 총 200개 돌파", Type = AchievementType.ItemPurchase, TargetValue = 200, RewardCostumeId = CostumeManager.DongtanLookId });
             
             achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20, RewardCostumeId = "jirai_kei" });
@@ -108,6 +115,15 @@ namespace FXOverdose.Core
 
         private void LoadUnlockedAchievements()
         {
+            if (!UnlockMaidAchievementForReview && PlayerPrefs.GetInt(Pref_MaidReviewRollbackApplied, 0) == 0)
+            {
+                // 검수 플래그가 강제로 기록했던 해금만 제거합니다. 정상 달성 기록과 사용 횟수는 보존됩니다.
+                if (PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) < 100)
+                    PlayerPrefs.DeleteKey(Pref_UnlockedPrefix + "use_parfait_100");
+                PlayerPrefs.SetInt(Pref_MaidReviewRollbackApplied, 1);
+                PlayerPrefs.Save();
+            }
+
             unlockedAchievements.Clear();
             foreach (var ach in achievements)
             {
@@ -115,6 +131,14 @@ namespace FXOverdose.Core
                 {
                     unlockedAchievements.Add(ach.Id);
                 }
+            }
+
+            if (UnlockMaidAchievementForReview)
+            {
+                const string maidAchievementId = "use_parfait_100";
+                unlockedAchievements.Add(maidAchievementId);
+                PlayerPrefs.SetInt(Pref_UnlockedPrefix + maidAchievementId, 1);
+                PlayerPrefs.Save();
             }
         }
 
@@ -154,6 +178,8 @@ namespace FXOverdose.Core
                         if (ach.StringParameter == "EnergyDrink" && PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0) >= ach.TargetValue) isMet = true;
                         if (ach.StringParameter == "Parfait" && PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) >= ach.TargetValue) isMet = true;
                         if (ach.StringParameter == "Maratang" && PlayerPrefs.GetInt(Pref_MaratangUsed, 0) >= ach.TargetValue) isMet = true;
+                        if (ach.StringParameter == "Sushi" && PlayerPrefs.GetInt(Pref_SushiUsed, 0) >= ach.TargetValue) isMet = true;
+                        if (ach.StringParameter == "Tteokbokki" && PlayerPrefs.GetInt(Pref_TteokbokkiUsed, 0) >= ach.TargetValue) isMet = true;
                         break;
                     case AchievementType.ItemPurchase:
                         if (PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0) >= ach.TargetValue) isMet = true;
@@ -225,6 +251,16 @@ namespace FXOverdose.Core
                 {
                     int count = PlayerPrefs.GetInt(Pref_MaratangUsed, 0) + 1;
                     PlayerPrefs.SetInt(Pref_MaratangUsed, count);
+                }
+                else if (lowerId.Contains("sushi"))
+                {
+                    int count = PlayerPrefs.GetInt(Pref_SushiUsed, 0) + 1;
+                    PlayerPrefs.SetInt(Pref_SushiUsed, count);
+                }
+                else if (lowerId.Contains("tteokbokki"))
+                {
+                    int count = PlayerPrefs.GetInt(Pref_TteokbokkiUsed, 0) + 1;
+                    PlayerPrefs.SetInt(Pref_TteokbokkiUsed, count);
                 }
                 PlayerPrefs.Save();
                 CheckAchievements();
@@ -339,6 +375,8 @@ namespace FXOverdose.Core
                     if (achievement.StringParameter == "EnergyDrink") current = PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0);
                     else if (achievement.StringParameter == "Parfait") current = PlayerPrefs.GetInt(Pref_ParfaitUsed, 0);
                     else if (achievement.StringParameter == "Maratang") current = PlayerPrefs.GetInt(Pref_MaratangUsed, 0);
+                    else if (achievement.StringParameter == "Sushi") current = PlayerPrefs.GetInt(Pref_SushiUsed, 0);
+                    else if (achievement.StringParameter == "Tteokbokki") current = PlayerPrefs.GetInt(Pref_TteokbokkiUsed, 0);
                     break;
                 case AchievementType.ItemPurchase:
                     current = PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0);
@@ -362,6 +400,8 @@ namespace FXOverdose.Core
             PlayerPrefs.DeleteKey(Pref_EnergyDrinkUsed);
             PlayerPrefs.DeleteKey(Pref_ParfaitUsed);
             PlayerPrefs.DeleteKey(Pref_MaratangUsed);
+            PlayerPrefs.DeleteKey(Pref_SushiUsed);
+            PlayerPrefs.DeleteKey(Pref_TteokbokkiUsed);
             PlayerPrefs.DeleteKey(Pref_ConsumablesPurchased);
             PlayerPrefs.DeleteKey(Pref_RiskyEventSuccess);
             PlayerPrefs.DeleteKey(Pref_PeakBalance);

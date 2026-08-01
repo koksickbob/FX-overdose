@@ -380,12 +380,12 @@ namespace FXOverdose.UI.TopBar
 
             LayoutElement numberSize = pnlCard.GetComponent<LayoutElement>();
             if (numberSize == null) numberSize = pnlCard.gameObject.AddComponent<LayoutElement>();
-            numberSize.minWidth = 176f;
-            numberSize.preferredWidth = 176f;
+            numberSize.minWidth = 208f;
+            numberSize.preferredWidth = 208f;
             LayoutElement graphSize = graphCard.GetComponent<LayoutElement>();
             if (graphSize == null) graphSize = graphCard.gameObject.AddComponent<LayoutElement>();
-            graphSize.minWidth = 208f;
-            graphSize.preferredWidth = 208f;
+            graphSize.minWidth = 176f;
+            graphSize.preferredWidth = 176f;
 
             Transform sparkline = FindDescendant(pnlCard, "SparklineContainer");
             if (sparkline != null) sparkline.SetParent(graphCard, false);
