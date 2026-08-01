@@ -91,6 +91,7 @@ namespace FXOverdose.Core
 
             SaveData data = new SaveData
             {
+                Version = Application.version,
                 GameMode = CurrentGameMode,
 
                 // GameManager
@@ -243,6 +244,30 @@ namespace FXOverdose.Core
                     Debug.LogError($"[SaveLoadManager] 슬롯 {slotIndex}의 저장 데이터를 읽지 못했습니다.");
                     IsPendingLoad = false;
                     return false;
+                }
+
+                // --- 데이터 마이그레이션 적용 ---
+                SaveData dataToMigrate = CurrentData;
+                bool wasMigrated = SaveDataMigrator.Migrate(ref dataToMigrate);
+                CurrentData = dataToMigrate;
+
+                if (wasMigrated)
+                {
+                    // 기존 파일을 .bak으로 백업 후 최신 포맷으로 자동 저장
+                    try
+                    {
+                        string backupPath = path + ".bak";
+                        File.Copy(path, backupPath, true);
+                        Debug.Log($"[SaveLoadManager] 구버전 세이브를 백업했습니다: {backupPath}");
+                        
+                        string migratedJson = JsonUtility.ToJson(CurrentData, true);
+                        File.WriteAllText(path, migratedJson);
+                        Debug.Log($"[SaveLoadManager] 마이그레이션 된 세이브를 자동 저장했습니다: {path}");
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[SaveLoadManager] 마이그레이션 백업/저장 중 오류 발생: {e.Message}");
+                    }
                 }
             }
             catch (Exception exception)
