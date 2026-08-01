@@ -278,6 +278,7 @@ namespace FXOverdose.Core
                 : 0;
             CurrentData = null;
             IsPendingLoad = false;
+            DeliveryFoodManager.ResetStateForNewGame();
             Debug.Log($"[SaveLoadManager] 새 게임 준비: {CurrentGameMode}" +
                       (CurrentGameMode == GameMode.Story ? $" / Slot {ActiveStorySlotIndex + 1}" : string.Empty));
         }
