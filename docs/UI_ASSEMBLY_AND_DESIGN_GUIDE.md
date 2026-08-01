@@ -29,7 +29,8 @@ Canvas_MainUI
  └── TradingPanel (Bottom Area)
       ├── TopModeTabs (탭 전환 바)
       │    ├── BtnTab_LeverageMode (레버리지 탭)
-      │    └── BtnTab_MarginRatioMode (투자비율 탭)
+      │    ├── BtnTab_MarginRatioMode (투자비율 탭)
+      │    └── BtnTab_AIStyleMode (AI 자동매매 성향 탭)
       ├── ControlContainers
       │    ├── LeverageContainer (레버리지 조절 영역)
       │    │    ├── LeverageValueText ("10x")
@@ -40,6 +41,11 @@ Canvas_MainUI
       │         ├── MarginSlider (0.10 ~ 1.0 슬라이더)
       │         ├── Btn_MarginMinus / Btn_MarginPlus (-10% / +10% 버튼)
       │         └── PresetsGrid (10%, 25%, 50%, 75%, 100% 버튼)
+      ├── AIStyleContainer (AI 자동매매 성향 조절 영역)
+      │    ├── BtnPresetSafe (SAFE)
+      │    ├── BtnPresetBalanced (BALANCE)
+      │    ├── BtnPresetAggressive (AGGRESSIVE)
+      │    └── AIStyleDescription (현재 성향 설명)
       ├── ActionButtonsArea (하단 3대 매매 액션 버튼)
       │    ├── LongButton (매수 LONG - 하위 SubtitleText 포함)
       │    ├── ShortButton (매도 SHORT - 하위 SubtitleText 포함)
@@ -65,8 +71,12 @@ Canvas_MainUI
 | `closePositionButton` | `Button` | 포지션 청산 버튼 (포지션 보유 중에만 `SetActive(true)` 및 클릭 시 `ClosePosition` 호출) |
 | `longSubtitleText` / `shortSubtitleText` | `TMP_Text` | 버튼 하단 상태 안내 텍스트 (예: "LONG 수동 매수" vs "AI 자동 매수 대기") |
 | `btnTabLeverageMode` / `btnTabMarginRatioMode` | `Button` | 조작 탭 전환 버튼 (클릭 시 `SwitchControlMode` 호출) |
+| `btnTabAIStyleMode` | `Button` | AI 자동매매 성향 탭 (클릭 시 `ControlMode.AIStyle`로 전환) |
 | `leverageControlContainer` | `GameObject` | 레버리지 조작 UI 패널 묶음 (탭 전환 시 표시/숨김) |
 | `marginRatioControlContainer` | `GameObject` | 투자 비율 조작 UI 패널 묶음 (탭 전환 시 표시/숨김) |
+| `aiStyleControlContainer` | `GameObject` | SAFE/BALANCED/AGGRESSIVE 프리셋 및 설명 패널 |
+| `btnPresetSafe` / `btnPresetBalanced` / `btnPresetAggressive` | `Button` | `TradingController.SetAITradingStyle` 호출 프리셋 |
+| `aiStyleDescText` | `TMP_Text` | 현재 선택한 AI 성향의 위험도·레버리지 설명 |
 | `leverageDisplayText` / `marginRatioDisplayText` | `TMP_Text` | 현재 선택된 레버리지 배율 및 투자 사용 금액 표시기 |
 | `marginPercentageSlider` | `Slider` | 투자 비율 조작 슬라이더 (`MinValue: 0.1`, `MaxValue: 1.0`) |
 | `positionStatusPanel` | `GameObject` | 포지션 실시간 현황 오버레이 패널 (포지션 보유 시 자동 활성화) |
@@ -79,6 +89,8 @@ Canvas_MainUI
 - **모드별 버튼 상태 분기**:
   - `TradingMode.AI_Auto` (AI 자동매매 ON): LONG/SHORT 수동 버튼이 비활성화(`interactable = false`)되며 텍스트가 `"AI 자동 매수 대기"`, `"AI 자동 매도 대기"`로 표시됩니다.
   - `TradingMode.Player_Manual` (플레이어 수동매매 ON): 포지션이 없을 때 LONG/SHORT 버튼이 즉시 활성화(`interactable = true`)되어 직접 매수가 가능합니다.
+
+- **AI 성향 UI 자동 보강**: 구버전 씬이나 프리팹에 AUTO STYLE 슬롯이 없으면 `TradingPanelUIController`가 기존 컨트롤 카드 내부에 세 번째 탭과 프리셋 3종을 한 번만 생성합니다. `TradingViewUIBuilder`로 UI를 새로 조립하는 경우에도 같은 구조와 바인딩이 생성됩니다.
 
 ---
 

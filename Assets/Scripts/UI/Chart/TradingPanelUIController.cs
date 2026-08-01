@@ -33,7 +33,7 @@ namespace FXOverdose.UI.Chart
         [Header("조작부 모드 전환 탭 (우측 상단)")]
         [SerializeField] private Button btnTabLeverageMode;   // "LEVERAGE 배율" 탭
         [SerializeField] private Button btnTabMarginRatioMode; // "MARGIN 비율" 탭
-        [SerializeField] private Button btnTabAIStyleMode;     // "AI STYLE 성향" 탭 (신설)
+        [SerializeField] private Button btnTabAIStyleMode;     // "AUTO STYLE 성향" 탭
         [SerializeField] private GameObject leverageControlContainer;    // 레버리지 조작부 컨테이너
         [SerializeField] private GameObject marginRatioControlContainer; // 투자비율 조작부 컨테이너
         [SerializeField] private GameObject aiStyleControlContainer;     // AI 성향 조작부 컨테이너 (신설)
@@ -96,6 +96,8 @@ namespace FXOverdose.UI.Chart
         private readonly Color inactivePresetColor = new Color(0.122f, 0.161f, 0.235f, 1f);
         private readonly Color bullishColor = new Color(0.133f, 0.773f, 0.369f, 1f);
         private readonly Color bearishColor = new Color(0.937f, 0.267f, 0.267f, 1f);
+        private readonly Color balancedColor = new Color(0.024f, 0.714f, 0.831f, 1f);
+        private readonly Color aiStylePanelColor = new Color(0.043f, 0.070f, 0.125f, 0.98f);
 
         private ControlMode currentControlMode = ControlMode.Leverage;
         private int currentSelectedLeverage = 10;
@@ -119,10 +121,28 @@ namespace FXOverdose.UI.Chart
         private Coroutine positionFxCoroutine;
         private GameObject tradeCooldownOverlay;
         private TMP_Text tradeCooldownText;
+        private RectTransform effectStatusPanel;
+        private ActiveItemEffectManager activeItemManager;
+        private readonly List<KeyValuePair<ItemData, int>> activeItemStates = new();
+        private readonly List<EffectIconView> effectIconViews = new();
+        private ItemData pastaItem;
+        private RectTransform inventoryPanelRect;
+        private string effectIconSignature = string.Empty;
+        private float nextEffectStatusRefreshTime;
+
+        private sealed class EffectIconView
+        {
+            public bool IsFood;
+            public TMP_Text Badge;
+            public Image TimerFill;
+        }
 
         private void Start()
         {
             ApplyMainHudHorizontalMargins();
+            EnsureAIStyleUI();
+            BuildEffectStatusHUD();
+            BindActiveItemManager();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
 
@@ -153,13 +173,14 @@ namespace FXOverdose.UI.Chart
             
             if (tradingController != null)
             {
-                SelectAITradingStyle(tradingController.CurrentAITradingStyle);
+                OnAITradingStyleChangedCallback(tradingController.CurrentAITradingStyle);
             }
 
             SelectLeverage(currentSelectedLeverage);
             SelectMarginRatio(currentSelectedMarginPercent);
             SwitchControlMode(ControlMode.Leverage); // 기본 레버리지 탭 활성화
             RefreshPanelUI();
+            RefreshEffectStatusHUD();
         }
 
         private void ApplyMainHudHorizontalMargins()
@@ -217,6 +238,194 @@ namespace FXOverdose.UI.Chart
             text.alignment = TextAlignmentOptions.Center;
         }
 
+        /// <summary>
+        /// 구버전 씬처럼 AUTO STYLE 직렬화 슬롯이 비어 있어도 기존 컨트롤 카드 안에
+        /// 세 번째 탭과 성향 프리셋을 멱등 생성합니다.
+        /// </summary>
+        private void EnsureAIStyleUI()
+        {
+            if (tabsBarContainer == null)
+            {
+                Transform tabParent = btnTabLeverageMode != null
+                    ? btnTabLeverageMode.transform.parent
+                    : btnTabMarginRatioMode != null ? btnTabMarginRatioMode.transform.parent : null;
+                if (tabParent != null) tabsBarContainer = tabParent.gameObject;
+            }
+
+            if (tabsBarContainer == null || leverageControlContainer == null) return;
+
+            if (btnTabAIStyleMode == null)
+            {
+                Transform existing = tabsBarContainer.transform.Find("BtnTabAIStyleMode");
+                btnTabAIStyleMode = existing != null
+                    ? existing.GetComponent<Button>()
+                    : CreateAIStyleButton(tabsBarContainer.transform, "BtnTabAIStyleMode", "AUTO STYLE", cyanHighlight);
+            }
+
+            LayoutAIStyleTabs();
+
+            if (aiStyleControlContainer == null)
+            {
+                Transform parent = leverageControlContainer.transform.parent;
+                Transform existing = parent.Find("Container_AIStyleMode");
+                aiStyleControlContainer = existing != null
+                    ? existing.gameObject
+                    : CreateAIStyleContainer(parent);
+            }
+
+            if (aiStyleControlContainer == null) return;
+
+            btnPresetSafe ??= FindButton(aiStyleControlContainer.transform, "BtnPresetSafe");
+            btnPresetBalanced ??= FindButton(aiStyleControlContainer.transform, "BtnPresetBalanced");
+            btnPresetAggressive ??= FindButton(aiStyleControlContainer.transform, "BtnPresetAggressive");
+            SetButtonLabel(btnTabAIStyleMode, "AUTO STYLE");
+            SetButtonLabel(btnPresetSafe, "SAFE");
+            SetButtonLabel(btnPresetBalanced, "BALANCE");
+            SetButtonLabel(btnPresetAggressive, "AGGRESSIVE");
+            if (aiStyleDescText == null)
+            {
+                Transform desc = aiStyleControlContainer.transform.Find("AIStyleDescription/Label");
+                if (desc != null) aiStyleDescText = desc.GetComponent<TMP_Text>();
+            }
+
+            aiStyleControlContainer.SetActive(false);
+        }
+
+        private void LayoutAIStyleTabs()
+        {
+            LayoutTab(btnTabLeverageMode, 0f, 0.32f);
+            LayoutTab(btnTabMarginRatioMode, 0.34f, 0.66f);
+            LayoutTab(btnTabAIStyleMode, 0.68f, 1f);
+        }
+
+        private static void LayoutTab(Button button, float minX, float maxX)
+        {
+            if (button == null) return;
+            RectTransform rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(minX, 0f);
+            rect.anchorMax = new Vector2(maxX, 1f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.localScale = Vector3.one;
+        }
+
+        private GameObject CreateAIStyleContainer(Transform parent)
+        {
+            GameObject container = new("Container_AIStyleMode", typeof(RectTransform));
+            container.transform.SetParent(parent, false);
+            RectTransform rect = container.GetComponent<RectTransform>();
+            RectTransform source = leverageControlContainer.GetComponent<RectTransform>();
+            rect.anchorMin = source.anchorMin;
+            rect.anchorMax = source.anchorMax;
+            rect.offsetMin = source.offsetMin;
+            rect.offsetMax = source.offsetMax;
+
+            GameObject presets = new("AIStylePresets", typeof(RectTransform));
+            presets.transform.SetParent(container.transform, false);
+            SetRuntimeRect(presets.GetComponent<RectTransform>(), new Vector2(0f, 0.49f), Vector2.one,
+                new Vector2(0f, 2f), new Vector2(0f, -2f));
+
+            btnPresetSafe = CreateAIStyleButton(presets.transform, "BtnPresetSafe", "SAFE", bullishColor);
+            btnPresetBalanced = CreateAIStyleButton(presets.transform, "BtnPresetBalanced", "BALANCE", balancedColor);
+            btnPresetAggressive = CreateAIStyleButton(presets.transform, "BtnPresetAggressive", "AGGRESSIVE", bearishColor);
+            LayoutPreset(btnPresetSafe, 0f, 0.315f);
+            LayoutPreset(btnPresetBalanced, 0.3425f, 0.6575f);
+            LayoutPreset(btnPresetAggressive, 0.685f, 1f);
+
+            GameObject descPanel = new("AIStyleDescription", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            descPanel.transform.SetParent(container.transform, false);
+            SetRuntimeRect(descPanel.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.42f),
+                new Vector2(0f, 2f), Vector2.zero);
+            descPanel.GetComponent<Image>().color = aiStylePanelColor;
+            Outline descOutline = descPanel.GetComponent<Outline>();
+            descOutline.effectColor = new Color(cyanHighlight.r, cyanHighlight.g, cyanHighlight.b, 0.45f);
+            descOutline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            GameObject labelObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(descPanel.transform, false);
+            SetRuntimeRect(labelObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.one,
+                new Vector2(12f, 5f), new Vector2(-12f, -5f));
+            aiStyleDescText = labelObject.GetComponent<TextMeshProUGUI>();
+            aiStyleDescText.font = TMP_Settings.defaultFontAsset;
+            aiStyleDescText.fontSize = 15f;
+            aiStyleDescText.enableAutoSizing = true;
+            aiStyleDescText.fontSizeMin = 11f;
+            aiStyleDescText.fontSizeMax = 15f;
+            aiStyleDescText.alignment = TextAlignmentOptions.Center;
+            aiStyleDescText.color = new Color32(207, 250, 254, 255);
+            aiStyleDescText.textWrappingMode = TextWrappingModes.Normal;
+            aiStyleDescText.overflowMode = TextOverflowModes.Ellipsis;
+            aiStyleDescText.raycastTarget = false;
+
+            return container;
+        }
+
+        private Button CreateAIStyleButton(Transform parent, string objectName, string label, Color accent)
+        {
+            GameObject buttonObject = new(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
+            buttonObject.transform.SetParent(parent, false);
+            Image image = buttonObject.GetComponent<Image>();
+            image.color = inactivePresetColor;
+            Button button = buttonObject.GetComponent<Button>();
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.08f, 1.08f, 1.08f, 1f);
+            colors.pressedColor = new Color(0.78f, 0.85f, 0.9f, 1f);
+            colors.selectedColor = Color.white;
+            button.colors = colors;
+            Outline outline = buttonObject.GetComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.8f);
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            GameObject textObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            SetRuntimeRect(textObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.one,
+                new Vector2(5f, 3f), new Vector2(-5f, -3f));
+            TMP_Text text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.text = label;
+            text.fontSize = objectName == "BtnTabAIStyleMode" ? 17f : 15f;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 10f;
+            text.fontSizeMax = text.fontSize;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.textWrappingMode = TextWrappingModes.Normal;
+            text.raycastTarget = false;
+            return button;
+        }
+
+        private static void LayoutPreset(Button button, float minX, float maxX)
+        {
+            if (button == null) return;
+            SetRuntimeRect(button.GetComponent<RectTransform>(), new Vector2(minX, 0f), new Vector2(maxX, 1f),
+                Vector2.zero, Vector2.zero);
+        }
+
+        private static void SetRuntimeRect(RectTransform rect, Vector2 min, Vector2 max, Vector2 offsetMin, Vector2 offsetMax)
+        {
+            if (rect == null) return;
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+            rect.localScale = Vector3.one;
+        }
+
+        private static Button FindButton(Transform root, string objectName)
+        {
+            Transform found = root.Find($"AIStylePresets/{objectName}");
+            return found != null ? found.GetComponent<Button>() : null;
+        }
+
+        private static void SetButtonLabel(Button button, string label)
+        {
+            if (button == null) return;
+            TMP_Text text = button.GetComponentInChildren<TMP_Text>(true);
+            if (text != null) text.text = label;
+        }
+
         private void OnDestroy()
         {
             if (tradingController != null)
@@ -227,6 +436,8 @@ namespace FXOverdose.UI.Chart
                 tradingController.OnPositionClosed -= HandlePositionClosed;
                 tradingController.OnAITradingStyleChanged -= OnAITradingStyleChangedCallback;
             }
+            if (activeItemManager != null)
+                activeItemManager.OnActiveItemsChanged -= RefreshEffectStatusHUD;
         }
 
         private void Update()
@@ -262,7 +473,234 @@ namespace FXOverdose.UI.Chart
             }
 
             UpdateTradeCooldownUI();
+            if (activeItemManager == null) BindActiveItemManager();
+            if (Time.unscaledTime >= nextEffectStatusRefreshTime)
+            {
+                nextEffectStatusRefreshTime = Time.unscaledTime + 0.2f;
+                RefreshEffectStatusHUD();
+            }
             UpdateVolatilityGimmicks();
+        }
+
+        private void BuildEffectStatusHUD()
+        {
+            DynamicInventoryUI inventoryUI = FindAnyObjectByType<DynamicInventoryUI>();
+            inventoryPanelRect = inventoryUI != null ? inventoryUI.GetComponent<RectTransform>() : null;
+            Canvas rootCanvas = GetComponentInParent<Canvas>();
+            Transform hudParent = inventoryPanelRect != null && inventoryPanelRect.parent != null
+                ? inventoryPanelRect.parent
+                : rootCanvas != null ? rootCanvas.transform : transform;
+            Transform existing = hudParent.Find("EffectStatusHUD");
+            GameObject panelObject;
+            if (existing == null)
+            {
+                panelObject = new GameObject("EffectStatusHUD", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline), typeof(LayoutElement));
+                panelObject.transform.SetParent(hudParent, false);
+            }
+            else panelObject = existing.gameObject;
+
+            effectStatusPanel = panelObject.GetComponent<RectTransform>();
+            effectStatusPanel.anchorMin = effectStatusPanel.anchorMax = new Vector2(1f, 0f);
+            effectStatusPanel.pivot = new Vector2(1f, 0f);
+            Canvas effectCanvas = panelObject.GetComponent<Canvas>();
+            if (effectCanvas == null) effectCanvas = panelObject.AddComponent<Canvas>();
+            effectCanvas.overrideSorting = true;
+            // 캐릭터/요미 레이어보다 위, 상점(100)과 각종 모달 UI보다는 아래에 둡니다.
+            effectCanvas.sortingOrder = 80;
+            LayoutElement layout = panelObject.GetComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            Image background = panelObject.GetComponent<Image>();
+            background.color = new Color(0.025f, 0.045f, 0.082f, 0.96f);
+            background.raycastTarget = false;
+            Outline outline = panelObject.GetComponent<Outline>();
+            outline.effectColor = new Color(cyanHighlight.r, cyanHighlight.g, cyanHighlight.b, 0.72f);
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            VerticalLayoutGroup oldVerticalLayout = panelObject.GetComponent<VerticalLayoutGroup>();
+            if (oldVerticalLayout != null) oldVerticalLayout.enabled = false;
+            HorizontalLayoutGroup iconLayout = panelObject.GetComponent<HorizontalLayoutGroup>();
+            if (iconLayout == null) iconLayout = panelObject.AddComponent<HorizontalLayoutGroup>();
+            iconLayout.padding = new RectOffset(8, 8, 8, 8);
+            iconLayout.spacing = 6f;
+            iconLayout.childAlignment = TextAnchor.MiddleRight;
+            iconLayout.childControlWidth = true;
+            iconLayout.childControlHeight = true;
+            iconLayout.childForceExpandWidth = false;
+            iconLayout.childForceExpandHeight = true;
+
+            Transform obsoleteText = panelObject.transform.Find("StatusText");
+            if (obsoleteText != null)
+            {
+                obsoleteText.gameObject.SetActive(false);
+                Destroy(obsoleteText.gameObject);
+            }
+            pastaItem = Resources.Load<ItemData>("Items/Food/Pasta");
+            LayoutEffectStatusHUD();
+            panelObject.transform.SetAsLastSibling();
+        }
+
+        private void LayoutEffectStatusHUD()
+        {
+            if (effectStatusPanel == null) return;
+            if (inventoryPanelRect == null)
+            {
+                DynamicInventoryUI inventoryUI = FindAnyObjectByType<DynamicInventoryUI>();
+                inventoryPanelRect = inventoryUI != null ? inventoryUI.GetComponent<RectTransform>() : null;
+            }
+
+            const float gapFromInventory = 12f;
+            float inventoryWidth = inventoryPanelRect != null ? inventoryPanelRect.rect.width : 436f;
+            float inventoryRightOffset = inventoryPanelRect != null
+                ? -inventoryPanelRect.anchoredPosition.x
+                : UIStrokeStyle.ScreenEdgeMargin;
+            float bottomOffset = inventoryPanelRect != null
+                ? inventoryPanelRect.anchoredPosition.y
+                : UIStrokeStyle.ScreenEdgeMargin;
+            effectStatusPanel.anchoredPosition = new Vector2(
+                -(inventoryRightOffset + inventoryWidth + gapFromInventory),
+                bottomOffset);
+        }
+
+        private void BindActiveItemManager()
+        {
+            ActiveItemEffectManager manager = ActiveItemEffectManager.Instance;
+            if (manager == activeItemManager) return;
+            if (activeItemManager != null)
+                activeItemManager.OnActiveItemsChanged -= RefreshEffectStatusHUD;
+            activeItemManager = manager;
+            if (activeItemManager != null)
+                activeItemManager.OnActiveItemsChanged += RefreshEffectStatusHUD;
+            RefreshEffectStatusHUD();
+        }
+
+        private void RefreshEffectStatusHUD()
+        {
+            if (effectStatusPanel == null) return;
+
+            activeItemStates.Clear();
+            activeItemManager?.CopyActiveItemLevels(activeItemStates);
+            activeItemStates.Sort((a, b) => string.Compare(a.Key.ItemName, b.Key.ItemName, StringComparison.Ordinal));
+            float pastaSeconds = DeliveryFoodManager.Instance != null
+                ? DeliveryFoodManager.Instance.PastaRemainingSeconds
+                : 0f;
+            bool hasPasta = pastaSeconds > 0.05f;
+            bool hasAnyEffect = activeItemStates.Count > 0 || hasPasta;
+            effectStatusPanel.gameObject.SetActive(hasAnyEffect);
+            if (!hasAnyEffect) return;
+            LayoutEffectStatusHUD();
+
+            string signature = string.Empty;
+            foreach (KeyValuePair<ItemData, int> state in activeItemStates)
+                signature += $"{state.Key.ItemId}:{state.Value}|";
+            if (hasPasta) signature += "pasta|";
+            if (signature != effectIconSignature)
+            {
+                effectIconSignature = signature;
+                RebuildEffectIcons(hasPasta);
+            }
+
+            int activeIndex = 0;
+            foreach (EffectIconView view in effectIconViews)
+            {
+                if (view.IsFood)
+                {
+                    if (view.TimerFill != null)
+                    {
+                        float remainingRatio = Mathf.Clamp01(pastaSeconds / DeliveryFoodManager.PastaDurationSeconds);
+                        view.TimerFill.fillAmount = 1f - remainingRatio;
+                    }
+                }
+                else if (activeIndex < activeItemStates.Count)
+                {
+                    view.Badge.text = $"LV.{activeItemStates[activeIndex].Value}";
+                    activeIndex++;
+                }
+            }
+        }
+
+        private void RebuildEffectIcons(bool hasPasta)
+        {
+            for (int i = effectStatusPanel.childCount - 1; i >= 0; i--)
+            {
+                Transform child = effectStatusPanel.GetChild(i);
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+            effectIconViews.Clear();
+
+            // 표시 순서는 영구 액티브 장비가 먼저, 시간제 음식이 그 다음입니다.
+            foreach (KeyValuePair<ItemData, int> state in activeItemStates)
+                effectIconViews.Add(CreateEffectIcon(state.Key, false, $"LV.{state.Value}", new Color(0.98f, 0.78f, 0.28f, 1f)));
+            if (hasPasta && pastaItem != null)
+                effectIconViews.Add(CreateEffectIcon(pastaItem, true, string.Empty, new Color(1f, 0.61f, 0.27f, 1f)));
+            effectStatusPanel.sizeDelta = new Vector2(
+                16f + effectIconViews.Count * 64f + Mathf.Max(0, effectIconViews.Count - 1) * 6f,
+                80f);
+        }
+
+        private EffectIconView CreateEffectIcon(ItemData item, bool isFood, string badgeLabel, Color accent)
+        {
+            GameObject card = new($"EffectIcon_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline), typeof(LayoutElement));
+            card.transform.SetParent(effectStatusPanel, false);
+            LayoutElement size = card.GetComponent<LayoutElement>();
+            size.preferredWidth = 64f;
+            size.minWidth = 54f;
+            size.preferredHeight = 64f;
+            size.minHeight = 54f;
+            Image cardBackground = card.GetComponent<Image>();
+            cardBackground.color = new Color(0.055f, 0.09f, 0.15f, 1f);
+            cardBackground.raycastTarget = false;
+            Outline cardOutline = card.GetComponent<Outline>();
+            cardOutline.effectColor = new Color(accent.r, accent.g, accent.b, 0.82f);
+            cardOutline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            GameObject iconObject = new("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(card.transform, false);
+            Image icon = iconObject.GetComponent<Image>();
+            icon.sprite = item.Icon;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            SetRuntimeRect(icon.rectTransform, Vector2.zero, Vector2.one,
+                new Vector2(7f, isFood ? 5f : 18f), new Vector2(-7f, -4f));
+
+            if (isFood)
+            {
+                GameObject fillObject = new("TimeProgressFill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                fillObject.transform.SetParent(card.transform, false);
+                Image timerFill = fillObject.GetComponent<Image>();
+                timerFill.sprite = null;
+                timerFill.color = new Color(1f, 0.43f, 0.12f, 0.38f);
+                timerFill.type = Image.Type.Filled;
+                timerFill.fillMethod = Image.FillMethod.Vertical;
+                timerFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+                timerFill.fillAmount = 0f;
+                timerFill.raycastTarget = false;
+                SetRuntimeRect(timerFill.rectTransform, Vector2.zero, Vector2.one, new Vector2(3f, 3f), new Vector2(-3f, -3f));
+                return new EffectIconView { IsFood = true, TimerFill = timerFill };
+            }
+
+            GameObject badgeObject = new("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            badgeObject.transform.SetParent(card.transform, false);
+            Image badgeBackground = badgeObject.GetComponent<Image>();
+            badgeBackground.color = new Color(0.015f, 0.027f, 0.05f, 0.94f);
+            badgeBackground.raycastTarget = false;
+            SetRuntimeRect(badgeObject.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f),
+                new Vector2(3f, 3f), new Vector2(-3f, 19f));
+
+            GameObject labelObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(badgeObject.transform, false);
+            TMP_Text badge = labelObject.GetComponent<TextMeshProUGUI>();
+            badge.font = TMP_Settings.defaultFontAsset;
+            badge.text = badgeLabel;
+            badge.fontSize = 13f;
+            badge.fontStyle = FontStyles.Bold;
+            badge.alignment = TextAlignmentOptions.Center;
+            badge.color = accent;
+            badge.textWrappingMode = TextWrappingModes.NoWrap;
+            badge.raycastTarget = false;
+            SetRuntimeRect(badge.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            return new EffectIconView { IsFood = false, Badge = badge };
         }
 
         private void UpdateVolatilityGimmicks()
@@ -464,19 +902,37 @@ namespace FXOverdose.UI.Chart
 
         private void OnAITradingStyleChangedCallback(TradingController.AITradingStyle style)
         {
-            UpdatePresetHighlight(btnPresetSafe, style == TradingController.AITradingStyle.Safe);
-            UpdatePresetHighlight(btnPresetBalanced, style == TradingController.AITradingStyle.Balanced);
-            UpdatePresetHighlight(btnPresetAggressive, style == TradingController.AITradingStyle.Aggressive);
+            UpdateAIStyleButton(btnPresetSafe, bullishColor, style == TradingController.AITradingStyle.Safe);
+            UpdateAIStyleButton(btnPresetBalanced, balancedColor, style == TradingController.AITradingStyle.Balanced);
+            UpdateAIStyleButton(btnPresetAggressive, bearishColor, style == TradingController.AITradingStyle.Aggressive);
 
             if (aiStyleDescText != null)
             {
                 aiStyleDescText.text = style switch
                 {
-                    TradingController.AITradingStyle.Safe => "안전(Safe): 소액 분산투자. 확실할 때만 진입.",
-                    TradingController.AITradingStyle.Balanced => "균형(Balanced): 파동에 맞춘 유연한 매매. (기본값)",
-                    TradingController.AITradingStyle.Aggressive => "공격(Aggressive): 고배율 풀시드, 손절없이 청산까지 버팀.",
+                    TradingController.AITradingStyle.Safe => "LOW LEVERAGE · 소액 진입 · 강한 신호만 거래",
+                    TradingController.AITradingStyle.Balanced => "BALANCED · 시장 신호에 맞춘 기본 자동매매",
+                    TradingController.AITradingStyle.Aggressive => "HIGH LEVERAGE · 높은 증거금 · 손절 최소화",
                     _ => ""
                 };
+            }
+        }
+
+        private void UpdateAIStyleButton(Button button, Color accent, bool selected)
+        {
+            if (button == null) return;
+            Image image = button.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = selected
+                    ? new Color(accent.r * 0.68f, accent.g * 0.68f, accent.b * 0.68f, 1f)
+                    : inactivePresetColor;
+            }
+            Outline outline = button.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.effectColor = new Color(accent.r, accent.g, accent.b, selected ? 1f : 0.62f);
+                outline.effectDistance = UIStrokeStyle.EffectDistance;
             }
         }
 

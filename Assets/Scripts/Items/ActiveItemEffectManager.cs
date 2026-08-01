@@ -54,6 +54,17 @@ public class ActiveItemEffectManager : MonoBehaviour
         return level;
     }
 
+    /// <summary>HUD 등 읽기 전용 UI가 현재 활성 아이템과 레벨을 할당 없이 복사합니다.</summary>
+    public void CopyActiveItemLevels(List<KeyValuePair<ItemData, int>> destination)
+    {
+        if (destination == null) return;
+        destination.Clear();
+        foreach (KeyValuePair<ItemData, int> entry in itemLevels)
+        {
+            if (entry.Key != null && entry.Value > 0) destination.Add(entry);
+        }
+    }
+
     /// <summary>
     /// 아이템이 최대 레벨(구매 가능 횟수 한계)에 도달했는지 여부를 반환합니다.
     /// </summary>

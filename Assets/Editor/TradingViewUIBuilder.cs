@@ -616,13 +616,14 @@ namespace FXOverdose.EditorTools
             ctrlVLayout.spacing = 10f;
             ctrlVLayout.padding = new RectOffset(12, 12, 12, 12);
 
-            // 상단 헤더 탭 (LEVERAGE MODE vs MARGIN RATIO)
+            // 상단 헤더 탭 (LEVERAGE / MARGIN / AUTO STYLE)
             GameObject tabsBar = CreateUIObject("TabsBar", controlCard.transform);
             HorizontalLayoutGroup tabsLayout = tabsBar.AddComponent<HorizontalLayoutGroup>();
             tabsLayout.childAlignment = TextAnchor.MiddleCenter;
             tabsLayout.spacing = 8f;
             Button btnTabLev = CreateButton("BtnTabLeverageMode", tabsBar.transform, "LEVERAGE", 145, 32);
             Button btnTabMar = CreateButton("BtnTabMarginRatioMode", tabsBar.transform, "MARGIN", 145, 32);
+            Button btnTabAIStyle = CreateButton("BtnTabAIStyleMode", tabsBar.transform, "AUTO STYLE", 145, 32);
 
             // 레버리지 조작부 컨테이너
             GameObject levContainer = CreateUIObject("Container_LeverageMode", controlCard.transform);
@@ -696,6 +697,40 @@ namespace FXOverdose.EditorTools
             sliderGO.SetActive(false);
             marContainer.SetActive(false);
 
+            // AI 자동매매 성향 조작부 컨테이너
+            GameObject aiStyleContainer = CreateUIObject("Container_AIStyleMode", controlCard.transform);
+            VerticalLayoutGroup aiStyleLayout = aiStyleContainer.AddComponent<VerticalLayoutGroup>();
+            aiStyleLayout.childAlignment = TextAnchor.MiddleCenter;
+            aiStyleLayout.spacing = 8f;
+            aiStyleLayout.padding = new RectOffset(2, 2, 2, 2);
+
+            GameObject aiStylePresets = CreateUIObject("AIStylePresets", aiStyleContainer.transform);
+            HorizontalLayoutGroup aiPresetLayout = aiStylePresets.AddComponent<HorizontalLayoutGroup>();
+            aiPresetLayout.childAlignment = TextAnchor.MiddleCenter;
+            aiPresetLayout.spacing = 8f;
+            aiPresetLayout.childControlWidth = true;
+            aiPresetLayout.childControlHeight = true;
+            aiPresetLayout.childForceExpandWidth = true;
+            aiPresetLayout.childForceExpandHeight = true;
+            Button btnSafe = CreateButton("BtnPresetSafe", aiStylePresets.transform, "SAFE", 120, 48, new Color(0.07f, 0.32f, 0.19f, 1f));
+            Button btnBalanced = CreateButton("BtnPresetBalanced", aiStylePresets.transform, "BALANCE", 120, 48, new Color(0.04f, 0.28f, 0.36f, 1f));
+            Button btnAggressive = CreateButton("BtnPresetAggressive", aiStylePresets.transform, "AGGRESSIVE", 120, 48, new Color(0.38f, 0.09f, 0.14f, 1f));
+
+            GameObject aiDescPanel = CreateUIObject("AIStyleDescription", aiStyleContainer.transform);
+            Image aiDescBg = aiDescPanel.AddComponent<Image>();
+            aiDescBg.color = new Color(0.043f, 0.07f, 0.125f, 0.98f);
+            Outline aiDescOutline = aiDescPanel.AddComponent<Outline>();
+            aiDescOutline.effectColor = new Color(0.024f, 0.714f, 0.831f, 0.45f);
+            aiDescOutline.effectDistance = UIStrokeStyle.EffectDistance;
+            TMP_Text aiDesc = CreateTMPText("Label", aiDescPanel.transform,
+                "BALANCED · 시장 신호에 맞춘 기본 자동매매", 15, new Color(0.812f, 0.98f, 0.996f, 1f));
+            aiDesc.alignment = TextAlignmentOptions.Center;
+            aiDesc.enableAutoSizing = true;
+            aiDesc.fontSizeMin = 11f;
+            aiDesc.fontSizeMax = 15f;
+            aiDesc.textWrappingMode = TextWrappingModes.Normal;
+            aiStyleContainer.SetActive(false);
+
             // 포지션 진입 시 우측 오버레이 패널 및 청산 버튼
             GameObject statusOverlay = CreateUIObject("PositionStatusPanel", controlCard.transform);
             RectTransform statusRect = statusOverlay.GetComponent<RectTransform>();
@@ -747,9 +782,15 @@ namespace FXOverdose.EditorTools
             SetField(controller, "shortSubtitleText", null);
             SetField(controller, "btnTabLeverageMode", btnTabLev);
             SetField(controller, "btnTabMarginRatioMode", btnTabMar);
+            SetField(controller, "btnTabAIStyleMode", btnTabAIStyle);
             SetField(controller, "tabsBarContainer", tabsBar);
             SetField(controller, "leverageControlContainer", levContainer);
             SetField(controller, "marginRatioControlContainer", marContainer);
+            SetField(controller, "aiStyleControlContainer", aiStyleContainer);
+            SetField(controller, "btnPresetSafe", btnSafe);
+            SetField(controller, "btnPresetBalanced", btnBalanced);
+            SetField(controller, "btnPresetAggressive", btnAggressive);
+            SetField(controller, "aiStyleDescText", aiDesc);
             SetField(controller, "marginPercentageSlider", slider);
             SetField(controller, "btnMarginRatioMinus", btnMarMinus);
             SetField(controller, "btnMarginRatioPlus", btnMarPlus);

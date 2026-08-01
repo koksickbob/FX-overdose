@@ -150,6 +150,25 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 ### 관련 파일
 
 - `Assets/Scripts/Items/Inventory.cs`
+
+## 2026-08-01 — 거래 조작부 효과 상태 HUD
+
+- 거래 패널의 카드 레이아웃과 분리하고 실제 인벤토리 왼쪽 경계를 기준으로 위치를 계산하여, 레버리지 조작부와 인벤토리 사이에 독립된 가로형 효과 아이콘 레일을 배치했다.
+- 텍스트 목록 대신 각 `ItemData.Icon` 스프라이트를 사용하며 영구 액티브 아이템을 먼저, 시간제 음식을 그 오른쪽에 두고 가로 방향으로 확장한다.
+- 액티브 아이템 스프라이트는 동일한 골드 테두리를 사용하고 하단에는 현재 `LV` 배지만 표시한다.
+- 파스타의 시간 숫자는 제거하고, 지속 시간이 소진될수록 반투명 주황 오버레이가 아이콘 아래에서 위로 차오르도록 0.2초마다 갱신한다.
+- 효과 아이콘 레일은 전용 Canvas 정렬 순서 80을 사용해 요미 캐릭터보다 위에 표시하고 상점·모달 UI보다는 아래에 유지한다.
+- 마우스 툴팁은 인벤토리의 소비 아이템 슬롯에만 연결했다.
+- 툴팁에는 아이템명, 기본 설명과 체력·멘탈 회복량, 파스타의 시간 배율 등 실제 사용 효과를 표시한다.
+- 툴팁은 커서를 따라 움직이되 화면 경계를 벗어나지 않고, 별도 Canvas 정렬 순서 190으로 게임 HUD 위에 표시된다.
+- 적용 중인 액티브 아이템과 음식 효과가 모두 없으면 HUD를 자동으로 숨긴다.
+- 런타임 멱등 생성 방식으로 구성하여 구버전 `GameScene`의 Inspector 재할당 없이도 표시된다.
+- 상점에서 액티브 장비와 파스타 효과 HUD를 빠르게 검수할 수 있도록 새 게임 초기 자산을 임시로 `$10,000,000`으로 설정했다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Scripts/Items/ActiveItemEffectManager.cs`
 - `Assets/Scripts/Items/InventoryItemButton.cs`
 - `Assets/Editor/ItemButtonsUIBuilder.cs`
 - `Assets/Scripts/Items/ItemUser.cs`
@@ -1796,3 +1815,54 @@ bluem이 구현한 기능과 검증 결과를 기록하는 문서입니다.
 - `Assets/Resources/Characters/Costumes/Yukata/`
 - `Assets/Scripts/Items/CostumeManager.cs`
 - `Assets/Scripts/System/AchievementManager.cs`
+
+## 2026-08-01 — 마진·레버리지 카드 AUTO STYLE UI
+
+- 기존 `LEVERAGE`, `MARGIN` 탭 옆에 `AUTO STYLE` 세 번째 탭을 추가했다.
+- 프리셋 버튼 표기를 `SAFE`, `BALANCE`, `AGGRESSIVE`로 간결하게 구성하고 현재 성향 설명은 하단 패널에서 제공한다.
+- SAFE는 초록, BALANCED는 시안, AGGRESSIVE는 빨강 외곽선을 사용하고 선택된 성향은 해당 강조색으로 표시한다.
+- 구버전 `GameScene`처럼 AUTO STYLE 직렬화 슬롯이 없는 경우 `TradingPanelUIController`가 기존 컨트롤 카드 내부에 UI를 멱등 생성하고 즉시 연결한다.
+- `TradingViewUIBuilder`와 `BottomTradingReferenceStyler`에도 동일한 3탭 구조, 프리셋 배치와 스타일을 반영해 UI 재조립 시 기능이 사라지지 않는다.
+- 기존 `TradingController.AITradingStyle`, `AITradingBrain` 전략 분기, 세이브·불러오기 로직을 그대로 사용한다.
+- 전체 C# 컴파일 결과 경고 0개, 오류 0개를 확인했다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/Chart/TradingPanelUIController.cs`
+- `Assets/Editor/TradingViewUIBuilder.cs`
+- `Assets/Editor/BottomTradingReferenceStyler.cs`
+- `docs/UI_ASSEMBLY_AND_DESIGN_GUIDE.md`
+
+## 2026-08-01 — PC·모바일 포인터 잔상 및 클릭 연출
+
+- 씬마다 별도 연결하지 않아도 실행 전에 자동 생성되는 전역 `PointerFeedbackController`를 추가했다.
+- PC에서는 마우스 커서가 이동할 때 시안·연보라 픽셀 다이아몬드 잔상이 나타난다.
+- 모바일에서는 화면을 누른 채 드래그하거나 스와이프할 때 터치 경로를 따라 조금 더 크고 오래 유지되는 잔상이 나타난다.
+- 마우스 클릭과 모바일 탭에는 확장되는 픽셀 링과 시안·연보라 방사형 파편 연출을 공통 적용했다.
+- 전용 최상단 Overlay Canvas에서 모든 그래픽의 Raycast를 비활성화해 기존 버튼, 스크롤과 드래그 입력을 차단하지 않는다.
+- `Time.unscaledDeltaTime`을 사용해 설정·상점·돌발 이벤트 등 게임 일시정지 상태에서도 연출이 끝까지 재생된다.
+- 실행 중 오브젝트 생성을 반복하지 않도록 96개 파티클 풀과 런타임 Point 필터 픽셀 스프라이트를 사용한다.
+- 전체 C# 컴파일 결과 경고 0개, 오류 0개를 확인했다.
+
+관련 파일:
+
+- `Assets/Scripts/UI/PointerFeedbackController.cs`
+
+## 2026-08-01 — 인벤토리 4칸 가로 페이지 UI
+
+- 인벤토리 패널 크기와 한 페이지의 표시 슬롯을 기본 4칸으로 고정했다.
+- 아이템이 4개를 넘으면 다음 4칸 페이지를 가로 방향으로 자동 생성하고, 마지막 페이지의 남는 칸은 빈 슬롯으로 채운다.
+- PC 마우스 드래그·휠과 모바일 스와이프로 페이지를 이동하고, 드래그가 끝나면 가장 가까운 페이지에 스냅한다.
+- 빈 슬롯 영역을 누르면 다음 페이지로 이동하며 마지막 페이지에서는 첫 페이지로 순환한다.
+- 페이지가 2개 이상일 때만 드래그 가능한 슬라이드 바와 현재 페이지 번호를 표시한다.
+- 기존 아이템 버튼은 그대로 유지하여 아이템 클릭과 페이지 이동 입력이 충돌하지 않도록 분리했다.
+- PC에서는 아이템 슬롯을 바로 드래그하고, 모바일에서는 짧은 스와이프와 구분하기 위해 슬롯을 0.12초 누른 뒤 드래그하여 원하는 슬롯과 순서를 교체할 수 있다.
+- 아이템 드래그 중 뷰포트 좌우 가장자리에 접근하면 이전·다음 페이지로 자동 이동하므로 페이지를 넘나드는 재배치가 가능하다.
+- 드래그 중인 슬롯은 반투명 원본과 시안 외곽선의 플로팅 아이콘으로 표시하고, 놓일 대상 슬롯을 강조한다.
+- 드래그 고스트의 앵커를 인벤토리 패널 피벗과 일치시켜 PC 커서와 모바일 손가락 중심을 정확히 따라가도록 보정했다.
+- 변경된 슬롯 순서는 `Inventory` 데이터 배열에 반영되어 기존 게임 저장·불러오기 흐름에서도 유지된다.
+
+관련 파일:
+
+- `Assets/Scripts/Items/DynamicInventoryUI.cs`
+- `Assets/Scripts/Items/Inventory.cs`

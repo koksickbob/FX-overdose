@@ -223,17 +223,25 @@ public static class BottomTradingReferenceStyler
         if (leverageTab != null)
         {
             leverageTab.SetActive(true);
-            SetRect(leverageTab.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0.49f, 1f), Vector2.zero, Vector2.zero);
+            SetRect(leverageTab.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0.32f, 1f), Vector2.zero, Vector2.zero);
             TMP_Text text = leverageTab.GetComponentInChildren<TMP_Text>(true);
-            if (text != null) { text.text = "LEVERAGE"; StyleText(text, 18f, Color.white); }
+            if (text != null) { text.text = "LEVERAGE"; StyleText(text, 16f, Color.white); }
         }
         GameObject marginTab = Find("BtnTabMarginRatioMode");
         if (marginTab != null)
         {
             marginTab.SetActive(true);
-            SetRect(marginTab.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+            SetRect(marginTab.GetComponent<RectTransform>(), new Vector2(0.34f, 0f), new Vector2(0.66f, 1f), Vector2.zero, Vector2.zero);
             TMP_Text text = marginTab.GetComponentInChildren<TMP_Text>(true);
-            if (text != null) { text.text = "MARGIN"; StyleText(text, 18f, Color.white); }
+            if (text != null) { text.text = "MARGIN"; StyleText(text, 16f, Color.white); }
+        }
+        GameObject aiStyleTab = Find("BtnTabAIStyleMode");
+        if (aiStyleTab != null)
+        {
+            aiStyleTab.SetActive(true);
+            SetRect(aiStyleTab.GetComponent<RectTransform>(), new Vector2(0.68f, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+            TMP_Text text = aiStyleTab.GetComponentInChildren<TMP_Text>(true);
+            if (text != null) { text.text = "AUTO STYLE"; StyleText(text, 16f, Color.white); }
         }
 
         GameObject container = Find("Container_LeverageMode");
@@ -283,6 +291,7 @@ public static class BottomTradingReferenceStyler
         }
 
         StyleMarginControls();
+        StyleAIStyleControls();
     }
 
     private static void StyleMarginControls()
@@ -331,6 +340,64 @@ public static class BottomTradingReferenceStyler
                 TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
                 if (label != null) StyleText(label, 15f, Color.white);
             }
+        }
+    }
+
+    private static void StyleAIStyleControls()
+    {
+        GameObject container = Find("Container_AIStyleMode");
+        if (container == null) return;
+
+        RemoveLayouts(container);
+        SetRect(container.GetComponent<RectTransform>(), new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.715f), Vector2.zero, Vector2.zero);
+
+        GameObject presets = Find("AIStylePresets");
+        if (presets != null)
+        {
+            RemoveLayouts(presets);
+            SetRect(presets.GetComponent<RectTransform>(), new Vector2(0f, 0.49f), Vector2.one,
+                new Vector2(0f, 2f), new Vector2(0f, -2f));
+        }
+
+        StyleAIStylePreset("BtnPresetSafe", 0f, 0.315f, new Color(0.133f, 0.773f, 0.369f, 0.82f));
+        StyleAIStylePreset("BtnPresetBalanced", 0.3425f, 0.6575f, new Color(0.024f, 0.714f, 0.831f, 0.82f));
+        StyleAIStylePreset("BtnPresetAggressive", 0.685f, 1f, new Color(0.937f, 0.267f, 0.267f, 0.82f));
+
+        GameObject descPanel = Find("AIStyleDescription");
+        if (descPanel != null)
+        {
+            SetRect(descPanel.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.42f),
+                new Vector2(0f, 2f), Vector2.zero);
+            Image image = GetOrAdd<Image>(descPanel);
+            image.color = new Color(0.043f, 0.07f, 0.125f, 0.98f);
+            Outline outline = GetOrAdd<Outline>(descPanel);
+            outline.effectColor = new Color(0.024f, 0.714f, 0.831f, 0.45f);
+            outline.effectDistance = UIStrokeStyle.EffectDistance;
+            TMP_Text label = descPanel.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 5f), new Vector2(-12f, -5f));
+                StyleText(label, 15f, new Color(0.812f, 0.98f, 0.996f, 1f));
+                label.textWrappingMode = TextWrappingModes.Normal;
+            }
+        }
+    }
+
+    private static void StyleAIStylePreset(string objectName, float minX, float maxX, Color accent)
+    {
+        GameObject go = Find(objectName);
+        if (go == null) return;
+        SetRect(go.GetComponent<RectTransform>(), new Vector2(minX, 0f), new Vector2(maxX, 1f), Vector2.zero, Vector2.zero);
+        Image image = GetOrAdd<Image>(go);
+        image.color = new Color(0.122f, 0.161f, 0.235f, 1f);
+        Outline outline = GetOrAdd<Outline>(go);
+        outline.effectColor = accent;
+        outline.effectDistance = UIStrokeStyle.EffectDistance;
+        TMP_Text label = go.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            StyleText(label, 14f, Color.white);
+            label.textWrappingMode = TextWrappingModes.Normal;
         }
     }
 

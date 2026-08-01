@@ -70,6 +70,9 @@ public class Inventory : MonoBehaviour
     // 실제 아이템 사용/소비가 성공했을 때만 발생하는 연출용 이벤트입니다.
     public event Action<ItemData> ItemConsumed;
 
+    // 아이템 수량과 무관하게 슬롯 표시 순서만 바뀌었을 때 발생합니다.
+    public event Action OrderChanged;
+
     public IReadOnlyList<InventorySlot> Slots => slots;
 
     public void Clear()
@@ -226,6 +229,18 @@ public class Inventory : MonoBehaviour
         if (string.IsNullOrEmpty(itemId)) return 0;
         InventorySlot slot = slots.Find(s => s != null && s.Item != null && s.Item.ItemId == itemId);
         return slot?.Quantity ?? 0;
+    }
+
+    /// <summary>두 인벤토리 슬롯의 표시 순서를 맞바꿉니다.</summary>
+    public bool SwapSlots(int firstIndex, int secondIndex)
+    {
+        if (firstIndex < 0 || secondIndex < 0 || firstIndex >= slots.Count || secondIndex >= slots.Count)
+            return false;
+        if (firstIndex == secondIndex) return false;
+
+        (slots[firstIndex], slots[secondIndex]) = (slots[secondIndex], slots[firstIndex]);
+        OrderChanged?.Invoke();
+        return true;
     }
 
     private InventorySlot FindSlot(ItemData item)
