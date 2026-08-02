@@ -11,6 +11,7 @@ using UnityEngine.UI;
 public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IPointerClickHandler, IScrollHandler
 {
     private const int SlotsPerPage = 4;
+    private const float InventoryUIScale = 1.3f;
 
     [Header("데이터 및 이미지")]
     [SerializeField] private Inventory inventory;
@@ -47,6 +48,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
     private int draggedSlotIndex = -1;
     private int highlightedDropIndex = -1;
     private float nextEdgePageTime;
+    private bool inventoryScaleApplied;
 
     // 바깥 배경은 투명도 5%, 겹치는 내부 카드와 헤더 면은 불투명하게 유지합니다.
     private static readonly Color PanelBackground = new(0.025f, 0.045f, 0.085f, 0.95f);
@@ -58,6 +60,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
 
     private void Awake()
     {
+        ApplyInventoryScale();
         panelRect = GetComponent<RectTransform>();
         AlignToScreenEdge();
         if (inventory == null) inventory = FindAnyObjectByType<Inventory>();
@@ -66,6 +69,19 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         CreateScrollStructureIfNeeded();
         HideLegacyButtons();
         Rebuild();
+    }
+
+    private void ApplyInventoryScale()
+    {
+        if (inventoryScaleApplied) return;
+        inventoryScaleApplied = true;
+        preferredSlotSize *= InventoryUIScale;
+        spacing *= InventoryUIScale;
+        horizontalPadding *= InventoryUIScale;
+        topPadding *= InventoryUIScale;
+        bottomPadding *= InventoryUIScale;
+        pageBarHeight *= InventoryUIScale;
+        swipeThreshold *= InventoryUIScale;
     }
 
     private void AlignToScreenEdge()
@@ -212,7 +228,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         icon.preserveAspect = true;
         icon.raycastTarget = false;
 
-        TMP_Text quantity = CreateText(slot.transform, "Quantity", 18f, TextAlignmentOptions.BottomRight);
+        TMP_Text quantity = CreateText(slot.transform, "Quantity", 18f * InventoryUIScale, TextAlignmentOptions.BottomRight);
         SetAnchors(quantity.rectTransform, new Vector2(0.43f, 0.02f), new Vector2(0.94f, 0.34f), Vector2.zero, Vector2.zero);
         quantity.fontStyle = FontStyles.Bold;
 
@@ -280,7 +296,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
             RectTransformUtility.ScreenPointToLocalPointInRectangle(viewportRect, eventData.position, eventData.pressEventCamera, out Vector2 viewportPoint))
         {
             float halfWidth = viewportRect.rect.width * 0.5f;
-            const float edgeWidth = 34f;
+            const float edgeWidth = 34f * InventoryUIScale;
             if (viewportPoint.x > halfWidth - edgeWidth && currentPage < pageCount - 1)
             {
                 GoToPage(currentPage + 1, true);
@@ -506,7 +522,8 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         Transform existingText = transform.Find("InventoryPageText");
         pageText = existingText != null
             ? existingText.GetComponent<TMP_Text>()
-            : CreateText(transform, "InventoryPageText", 13f, TextAlignmentOptions.Center);
+            : CreateText(transform, "InventoryPageText", 13f * InventoryUIScale, TextAlignmentOptions.Center);
+        pageText.fontSize = 13f * InventoryUIScale;
         pageText.fontStyle = FontStyles.Bold;
         pageText.color = new Color(0.66f, 0.86f, 0.94f, 1f);
     }
@@ -517,10 +534,10 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         RectTransform barRect = pageScrollbar.GetComponent<RectTransform>();
         SetAnchors(barRect, new Vector2(0f, 0f), new Vector2(0f, 0f),
             new Vector2(horizontalPadding, bottomPadding),
-            new Vector2(panelWidth - horizontalPadding - 48f, bottomPadding + 8f));
+            new Vector2(panelWidth - horizontalPadding - 48f * InventoryUIScale, bottomPadding + 8f * InventoryUIScale));
         SetAnchors(pageText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-            new Vector2(panelWidth - horizontalPadding - 44f, bottomPadding - 4f),
-            new Vector2(panelWidth - horizontalPadding, bottomPadding + 14f));
+            new Vector2(panelWidth - horizontalPadding - 44f * InventoryUIScale, bottomPadding - 4f * InventoryUIScale),
+            new Vector2(panelWidth - horizontalPadding, bottomPadding + 14f * InventoryUIScale));
         pageScrollbar.gameObject.SetActive(pageCount > 1);
         pageText.gameObject.SetActive(pageCount > 1);
         pageScrollbar.numberOfSteps = pageCount;
@@ -611,18 +628,20 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
     private void CreateTitleIfNeeded()
     {
         Transform existing = transform.Find("CareItemsTitle");
-        titleText = existing != null ? existing.GetComponent<TMP_Text>() : CreateText(transform, "CareItemsTitle", 25f, TextAlignmentOptions.MidlineLeft);
+        titleText = existing != null ? existing.GetComponent<TMP_Text>() : CreateText(transform, "CareItemsTitle", 25f * InventoryUIScale, TextAlignmentOptions.MidlineLeft);
+        titleText.fontSize = 25f * InventoryUIScale;
         titleText.text = "CARE ITEMS";
         titleText.fontStyle = FontStyles.Bold;
         titleText.color = new Color(0.82f, 0.97f, 1f, 1f);
         titleText.characterSpacing = 1.5f;
-        SetAnchors(titleText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(22f, -44f), new Vector2(-12f, -4f));
+        SetAnchors(titleText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(22f, -44f) * InventoryUIScale, new Vector2(-12f, -4f) * InventoryUIScale);
 
         Transform existingBuffs = transform.Find("ActiveBuffsSummary");
-        activeBuffsText = existingBuffs != null ? existingBuffs.GetComponent<TMP_Text>() : CreateText(transform, "ActiveBuffsSummary", 18f, TextAlignmentOptions.MidlineRight);
+        activeBuffsText = existingBuffs != null ? existingBuffs.GetComponent<TMP_Text>() : CreateText(transform, "ActiveBuffsSummary", 18f * InventoryUIScale, TextAlignmentOptions.MidlineRight);
+        activeBuffsText.fontSize = 18f * InventoryUIScale;
         activeBuffsText.fontStyle = FontStyles.Bold;
         activeBuffsText.color = new Color(0.4f, 0.95f, 0.6f, 1f);
-        SetAnchors(activeBuffsText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(200f, -44f), new Vector2(-22f, -4f));
+        SetAnchors(activeBuffsText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(200f, -44f) * InventoryUIScale, new Vector2(-22f, -4f) * InventoryUIScale);
         if (ActiveItemEffectManager.Instance != null)
         {
             activeBuffsText.text = ActiveItemEffectManager.Instance.GetSummaryText();
@@ -644,22 +663,22 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         outline.useGraphicAlpha = true;
 
         Image inner = CreateOrGetBackgroundLayer("InventoryInnerSurface");
-        SetAnchors(inner.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 6f), new Vector2(-6f, -6f));
+        SetAnchors(inner.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 6f) * InventoryUIScale, new Vector2(-6f, -6f) * InventoryUIScale);
         inner.color = InnerSurface;
         inner.transform.SetSiblingIndex(0);
 
         Image header = CreateOrGetBackgroundLayer("InventoryHeaderSurface");
-        SetAnchors(header.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -48f), new Vector2(-6f, -6f));
+        SetAnchors(header.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -48f) * InventoryUIScale, new Vector2(-6f, -6f) * InventoryUIScale);
         header.color = HeaderSurface;
         header.transform.SetSiblingIndex(1);
 
         Image accent = CreateOrGetBackgroundLayer("InventoryTopAccent");
-        SetAnchors(accent.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -5f), new Vector2(-6f, -2f));
+        SetAnchors(accent.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(6f, -5f) * InventoryUIScale, new Vector2(-6f, -2f) * InventoryUIScale);
         accent.color = AccentColor;
         accent.transform.SetSiblingIndex(2);
 
         Image divider = CreateOrGetBackgroundLayer("InventoryHeaderDivider");
-        SetAnchors(divider.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(14f, -49f), new Vector2(-14f, -47f));
+        SetAnchors(divider.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(14f, -49f) * InventoryUIScale, new Vector2(-14f, -47f) * InventoryUIScale);
         divider.color = DividerColor;
         divider.transform.SetSiblingIndex(3);
 
@@ -738,11 +757,13 @@ public class InventorySlotDragHandle : MonoBehaviour, IPointerDownHandler, IBegi
     private int slotIndex;
     private float pointerDownTime;
     private bool reordering;
+    private InventoryItemButton itemButton;
 
     public void Configure(DynamicInventoryUI targetOwner, int targetIndex)
     {
         owner = targetOwner;
         slotIndex = targetIndex;
+        itemButton = GetComponent<InventoryItemButton>();
     }
 
     public void OnPointerDown(PointerEventData eventData) => pointerDownTime = Time.unscaledTime;
@@ -754,6 +775,12 @@ public class InventorySlotDragHandle : MonoBehaviour, IPointerDownHandler, IBegi
         bool heldOnTouch = Time.unscaledTime - pointerDownTime >= MobileHoldSeconds;
         reordering = owner.BeginSlotInteraction(slotIndex, eventData, mouseDrag || heldOnTouch);
         if (!reordering) owner.ForwardPageBeginDrag(eventData);
+
+        // Unity InputSystemUIInputModule이 드래그 종료 후 같은 Button의 click을 보내는 경우가 있습니다.
+        // 실제 슬롯 이동 여부와 무관하게 드래그로 분류된 제스처는 아이템 사용에서 제외합니다.
+        eventData.eligibleForClick = false;
+        if (itemButton == null) itemButton = GetComponent<InventoryItemButton>();
+        itemButton?.SuppressUseForCurrentGesture();
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -768,6 +795,11 @@ public class InventorySlotDragHandle : MonoBehaviour, IPointerDownHandler, IBegi
         if (owner == null) return;
         if (reordering) owner.EndSlotDrag(eventData);
         else owner.ForwardPageEndDrag(eventData);
+
+        // OnBeginDrag와 OnEndDrag가 여러 프레임 떨어져 있어도 릴리스 프레임의 클릭을 확실히 차단합니다.
+        eventData.eligibleForClick = false;
+        if (itemButton == null) itemButton = GetComponent<InventoryItemButton>();
+        itemButton?.SuppressUseForCurrentGesture();
         reordering = false;
     }
 }
