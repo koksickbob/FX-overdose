@@ -594,6 +594,27 @@ namespace FXOverdose.AI
         private static float GetMeasuredCostumeScale(string costumeId, string category, string spriteName)
         {
             string key = $"{category}/{spriteName}";
+            if (costumeId == CostumeManager.BikiniId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => 1.07383f, "SkillUpgrade/CubePatience" => 1.08422f, "SkillUpgrade/BookJudgment" => 1.06363f,
+                    "ItemUse/Supplement" => 1.12676f, "ItemUse/Malatang" => 1.05169f, "ItemUse/Dessert" => 1.04478f,
+                    "ItemUse/Steak" => 1.07081f, "ItemUse/Tteokbokki" => 1.06775f, "ItemUse/Sedative" => 1.05660f,
+                    "ItemUse/Sushi" => 1.09171f, "ItemUse/EnergyDrink" => 1.11332f, "ItemUse/Pasta" => 1.05169f,
+                    "Position/Short" => 1.06061f, "Position/Long" => 1.05066f,
+                    "States/Standard" => 1.06066f, "States/Overdose" => 1.07383f,
+                    "Emotions/Focused" => 1.06464f, "Emotions/Vengeful" => 1.08108f, "Emotions/Confident" => 1.05561f,
+                    "Emotions/Panicked" => 1.12676f, "Emotions/Affectionate" => 1.08641f, "Emotions/Jealous" => 1.01174f,
+                    "Emotions/Tearful" => 1.00539f, "Emotions/Anxious" => 1.12790f, "Emotions/Relieved" => 1.06768f,
+                    "Emotions/Manic" => 1.10891f, "Emotions/Exhausted" => 1.13017f, "Emotions/Despairing" => 1.15583f,
+                    "Emotions/Furious" => 1.06061f, "Emotions/Obsessive" => 1.12450f, "Emotions/Regretful" => 1.13360f,
+                    "Emotions/Pleased" => 1.06061f, "Emotions/Euphoria" => 1.09162f, "Emotions/Suspicious" => 1.05561f,
+                    "Emotions/Frustrated" => 1.09268f,
+                    _ => 1f
+                };
+            }
+
             if (costumeId == CostumeManager.HanbokId)
             {
                 return key switch
@@ -643,6 +664,27 @@ namespace FXOverdose.AI
         private static Vector2 GetMeasuredCostumeOffset(string costumeId, string category, string spriteName)
         {
             string key = $"{category}/{spriteName}";
+            if (costumeId == CostumeManager.BikiniId)
+            {
+                return key switch
+                {
+                    "SkillUpgrade/ChartStudy" => new(-0.030425f, -0.018655f), "SkillUpgrade/CubePatience" => new(-0.027106f, -0.028943f), "SkillUpgrade/BookJudgment" => new(-0.020333f, -0.015774f),
+                    "ItemUse/Supplement" => new(-0.012207f, -0.049654f), "ItemUse/Malatang" => new(-0.021867f, -0.012901f), "ItemUse/Dessert" => new(-0.035697f, -0.006198f),
+                    "ItemUse/Steak" => new(-0.033909f, -0.021749f), "ItemUse/Tteokbokki" => new(-0.018629f, -0.019426f), "ItemUse/Sedative" => new(-0.031651f, -0.017013f),
+                    "ItemUse/Sushi" => new(-0.009021f, -0.036043f), "ItemUse/EnergyDrink" => new(-0.000928f, -0.044344f), "ItemUse/Pasta" => new(0.007888f, -0.017358f),
+                    "Position/Short" => new(0.013308f, -0.022470f), "Position/Long" => new(-0.025349f, -0.008013f),
+                    "States/Standard" => new(-0.031820f, -0.017053f), "States/Overdose" => new(-0.034899f, -0.040496f),
+                    "Emotions/Focused" => new(-0.019518f, -0.027067f), "Emotions/Vengeful" => new(-0.045045f, -0.033898f), "Emotions/Confident" => new(-0.028103f, -0.015655f),
+                    "Emotions/Panicked" => new(0.011268f, -0.047744f), "Emotions/Affectionate" => new(-0.018940f, -0.022520f), "Emotions/Jealous" => new(-0.031195f, 0.007288f),
+                    "Emotions/Tearful" => new(0.000838f, 0.000000f), "Emotions/Anxious" => new(-0.012112f, -0.052093f), "Emotions/Relieved" => new(-0.030195f, -0.014025f),
+                    "Emotions/Manic" => new(-0.032252f, -0.036650f), "Emotions/Exhausted" => new(-0.034847f, -0.036874f), "Emotions/Despairing" => new(-0.035508f, -0.030855f),
+                    "Emotions/Furious" => new(-0.014091f, -0.023369f), "Emotions/Obsessive" => new(0.000937f, -0.049554f), "Emotions/Regretful" => new(-0.004612f, -0.054759f),
+                    "Emotions/Pleased" => new(-0.032652f, -0.017078f), "Emotions/Euphoria" => new(0.001819f, -0.032378f), "Emotions/Suspicious" => new(-0.005232f, -0.021023f),
+                    "Emotions/Frustrated" => new(-0.016313f, -0.008797f),
+                    _ => Vector2.zero
+                };
+            }
+
             if (costumeId == CostumeManager.HanbokId)
             {
                 return key switch
