@@ -29,6 +29,7 @@ namespace FXOverdose.UI
         private bool hasPointerPosition;
         private float lastTrailSpawnTime;
         private int colorSequence;
+        private bool rebuildingOverlay;
 
         private static readonly Color Cyan = new(0.024f, 0.714f, 0.831f, 1f);
         private static readonly Color LightCyan = new(0.812f, 0.98f, 0.996f, 1f);
@@ -47,6 +48,8 @@ namespace FXOverdose.UI
         {
             if (instance != null && instance != this)
             {
+                // Destroy는 프레임 끝에 처리되므로 즉시 비활성화하지 않으면 빈 풀로 Update가 한 번 실행될 수 있습니다.
+                enabled = false;
                 Destroy(gameObject);
                 return;
             }
@@ -73,6 +76,8 @@ namespace FXOverdose.UI
 
         private void Update()
         {
+            if (!EnsureParticlePool()) return;
+
             float deltaTime = Time.unscaledDeltaTime;
             UpdateParticles(deltaTime);
 
@@ -258,6 +263,8 @@ namespace FXOverdose.UI
 
         private FxParticle AcquireParticle()
         {
+            if (!EnsureParticlePool()) return null;
+
             FxParticle oldest = particles[0];
             for (int i = 0; i < particles.Count; i++)
             {
@@ -265,6 +272,38 @@ namespace FXOverdose.UI
                 if (particles[i].NormalizedAge > oldest.NormalizedAge) oldest = particles[i];
             }
             return oldest;
+        }
+
+        /// <summary>
+        /// 플레이 중 스크립트 리컴파일이나 도메인 리로드로 비직렬화 풀만 초기화된 경우
+        /// 오버레이를 안전하게 다시 만들어 particles[0] 접근 오류를 방지합니다.
+        /// </summary>
+        private bool EnsureParticlePool()
+        {
+            if (particles.Count > 0) return true;
+            if (rebuildingOverlay || instance != this || !isActiveAndEnabled) return false;
+
+            rebuildingOverlay = true;
+            try
+            {
+                Transform staleCanvas = transform.Find("PointerFeedbackCanvas");
+                if (staleCanvas != null)
+                {
+                    staleCanvas.gameObject.SetActive(false);
+                    Destroy(staleCanvas.gameObject);
+                }
+
+                effectCanvas = null;
+                effectRoot = null;
+                particles.Clear();
+                BuildOverlay();
+                hasPointerPosition = false;
+                return particles.Count > 0;
+            }
+            finally
+            {
+                rebuildingOverlay = false;
+            }
         }
 
         private void UpdateParticles(float deltaTime)
