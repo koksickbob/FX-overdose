@@ -37,6 +37,7 @@ namespace FXOverdose.AI
         private const float DialogueTailCenterOffset = 6f;
         private const float CharacterDialogueVerticalOffset = 36f;
         private const float DialogueBalloonAdditionalVerticalOffset = 48f;
+        private const float DialogueUIScale = 1.15f;
         private const float CostumeOpticalScale = 0.95f;
         private const float CostumeOpticalFootCompensation = -0.020f;
 
@@ -110,6 +111,7 @@ namespace FXOverdose.AI
         private DialoguePriority currentDisplayPriority = DialoguePriority.Normal;
         private EventCategory currentDisplayCategory = EventCategory.General;
         private bool visualLayoutOffsetApplied;
+        private bool dialogueVisualScaleApplied;
         private bool characterBaseScaleCaptured;
         private Vector3 characterBaseScale = Vector3.one;
         private Vector2 characterBaseAnchoredPosition;
@@ -129,6 +131,7 @@ namespace FXOverdose.AI
             if (inventory == null) inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
 
             ResolveCharacterImage();
+            ApplyDialogueVisualScale();
             ApplyCharacterDialogueVerticalOffset();
             LoadEmotionSprites();
             LoadItemUseSprites();
@@ -164,6 +167,27 @@ namespace FXOverdose.AI
         }
 
         // AI가 새 대사를 출력할 때도 말풍선 안에서 동일한 폰트와 크기를 유지한다.
+        private void ApplyDialogueVisualScale()
+        {
+            if (dialogueVisualScaleApplied) return;
+
+            RectTransform balloonRect = dialogueBalloonPanel != null
+                ? dialogueBalloonPanel.GetComponent<RectTransform>()
+                : null;
+            if (balloonRect == null || dialogueText == null) return;
+
+            // 씬에 남아 있는 구버전 폰트 값을 먼저 현재 기준으로 보정한 뒤 15% 확대합니다.
+            if (dialogueFontSizeMin <= 14f) dialogueFontSizeMin = 19f;
+            if (dialogueFontSizeMax <= 22f) dialogueFontSizeMax = 27f;
+            dialogueFontSizeMin *= DialogueUIScale;
+            dialogueFontSizeMax *= DialogueUIScale;
+
+            Canvas.ForceUpdateCanvases();
+            balloonRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, balloonRect.rect.width * DialogueUIScale);
+            balloonRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, balloonRect.rect.height * DialogueUIScale);
+            dialogueVisualScaleApplied = true;
+        }
+
         private void ApplyDialogueTextStyle()
         {
             if (dialogueText == null) return;

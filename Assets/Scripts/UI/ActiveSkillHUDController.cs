@@ -1,17 +1,17 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using FXOverdose.Trading;
 
-/// <summary>우측 상단의 3개 스킬 버튼과 스킬 정보 팝업을 관리합니다.</summary>
+/// <summary>SHOP 버튼 위의 통합 스킬 버튼과 스킬 정보 팝업을 관리합니다.</summary>
 public sealed class ActiveSkillHUDController : MonoBehaviour
 {
-    private const float SkillButtonSize = UIStrokeStyle.CompactHudHeight;
-    private const float SkillButtonGap = 12f;
     private const float InventoryRightMargin = UIStrokeStyle.ScreenEdgeMargin;
     private const float ShopButtonGap = 12f;
+    private static readonly Vector2 FallbackMainButtonSize = new(260f, 86f);
 
     private static readonly SkillType[] SkillOrder =
     {
@@ -22,22 +22,27 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
     private TraderLevelSystem levelSystem;
     private RectTransform skillRow;
+    private Button mainSkillButton;
+    private Image mainSkillButtonImage;
     private RectTransform shopButtonRect;
     private GameObject infoOverlay;
-    private Image infoIcon;
-    private TMP_Text infoTitle;
-    private TMP_Text infoLevel;
-    private TMP_Text infoEffect;
-    private TMP_Text infoCost;
+    private readonly Dictionary<SkillType, SkillCardView> skillCards = new();
     private Button upgradeButton;
-    private TMP_Text upgradeButtonText;
     private TMP_Text upgradeFeedbackText;
-    private SkillType selectedSkill;
     private GameObject timeTransitionOverlay;
     private CanvasGroup timeTransitionGroup;
     private TMP_Text timeTransitionTitle;
     private TMP_Text timeTransitionClock;
     private bool isUpgradeSequencePlaying;
+
+    private sealed class SkillCardView
+    {
+        public TMP_Text Level;
+        public TMP_Text Effect;
+        public TMP_Text Cost;
+        public Button UpgradeButton;
+        public TMP_Text UpgradeLabel;
+    }
 
     private void Awake()
     {
@@ -94,67 +99,69 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
     private void BuildSkillRow()
     {
-        GameObject row = new("ActiveSkillButtonRow", typeof(RectTransform));
+        // SHOP 버튼과 동일하게 외곽 Outline이 잘리지 않도록 루트에는 RectMask2D를 두지 않습니다.
+        GameObject row = new("ActiveSkillButtonRow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
         row.transform.SetParent(transform, false);
         skillRow = row.GetComponent<RectTransform>();
         skillRow.anchorMin = skillRow.anchorMax = new Vector2(0.5f, 0.5f);
         skillRow.pivot = new Vector2(1f, 0f);
-        skillRow.sizeDelta = new Vector2(
-            SkillButtonSize,
-            SkillButtonSize * SkillOrder.Length + SkillButtonGap * (SkillOrder.Length - 1));
+        skillRow.sizeDelta = FallbackMainButtonSize;
 
-        for (int i = 0; i < SkillOrder.Length; i++)
-        {
-            SkillType type = SkillOrder[i];
-            Button button = CreateSkillButton(row.transform, type, i);
-            RectTransform rect = button.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.sizeDelta = new Vector2(SkillButtonSize, SkillButtonSize);
-            rect.anchoredPosition = new Vector2(
-                0f,
-                skillRow.sizeDelta.y - SkillButtonSize - i * (SkillButtonSize + SkillButtonGap));
-        }
-    }
+        mainSkillButtonImage = row.GetComponent<Image>();
+        mainSkillButtonImage.color = Color.white;
 
-    private Button CreateSkillButton(Transform parent, SkillType type, int index)
-    {
-        GameObject go = new($"SkillButton_{type}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
-        go.transform.SetParent(parent, false);
-
-        Image background = go.GetComponent<Image>();
-        background.color = new Color32(20, 29, 51, 245); // #141D33
-
-        Outline outline = go.GetComponent<Outline>();
-        outline.effectColor = new Color32(6, 182, 212, 255); // #06B6D4
+        Outline outline = row.GetComponent<Outline>();
+        outline.effectColor = new Color(0.02f, 0.72f, 0.84f, 1f);
         outline.effectDistance = UIStrokeStyle.EffectDistance;
+        outline.useGraphicAlpha = true;
 
-        Image icon = CreateImage(go.transform, "Icon");
-        icon.sprite = Resources.Load<Sprite>($"UI/Skills/{GetIconName(type)}");
-        icon.preserveAspect = true;
-        SetRect(icon.rectTransform, new Vector2(0.10f, 0.10f), new Vector2(0.90f, 0.90f));
+        mainSkillButton = row.GetComponent<Button>();
+        mainSkillButton.targetGraphic = mainSkillButtonImage;
+        mainSkillButton.onClick.AddListener(OpenSkillOverview);
 
-        TMP_Text levelBadge = CreateText(go.transform, "LevelBadge", "LV.1", 11f, TextAlignmentOptions.BottomRight);
-        SetRect(levelBadge.rectTransform, new Vector2(0.30f, 0.02f), new Vector2(0.96f, 0.31f));
-        levelBadge.color = new Color32(207, 250, 254, 255);
-        levelBadge.outlineColor = new Color32(11, 15, 25, 255);
-        GlobalPFStardustFont.ConfigureCompactHudText(levelBadge, null, 11f, 0.05f);
+        Image iconBackdrop = CreateImage(row.transform, "IconBackdrop");
+        iconBackdrop.color = new Color32(4, 12, 35, 255);
+        iconBackdrop.preserveAspect = false;
+        SetRect(iconBackdrop.rectTransform, new Vector2(0.065f, 0.18f), new Vector2(0.285f, 0.82f));
 
-        Button button = go.GetComponent<Button>();
-        button.targetGraphic = background;
-        ColorBlock colors = button.colors;
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(0.72f, 0.95f, 1f, 1f);
-        colors.pressedColor = new Color(0.55f, 0.75f, 0.82f, 1f);
-        button.colors = colors;
-        button.onClick.AddListener(() => OpenInfo(type));
-        return button;
+        Image mainIcon = CreateImage(row.transform, "Icon");
+        mainIcon.sprite = Resources.Load<Sprite>("UI/Skills/SkillMenuIcon");
+        mainIcon.preserveAspect = true;
+        SetRect(mainIcon.rectTransform, new Vector2(0.085f, 0.20f), new Vector2(0.265f, 0.80f));
+
+        TMP_Text label = CreateText(row.transform, "Label", "SKILL", 29f, TextAlignmentOptions.Center);
+        SetRect(label.rectTransform, new Vector2(0.30f, 0f), new Vector2(0.94f, 1f));
+        label.fontStyle = FontStyles.Bold;
+        label.color = new Color(0.86f, 0.98f, 1f, 1f);
+        label.characterSpacing = 1.5f;
+
     }
 
     private void ResolveShopButton()
     {
         GameObject shopButton = GameObject.Find("ShopOpenButton");
         shopButtonRect = shopButton != null ? shopButton.GetComponent<RectTransform>() : null;
+        ApplyShopButtonStyle(shopButton);
+    }
+
+    private void ApplyShopButtonStyle(GameObject shopButton)
+    {
+        if (shopButton == null || mainSkillButton == null || mainSkillButtonImage == null) return;
+
+        Image shopImage = shopButton.GetComponent<Image>();
+        Button shopUiButton = shopButton.GetComponent<Button>();
+        if (shopImage != null)
+        {
+            mainSkillButtonImage.sprite = shopImage.sprite;
+            mainSkillButtonImage.type = shopImage.type;
+            mainSkillButtonImage.pixelsPerUnitMultiplier = shopImage.pixelsPerUnitMultiplier;
+        }
+        if (shopUiButton != null)
+        {
+            mainSkillButton.transition = shopUiButton.transition;
+            mainSkillButton.colors = shopUiButton.colors;
+            mainSkillButton.spriteState = shopUiButton.spriteState;
+        }
     }
 
     private void LayoutAboveShopButton()
@@ -169,10 +176,16 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         {
             Vector3[] shopCorners = new Vector3[4];
             shopButtonRect.GetWorldCorners(shopCorners);
+            Vector3 shopBottomLeft = canvasRect.InverseTransformPoint(shopCorners[0]);
             Vector3 shopTopRight = canvasRect.InverseTransformPoint(shopCorners[2]);
+            Vector3 shopBottomRight = canvasRect.InverseTransformPoint(shopCorners[3]);
+            skillRow.sizeDelta = new Vector2(
+                Mathf.Abs(shopBottomRight.x - shopBottomLeft.x),
+                Mathf.Abs(shopTopRight.y - shopBottomRight.y));
             skillRow.anchoredPosition = new Vector2(
                 shopTopRight.x - canvasRect.rect.xMax,
                 shopTopRight.y - canvasRect.rect.yMin + ShopButtonGap);
+
         }
         else
         {
@@ -195,46 +208,75 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
         GameObject panel = CreateUIObject("SkillInfoPanel", infoOverlay.transform);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(620f, 430f);
+        // 해상도와 화면 비율에 관계없이 스킬 상세창이 화면의 약 70%를 차지합니다.
+        panelRect.anchorMin = new Vector2(0.15f, 0.15f);
+        panelRect.anchorMax = new Vector2(0.85f, 0.85f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
         panel.GetComponent<Image>().color = new Color32(15, 23, 42, 252); // #0F172A
         Outline panelOutline = panel.AddComponent<Outline>();
         panelOutline.effectColor = new Color32(6, 182, 212, 255);
         panelOutline.effectDistance = UIStrokeStyle.EffectDistance;
 
-        infoIcon = CreateImage(panel.transform, "SkillIcon");
-        infoIcon.preserveAspect = true;
-        SetRect(infoIcon.rectTransform, new Vector2(0.07f, 0.55f), new Vector2(0.31f, 0.90f));
+        TMP_Text overviewTitle = CreateText(panel.transform, "OverviewTitle", "SKILL UPGRADE", 48f, TextAlignmentOptions.Center);
+        SetRect(overviewTitle.rectTransform, new Vector2(0.12f, 0.88f), new Vector2(0.88f, 0.97f));
+        overviewTitle.color = new Color32(207, 250, 254, 255);
+        overviewTitle.fontStyle = FontStyles.Bold;
 
-        infoTitle = CreateText(panel.transform, "SkillTitle", "", 31f, TextAlignmentOptions.Left);
-        SetRect(infoTitle.rectTransform, new Vector2(0.35f, 0.76f), new Vector2(0.87f, 0.91f));
-        infoTitle.color = new Color32(207, 250, 254, 255);
-        infoTitle.fontStyle = FontStyles.Bold;
+        for (int i = 0; i < SkillOrder.Length; i++)
+        {
+            SkillType type = SkillOrder[i];
+            float left = 0.025f + i * 0.325f;
+            float right = left + 0.30f;
 
-        infoLevel = CreateText(panel.transform, "SkillLevel", "", 21f, TextAlignmentOptions.Left);
-        SetRect(infoLevel.rectTransform, new Vector2(0.35f, 0.62f), new Vector2(0.87f, 0.75f));
-        infoLevel.color = new Color32(6, 182, 212, 255);
+            GameObject card = CreateUIObject($"SkillCard_{type}", panel.transform, typeof(Outline));
+            SetRect(card.GetComponent<RectTransform>(), new Vector2(left, 0.10f), new Vector2(right, 0.86f));
+            card.GetComponent<Image>().color = new Color32(20, 29, 51, 250);
+            Outline cardOutline = card.GetComponent<Outline>();
+            cardOutline.effectColor = new Color32(6, 182, 212, 210);
+            cardOutline.effectDistance = UIStrokeStyle.EffectDistance;
 
-        infoEffect = CreateText(panel.transform, "SkillEffect", "", 22f, TextAlignmentOptions.TopLeft);
-        SetRect(infoEffect.rectTransform, new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.55f));
-        infoEffect.textWrappingMode = TextWrappingModes.Normal;
+            Image icon = CreateImage(card.transform, "Icon");
+            icon.sprite = Resources.Load<Sprite>($"UI/Skills/{GetIconName(type)}");
+            icon.preserveAspect = true;
+            SetRect(icon.rectTransform, new Vector2(0.34f, 0.72f), new Vector2(0.66f, 0.94f));
 
-        infoCost = CreateText(panel.transform, "SkillCost", "", 18f, TextAlignmentOptions.Center);
-        SetRect(infoCost.rectTransform, new Vector2(0.08f, 0.18f), new Vector2(0.92f, 0.29f));
-        infoCost.color = new Color32(234, 179, 8, 255); // #EAB308
-        infoCost.textWrappingMode = TextWrappingModes.Normal;
+            TMP_Text title = CreateText(card.transform, "Title", GetDisplayName(type), 34.5f, TextAlignmentOptions.Center);
+            SetRect(title.rectTransform, new Vector2(0.06f, 0.61f), new Vector2(0.94f, 0.72f));
+            title.color = new Color32(207, 250, 254, 255);
+            title.fontStyle = FontStyles.Bold;
 
-        upgradeButton = CreateButton(panel.transform, "UpgradeButton", "UPGRADE");
-        SetRect(upgradeButton.GetComponent<RectTransform>(), new Vector2(0.31f, 0.075f), new Vector2(0.69f, 0.17f));
-        upgradeButtonText = upgradeButton.GetComponentInChildren<TMP_Text>();
-        upgradeButton.onClick.AddListener(UpgradeSelectedSkill);
+            SkillCardView view = new();
+            view.Level = CreateText(card.transform, "Level", "", 27f, TextAlignmentOptions.Center);
+            SetRect(view.Level.rectTransform, new Vector2(0.08f, 0.53f), new Vector2(0.92f, 0.62f));
+            view.Level.color = new Color32(6, 182, 212, 255);
 
-        upgradeFeedbackText = CreateText(panel.transform, "UpgradeFeedback", "", 14f, TextAlignmentOptions.Center);
-        SetRect(upgradeFeedbackText.rectTransform, new Vector2(0.10f, 0.01f), new Vector2(0.90f, 0.07f));
+            view.Effect = CreateText(card.transform, "Effect", "", 24f, TextAlignmentOptions.TopLeft);
+            SetRect(view.Effect.rectTransform, new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.52f));
+            view.Effect.textWrappingMode = TextWrappingModes.Normal;
+
+            view.Cost = CreateText(card.transform, "Cost", "", 21f, TextAlignmentOptions.Center);
+            SetRect(view.Cost.rectTransform, new Vector2(0.06f, 0.14f), new Vector2(0.94f, 0.28f));
+            view.Cost.color = new Color32(234, 179, 8, 255);
+            view.Cost.textWrappingMode = TextWrappingModes.Normal;
+
+            view.UpgradeButton = CreateButton(card.transform, "UpgradeButton", "UPGRADE");
+            SetRect(view.UpgradeButton.GetComponent<RectTransform>(), new Vector2(0.20f, 0.035f), new Vector2(0.80f, 0.13f));
+            view.UpgradeLabel = view.UpgradeButton.GetComponentInChildren<TMP_Text>();
+            view.UpgradeLabel.fontSize = 27f;
+            view.UpgradeLabel.fontSizeMax = 27f;
+            view.UpgradeLabel.fontSizeMin = 18f;
+            view.UpgradeButton.onClick.AddListener(() => UpgradeSkill(type));
+            skillCards[type] = view;
+        }
+
+        upgradeFeedbackText = CreateText(panel.transform, "UpgradeFeedback", "", 21f, TextAlignmentOptions.Center);
+        SetRect(upgradeFeedbackText.rectTransform, new Vector2(0.10f, 0.015f), new Vector2(0.90f, 0.085f));
         upgradeFeedbackText.textWrappingMode = TextWrappingModes.Normal;
 
         Button cornerClose = CreateButton(panel.transform, "CornerClose", "X");
-        SetRect(cornerClose.GetComponent<RectTransform>(), new Vector2(0.89f, 0.86f), new Vector2(0.97f, 0.96f));
+        SetRect(cornerClose.GetComponent<RectTransform>(), new Vector2(0.93f, 0.89f), new Vector2(0.98f, 0.97f));
         cornerClose.onClick.AddListener(CloseInfo);
     }
 
@@ -267,54 +309,51 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         hint.color = new Color32(148, 163, 184, 255);
     }
 
-    private void OpenInfo(SkillType type)
+    private void OpenSkillOverview()
     {
-        selectedSkill = type;
         if (upgradeFeedbackText != null) upgradeFeedbackText.text = "";
-        RefreshInfo();
+        RefreshAllSkillCards();
         infoOverlay.SetActive(true);
         infoOverlay.transform.SetAsLastSibling();
     }
 
     private void CloseInfo() => infoOverlay.SetActive(false);
 
-    private void RefreshInfo()
+    private void RefreshAllSkillCards()
     {
         if (levelSystem == null) levelSystem = TraderLevelSystem.Instance;
         if (levelSystem == null) return;
 
-        int level = levelSystem.GetSkillLevel(selectedSkill);
-        infoIcon.sprite = Resources.Load<Sprite>($"UI/Skills/{GetIconName(selectedSkill)}");
-        infoTitle.text = GetDisplayName(selectedSkill);
-        infoLevel.text = $"LEVEL {level} / 10";
-        infoEffect.text = GetEffectDescription(selectedSkill);
-        infoCost.text = level >= 10
-            ? "MAX LEVEL · 모든 효과가 최대치입니다."
-            : $"필요 조건   ${levelSystem.GetSkillCost(selectedSkill):N0}   |   HP -{levelSystem.GetSkillHealthCost(selectedSkill):N0}   |   {levelSystem.GetSkillTimeCostHours(selectedSkill)}시간";
-
-        bool canUpgrade = levelSystem.CanUpgradeSkill(selectedSkill, out string reason);
-        if (upgradeButton != null) upgradeButton.interactable = canUpgrade;
-        if (upgradeButtonText != null)
+        foreach (SkillType type in SkillOrder)
         {
-            upgradeButtonText.text = level >= 10 ? "MAX LEVEL" : canUpgrade ? "UPGRADE" : "조건 부족";
-            upgradeButtonText.color = canUpgrade
+            if (!skillCards.TryGetValue(type, out SkillCardView view)) continue;
+
+            int level = levelSystem.GetSkillLevel(type);
+            view.Level.text = $"LEVEL {level} / 10";
+            view.Effect.text = GetEffectDescription(type);
+            view.Cost.text = level >= 10
+                ? "MAX LEVEL\n모든 효과가 최대치입니다."
+                : $"${levelSystem.GetSkillCost(type):N0}  |  HP -{levelSystem.GetSkillHealthCost(type):N0}\n{levelSystem.GetSkillTimeCostHours(type)}시간 소요";
+
+            bool canUpgrade = levelSystem.CanUpgradeSkill(type, out _);
+            view.UpgradeButton.interactable = canUpgrade && !isUpgradeSequencePlaying;
+            view.UpgradeLabel.text = level >= 10 ? "MAX LEVEL" : canUpgrade ? "UPGRADE" : "조건 부족";
+            view.UpgradeLabel.color = canUpgrade
                 ? new Color32(207, 250, 254, 255)
                 : new Color32(148, 163, 184, 255);
         }
-        if (!canUpgrade && level < 10 && upgradeFeedbackText != null)
-        {
-            upgradeFeedbackText.text = reason;
-            upgradeFeedbackText.color = new Color32(239, 68, 68, 255);
-        }
     }
 
-    private void UpgradeSelectedSkill()
+    private void UpgradeSkill(SkillType type)
     {
+        skillCards.TryGetValue(type, out SkillCardView selectedCard);
+        upgradeButton = selectedCard?.UpgradeButton;
+
         if (levelSystem == null) levelSystem = TraderLevelSystem.Instance;
         if (levelSystem == null) return;
 
         if (isUpgradeSequencePlaying) return;
-        if (!levelSystem.CanUpgradeSkill(selectedSkill, out string reason))
+        if (!levelSystem.CanUpgradeSkill(type, out string reason))
         {
             if (upgradeFeedbackText != null)
             {
@@ -324,7 +363,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
             return;
         }
 
-        StartCoroutine(PlayUpgradeSequence(selectedSkill));
+        StartCoroutine(PlayUpgradeSequence(type));
     }
 
     private IEnumerator PlayUpgradeSequence(SkillType type)
@@ -360,20 +399,16 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         visual?.EndSkillUpgradeVisual();
 
         RefreshButtonLevels();
-        if (upgraded)
+        isUpgradeSequencePlaying = false;
+        OpenSkillOverview();
+        if (!upgraded)
         {
-            CloseInfo();
-        }
-        else
-        {
-            OpenInfo(type);
             if (upgradeFeedbackText != null)
             {
                 upgradeFeedbackText.text = "업그레이드에 실패했습니다.";
                 upgradeFeedbackText.color = new Color32(239, 68, 68, 255);
             }
         }
-        isUpgradeSequencePlaying = false;
     }
 
     private IEnumerator FadeTransition(float from, float to, float duration)
@@ -405,22 +440,13 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private void RefreshButtonLevels()
     {
         if (levelSystem == null) return;
-        foreach (SkillType type in SkillOrder)
-        {
-            Transform button = skillRow.Find($"SkillButton_{type}");
-            TMP_Text badge = button?.Find("LevelBadge")?.GetComponent<TMP_Text>();
-            if (badge != null)
-            {
-                badge.text = $"LV.{levelSystem.GetSkillLevel(type)}";
-                GlobalPFStardustFont.RefreshCompactHudText(badge);
-            }
-        }
+        if (infoOverlay != null && infoOverlay.activeSelf) RefreshAllSkillCards();
     }
 
     private void OnSkillLevelChanged(SkillType type, int level)
     {
         RefreshButtonLevels();
-        if (infoOverlay != null && infoOverlay.activeSelf && type == selectedSkill) RefreshInfo();
+        if (infoOverlay != null && infoOverlay.activeSelf) RefreshAllSkillCards();
     }
 
     private static string GetDisplayName(SkillType type) => type switch

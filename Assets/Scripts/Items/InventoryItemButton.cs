@@ -19,6 +19,9 @@ public class InventoryItemButton : MonoBehaviour
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text quantityText;
 
+    // 드래그가 끝난 프레임에 Button.onClick이 뒤늦게 발생하는 모바일 입력을 차단합니다.
+    private int suppressUseThroughFrame = -1;
+
     private void Awake()
     {
         if (button == null)
@@ -64,6 +67,14 @@ public class InventoryItemButton : MonoBehaviour
     }
 
     public void RefreshDisplay() => RefreshQuantity();
+
+    /// <summary>
+    /// 슬롯 드래그/스와이프 제스처가 시작된 경우 같은 포인터 릴리스를 아이템 사용으로 처리하지 않습니다.
+    /// </summary>
+    public void SuppressUseForCurrentGesture()
+    {
+        suppressUseThroughFrame = Mathf.Max(suppressUseThroughFrame, Time.frameCount + 1);
+    }
 
     private void OnEnable()
     {
@@ -115,6 +126,12 @@ public class InventoryItemButton : MonoBehaviour
     // 버튼을 누르면 Inventory에 아이템 사용을 요청합니다.
     private void UseItem()
     {
+        if (Time.frameCount <= suppressUseThroughFrame)
+        {
+            suppressUseThroughFrame = -1;
+            return;
+        }
+
         if (inventory == null || item == null)
         {
             Debug.LogWarning("[InventoryItemButton] Inventory 또는 ItemData가 연결되지 않았습니다.", this);
