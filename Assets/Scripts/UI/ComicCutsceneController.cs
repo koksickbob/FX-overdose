@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 namespace FXOverdose.UI
@@ -25,6 +26,86 @@ namespace FXOverdose.UI
             }
         }
 
+        /// <summary>
+        /// 스토리 컷씬 Canvas가 배치되지 않은 tutorial 씬에서도 동일한 재생 UI를 제공합니다.
+        /// </summary>
+        public static ComicCutsceneController GetOrCreateRuntime(Scene ownerScene)
+        {
+            ComicCutsceneController existing = Instance;
+            if (existing != null)
+                return existing;
+
+            GameObject root = new(
+                "ComicCutsceneCanvas_Runtime",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster),
+                typeof(CanvasGroup),
+                typeof(Image));
+            if (ownerScene.IsValid() && ownerScene.isLoaded)
+                SceneManager.MoveGameObjectToScene(root, ownerScene);
+
+            RectTransform rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = rootRect.offsetMax = Vector2.zero;
+
+            Canvas canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 1200;
+
+            CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            Image backdrop = root.GetComponent<Image>();
+            backdrop.color = new Color32(4, 9, 18, 245);
+            backdrop.raycastTarget = false;
+
+            GameObject imageObject = new("ComicImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            imageObject.transform.SetParent(root.transform, false);
+            Image comicImage = imageObject.GetComponent<Image>();
+            comicImage.preserveAspect = true;
+            comicImage.raycastTarget = false;
+
+            GameObject nextObject = new("NextPanelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            nextObject.transform.SetParent(root.transform, false);
+            RectTransform nextRect = nextObject.GetComponent<RectTransform>();
+            nextRect.anchorMin = Vector2.zero;
+            nextRect.anchorMax = Vector2.one;
+            nextRect.offsetMin = nextRect.offsetMax = Vector2.zero;
+            Image nextImage = nextObject.GetComponent<Image>();
+            nextImage.color = Color.clear;
+            Button nextButton = nextObject.GetComponent<Button>();
+            nextButton.transition = Selectable.Transition.None;
+
+            GameObject skipObject = new("SkipButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            skipObject.transform.SetParent(root.transform, false);
+            Button runtimeSkipButton = skipObject.GetComponent<Button>();
+
+            GameObject labelObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(skipObject.transform, false);
+            TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+            label.font = TMP_Settings.defaultFontAsset;
+
+            ComicCutsceneController controller = root.AddComponent<ComicCutsceneController>();
+            controller.canvasGroup = root.GetComponent<CanvasGroup>();
+            controller.comicImageDisplay = comicImage;
+            controller.skipButton = runtimeSkipButton;
+            controller.nextPanelButton = nextButton;
+            controller.EnsureRuntimePresentation();
+            controller.ApplySkipButtonStyle();
+            runtimeSkipButton.onClick.AddListener(controller.SkipCutscene);
+            nextButton.onClick.AddListener(controller.ShowNextPanel);
+
+            controller.canvasGroup.alpha = 0f;
+            controller.canvasGroup.interactable = false;
+            controller.canvasGroup.blocksRaycasts = false;
+            return controller;
+        }
+
         [Header("UI References")]
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Image comicImageDisplay;
@@ -42,6 +123,25 @@ namespace FXOverdose.UI
         private bool _isFading = false;
         private float _fadeTimer = 0f;
         private float _targetAlpha = 0f;
+        private List<string> _currentCaptions;
+        private TextMeshProUGUI _captionText;
+        private TextMeshProUGUI _progressText;
+
+        private static readonly string[] TerminologyPanelPaths =
+        {
+            "Tutorial/Terminology/Panel01_LongShort",
+            "Tutorial/Terminology/Panel02_Margin",
+            "Tutorial/Terminology/Panel03_Leverage",
+            "Tutorial/Terminology/Panel04_Liquidation"
+        };
+
+        private static readonly string[] TerminologyCaptions =
+        {
+            "보통 주식은 오를 때만 돈을 벌지?\n<color=#FF5B65><b>LONG(롱)</b></color>: 주가가 <b>오를 것</b>에 배팅!    <color=#58AFFF><b>SHORT(숏)</b></color>: 주가가 <b>내릴 것</b>에 배팅!",
+            "<color=#F9D66D><b>증거금(Margin)</b></color>: 이번 거래에 내가 실제로 걸 '판돈'이야.\n가진 돈 전부가 아니라 일부만 떼어서 투자할 수 있어!",
+            "<color=#59E3F2><b>레버리지(Leverage)</b></color>: 적은 돈으로 큰 돈을 굴리는 마법의 지렛대!\n배율이 커지면 수익도 크게 늘어나지만 위험도 똑같이 커져.",
+            "<color=#FF6B72><b>청산(Liquidation)</b></color>: 손실이 증거금을 넘어서는 순간 거래가 강제로 종료돼!\n판돈을 전부 잃을 수 있으니 하이 리스크, 하이 리턴을 꼭 명심해!"
+        };
 
         private void Awake()
         {
@@ -52,6 +152,7 @@ namespace FXOverdose.UI
             }
             _instance = this;
 
+            EnsureRuntimePresentation();
             ApplySkipButtonStyle();
             
             if (canvasGroup != null)
@@ -66,6 +167,75 @@ namespace FXOverdose.UI
 
             if (nextPanelButton != null)
                 nextPanelButton.onClick.AddListener(ShowNextPanel);
+        }
+
+        private void EnsureRuntimePresentation()
+        {
+            RectTransform rootRect = GetComponent<RectTransform>();
+            if (rootRect != null) rootRect.localScale = Vector3.one;
+
+            Canvas canvas = GetComponent<Canvas>();
+            if (canvas != null) canvas.sortingOrder = 1200;
+            CanvasScaler scaler = GetComponent<CanvasScaler>();
+            if (scaler != null)
+            {
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.matchWidthOrHeight = 0.5f;
+            }
+
+            if (comicImageDisplay != null)
+            {
+                RectTransform imageRect = comicImageDisplay.rectTransform;
+                // 용어 만화는 대사/설명이 말풍선으로 이미지에 포함되어 있으므로
+                // 하단 자막 공간을 비워두지 않고 패널 전체를 사용합니다.
+                imageRect.anchorMin = new Vector2(0.035f, 0.035f);
+                imageRect.anchorMax = new Vector2(0.965f, 0.965f);
+                imageRect.offsetMin = imageRect.offsetMax = Vector2.zero;
+                comicImageDisplay.preserveAspect = true;
+            }
+
+            Transform existing = transform.Find("TutorialCaptionPanel");
+            GameObject captionPanel = existing != null ? existing.gameObject :
+                new GameObject("TutorialCaptionPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            captionPanel.transform.SetParent(transform, false);
+            RectTransform panelRect = captionPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.08f, 0.025f);
+            panelRect.anchorMax = new Vector2(0.92f, 0.20f);
+            panelRect.offsetMin = panelRect.offsetMax = Vector2.zero;
+            Image panelImage = captionPanel.GetComponent<Image>();
+            panelImage.color = new Color32(8, 18, 39, 242);
+            panelImage.raycastTarget = false;
+            Outline panelOutline = captionPanel.GetComponent<Outline>();
+            panelOutline.effectColor = new Color32(6, 182, 212, 220);
+            panelOutline.effectDistance = UIStrokeStyle.EffectDistance;
+
+            _captionText = CreateRuntimeText(captionPanel.transform, "Caption", 30f, TextAlignmentOptions.Center);
+            SetRuntimeRect(_captionText.rectTransform, new Vector2(0.04f, 0.12f), new Vector2(0.92f, 0.90f));
+            _captionText.textWrappingMode = TextWrappingModes.Normal;
+
+            _progressText = CreateRuntimeText(captionPanel.transform, "Progress", 20f, TextAlignmentOptions.Center);
+            SetRuntimeRect(_progressText.rectTransform, new Vector2(0.92f, 0.10f), new Vector2(0.985f, 0.90f));
+            _progressText.color = new Color32(139, 234, 242, 255);
+
+            captionPanel.transform.SetAsLastSibling();
+            captionPanel.SetActive(false);
+            if (skipButton != null) skipButton.transform.SetAsLastSibling();
+        }
+
+        public void PlayTerminologyTutorial(Action onCompleteCallback)
+        {
+            List<Sprite> panels = new();
+            foreach (string path in TerminologyPanelPaths)
+            {
+                Sprite panel = Resources.Load<Sprite>(path);
+                if (panel != null) panels.Add(panel);
+                else Debug.LogWarning($"[ComicCutsceneController] 용어 만화 컷 누락: Resources/{path}");
+            }
+
+            // 용어 설명은 각 패널의 말풍선에 직접 포함되어 있습니다.
+            _currentCaptions = null;
+            PlayCutscene(panels, onCompleteCallback);
         }
 
         private void ApplySkipButtonStyle()
@@ -149,6 +319,7 @@ namespace FXOverdose.UI
                         _isPlaying = false;
                         _onCompleteCallback?.Invoke();
                         _onCompleteCallback = null;
+                        _currentCaptions = null;
                     }
                 }
             }
@@ -173,6 +344,7 @@ namespace FXOverdose.UI
 
             if (comicImageDisplay != null)
                 comicImageDisplay.sprite = _currentPanels[_currentIndex];
+            RefreshPanelCaption();
 
             // UI 켜기
             if (canvasGroup != null)
@@ -197,6 +369,7 @@ namespace FXOverdose.UI
                 {
                     comicImageDisplay.sprite = _currentPanels[_currentIndex];
                 }
+                RefreshPanelCaption();
             }
             else
             {
@@ -227,6 +400,39 @@ namespace FXOverdose.UI
                 _onCompleteCallback?.Invoke();
                 _onCompleteCallback = null;
             }
+        }
+
+        private void RefreshPanelCaption()
+        {
+            if (_captionText != null)
+                _captionText.text = _currentCaptions != null && _currentIndex < _currentCaptions.Count
+                    ? _currentCaptions[_currentIndex]
+                    : string.Empty;
+            if (_progressText != null)
+                _progressText.text = _currentPanels != null ? $"{_currentIndex + 1}/{_currentPanels.Count}" : string.Empty;
+        }
+
+        private static TextMeshProUGUI CreateRuntimeText(Transform parent, string name, float size, TextAlignmentOptions alignment)
+        {
+            GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.fontSize = size;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = Mathf.Max(14f, size * 0.65f);
+            text.fontSizeMax = size;
+            text.color = Color.white;
+            text.alignment = alignment;
+            text.raycastTarget = false;
+            return text;
+        }
+
+        private static void SetRuntimeRect(RectTransform rect, Vector2 min, Vector2 max)
+        {
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
     }
 }

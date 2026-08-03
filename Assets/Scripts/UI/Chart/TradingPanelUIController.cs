@@ -78,6 +78,9 @@ namespace FXOverdose.UI.Chart
             marginRatioControlContainer != null ? marginRatioControlContainer.GetComponent<RectTransform>() : null;
         public RectTransform TutorialLeverageHighlightTarget =>
             leverageControlContainer != null ? leverageControlContainer.GetComponent<RectTransform>() : null;
+        public RectTransform TutorialAIStyleHighlightTarget =>
+            btnTabAIStyleMode != null ? btnTabAIStyleMode.GetComponent<RectTransform>() :
+            aiStyleControlContainer != null ? aiStyleControlContainer.GetComponent<RectTransform>() : null;
 
         public void ShowMarginControlsForTutorial() => SwitchControlMode(ControlMode.MarginRatio);
         public void ShowLeverageControlsForTutorial() => SwitchControlMode(ControlMode.Leverage);
