@@ -577,43 +577,30 @@ namespace FXOverdose.UI.Chart
         {
             if (effectStatusPanel == null) return;
 
+            // 인벤토리 옆 효과 HUD는 시간제 파스타 효과만 표시합니다.
+            // 영구 액티브 장비 효과는 실제 계산에는 유지하되 이 HUD에서는 노출하지 않습니다.
             activeItemStates.Clear();
-            activeItemManager?.CopyActiveItemLevels(activeItemStates);
-            activeItemStates.Sort((a, b) => string.Compare(a.Key.ItemName, b.Key.ItemName, StringComparison.Ordinal));
             float pastaSeconds = DeliveryFoodManager.Instance != null
                 ? DeliveryFoodManager.Instance.PastaRemainingSeconds
                 : 0f;
             bool hasPasta = pastaSeconds > 0.05f;
-            bool hasAnyEffect = activeItemStates.Count > 0 || hasPasta;
-            effectStatusPanel.gameObject.SetActive(hasAnyEffect);
-            if (!hasAnyEffect) return;
+            effectStatusPanel.gameObject.SetActive(hasPasta);
+            if (!hasPasta) return;
             LayoutEffectStatusHUD();
 
-            string signature = string.Empty;
-            foreach (KeyValuePair<ItemData, int> state in activeItemStates)
-                signature += $"{state.Key.ItemId}:{state.Value}|";
-            if (hasPasta) signature += "pasta|";
+            const string signature = "pasta|";
             if (signature != effectIconSignature)
             {
                 effectIconSignature = signature;
                 RebuildEffectIcons(hasPasta);
             }
 
-            int activeIndex = 0;
             foreach (EffectIconView view in effectIconViews)
             {
-                if (view.IsFood)
+                if (view.IsFood && view.TimerFill != null)
                 {
-                    if (view.TimerFill != null)
-                    {
-                        float remainingRatio = Mathf.Clamp01(pastaSeconds / DeliveryFoodManager.PastaDurationSeconds);
-                        view.TimerFill.fillAmount = 1f - remainingRatio;
-                    }
-                }
-                else if (activeIndex < activeItemStates.Count)
-                {
-                    view.Badge.text = $"LV.{activeItemStates[activeIndex].Value}";
-                    activeIndex++;
+                    float remainingRatio = Mathf.Clamp01(pastaSeconds / DeliveryFoodManager.PastaDurationSeconds);
+                    view.TimerFill.fillAmount = 1f - remainingRatio;
                 }
             }
         }
@@ -628,9 +615,6 @@ namespace FXOverdose.UI.Chart
             }
             effectIconViews.Clear();
 
-            // 표시 순서는 영구 액티브 장비가 먼저, 시간제 음식이 그 다음입니다.
-            foreach (KeyValuePair<ItemData, int> state in activeItemStates)
-                effectIconViews.Add(CreateEffectIcon(state.Key, false, $"LV.{state.Value}", new Color(0.98f, 0.78f, 0.28f, 1f)));
             if (hasPasta && pastaItem != null)
                 effectIconViews.Add(CreateEffectIcon(pastaItem, true, string.Empty, new Color(1f, 0.61f, 0.27f, 1f)));
             effectStatusPanel.sizeDelta = new Vector2(
