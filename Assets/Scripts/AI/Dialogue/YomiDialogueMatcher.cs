@@ -39,7 +39,8 @@ namespace FXOverdose.AI.Dialogue
         /// <summary>
         /// 새로운 상태에 기반해 가장 적절한 대사를 반환합니다.
         /// </summary>
-        public string GetDialogue(string position, string marketTrend, string mentalState, DirectionTag currentDirection, bool isProfit, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel)
+        public string GetDialogue(string position, string marketTrend, string mentalState, DirectionTag currentDirection, bool isProfit, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel,
+                                  string owner = "Any", string actualChartTrend = "Any", float absolutePnL = 0f, float duration = 0f, float currentHealth = 100f, string costumeId = "Any", string currentAction = "")
         {
             if (Time.time - lastDialogueTime < dialogueCooldown)
             {
@@ -49,30 +50,64 @@ namespace FXOverdose.AI.Dialogue
             if (database == null) return "데이터베이스가 연결되지 않았어!";
 
             // 1. 딕셔너리 기반 1차 필터링
-            var candidates = database.GetCandidates(position, marketTrend);
+            var candidates = new List<YomiDialogueEntry>();
+            
+            var exactCandidates = database.GetCandidates(position, marketTrend);
+            if (exactCandidates != null) candidates.AddRange(exactCandidates);
+            
+            var anyTrendCandidates = database.GetCandidates(position, "Any");
+            if (anyTrendCandidates != null) candidates.AddRange(anyTrendCandidates);
 
-            if (candidates == null || candidates.Count == 0)
+            // 포지션 상태와 무관하게 범용으로 쓰이는(예: PositionClosed) 대사들도 탐색 풀에 추가
+            var anyPosCandidates = database.GetCandidates("Any", marketTrend);
+            if (anyPosCandidates != null) candidates.AddRange(anyPosCandidates);
+            
+            var anyPosAnyTrendCandidates = database.GetCandidates("Any", "Any");
+            if (anyPosAnyTrendCandidates != null) candidates.AddRange(anyPosAnyTrendCandidates);
+
+            if (candidates.Count == 0)
             {
                 // 포지션/트렌드가 완벽히 일치하는 풀이 없으면 대략적인 풀(None 포지션 등) 사용
-                candidates = database.GetCandidates("None", marketTrend);
-                if (candidates == null || candidates.Count == 0)
+                var fallback1 = database.GetCandidates("None", marketTrend);
+                if (fallback1 != null) candidates.AddRange(fallback1);
+                
+                var fallback2 = database.GetCandidates("None", "Any");
+                if (fallback2 != null) candidates.AddRange(fallback2);
+
+                if (candidates.Count == 0)
                 {
-                    return "무슨 상황인지 모르겠어..."; // 최후의 보루
+                    return null; // 조건에 맞는 대사가 없으면 침묵
                 }
             }
 
             // 2. 조건부 스코어링
-            var scoredList = candidates.Select(c => new { Entry = c, Score = CalculateScore(c, mentalState, currentDirection, isProfit, position, currentLeverage, currentMarginRatio, heroLevel, skillLevel) })
+            var scoredList = candidates.Select(c => new { Entry = c, Score = CalculateScore(c, mentalState, currentDirection, isProfit, position, currentLeverage, currentMarginRatio, heroLevel, skillLevel, owner, actualChartTrend, absolutePnL, duration, currentHealth, costumeId, currentAction) })
+                                       .Where(x => x.Score > -9999) // 불일치(페널티) 제외
                                        .OrderByDescending(x => x.Score)
                                        .ToList();
 
-            // 3. 쿨다운 및 앵무새 방지를 위해 상위 5개 중 안 쓴 대사 찾기
-            YomiDialogueEntry bestMatch = null;
-            int topTake = Mathf.Min(5, scoredList.Count);
+            if (scoredList.Count == 0) return null;
+
+            // 3. 최고 점수 풀(Pool) 추출 및 랜덤화
+            int maxScore = scoredList[0].Score;
+            // 최고 점수와 동일하거나(혹은 오차범위 내) 가장 높은 등급의 대사들을 모두 가져옵니다.
+            var topCandidates = scoredList.Where(x => x.Score >= maxScore - 5).ToList();
             
-            for (int i = 0; i < topTake; i++)
+            // 리스트 셔플 (Fisher-Yates)
+            for (int i = 0; i < topCandidates.Count; i++)
             {
-                var cand = scoredList[i].Entry;
+                var temp = topCandidates[i];
+                int randomIndex = UnityEngine.Random.Range(i, topCandidates.Count);
+                topCandidates[i] = topCandidates[randomIndex];
+                topCandidates[randomIndex] = temp;
+            }
+
+            // 4. 쿨다운 및 앵무새 방지를 위해 셔플된 풀에서 안 쓴 대사 찾기
+            YomiDialogueEntry bestMatch = null;
+            
+            foreach (var candObj in topCandidates)
+            {
+                var cand = candObj.Entry;
                 // 💡 중복 방지 태그를 대사 원문 그 자체로 변경하여 감정 상태가 같아도 다양한 대사가 출력되도록 수정
                 string tag = cand.text.GetHashCode().ToString();
                 
@@ -80,7 +115,7 @@ namespace FXOverdose.AI.Dialogue
                 {
                     bestMatch = cand;
                     recentDialogueTags.Add(tag);
-                    if (recentDialogueTags.Count > 10) // 히스토리 제한 (다양한 대사를 위해 10개로 확장)
+                    if (recentDialogueTags.Count > 15) // 히스토리 제한 확장
                     {
                         recentDialogueTags.Remove(recentDialogueTags.First());
                     }
@@ -88,10 +123,10 @@ namespace FXOverdose.AI.Dialogue
                 }
             }
 
-            // 전부 최근에 썼다면 그냥 1등을 씀
+            // 전부 최근에 썼다면 그냥 랜덤 풀의 첫 번째를 씀
             if (bestMatch == null)
             {
-                bestMatch = scoredList[0].Entry;
+                bestMatch = topCandidates[0].Entry;
             }
 
             lastDialogueTime = Time.time;
@@ -127,9 +162,23 @@ namespace FXOverdose.AI.Dialogue
             return finalDialogue;
         }
 
-        private int CalculateScore(YomiDialogueEntry entry, string currentMentalState, DirectionTag currentDirection, bool isProfit, string position, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel)
+        private int CalculateScore(YomiDialogueEntry entry, string currentMentalState, DirectionTag currentDirection, bool isProfit, string position, int currentLeverage, float currentMarginRatio, int heroLevel, int skillLevel,
+                                   string owner, string actualChartTrend, float absolutePnL, float duration, float currentHealth, string costumeId, string currentAction)
         {
             int score = 0;
+
+            // --- 아키텍처 보강: 시스템 이벤트(Action) 강제 매칭 로직 ---
+            if (!string.IsNullOrEmpty(entry.eventCategory))
+            {
+                if (entry.eventCategory == currentAction)
+                {
+                    score += 500; // 상황/행동(종료, 관망 등)이 완벽하게 일치하면 초고가점
+                }
+                else
+                {
+                    return -9999; // 대사가 요구하는 행동과 현재 행동이 불일치하면 채택 불가 (원천 차단)
+                }
+            }
 
             // 필수 조건 체크: 포지션이 있을 경우, 수익 상태 및 방향성이 아주 중요
             if (position != "None")
@@ -190,6 +239,39 @@ namespace FXOverdose.AI.Dialogue
             {
                 int diff = Mathf.Abs(entry.requiredSkillLevel - skillLevel);
                 score += Mathf.Max(0, 20 - (diff * 2));
+            }
+
+            // --- 아키텍처 보강 가중치 (Context Deficit 완화) ---
+            if (entry.requiredOwner != "Any" && entry.requiredOwner == owner)
+            {
+                score += 30; // 주체(AI/Player) 정확히 일치 시 높은 가산점
+            }
+            if (entry.requiredChartTrend != "Any")
+            {
+                if (entry.requiredChartTrend == actualChartTrend)
+                {
+                    score += 50; // 실제 빔 방향 일치 시 가산점
+                }
+                else
+                {
+                    return -9999; // 실제 차트 방향(Sideways 등)과 대사(Pump 등)가 다르면 출력 차단
+                }
+            }
+            if (absolutePnL >= entry.minAbsolutePnL && absolutePnL <= entry.maxAbsolutePnL && (entry.minAbsolutePnL != -9999999f || entry.maxAbsolutePnL != 9999999f))
+            {
+                score += 20; // 절대 수익금 구간 일치 (푼돈 vs 거액 구분)
+            }
+            if (duration >= entry.minTradeDuration && duration <= entry.maxTradeDuration && (entry.minTradeDuration != -1f || entry.maxTradeDuration != 999999f))
+            {
+                score += 20; // 유지시간(스캘핑 vs 스윙) 일치
+            }
+            if (currentHealth <= entry.maxHealthLimit && entry.maxHealthLimit != 999f)
+            {
+                score += 35; // HP 한계 상황 묘사 대사 매칭 우대
+            }
+            if (entry.requiredCostumeId != "Any" && entry.requiredCostumeId == costumeId)
+            {
+                score += 40; // 전용 복장 대사 우대
             }
 
             return score;

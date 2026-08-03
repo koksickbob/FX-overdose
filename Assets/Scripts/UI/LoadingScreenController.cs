@@ -64,20 +64,17 @@ namespace FXOverdose.UI
                 yield break;
             }
 
-            while (!operation.isDone)
+            operation.allowSceneActivation = false;
+
+            while (operation.progress < 0.9f)
             {
                 float sceneProgress = Mathf.Clamp01(operation.progress / 0.9f);
                 SetProgress(sceneProgress * 0.65f, "LOADING MARKET DATA");
                 yield return null;
             }
 
-            Scene gameScene = SceneManager.GetSceneByName(targetSceneName);
-            if (gameScene.IsValid())
-                SceneManager.SetActiveScene(gameScene);
-
-            // 💡 [중복 경고 스팸 방지] GameScene이 Additive로 로드되면서 GameScene의 AudioListener가 활성화됩니다.
-            // 이후 씬 로딩을 기다리는 동안 두 씬이 모두 켜져 있어 AudioListener가 2개가 되어 로그가 폭주하는 것을 막기 위해,
-            // 이전 씬(로딩 씬)의 AudioListener를 찾아서 즉시 꺼줍니다.
+            // 💡 [중복 경고 스팸 방지] GameScene이 활성화되기 직전에 이전 씬(로딩 씬)의 AudioListener를 미리 꺼줍니다.
+            // 씬이 활성화된 후 꺼주면 전환되는 몇 프레임 동안 AudioListener가 2개가 되어 로그가 폭주할 수 있습니다.
             AudioListener[] listeners = Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude);
             foreach (var listener in listeners)
             {
@@ -86,6 +83,17 @@ namespace FXOverdose.UI
                     listener.enabled = false;
                 }
             }
+
+            operation.allowSceneActivation = true;
+
+            while (!operation.isDone)
+            {
+                yield return null;
+            }
+
+            Scene gameScene = SceneManager.GetSceneByName(targetSceneName);
+            if (gameScene.IsValid())
+                SceneManager.SetActiveScene(gameScene);
 
             while (!AreChartSystemsPresent())
             {

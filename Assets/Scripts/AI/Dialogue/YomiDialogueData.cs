@@ -35,6 +35,16 @@ namespace FXOverdose.AI.Dialogue
         public bool isHighMarginRisk;    // 대사가 풀시드/전재산 배팅 상황을 가정하는지 여부
         public string eventCategory;     // e.g. "SkillUpgraded", "Gimmick_Musk", "" (일반 대사)
         
+        // --- 아키텍처 보강용 추가 필드 ---
+        public string requiredOwner = "Any";       // e.g. "Player", "AI", "Any"
+        public string requiredChartTrend = "Any";  // e.g. "Pump", "Dump", "Sideways", "Any"
+        public float minAbsolutePnL = -9999999f;
+        public float maxAbsolutePnL = 9999999f;
+        public float minTradeDuration = -1f;
+        public float maxTradeDuration = 999999f;
+        public float maxHealthLimit = 999f;
+        public string requiredCostumeId = "Any";
+        
         public YomiDialogueEntry(string t, string trend, string mental, string pos, DirectionTag dir, bool profit, 
                                  int lev = 0, int heroLv = 0, int skillLv = 0, bool risk = false, string ev = "")
         {

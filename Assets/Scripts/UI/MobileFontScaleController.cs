@@ -82,7 +82,7 @@ internal sealed class MobileFontScaleController : MonoBehaviour
         processedTexts.RemoveWhere(text => text == null);
 
         TextMeshProUGUI[] texts =
-            Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include);
         foreach (TextMeshProUGUI text in texts)
         {
             if (text == null || !processedTexts.Add(text)) continue;

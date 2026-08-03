@@ -454,7 +454,6 @@ namespace FXOverdose.Trading
                     if (roe >= targetTakeProfitROE)
                     {
                         Debug.Log($"[TradingController ⚡] 이벤트 칼익절(InstantTakeProfit) 발동! 예상 수익 구간의 {takeProfitMultiplier*100:0}% 달성 (ROE +{roe:F1}%).");
-                        OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                         ClosePosition();
                     }
                     break;
@@ -466,7 +465,6 @@ namespace FXOverdose.Trading
                     if (roe <= targetStopLossROE)
                     {
                         Debug.Log($"[TradingController ⚡] 이벤트 긴급 손절(InstantStopLoss) 발동! ROE {roe:F1}% 위기 감지로 피해를 최소화하기 위해 즉시 정리합니다.");
-                        OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                         ClosePosition();
                     }
                     break;
@@ -476,7 +474,6 @@ namespace FXOverdose.Trading
                     if (roe <= mitigationStopLimit)
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 비상 방어: 청산 직전까지 인내했으나 잔여 증거금을 지키기 위해 긴급 정리합니다. (ROE {roe:F1}%)");
-                        OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                         ClosePosition();
                     }
                     else 
@@ -485,7 +482,6 @@ namespace FXOverdose.Trading
                         if ((maxObservedEventROE <= -40f || lastReportedROEBasket == -999) && roe >= escapeLimit)
                         {
                             Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 성공! 반등 꼬리(Whipsaw Recovery) 시점에 극적으로 탈출합니다. (ROE {roe:F1}%)");
-                            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                             ClosePosition();
                         }
                     }
@@ -495,7 +491,6 @@ namespace FXOverdose.Trading
                     if (eventTargetROELimit > 0f && roe >= eventTargetROELimit)
                     {
                         Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 지정 목표치 달성! ROE +{roe:F1}% 극한 수익 확정 청산!");
-                        OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                         ClosePosition();
                     }
                     else 
@@ -509,7 +504,6 @@ namespace FXOverdose.Trading
                             (maxObservedEventROE >= 45f && roe <= maxObservedEventROE * trailingSens3))
                         {
                             Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 트레이링 익절 작동! 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산!");
-                            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                             ClosePosition();
                         }
                     }
@@ -520,7 +514,6 @@ namespace FXOverdose.Trading
                     if (eventTargetROELimit > 0f && roe >= eventTargetROELimit)
                     {
                         Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 지정 익절: ROE +{roe:F1}% 달성으로 수익을 챙깁니다.");
-                        OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                         ClosePosition();
                     }
                     else
@@ -529,13 +522,11 @@ namespace FXOverdose.Trading
                         if (maxObservedEventROE >= 40f && roe <= maxObservedEventROE * trailingSens)
                         {
                             Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 트레이링 익절: 고점(+{maxObservedEventROE:F1}%) 대비 조정 감지로 ROE +{roe:F1}% 확정 청산.");
-                            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                             ClosePosition();
                         }
                         else if (roe <= -65f && Time.time >= eventPositionOpenedTime + 5.0f)
                         {
                             Debug.Log($"[TradingController 🤖] 이벤트 유연 판단(StandardAuto) 손절: 위험 수준의 손실(ROE {roe:F1}%) 감지로 포지션을 정리합니다.");
-                            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
                             ClosePosition();
                         }
                     }
@@ -572,13 +563,13 @@ namespace FXOverdose.Trading
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 시간 종료: 인내 끝에 손실({roe:F1}%)을 완화하여 정리합니다.");
                         OutputSpecificEventDialogue("EventHoldMitigateLoss", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
-                        ClosePosition();
+                        ClosePosition(true);
                     }
                     else
                     {
                         Debug.Log($"[TradingController 🛡️] 손실 약화 버티기(HoldToMitigateLoss) 역전 성공: 오히려 수익(+{roe:F1}%)으로 전환되어 익절합니다!");
                         OutputSpecificEventDialogue("EventHoldMitigateLoss", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
-                        ClosePosition();
+                        ClosePosition(true);
                     }
                     break;
 
@@ -587,7 +578,7 @@ namespace FXOverdose.Trading
                     {
                         Debug.Log($"[TradingController 👑] 탐욕적 홀딩(GreedyHold) 시간 종료: 누적된 ROE +{roe:F1}% 대박 수익을 전액 챙깁니다!");
                         OutputSpecificEventDialogue("EventGreedyHoldWin", roe: roe, priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.PositionClosed);
-                        ClosePosition();
+                        ClosePosition(true);
                     }
                     else
                     {
@@ -824,6 +815,7 @@ namespace FXOverdose.Trading
             if (margin <= 0f || (!isEmergencyTrade && gameManager.CurrentBalance <= 1f))
             {
                 Debug.LogWarning("[TradingController] 증거금이 부족합니다.");
+                OutputSpecificEventDialogue("TradeFailedInsufficientMargin", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.General);
                 return false;
             }
 
@@ -877,6 +869,10 @@ namespace FXOverdose.Trading
             eventPositionOpenedTime = Time.time;
             OnPositionChanged?.Invoke();
             OnPositionOpened?.Invoke(currentPosition, marginAmount, currentLeverage);
+
+            // [통합] AI 포지션 진입 시에도 리액션 대사 출력 추가
+            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionOpened, FXOverdose.AI.DialoguePriority.High);
+
             return true;
         }
 
@@ -931,6 +927,7 @@ namespace FXOverdose.Trading
             if (margin <= 0f || gameManager.CurrentBalance <= 1f)
             {
                 Debug.LogWarning("[TradingController] 플레이어 매매: 증거금이 부족합니다.");
+                OutputSpecificEventDialogue("TradeFailedInsufficientMargin", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.General);
                 return false;
             }
 
@@ -1004,7 +1001,7 @@ namespace FXOverdose.Trading
         }
 
         // 포지션 종료 (익절/손절)
-        public void ClosePosition()
+        public void ClosePosition(bool suppressDialogue = false)
         {
             if (currentPosition == PositionType.None || gameManager == null)
             {
@@ -1037,14 +1034,17 @@ namespace FXOverdose.Trading
                 if (equippedCostume == CostumeManager.BunnyGirlId && activeTradingMode == TradingMode.AI_Auto)
                 {
                     pnl *= 1.15f; // 바니걸: 자동매매 수익률 15% 증가
+                    OutputSpecificEventDialogue("CostumeBuffActivated", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.General);
                 }
                 else if (equippedCostume == CostumeManager.BikiniId && activeTradingMode == TradingMode.Player_Manual)
                 {
                     pnl *= 1.15f; // 비키니: 수동매매 수익률 15% 증가
+                    OutputSpecificEventDialogue("CostumeBuffActivated", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.General);
                 }
                 else if (equippedCostume == CostumeManager.JiraiKeiId)
                 {
                     pnl *= 1.20f; // 지뢰계: 매매 수익률 20% 증가
+                    OutputSpecificEventDialogue("CostumeBuffActivated", priority: FXOverdose.AI.DialoguePriority.High, cat: FXOverdose.AI.EventCategory.General);
                     if (traderStatus != null)
                     {
                         traderStatus.ChangeHealth(10f);
@@ -1095,7 +1095,10 @@ namespace FXOverdose.Trading
             lastClosedTime = Time.time;
 
             // [통합] 수동/자동 상관없이 청산 리액션 대사 출력 (currentPosition 정보가 초기화되기 직전에 호출)
-            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
+            if (!suppressDialogue)
+            {
+                OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.High);
+            }
 
             // 💡 [단타 어뷰징 방지] 플레이어 수동 조작 모드이거나 플레이어가 직접 연 포지션이 종료되었을 때 매매 쿨타임 적용
             if (activeTradingMode == TradingMode.Player_Manual || currentOwner == OwnerType.Player)
@@ -1119,6 +1122,10 @@ namespace FXOverdose.Trading
             }
             // 포지션 정리 뒤 총자산을 다시 계산해 반환금이 없는 종료도 엔딩 판정에서 누락되지 않게 합니다.
             gameManager?.EvaluateEndingConditions();
+            if (gameManager != null && gameManager.CurrentBalance <= 10f)
+            {
+                OutputSpecificEventDialogue("GameOver", priority: FXOverdose.AI.DialoguePriority.Critical, cat: FXOverdose.AI.EventCategory.PositionClosed);
+            }
             isEventTradeActive = false;
             eventProtectionEndTime = -1f;
             currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
@@ -1227,6 +1234,7 @@ namespace FXOverdose.Trading
             }
 
             // 💡 [이벤트 순서 수정] 강제청산 이벤트 발송을 포지션/증거금 초기화 직전에 진행하여 수신자가 손실 정보를 인지할 수 있게 보완
+            OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed, FXOverdose.AI.DialoguePriority.Critical);
             OnPositionLiquidated?.Invoke();
 
             // 증거금 전액 몰수 (정산금 0원)
@@ -1548,8 +1556,6 @@ namespace FXOverdose.Trading
                     return;
                 }
             }
-            
-            visual.DisplayDialogueBalloon($"[{eventCategory}] 이벤트 발생!", priority, cat);
         }
 
         private void OutputYomiDialogue(FXOverdose.AI.EventCategory cat, FXOverdose.AI.DialoguePriority priority = FXOverdose.AI.DialoguePriority.Normal)
@@ -1591,8 +1597,33 @@ namespace FXOverdose.Trading
                 int heroLevel = levelSystem != null ? levelSystem.ProtagonistLevel : 1;
                 int skillLevel = levelSystem != null ? Mathf.Max(levelSystem.ChartStudyLevel, levelSystem.CubePatienceLevel, levelSystem.BookJudgmentLevel) : 1;
 
+                // --- 아키텍처 보강: 컨텍스트 데이터 수집 ---
+                string owner = "AI";
+                if (currentPosition != PositionType.None)
+                {
+                    owner = currentOwner == OwnerType.Player ? "Player" : "AI";
+                }
+                else
+                {
+                    owner = activeTradingMode == TradingMode.Player_Manual ? "Player" : "AI";
+                }
+                
+                string actualChartTrend = "Sideways";
+                if (marketEngine != null && marketEngine.CurrentSignalPhase != SignalPhase.None)
+                {
+                    actualChartTrend = marketEngine.ActiveSignal.TargetPercentageDelta > 0f ? "Pump" : "Dump";
+                }
+
+                float absolutePnL = CalculateUnrealizedPnL();
+                float duration = currentPosition != PositionType.None ? Time.time - eventPositionOpenedTime : 0f;
+                
+                float currentHealth = TraderStatus.CanonicalInstance != null ? TraderStatus.CanonicalInstance.CurrentHealth : 100f;
+                string costumeId = CostumeManager.Instance != null ? CostumeManager.Instance.EquippedCostumeId : "Any";
+                if (string.IsNullOrEmpty(costumeId)) costumeId = "Any";
+
                 matchedDialogue = matcher.GetDialogue(
-                    posStr, marketTrend, mentalState, direction, roe >= 0f, currentLeverage, marginRatio, heroLevel, skillLevel);
+                    posStr, marketTrend, mentalState, direction, roe >= 0f, currentLeverage, marginRatio, heroLevel, skillLevel,
+                    owner, actualChartTrend, absolutePnL, duration, currentHealth, costumeId, cat.ToString());
             }
             
             if (!string.IsNullOrEmpty(matchedDialogue))

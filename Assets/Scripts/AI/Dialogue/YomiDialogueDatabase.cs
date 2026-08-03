@@ -27,16 +27,14 @@ namespace FXOverdose.AI.Dialogue
                         eventLookupTable[entry.eventCategory] = new List<YomiDialogueEntry>();
                     eventLookupTable[entry.eventCategory].Add(entry);
                 }
-                else
+                
+                // 모든 대사는 기본 포지션_트렌드 키로 lookupTable에도 저장
+                string key = $"{entry.position}_{entry.marketTrend}";
+                if (!lookupTable.ContainsKey(key))
                 {
-                    // 일반 대사는 기존 포지션_트렌드 키로 저장
-                    string key = $"{entry.position}_{entry.marketTrend}";
-                    if (!lookupTable.ContainsKey(key))
-                    {
-                        lookupTable[key] = new List<YomiDialogueEntry>();
-                    }
-                    lookupTable[key].Add(entry);
+                    lookupTable[key] = new List<YomiDialogueEntry>();
                 }
+                lookupTable[key].Add(entry);
             }
         }
         
