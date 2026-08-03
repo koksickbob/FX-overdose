@@ -14,12 +14,16 @@ namespace FXOverdose.Core
     public enum TutorialState
     {
         Welcome,
+        TerminologyCutscene,
         WaitToOpenPosition,
         WaitToClosePosition,
         AITradingDemo,
+        AITradingExplanation,
         LeverageAndMargin,
         MentalExplanation,
+        HealthAndOverdose,
         ShopExplanation,
+        CostumeExplanation,
         LevelSystem,
         SuddenEventDemo,
         DailySettlement,
@@ -57,6 +61,7 @@ namespace FXOverdose.Core
         [SerializeField] private GameObject levelHighlight;
         private GameObject leverageHighlight;
         private GameObject shopHighlight;
+        private GameObject aiStyleHighlight;
         private GameObject longButtonHighlight;
         private GameObject shortButtonHighlight;
         private GameObject closeButtonHighlight;
@@ -199,6 +204,9 @@ namespace FXOverdose.Core
             yield return new WaitForSeconds(1.0f); // 씬 진입 후 살짝 대기
             yield return StartCoroutine(Step1_Welcome());
 
+            // 1-2단계: 기초 용어 만화 컷씬
+            yield return StartCoroutine(Step1_2_TerminologyCutscene());
+
             // 2단계: 수동 매매 진입
             yield return StartCoroutine(Step2_ManualTrading());
 
@@ -209,14 +217,23 @@ namespace FXOverdose.Core
             yield return StartCoroutine(Step4_AITradingDemo());
             yield return StartCoroutine(Step4_5_AIBoast());
 
+            // 4-2단계: 자동/수동 전환 및 AI 성향 설명
+            yield return StartCoroutine(Step4_2_AITradingExplanation());
+
             // 5단계: 레버리지와 증거금
             yield return StartCoroutine(Step5_LeverageMargin());
 
             // 6단계: 멘탈 시스템
             yield return StartCoroutine(Step6_Mental());
 
+            // 6-2단계: 체력 고갈 경고 및 오버도즈 상세 설명
+            yield return StartCoroutine(Step6_2_HealthAndOverdose());
+
             // 7단계: 상점 시스템
             yield return StartCoroutine(Step7_Shop());
+
+            // 7-2단계: 의상 시스템 설명
+            yield return StartCoroutine(Step7_2_Costume());
 
             // 8단계: 레벨 시스템
             yield return StartCoroutine(Step8_LevelSystem());
@@ -496,6 +513,7 @@ namespace FXOverdose.Core
             if (leverageHighlight != null) leverageHighlight.SetActive(false);
             if (mentalHighlight != null) mentalHighlight.SetActive(false);
             if (shopHighlight != null) shopHighlight.SetActive(false);
+            if (aiStyleHighlight != null) aiStyleHighlight.SetActive(false);
             if (levelHighlight != null) levelHighlight.SetActive(false);
             if (longButtonHighlight != null) longButtonHighlight.SetActive(false);
             if (shortButtonHighlight != null) shortButtonHighlight.SetActive(false);
@@ -655,6 +673,24 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("자, 이제 트레이딩의 기본부터 알려줄게."));
         }
 
+        private IEnumerator Step1_2_TerminologyCutscene()
+        {
+            CurrentState = TutorialState.TerminologyCutscene;
+            
+            yield return StartCoroutine(PlayDialogueAndWait("트레이딩이 처음이라고? 걱정 마! 롱, 숏, 레버리지가 뭔지 알기 쉽게 만화로 준비했어. 한 번 읽어볼래?"));
+            
+            GameObject comicCutscenePanel = GameObject.Find("ComicCutscenePanel");
+            if (comicCutscenePanel != null)
+            {
+                comicCutscenePanel.SetActive(true);
+                yield return new WaitUntil(() => !comicCutscenePanel.activeSelf);
+            }
+            else
+            {
+                Debug.LogWarning("[TutorialManager] ComicCutscenePanel을 찾을 수 없어 만화 컷씬을 스킵합니다.");
+            }
+        }
+
         private FXOverdose.Trading.TradingController.PositionType playerTutorialPosition;
 
         private IEnumerator Step2_ManualTrading()
@@ -761,6 +797,17 @@ namespace FXOverdose.Core
             yield return new WaitForSeconds(2.0f);
         }
 
+        private IEnumerator Step4_2_AITradingExplanation()
+        {
+            CurrentState = TutorialState.AITradingExplanation;
+            
+            yield return StartCoroutine(PlayDialogueAndWait("언제든 설정에서 자동 매매와 수동 매매를 자유롭게 전환할 수 있어!"));
+            
+            if (aiStyleHighlight != null) SetHighlight(aiStyleHighlight, true);
+            yield return StartCoroutine(PlayDialogueAndWait("여기 'AUTO STYLE' 탭을 누르면 내가 안전하게 할지, 공격적으로 할지 오빠가 직접 성향을 골라줄 수 있어!"));
+            if (aiStyleHighlight != null) SetHighlight(aiStyleHighlight, false);
+        }
+
         private IEnumerator Step5_LeverageMargin()
         {
             CurrentState = TutorialState.LeverageAndMargin;
@@ -803,6 +850,14 @@ namespace FXOverdose.Core
             if (mentalHighlight != null) SetHighlight(mentalHighlight, false);
         }
 
+        private IEnumerator Step6_2_HealthAndOverdose()
+        {
+            CurrentState = TutorialState.HealthAndOverdose;
+
+            yield return StartCoroutine(PlayDialogueAndWait("체력이 절반 이하로 떨어지면 멘탈도 같이 깎이기 시작해! 특히 체력이 바닥나면 멘탈이 순식간에 녹아버릴 거야."));
+            yield return StartCoroutine(PlayDialogueAndWait("멘탈이 0이 되면 내가 빡쳐서 통제 불능(오버도즈) 상태로 내 맘대로 고배율 매매를 해버릴테니까 밥 꼭 챙겨줘!"));
+        }
+
         private IEnumerator Step7_Shop()
         {
             CurrentState = TutorialState.ShopExplanation;
@@ -816,6 +871,13 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 번 돈은 요미를 위해 아낌없이 쓰라구!"));
             
             if (shopHighlight != null) SetHighlight(shopHighlight, false);
+        }
+
+        private IEnumerator Step7_2_Costume()
+        {
+            CurrentState = TutorialState.CostumeExplanation;
+
+            yield return StartCoroutine(PlayDialogueAndWait("특정 조건을 달성하면 요미의 새로운 옷이 해금돼! 옷마다 최대 체력을 늘려주거나 멘탈을 단단하게 해주는 특수 능력이 있으니까 꼭 모아봐!"));
         }
 
         private IEnumerator Step8_LevelSystem()
@@ -832,6 +894,7 @@ namespace FXOverdose.Core
             }
             if (levelHighlight != null) SetHighlight(levelHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 성공적으로 매매를 이어갈수록 레벨이 오를 거야!"));
+            yield return StartCoroutine(PlayDialogueAndWait("주인공 레벨이 오르면 오빠가 한 번에 투자할 수 있는 증거금 비율과 최고 레버리지 한도도 점점 늘어나니까 열심히 경험치를 모아봐!"));
             yield return StartCoroutine(PlayDialogueAndWait("레벨이 오르면 요미의 차트 분석력이나 멘탈, 인내력 같은 스킬들을 직접 업그레이드할 수 있어."));
             yield return StartCoroutine(PlayDialogueAndWait("투자를 통해 요미를 최고의 파트너로 키워줘!"));
             if (levelHighlight != null) SetHighlight(levelHighlight, false);
