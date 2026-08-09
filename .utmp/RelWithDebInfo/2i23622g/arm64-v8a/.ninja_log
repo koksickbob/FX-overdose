@@ -1,12 +1,12 @@
 # ninja log v5
-57	497	8073052073371754	FramePacing/CMakeFiles/swappywrapper.dir/UnitySwappyWrapper.cpp.o	44070157c23e765c
-499	803	8073052076138034	D:/Project/fx overdose/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/2i23622g/obj/arm64-v8a/libswappywrapper.so	9fe1f5e1660fb1d4
-25	1987	8073052088055735	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	a2c6999cf6f51382
-32	2001	8073052088121125	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	45c2130186b3b5ea
-12	2043	8073052088674849	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	4f5b98e2231d2b4d
-39	2046	8073052088795426	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	3294e8501643999e
-0	2130	8073052089640484	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	d6dbb292ea78e08a
-18	2358	8073052091951117	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	eed6e20fe231894a
-48	2456	8073052092957447	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	63148aa11a93632d
-7	2494	8073052093287073	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	e880200d04c5e24d
-2494	2614	8073052094535040	D:/Project/fx overdose/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/2i23622g/obj/arm64-v8a/libgame.so	245a743b8f45f2f
+57	454	8079595166949106	FramePacing/CMakeFiles/swappywrapper.dir/UnitySwappyWrapper.cpp.o	44070157c23e765c
+455	739	8079595169483202	D:/Project/fx overdose/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/2i23622g/obj/arm64-v8a/libswappywrapper.so	9fe1f5e1660fb1d4
+34	1781	8079595180117926	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	a2c6999cf6f51382
+21	1791	8079595180219716	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	45c2130186b3b5ea
+0	1820	8079595180569566	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	4f5b98e2231d2b4d
+41	1836	8079595180739328	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	3294e8501643999e
+14	1908	8079595181407529	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	d6dbb292ea78e08a
+28	2093	8079595183310116	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	eed6e20fe231894a
+49	2185	8079595184228937	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	63148aa11a93632d
+7	2195	8079595184266311	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	e880200d04c5e24d
+2195	2306	8079595185447931	D:/Project/fx overdose/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/2i23622g/obj/arm64-v8a/libgame.so	245a743b8f45f2f

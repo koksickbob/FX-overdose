@@ -88,7 +88,14 @@ namespace FXOverdose.UI
             GameObject labelObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(skipObject.transform, false);
             TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
-            label.font = TMP_Settings.defaultFontAsset;
+            if (TMP_Settings.defaultFontAsset != null)
+            {
+                label.font = TMP_Settings.defaultFontAsset;
+            }
+            else
+            {
+                Debug.LogWarning("[ComicCutsceneController] 빌드 환경에서 TMP_Settings.defaultFontAsset를 찾을 수 없습니다.");
+            }
 
             ComicCutsceneController controller = root.AddComponent<ComicCutsceneController>();
             controller.canvasGroup = root.GetComponent<CanvasGroup>();

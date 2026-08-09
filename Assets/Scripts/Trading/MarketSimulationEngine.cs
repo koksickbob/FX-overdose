@@ -176,16 +176,20 @@ namespace FXOverdose.Trading
             data.CurrentSignalPhase = currentSignalPhase;
 
             data.ChartHistories.Clear();
+            data.FlatChartHistories.Clear();
+            data.FlatLiveCandles.Clear();
             foreach (var kvp in candleHistories)
             {
                 var th = new FXOverdose.Core.TimeframeHistory { timeframe = kvp.Key, candles = new List<FXOverdose.Core.SavedCandle>() };
                 foreach (var c in kvp.Value)
                 {
                     th.candles.Add(new FXOverdose.Core.SavedCandle { timestampMinutes = c.timestampMinutes, open = c.open, high = c.high, low = c.low, close = c.close, volume = c.volume });
+                    data.FlatChartHistories.Add(new FXOverdose.Core.FlatSavedCandle { timeframe = kvp.Key, timestampMinutes = c.timestampMinutes, open = c.open, high = c.high, low = c.low, close = c.close, volume = c.volume });
                 }
                 if (liveAggregatedCandles.TryGetValue(kvp.Key, out CandleData liveC))
                 {
                     th.liveCandle = new FXOverdose.Core.SavedCandle { timestampMinutes = liveC.timestampMinutes, open = liveC.open, high = liveC.high, low = liveC.low, close = liveC.close, volume = liveC.volume };
+                    data.FlatLiveCandles.Add(new FXOverdose.Core.FlatSavedCandle { timeframe = kvp.Key, timestampMinutes = liveC.timestampMinutes, open = liveC.open, high = liveC.high, low = liveC.low, close = liveC.close, volume = liveC.volume });
                 }
                 data.ChartHistories.Add(th);
             }
@@ -211,18 +215,41 @@ namespace FXOverdose.Trading
             candleHistories.Clear();
             liveAggregatedCandles.Clear();
             
-            foreach (var th in data.ChartHistories)
+            // 신버전: FlatChartHistories에서 복구
+            if (data.FlatChartHistories != null && data.FlatChartHistories.Count > 0)
             {
-                var list = new List<CandleData>();
-                if (th.candles != null)
+                foreach (var fc in data.FlatChartHistories)
                 {
-                    foreach (var c in th.candles)
+                    if (!candleHistories.ContainsKey(fc.timeframe))
                     {
-                        list.Add(new CandleData(c.timestampMinutes, c.open, c.high, c.low, c.close, c.volume));
+                        candleHistories[fc.timeframe] = new List<CandleData>();
+                    }
+                    candleHistories[fc.timeframe].Add(new CandleData(fc.timestampMinutes, fc.open, fc.high, fc.low, fc.close, fc.volume));
+                }
+                
+                if (data.FlatLiveCandles != null)
+                {
+                    foreach (var flc in data.FlatLiveCandles)
+                    {
+                        liveAggregatedCandles[flc.timeframe] = new CandleData(flc.timestampMinutes, flc.open, flc.high, flc.low, flc.close, flc.volume);
                     }
                 }
-                candleHistories[th.timeframe] = list;
-                liveAggregatedCandles[th.timeframe] = new CandleData(th.liveCandle.timestampMinutes, th.liveCandle.open, th.liveCandle.high, th.liveCandle.low, th.liveCandle.close, th.liveCandle.volume);
+            }
+            else // 구버전 호환 (작동 안할 가능성 높음)
+            {
+                foreach (var th in data.ChartHistories)
+                {
+                    var list = new List<CandleData>();
+                    if (th.candles != null)
+                    {
+                        foreach (var c in th.candles)
+                        {
+                            list.Add(new CandleData(c.timestampMinutes, c.open, c.high, c.low, c.close, c.volume));
+                        }
+                    }
+                    candleHistories[th.timeframe] = list;
+                    liveAggregatedCandles[th.timeframe] = new CandleData(th.liveCandle.timestampMinutes, th.liveCandle.open, th.liveCandle.high, th.liveCandle.low, th.liveCandle.close, th.liveCandle.volume);
+                }
             }
             
             if (candleHistories.TryGetValue(Timeframe.M1, out var m1List) && m1List.Count > 0)
