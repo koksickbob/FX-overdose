@@ -20,34 +20,33 @@
 미연시 파트에서 유저가 텍스트로 자유롭게 입력한 **모든 대화를 개수 제한 없이 토씨 하나 틀리지 않고 파일에 영구 보관**합니다. 
 기존처럼 무거운 텍스트를 `SaveData.json` 전체에 욱여넣으면 병목이 생기므로, PC 리소스에 맞춘 **데이터 분리 저장(Data Sharding)** 구조를 채택합니다.
 
-### `Assets/Scripts/AI/DatingSimMemoryData.cs` (코어 상태 데이터)
+### `System/SaveData.cs` (코어 상태 데이터)
 수치형 데이터만 `SaveData` 내부에서 직렬화하여 가볍게 관리합니다.
-- `AffectionScore` (호감도: 0~100)
-- `ObsessionLevel` (집착도: 0~100)
+- `DatingAffection` (호감도: 0~100)
+- `DatingObsession` (집착도: 0~100)
 - `StoryProgressStage` (스토리 진행도)
+- **단기 감정(Layer 2):** 트레이딩과 완벽히 분리된 `DatingMood` 열거형(`Neutral`, `Happy`, `Anxious`, `Obsessive`, `Depressed`)을 별도 런타임 캐싱합니다.
 
-### 대화 무한 아카이브 및 주제별 다중 테이블 (Topic Sharding)
-- **단일 DB 지양:** 단순히 `AllDatingConversations` 하나에 몰아넣는 방식과 단순 키워드 검색(예: '밥')은 동음이의어나 엉뚱한 문맥 호출 등 치명적인 한계가 있습니다.
-- **주제별(Topic) 장기기억 분류:** 연애(`Memories_Romance`), 트레이딩 스트레스(`Memories_Trading`), 일상(`Memories_Daily`), 갈등(`Memories_Conflict`) 등 대화 흐름(Context)에 따라 다수의 DB 테이블로 파편화(Sharding)하여 저장합니다.
-- **의미 기반 검색 (Vector Search 도입 고려):** 단순 카테고리를 넘어 문맥의 뉘앙스까지 일치하는 과거 발언을 찾기 위해, 장기적으로 초경량 로컬 임베딩 모델(예: `all-MiniLM-L6-v2`)을 통한 Semantic RAG 아키텍처를 도입할 수 있도록 설계합니다.
-- **비동기 접근 강제 (절대 금지 패턴 2 방어):** 과거 발언 추출 시 Unity 메인 스레드 블로킹(프레임 드랍)을 막기 위해, 모든 디스크 I/O는 `async/await` (Task/UniTask) 기반의 완벽한 비동기 로직으로 구성합니다.
+### 대화 무한 아카이브 및 IMemoryRetriever 전략 패턴 (RAG 확장 고려)
+- **주제별 파편화(Topic Sharding):** 단순히 `AllDatingConversations` 하나에 몰아넣는 방식을 지양하고, 연애(`Romance`), 트레이딩(`Trading`), 일상(`Daily`), 갈등(`Conflict`) 등 `MemoryTopic`에 따라 파일을 파편화(Sharding)하여 저장합니다.
+- **IMemoryRetriever 인터페이스 도입:** 단순 카테고리를 넘어 향후 문맥의 뉘앙스까지 일치하는 임베딩 기반 검색(예: `all-MiniLM-L6-v2`)을 도입하기 위해, 검색 로직을 추상화했습니다. 현재는 `SimpleTopicRetriever`를 통해 파일 끝에서 N개를 추출합니다.
+- **비동기 접근 강제 (절대 금지 패턴 2 방어):** 모든 디스크 I/O는 `async/await` 기반의 완벽한 비동기 로직으로 구성합니다.
 
-### `Assets/Scripts/System/SaveLoadManager.cs` 연동 및 풀링(Pooling)
-- **새 게임 (New Game):** 호감도 데이터를 0으로 초기화하고, 해당 슬롯에 바인딩될 텍스트 아카이브 DB를 새롭게 포맷합니다.
-- **불러오기 및 저장 (라이프사이클 방어):** 게임 중 DB 커넥션을 상시 열어두면 비정상 종료 시 세이브가 손상될(File Lock) 위험이 큽니다. 과거 대화를 주입(추출)하거나 저장할 때만 일시적으로 커넥션을 열고 닫는 풀링(Connection Pooling) 방식을 적용합니다.
-- **일일 요약 압축 (Summarization Cascade):** 인게임 하루가 끝나 정산될 때, 백그라운드 LLM 연산을 통해 '오늘 하루 대화의 핵심'을 3~4줄로 압축(Daily Summary)하여 저장함으로써 장기 기억의 밀도를 높입니다.
+### `DatingSimMemoryDB.cs` (매니저 연동 및 풀링)
+- **의존성 주입:** `DatingSimMemoryDB.Instance`는 내부적으로 `IMemoryRetriever`를 소유하며, 런타임에 검색 전략을 쉽게 교체(Vector DB 등)할 수 있습니다.
+- **비동기 안전 저장:** 과거 대화를 주입(추출)하거나 저장할 때 비동기 파일 접근을 사용하여 게임 멈춤(프리징) 현상을 차단합니다.
 
 ---
 
 ## 3. 미연시 전용 LLM 제너레이터 (자유 대화 처리)
 기존 `LLMSafeGenerator`는 트레이딩 파트의 짧은 돌발 이벤트 생성용으로 남겨두고, 미연시 파트의 무거운 자유 대화를 처리할 전용 클래스를 신설하거나 기능을 분리합니다.
 
-### `Assets/Scripts/AI/LLM/DatingSimLLMController.cs` (설계안)
+### `Assets/Scripts/DatingSim/LLM/DatingSimLLMController.cs`
 - 미연시 파트에서 유저의 텍스트 입력을 받아 처리합니다.
-- **문맥 보존 하이브리드 추출:** 최근 N개의 대화는 단기 기억(RAM)으로 유지하고, 프롬프트 주입용 장기 기억 1~2줄은 **현재 대화 흐름(Topic)에 해당하는 특정 주제별 DB 테이블에서만 비동기로 추출**하여 자연스러운 '플래시백' 효과를 구현합니다.
+- **문맥 보존 하이브리드 추출:** 2-Layer 프롬프트를 구성하여 장기 상태(호감도, 집착도)와 단기 상태(`DatingMood`)를 결합해 LLM에 주입합니다.
 - **캡슐화 및 하드코딩 금지 (절대 금지 패턴 1, 4 방어):** 
   - 과거 기록 N줄, LLM 파라미터 등은 반드시 `[SerializeField]`로 노출합니다.
-  - `AffectionScore` 등 상태 변경은 LLM 컨트롤러가 직접 수정하지 않고, `AddAffection(int)` 등의 public 메서드와 `OnAffectionChanged` 이벤트로 철저히 캡슐화합니다.
+  - LLM 컨트롤러는 상태를 직접 수정하지 않고, `DatingTimeManager`를 통해 안전하게 갱신합니다.
 
 ### 3.1 Qwen2.5-7B 맞춤형 캐릭터 고도화 및 안전장치 설계
 미연시 대화의 퀄리티를 극대화하되, 7B 체급 모델의 붕괴(할루시네이션 및 포맷 무시)를 방지하기 위해 다음 4가지 C# 하이브리드 기법을 도입합니다.

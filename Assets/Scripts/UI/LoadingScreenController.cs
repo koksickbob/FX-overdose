@@ -12,6 +12,9 @@ namespace FXOverdose.UI
     {
         /// <summary>LoadingScene 진입 전에 이 값을 설정하면 해당 씬으로 로딩합니다. 로딩 시작 후 자동으로 GameScene으로 초기화됩니다.</summary>
         public static string TargetSceneToLoad = "GameScene";
+        
+        /// <summary>미연시 등 로컬 LLM 씬으로 진입할 때 활성화하면, Llama/Qwen 등 모델 로드 진행률을 합산해 대기합니다.</summary>
+        public static bool RequireLLM = false;
 
         [Header("로딩 UI")]
         [SerializeField] private Slider progressBar;
@@ -44,12 +47,16 @@ namespace FXOverdose.UI
                 targetSceneName = TargetSceneToLoad;
                 TargetSceneToLoad = "GameScene"; // 기본값으로 복원
             }
+            
+            // RequireLLM 상태를 캐싱 (Loading 진행 중 다른 스크립트에 의해 변조되는 것 방지)
+            bool isLLMLoadingRequired = RequireLLM;
+            RequireLLM = false; 
 
             SetProgress(0f, "INITIALIZING");
-            StartCoroutine(LoadAndPrepareGame());
+            StartCoroutine(LoadAndPrepareGame(isLLMLoadingRequired));
         }
 
-        private IEnumerator LoadAndPrepareGame()
+        private IEnumerator LoadAndPrepareGame(bool requireLLM)
         {
             if (canvasGroup != null)
             {
@@ -69,7 +76,17 @@ namespace FXOverdose.UI
             while (operation.progress < 0.9f)
             {
                 float sceneProgress = Mathf.Clamp01(operation.progress / 0.9f);
-                SetProgress(sceneProgress * 0.65f, "LOADING MARKET DATA");
+                
+                if (requireLLM)
+                {
+                    // 미연시 로딩: 씬 로딩 비율은 전체의 50%로 가정
+                    SetProgress(sceneProgress * 0.5f * 0.65f, "LOADING SCENE DATA");
+                }
+                else
+                {
+                    SetProgress(sceneProgress * 0.65f, "LOADING MARKET DATA");
+                }
+                
                 yield return null;
             }
 
@@ -95,10 +112,35 @@ namespace FXOverdose.UI
             if (gameScene.IsValid())
                 SceneManager.SetActiveScene(gameScene);
 
-            while (!AreChartSystemsPresent())
+            // 씬 로드가 끝난 후, 대상에 맞는 준비를 대기
+            if (requireLLM)
             {
-                SetProgress(0.9f, "PREPARING CHART");
-                yield return null;
+                var llmController = Object.FindAnyObjectByType<FXOverdose.DatingSim.LLM.DatingSimLLMController>(FindObjectsInactive.Include);
+                if (llmController != null)
+                {
+                    var initTask = llmController.InitializeLLMAsync();
+                    
+                    while (!llmController.IsLLMReady)
+                    {
+                        // 씬 50% + LLM 진행률 50% 합산
+                        float llmProgress = llmController.LLMLoadProgress;
+                        float combined = 0.5f + (llmProgress * 0.5f);
+                        SetProgress(combined * 0.9f, "WAKING UP QWEN 2.5 7B NEURAL ENGINE...");
+                        yield return null;
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[LoadingScreen] RequireLLM이 설정되었으나 타겟 씬에 DatingSimLLMController가 없습니다.");
+                }
+            }
+            else
+            {
+                while (!AreChartSystemsPresent())
+                {
+                    SetProgress(0.9f, "PREPARING CHART");
+                    yield return null;
+                }
             }
 
             SetProgress(1f, "READY");
