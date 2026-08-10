@@ -53,6 +53,12 @@ namespace FXOverdose.DatingSim.UI
                 CreateInScene<YomiRoomManager>(scene, "YomiRoomManager");
             if (FindInScene<DatingSimLLMController>(scene) == null)
                 CreateInScene<DatingSimLLMController>(scene, "DatingSimLLMController");
+
+            // P2_03: 버튼 메뉴 대신 실제로 걸어 다니는 탑다운 방 프로토타입을 우선 사용합니다.
+            YomiRoomTopDownPrototype.Build(scene);
+            return;
+
+#pragma warning disable CS0162
             if (FindObject(scene, "Canvas_YomiRoom") != null) return;
 
             Canvas canvas = CreateCanvas(scene, "Canvas_YomiRoom");
@@ -96,6 +102,7 @@ namespace FXOverdose.DatingSim.UI
 
             YomiRoomUIController ui = canvas.gameObject.AddComponent<YomiRoomUIController>();
             ui.Configure(freeChat, rest, worldMap, trading, stamina, slots, affection, obsession, state);
+#pragma warning restore CS0162
         }
 
         private static void BuildWorldMap(Scene scene)

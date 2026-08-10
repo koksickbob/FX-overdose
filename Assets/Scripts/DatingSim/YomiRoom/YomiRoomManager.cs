@@ -100,6 +100,13 @@ namespace FXOverdose.DatingSim.YomiRoom
             SceneManager.LoadScene("LoadingScene");
         }
 
+        /// <summary>대화 UI 또는 방 내부 연출이 종료된 뒤 탐색 상태로 복귀합니다.</summary>
+        public void CompleteRoomInteraction()
+        {
+            if (currentState == YomiRoomState.FreeChatting || currentState == YomiRoomState.Resting)
+                ChangeState(YomiRoomState.Idle);
+        }
+
         private void ChangeState(YomiRoomState newState)
         {
             currentState = newState;

@@ -1,0 +1,468 @@
+fileFormatVersion: 2
+guid: 46df8267ccddb4860ae7c6fddad8f657
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3403692176470443886
+    second: YomiWalkSheet_GridFixed_0
+  - first:
+      213: 2691903960184085931
+    second: YomiWalkSheet_GridFixed_1
+  - first:
+      213: 3009824284511922562
+    second: YomiWalkSheet_GridFixed_2
+  - first:
+      213: 1786897151336574870
+    second: YomiWalkSheet_GridFixed_3
+  - first:
+      213: 521638736644945601
+    second: YomiWalkSheet_GridFixed_4
+  - first:
+      213: 7900925859651312106
+    second: YomiWalkSheet_GridFixed_5
+  - first:
+      213: 3097943382546959449
+    second: YomiWalkSheet_GridFixed_6
+  - first:
+      213: 4673755215023223914
+    second: YomiWalkSheet_GridFixed_7
+  - first:
+      213: -3037513789067725619
+    second: YomiWalkSheet_GridFixed_8
+  - first:
+      213: -5384865024505365763
+    second: YomiWalkSheet_GridFixed_9
+  - first:
+      213: 5379557597550564856
+    second: YomiWalkSheet_GridFixed_10
+  - first:
+      213: -2593840330476374074
+    second: YomiWalkSheet_GridFixed_11
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_0
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 922
+        width: 155
+        height: 260
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e670c4f30085c3f20800000000000000
+      internalID: 3403692176470443886
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_1
+      rect:
+        serializedVersion: 2
+        x: 286
+        y: 928
+        width: 155
+        height: 254
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bad5d34b3609b5520800000000000000
+      internalID: 2691903960184085931
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_2
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 922
+        width: 154
+        height: 260
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2896da27d3b05c920800000000000000
+      internalID: 3009824284511922562
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_3
+      rect:
+        serializedVersion: 2
+        x: 72
+        y: 638
+        width: 129
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69fe293ed755cc810800000000000000
+      internalID: 1786897151336574870
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_4
+      rect:
+        serializedVersion: 2
+        x: 301
+        y: 638
+        width: 127
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c63ececaab3d3700800000000000000
+      internalID: 521638736644945601
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_5
+      rect:
+        serializedVersion: 2
+        x: 532
+        y: 638
+        width: 130
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ae9d63d553ab5ad60800000000000000
+      internalID: 7900925859651312106
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_6
+      rect:
+        serializedVersion: 2
+        x: 59
+        y: 339
+        width: 129
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95ccbf2c71b1efa20800000000000000
+      internalID: 3097943382546959449
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_7
+      rect:
+        serializedVersion: 2
+        x: 283
+        y: 339
+        width: 127
+        height: 242
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a64b69efa938cd040800000000000000
+      internalID: 4673755215023223914
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_8
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 339
+        width: 129
+        height: 242
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dc474426d4598d5d0800000000000000
+      internalID: -3037513789067725619
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_9
+      rect:
+        serializedVersion: 2
+        x: 52
+        y: 30
+        width: 141
+        height: 255
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dfabeea5acd1545b0800000000000000
+      internalID: -5384865024505365763
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_10
+      rect:
+        serializedVersion: 2
+        x: 283
+        y: 33
+        width: 141
+        height: 252
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8f551c2022708aa40800000000000000
+      internalID: 5379557597550564856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: YomiWalkSheet_GridFixed_11
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 30
+        width: 141
+        height: 255
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c7bfd156f3d00cd0800000000000000
+      internalID: -2593840330476374074
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      YomiWalkSheet_GridFixed_0: 3403692176470443886
+      YomiWalkSheet_GridFixed_1: 2691903960184085931
+      YomiWalkSheet_GridFixed_10: 5379557597550564856
+      YomiWalkSheet_GridFixed_11: -2593840330476374074
+      YomiWalkSheet_GridFixed_2: 3009824284511922562
+      YomiWalkSheet_GridFixed_3: 1786897151336574870
+      YomiWalkSheet_GridFixed_4: 521638736644945601
+      YomiWalkSheet_GridFixed_5: 7900925859651312106
+      YomiWalkSheet_GridFixed_6: 3097943382546959449
+      YomiWalkSheet_GridFixed_7: 4673755215023223914
+      YomiWalkSheet_GridFixed_8: -3037513789067725619
+      YomiWalkSheet_GridFixed_9: -5384865024505365763
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
