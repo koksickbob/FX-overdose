@@ -20,6 +20,23 @@ namespace FXOverdose.DatingSim.YomiRoom
         [SerializeField] private TextMeshProUGUI obsessionText;
         [SerializeField] private TextMeshProUGUI roomStateText;
 
+        public void Configure(
+            Button freeChat, Button rest, Button worldMap, Button trading,
+            TextMeshProUGUI stamina, TextMeshProUGUI timeSlot,
+            TextMeshProUGUI affection, TextMeshProUGUI obsession,
+            TextMeshProUGUI state)
+        {
+            freeChatButton = freeChat;
+            restButton = rest;
+            worldMapButton = worldMap;
+            tradingButton = trading;
+            staminaText = stamina;
+            timeSlotText = timeSlot;
+            affectionText = affection;
+            obsessionText = obsession;
+            roomStateText = state;
+        }
+
         private void Start()
         {
             BindButtons();
@@ -98,7 +115,13 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void UpdateStateUI(YomiRoomState state)
         {
             if (roomStateText != null)
-                roomStateText.text = $"State: {state}";
+                roomStateText.text = state switch
+                {
+                    YomiRoomState.Idle => "요미가 당신을 기다리고 있어요.",
+                    YomiRoomState.FreeChatting => "요미와 대화하는 중...",
+                    YomiRoomState.Resting => "잠시 쉬는 중...",
+                    _ => "이동을 준비하고 있어요..."
+                };
             
             bool isIdle = (state == YomiRoomState.Idle);
             
@@ -111,29 +134,31 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void UpdateStaminaUI(int current, int max)
         {
             if (staminaText != null)
-                staminaText.text = $"Stamina: {current} / {max}";
+                staminaText.text = $"STAMINA  {current} / {max}";
         }
 
         private void UpdateTimeSlotUI(int currentSlots)
         {
             if (timeSlotText != null)
-                timeSlotText.text = $"Time Slots: {currentSlots}";
+                timeSlotText.text = $"TIME SLOT  {currentSlots}";
         }
 
         private void UpdateAffectionUI(int affection)
         {
             if (affectionText != null)
-                affectionText.text = $"Affection: {affection}";
+                affectionText.text = $"AFFECTION  {affection}";
         }
 
         private void UpdateObsessionUI(int obsession)
         {
             if (obsessionText != null)
-                obsessionText.text = $"Obsession: {obsession}";
+                obsessionText.text = $"OBSESSION  {obsession}";
         }
 
         private void HandleActionFailed()
         {
+            if (roomStateText != null)
+                roomStateText.text = "체력 또는 남은 시간 슬롯이 부족해요.";
             Debug.LogWarning("[YomiRoomUI] Not enough time slots or stamina to perform action.");
         }
     }

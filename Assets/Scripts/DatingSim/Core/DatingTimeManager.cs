@@ -9,13 +9,14 @@ namespace FXOverdose.DatingSim.Core
         public static DatingTimeManager Instance { get; private set; }
 
         // --- 데이터 상태 (SaveData 연동용) ---
-        private int currentStamina;
-        private int maxStamina;
+        [Header("Initial Dating State")]
+        [SerializeField] private int currentStamina = 100;
+        [SerializeField] private int maxStamina = 100;
         private int currentAffection;
         private int currentObsession;
         private int storyProgressStage;
-        private int currentTimeSlot;
-        private int currentDay;
+        [SerializeField] private int currentTimeSlot = 5;
+        [SerializeField] private int currentDay = 1;
 
         // --- 프로퍼티 (읽기 전용) ---
         public int CurrentStamina => currentStamina;
@@ -39,7 +40,8 @@ namespace FXOverdose.DatingSim.Core
             if (Instance == null)
             {
                 Instance = this;
-                // DontDestroyOnLoad(gameObject); // 필요한 경우 주석 해제 (전역 유지)
+                transform.SetParent(null);
+                DontDestroyOnLoad(gameObject);
             }
             else
             {

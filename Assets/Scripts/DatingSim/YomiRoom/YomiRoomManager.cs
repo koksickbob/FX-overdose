@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using FXOverdose.DatingSim.Core;
+using FXOverdose.UI;
+using UnityEngine.SceneManagement;
 
 namespace FXOverdose.DatingSim.YomiRoom
 {
@@ -84,14 +86,18 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
-            // TODO: LoadingSceneManager 호출하여 WorldMapScene 비동기 로드
+            LoadingScreenController.RequireLLM = false;
+            LoadingScreenController.TargetSceneToLoad = "WorldMapScene";
+            SceneManager.LoadScene("LoadingScene");
         }
 
         public void StartTrading()
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
-            // TODO: LoadingSceneManager 호출하여 TradingScene 비동기 로드
+            LoadingScreenController.RequireLLM = false;
+            LoadingScreenController.TargetSceneToLoad = "GameScene";
+            SceneManager.LoadScene("LoadingScene");
         }
 
         private void ChangeState(YomiRoomState newState)

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FXOverdose.DatingSim.Core;
+using FXOverdose.Core;
 
 namespace FXOverdose.DatingSim.WorldMap
 {
@@ -15,9 +16,23 @@ namespace FXOverdose.DatingSim.WorldMap
         [Header("Actions")]
         [SerializeField] private Button firstJobButton;
         [SerializeField] private Button firstDateButton;
+        [SerializeField] private Button roomButton;
         
         [Header("Feedback")]
         [SerializeField] private TextMeshProUGUI feedbackText;
+
+        public void Configure(
+            TextMeshProUGUI stamina, TextMeshProUGUI timeSlot, TextMeshProUGUI balance,
+            Button job, Button date, Button room, TextMeshProUGUI feedback)
+        {
+            staminaText = stamina;
+            timeSlotText = timeSlot;
+            balanceText = balance;
+            firstJobButton = job;
+            firstDateButton = date;
+            roomButton = room;
+            feedbackText = feedback;
+        }
 
         private void Start()
         {
@@ -38,6 +53,9 @@ namespace FXOverdose.DatingSim.WorldMap
 
             if (firstDateButton != null)
                 firstDateButton.onClick.AddListener(() => WorldMapManager.Instance?.TryStartDateCourse(0));
+
+            if (roomButton != null)
+                roomButton.onClick.AddListener(() => WorldMapManager.Instance?.ReturnToRoom());
         }
 
         private void SubscribeEvents()
@@ -87,13 +105,13 @@ namespace FXOverdose.DatingSim.WorldMap
         private void UpdateStaminaUI(int current, int max)
         {
             if (staminaText != null)
-                staminaText.text = $"Stamina: {current} / {max}";
+                staminaText.text = $"STAMINA  {current} / {max}";
         }
 
         private void UpdateTimeSlotUI(int currentSlots)
         {
             if (timeSlotText != null)
-                timeSlotText.text = $"Time Slots: {currentSlots}";
+                timeSlotText.text = $"TIME SLOT  {currentSlots}";
         }
 
         private void UpdateBalanceUI()
@@ -101,7 +119,11 @@ namespace FXOverdose.DatingSim.WorldMap
             var gm = FindObjectOfType<GameManager>();
             if (gm != null && balanceText != null)
             {
-                balanceText.text = $"Balance: ${gm.CurrentBalance:N0}";
+                balanceText.text = $"BALANCE  ${gm.CurrentBalance:N0}";
+            }
+            else if (balanceText != null && SaveLoadManager.Instance?.CurrentData != null)
+            {
+                balanceText.text = $"BALANCE  ${SaveLoadManager.Instance.CurrentData.Balance:N0}";
             }
         }
 
