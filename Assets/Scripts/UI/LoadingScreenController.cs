@@ -118,14 +118,11 @@ namespace FXOverdose.UI
                 var llmController = Object.FindAnyObjectByType<FXOverdose.DatingSim.LLM.DatingSimLLMController>(FindObjectsInactive.Include);
                 if (llmController != null)
                 {
-                    var initTask = llmController.InitializeLLMAsync();
+                    var initTask = llmController.WaitUntilReadyAsync();
                     
-                    while (!llmController.IsLLMReady)
+                    while (!initTask.IsCompleted)
                     {
-                        // 씬 50% + LLM 진행률 50% 합산
-                        float llmProgress = llmController.LLMLoadProgress;
-                        float combined = 0.5f + (llmProgress * 0.5f);
-                        SetProgress(combined * 0.9f, "WAKING UP QWEN 2.5 7B NEURAL ENGINE...");
+                        SetProgress(0.9f, "WAKING UP QWEN 2.5 7B NEURAL ENGINE...");
                         yield return null;
                     }
                 }
