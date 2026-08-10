@@ -13,6 +13,13 @@ namespace FXOverdose.DatingSim.YomiRoom
         [SerializeField] private Button worldMapButton;
         [SerializeField] private Button tradingButton;
 
+        [Header("Chat UI")]
+        [SerializeField] private GameObject chatPanel;
+        [SerializeField] private TextMeshProUGUI chatLogText;
+        [SerializeField] private TMP_InputField chatInputField;
+        [SerializeField] private Button chatSendButton;
+        [SerializeField] private Button closeChatButton;
+
         [Header("Status Texts")]
         [SerializeField] private TextMeshProUGUI staminaText;
         [SerializeField] private TextMeshProUGUI timeSlotText;
@@ -62,6 +69,21 @@ namespace FXOverdose.DatingSim.YomiRoom
             
             if (tradingButton != null)
                 tradingButton.onClick.AddListener(() => YomiRoomManager.Instance?.StartTrading());
+
+            if (chatSendButton != null)
+                chatSendButton.onClick.AddListener(OnChatSendClicked);
+            
+            if (closeChatButton != null)
+                closeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.CloseFreeChat());
+        }
+
+        private void OnChatSendClicked()
+        {
+            if (chatInputField != null && !string.IsNullOrWhiteSpace(chatInputField.text))
+            {
+                YomiRoomManager.Instance?.ProcessUserChatInput(chatInputField.text);
+                chatInputField.text = "";
+            }
         }
 
         private void SubscribeEvents()
@@ -69,6 +91,7 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (YomiRoomManager.Instance != null)
             {
                 YomiRoomManager.Instance.OnStateChanged += UpdateStateUI;
+                YomiRoomManager.Instance.OnChatUpdated += HandleChatUpdated;
                 YomiRoomManager.Instance.OnActionFailed += HandleActionFailed;
             }
 
@@ -86,6 +109,7 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (YomiRoomManager.Instance != null)
             {
                 YomiRoomManager.Instance.OnStateChanged -= UpdateStateUI;
+                YomiRoomManager.Instance.OnChatUpdated -= HandleChatUpdated;
                 YomiRoomManager.Instance.OnActionFailed -= HandleActionFailed;
             }
 
@@ -115,13 +139,17 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void UpdateStateUI(YomiRoomState state)
         {
             if (roomStateText != null)
+            {
                 roomStateText.text = state switch
                 {
+                    YomiRoomState.LLMLoading => "요미의 생각(LLM)을 불러오는 중...",
+                    YomiRoomState.LLMProcessing => "요미가 대답을 생각하는 중...",
                     YomiRoomState.Idle => "요미가 당신을 기다리고 있어요.",
                     YomiRoomState.FreeChatting => "요미와 대화하는 중...",
                     YomiRoomState.Resting => "잠시 쉬는 중...",
                     _ => "이동을 준비하고 있어요..."
                 };
+            }
             
             bool isIdle = (state == YomiRoomState.Idle);
             
@@ -129,6 +157,21 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (restButton != null) restButton.interactable = isIdle;
             if (worldMapButton != null) worldMapButton.interactable = isIdle;
             if (tradingButton != null) tradingButton.interactable = isIdle;
+
+            // 채팅창 활성화 제어
+            bool isChatting = (state == YomiRoomState.FreeChatting || state == YomiRoomState.LLMProcessing);
+            if (chatPanel != null) chatPanel.SetActive(isChatting);
+
+            // 채팅 입력창 제어 (응답 대기 중엔 비활성화)
+            bool canType = (state == YomiRoomState.FreeChatting);
+            if (chatInputField != null) chatInputField.interactable = canType;
+            if (chatSendButton != null) chatSendButton.interactable = canType;
+
+            // 로딩 표시
+            if (state == YomiRoomState.LLMProcessing && chatLogText != null)
+            {
+                chatLogText.text += "\n<color=yellow>[System] 요미가 타이핑 중...</color>";
+            }
         }
 
         private void UpdateStaminaUI(int current, int max)
@@ -160,6 +203,20 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (roomStateText != null)
                 roomStateText.text = "체력 또는 남은 시간 슬롯이 부족해요.";
             Debug.LogWarning("[YomiRoomUI] Not enough time slots or stamina to perform action.");
+        }
+
+        private void HandleChatUpdated(string userMessage, string yomiResponse)
+        {
+            if (chatLogText != null)
+            {
+                // '타이핑 중...' 메시지 제거
+                string log = chatLogText.text;
+                log = log.Replace("\n<color=yellow>[System] 요미가 타이핑 중...</color>", "");
+                
+                // 새 메시지 추가
+                log += $"\n\n<b><color=#55AAFF>마스터:</color></b> {userMessage}\n<b><color=#FFAA55>요미:</color></b> {yomiResponse}";
+                chatLogText.text = log;
+            }
         }
     }
 }

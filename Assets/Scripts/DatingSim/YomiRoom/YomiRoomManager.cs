@@ -3,15 +3,19 @@ using UnityEngine;
 using FXOverdose.DatingSim.Core;
 using FXOverdose.UI;
 using UnityEngine.SceneManagement;
+using FXOverdose.DatingSim.LLM;
+using FXOverdose.DatingSim.LLM.Memory;
 
 namespace FXOverdose.DatingSim.YomiRoom
 {
     public enum YomiRoomState
     {
+        LLMLoading,     // LLM 모델 로딩 대기 중 (추가)
         Idle,           // 대기 상태 (UI 입력 대기)
         FreeChatting,   // 자유 대화 중 (LLM 연동 중)
         Resting,        // 휴식 중 (연출 중)
-        Transitioning   // 월드맵/트레이딩 등 씬 이동 중
+        Transitioning,  // 월드맵/트레이딩 등 씬 이동 중
+        LLMProcessing   // LLM 응답 대기 중
     }
 
     public class YomiRoomManager : MonoBehaviour
@@ -34,6 +38,7 @@ namespace FXOverdose.DatingSim.YomiRoom
 
         // UI 갱신용 이벤트
         public event Action<YomiRoomState> OnStateChanged;
+        public event Action<string, string> OnChatUpdated; // 유저 메시지, 요미 응답
         public event Action OnActionFailed; // 시간/체력 부족 등으로 행동 실패 시
 
         private void Awake()
@@ -48,6 +53,20 @@ namespace FXOverdose.DatingSim.YomiRoom
             }
         }
 
+        private async void Start()
+        {
+            // 시작 시 모델이 준비될 때까지 대기
+            ChangeState(YomiRoomState.LLMLoading);
+            
+            if (DatingSimLLMController.Instance != null)
+            {
+                await DatingSimLLMController.Instance.WaitUntilReadyAsync();
+            }
+
+            // 로딩 완료 후 대기 상태로 전환
+            ChangeState(YomiRoomState.Idle);
+        }
+
         // --- 외부(UI 버튼 등) 호출용 public 인터페이스 ---
         
         public void TryStartFreeChat()
@@ -57,11 +76,43 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (DatingTimeManager.Instance != null && DatingTimeManager.Instance.TryConsumeTimeSlot(freeChatTimeSlotCost))
             {
                 ChangeState(YomiRoomState.FreeChatting);
-                // TODO: DatingSimLLMController(LLM) 호출 로직 연동
             }
             else
             {
                 OnActionFailed?.Invoke();
+            }
+        }
+
+        public async void ProcessUserChatInput(string userMessage)
+        {
+            if (currentState != YomiRoomState.FreeChatting) return;
+
+            ChangeState(YomiRoomState.LLMProcessing);
+
+            if (DatingSimLLMController.Instance != null)
+            {
+                string response = await DatingSimLLMController.Instance.GenerateChatAsync(userMessage, MemoryTopic.Daily);
+                
+                OnChatUpdated?.Invoke(userMessage, response);
+                
+                // 대화 성공 시 임시로 호감도 소폭 증가 연동
+                DatingTimeManager.Instance.ModifyAffection(UnityEngine.Random.Range(1, 4));
+            }
+            else
+            {
+                Debug.LogError("[YomiRoom] DatingSimLLMController.Instance가 없습니다.");
+                OnChatUpdated?.Invoke(userMessage, "(시스템 오류: LLM 응답 실패)");
+            }
+
+            // 응답 완료 후 다시 채팅 대기 상태로 복귀
+            ChangeState(YomiRoomState.FreeChatting);
+        }
+
+        public void CloseFreeChat()
+        {
+            if (currentState == YomiRoomState.FreeChatting)
+            {
+                ChangeState(YomiRoomState.Idle);
             }
         }
 

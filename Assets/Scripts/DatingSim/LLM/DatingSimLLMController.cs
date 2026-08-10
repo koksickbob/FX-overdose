@@ -6,9 +6,13 @@ using UnityEngine;
 using System.Text.RegularExpressions;
 using FXOverdose.DatingSim.Core;
 using FXOverdose.DatingSim.LLM.Memory;
+using FXOverdose.AI.Dialogue;
+using LLMUnity;
 
 namespace FXOverdose.DatingSim.LLM
 {
+    [RequireComponent(typeof(LLMUnity.LLM))]
+    [RequireComponent(typeof(LLMUnity.LLMAgent))]
     public class DatingSimLLMController : MonoBehaviour
     {
         public static DatingSimLLMController Instance { get; private set; }
@@ -20,6 +24,13 @@ namespace FXOverdose.DatingSim.LLM
         [SerializeField, Tooltip("기억 왜곡이 시작되는 집착도 임계치")]
         private int obsessionDistortionThreshold = 70;
 
+        [Header("RAG Database")]
+        [SerializeField, Tooltip("요미 하드코딩 대사 17,000줄 DB (트레이딩/기본 용도)")]
+        private YomiDialogueDatabase dialogueDatabase;
+        
+        [SerializeField, Tooltip("요미 일상 대화 전용 DB (자유 대화 용도)")]
+        private YomiDailyDialogueDatabase dailyDialogueDatabase;
+
         [Header("Fallback Data")]
         [SerializeField]
         private string[] dummyDialogues = {
@@ -30,17 +41,40 @@ namespace FXOverdose.DatingSim.LLM
 
         private DatingMood currentMood = DatingMood.Neutral;
 
-        [Serializable]
-        private class LLMResponse
-        {
-            public string Thought;
-            public string Dialogue;
-        }
+        private const string YOMI_SYSTEM_RULES = @"[System Rules]
+1. Output language: KOREAN ONLY. Do NOT use Chinese, Japanese, or English.
+2. Roleplay: You are '요미' (Yomi), a 2D anime girl. The user is '오빠' (Oppa).
+3. Tone: Speak casually and informally (반말). Treat Oppa like your boyfriend.
+4. Comprehension: Perfectly understand Korean internet slang, typos, and cute variations (e.g., 안뇽 = 안녕, 머해 = 뭐해).
+5. Constraint: You MUST strictly mimic the tone, vocabulary, and sentence endings of the provided examples. Do NOT sound like an AI translator.";
+
+        private LLMUnity.LLMAgent llmAgent;
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            if (Instance == null) 
+            {
+                Instance = this;
+                llmAgent = GetComponent<LLMUnity.LLMAgent>();
+                if (llmAgent != null)
+                {
+                    if (llmAgent.llm != null)
+                    {
+                        // 1단계 최적화: GPU 가속 100% 활성화 (Lag 제거)
+                        llmAgent.llm.numGPULayers = 99;
+                    }
+                    // 시스템 프롬프트는 ConstructPrompt에서 매 턴마다 동적으로 주입되므로 초기화 불필요
+                    // 타 언어 유출 방지를 위해 페널티 완전 제거 (한국어 토큰 사용 억제 방지)
+                    llmAgent.repeatPenalty = 1.0f;
+                    llmAgent.presencePenalty = 0.0f;
+                    // 너무 0.3이면 오히려 기계적인 번역체가 나오므로, 대화의 자연스러움을 위해 0.6으로 타협
+                    llmAgent.temperature = 0.6f;
+                }
+            }
+            else 
+            {
+                Destroy(gameObject);
+            }
         }
 
         public void SetCurrentMood(DatingMood mood)
@@ -49,108 +83,137 @@ namespace FXOverdose.DatingSim.LLM
         }
 
         // --- LLM 로딩 상태 (P2_04) ---
-        public bool IsLLMReady { get; private set; } = false;
-        public float LLMLoadProgress { get; private set; } = 0f;
+        public bool IsLLMReady => llmAgent != null && llmAgent.llm != null && llmAgent.llm.started;
 
-        public async Task InitializeLLMAsync()
+        public async Task WaitUntilReadyAsync()
         {
-            if (IsLLMReady) return;
-            
-            LLMLoadProgress = 0f;
-            // Qwen2.5-7B GGUF 모델을 메모리에 올리는 시뮬레이션
-            for (int i = 0; i <= 20; i++)
+            if (llmAgent != null && llmAgent.llm != null)
             {
-                LLMLoadProgress = i / 20f;
-                await Task.Delay(100); 
+                await llmAgent.llm.WaitUntilReady();
             }
-            IsLLMReady = true;
         }
 
-        public async Task<string> GenerateChatAsync(string userMessage, MemoryTopic topic)
+        public async Task<string> GenerateChatAsync(string userMessage)
         {
-            int affection = DatingTimeManager.Instance != null ? DatingTimeManager.Instance.CurrentAffection : 0;
-            int obsession = DatingTimeManager.Instance != null ? DatingTimeManager.Instance.CurrentObsession : 0;
-
-            // 1. 과거 기억 로드 (비동기)
-            List<string> memories = new List<string>();
+            // 1. 단기 버퍼에 유저 메시지 기록
             if (DatingSimMemoryDB.Instance != null)
             {
-                memories = await DatingSimMemoryDB.Instance.LoadRecentConversationsAsync(userMessage, topic, memoryRetrievalCount);
+                DatingSimMemoryDB.Instance.AppendToSceneBuffer("오빠", userMessage);
             }
 
-            // 2. 기억 왜곡 전처리 (Memory Distortion)
-            StringBuilder memoryContext = new StringBuilder();
-            if (memories.Count > 0)
+            // 2. 프롬프트 구성 (대본 연기 모드)
+            string prompt = ConstructPrompt(userMessage);
+
+            // 3. LLM 호출
+            string llmOutput = "";
+            if (llmAgent != null)
             {
-                memoryContext.AppendLine("[과거 플래시백]");
-                foreach (var mem in memories)
-                {
-                    memoryContext.AppendLine($"- {mem}");
-                }
-
-                if (obsession >= obsessionDistortionThreshold)
-                {
-                    memoryContext.AppendLine("마스터는 나를 피하려고 했어... 다 거짓말이야...");
-                }
+                llmOutput = await llmAgent.Chat(prompt, null, null, false);
+            }
+            else
+            {
+                Debug.LogWarning("[DatingSimLLM] LLMAgent가 없습니다. Fallback 사용.");
             }
 
-            // 3. 프롬프트 구성 (하이브리드 2-Layer 주입)
-            string prompt = ConstructPrompt(userMessage, affection, obsession, currentMood, memoryContext.ToString());
-
-            // 4. LLM 호출 (여기서는 실제 LLMUnity 대신 임시 시뮬레이션 코드)
-            // LLMAgent.Chat(prompt)가 들어갈 자리. 현재는 에뮬레이션.
-            string llmOutput = await MockLLMCall(prompt);
-
-            // 5. JSON 파싱 및 한국어 검증
+            // 4. JSON 파싱 및 한국어 검증
             string finalDialogue = ParseAndValidate(llmOutput);
 
-            // 6. 현재 대화를 기억 DB에 비동기 저장
+            // 5. 현재 요미 대화를 버퍼에 추가 & 턴 증가
             if (DatingSimMemoryDB.Instance != null)
             {
-                await DatingSimMemoryDB.Instance.SaveConversationAsync(topic, $"마스터: {userMessage}\n요미: {finalDialogue}");
+                DatingSimMemoryDB.Instance.AppendToSceneBuffer("요미", finalDialogue);
+            }
+            if (ScenarioManager.Instance != null)
+            {
+                ScenarioManager.Instance.IncrementTurn();
             }
 
             return finalDialogue;
         }
 
-        private string ConstructPrompt(string userMsg, int affection, int obsession, DatingMood mood, string memoryContext)
+        private string ConstructPrompt(string userMsg)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("[System Context - 미연시 런타임]");
-            sb.AppendLine($"[상태]: 호감도 {affection}/100, 집착도 {obsession}/100");
-            sb.AppendLine($"[단기 텐션]: 현재 기분은 '{mood.ToString()}' 상태임.");
-            sb.AppendLine(memoryContext);
-            sb.AppendLine("반드시 아래 JSON 양식으로만 출력할 것. 다른 텍스트는 절대 포함하지 마시오.");
-            sb.AppendLine("{");
-            sb.AppendLine("  \"Thought\": \"[속마음 작성]\",");
-            sb.AppendLine("  \"Dialogue\": \"[실제 대사 작성]\"");
-            sb.AppendLine("}");
-            sb.AppendLine($"유저 발언: {userMsg}");
+            
+            // 1. 페르소나 절대 규칙
+            sb.AppendLine("[페르소나 절대 규칙]");
+            sb.AppendLine(YOMI_SYSTEM_RULES);
+            sb.AppendLine("------------------");
+            
+            // 2. 현재 시나리오 대본 주입 (핵심)
+            var scene = ScenarioManager.Instance != null ? ScenarioManager.Instance.CurrentScenario : null;
+            if (scene != null)
+            {
+                sb.AppendLine("[현재 씬(Scene) 대본]");
+                sb.AppendLine($"- 상황(Context): {scene.contextDescription}");
+                sb.AppendLine($"- 목표(Goal): {scene.actorGoal}");
+                
+                if (scene.dialogueExamples.Count > 0)
+                {
+                    sb.AppendLine("\n[참고용 대사 예시 (톤앤매너 100% 모방할 것)]");
+                    foreach (var ex in scene.dialogueExamples)
+                    {
+                        sb.AppendLine($"- \"{ex}\"");
+                    }
+                }
+                sb.AppendLine("------------------");
+            }
+            else
+            {
+                // 씬이 없으면 기존처럼 가볍게 상태만 주입 (안전장치)
+                sb.AppendLine("[현재 상태]");
+                sb.AppendLine($"현재 기분: {currentMood}");
+                sb.AppendLine("------------------");
+            }
+
+            // 3. 단기 대화 버퍼 (티키타카 연속성 유지)
+            if (DatingSimMemoryDB.Instance != null)
+            {
+                string recentChat = DatingSimMemoryDB.Instance.GetRecentContextString();
+                if (recentChat != "최근 대화 없음")
+                {
+                    sb.AppendLine("[최근 대화 내역]");
+                    sb.AppendLine(recentChat);
+                    sb.AppendLine("------------------");
+                }
+            }
+            
+            // 4. 대본 이어쓰기 유도
+            sb.AppendLine("---");
+            sb.AppendLine($"오빠: {userMsg}");
+            sb.Append("요미: ");
+            
             return sb.ToString();
         }
 
-        private string ParseAndValidate(string rawJson)
+        private string ParseAndValidate(string rawText)
         {
             try
             {
-                // 정규식으로 JSON 추출
-                Match match = Regex.Match(rawJson, @"\{[\s\S]*\}");
-                if (match.Success)
+                // 모델이 혼자서 여러 줄을 뇌절(요미: ... \n 요미: ...)하는 것을 막기 위해 첫 줄만 가져옴
+                string[] lines = rawText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length == 0) return dummyDialogues[0];
+                
+                string result = lines[0].Trim(' ', '\"', '\'');
+                
+                // "요미:" 또는 "요미 :" 접두사 제거
+                if (result.StartsWith("요미:"))
                 {
-                    string jsonString = match.Value;
-                    LLMResponse response = JsonUtility.FromJson<LLMResponse>(jsonString);
-                    if (response != null && !string.IsNullOrEmpty(response.Dialogue))
-                    {
-                        if (IsValidKorean(response.Dialogue))
-                        {
-                            return response.Dialogue;
-                        }
-                    }
+                    result = result.Substring(3).Trim();
+                }
+                else if (result.StartsWith("요미 :"))
+                {
+                    result = result.Substring(4).Trim();
+                }
+                
+                if (!string.IsNullOrEmpty(result) && IsValidKorean(result))
+                {
+                    return result;
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[DatingSimLLM] JSON Parsing failed: {e.Message}");
+                Debug.LogWarning($"[DatingSimLLM] Text Validation failed: {e.Message}");
             }
             
             // Fallback
@@ -159,19 +222,16 @@ namespace FXOverdose.DatingSim.LLM
 
         private bool IsValidKorean(string text)
         {
-            int koreanCharCount = 0;
-            foreach (char c in text)
+            // 중국어(한자) 및 일본어가 단 한 글자라도 포함되어 있으면 즉시 기각 (엄격한 통제)
+            if (Regex.IsMatch(text, @"[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff]"))
             {
-                if (c >= 0xAC00 && c <= 0xD7A3) koreanCharCount++;
+                return false;
             }
+
+            int koreanCharCount = Regex.Matches(text, @"[가-힣]").Count;
             return koreanCharCount >= 2;
         }
 
-        private async Task<string> MockLLMCall(string prompt)
-        {
-            // 실제 LLM 연동 전 임시 딜레이 및 하드코딩 응답 (개발 테스트용)
-            await Task.Delay(1000);
-            return "{\n  \"Thought\": \"마스터가 말을 걸어줬어.\",\n  \"Dialogue\": \"마스터... 정말 나 버리지 않을 거지?\"\n}";
-        }
+
     }
 }
