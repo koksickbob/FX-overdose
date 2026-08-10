@@ -544,14 +544,19 @@ namespace FXOverdose.UI.TopBar
             StyleVitalTitle(hpTitle, new Color32(255, 82, 125, 255));
             StyleVitalTitle(mentalTitle, new Color32(183, 112, 255, 255));
 
-            TMP_Text hpValue = FindDescendant(vitalsPanel, "HPValue")?.GetComponent<TMP_Text>();
+            TMP_Text hpValue = FindDescendant(vitalsPanel, "HealthValue")?.GetComponent<TMP_Text>()
+                               ?? FindDescendant(vitalsPanel, "HPValue")?.GetComponent<TMP_Text>();
             TMP_Text mentalValue = FindDescendant(vitalsPanel, "MentalValue")?.GetComponent<TMP_Text>();
             StyleVitalValue(hpValue);
             StyleVitalValue(mentalValue);
 
+            if (hpTitle != null) hpTitle.text = "HP";
+            if (mentalTitle != null) mentalTitle.text = "MENTAL";
+
             foreach (Slider slider in vitalsPanel.GetComponentsInChildren<Slider>(true))
             {
                 bool mental = slider.name.IndexOf("mental", StringComparison.OrdinalIgnoreCase) >= 0;
+                slider.transition = Selectable.Transition.None;
                 Image fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
                 if (fill != null)
                 {
@@ -559,7 +564,12 @@ namespace FXOverdose.UI.TopBar
                     fill.color = mental
                         ? new Color32(168, 85, 247, 255)
                         : new Color32(244, 63, 94, 255);
+                    AddFillHighlight(fill.transform, mental
+                        ? new Color32(233, 213, 255, 180)
+                        : new Color32(204, 251, 241, 180));
                 }
+
+                AddBarTicks(slider.transform);
             }
 
             StyleBarBackground(vitalsPanel, "HPBarBackground");
@@ -570,17 +580,27 @@ namespace FXOverdose.UI.TopBar
         {
             if (text == null) return;
             text.color = color;
-            text.fontSize = 14f;
+            text.fontSize = 16f;
+            text.fontSizeMin = 12f;
+            text.fontSizeMax = 16f;
+            text.enableAutoSizing = true;
             text.fontStyle = FontStyles.Bold;
-            text.characterSpacing = 1.5f;
+            text.characterSpacing = 2f;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         private static void StyleVitalValue(TMP_Text text)
         {
             if (text == null) return;
+            text.gameObject.SetActive(true);
             text.color = PrimaryText;
-            text.fontSize = 12f;
-            text.fontStyle = FontStyles.Normal;
+            text.fontSize = 17f;
+            text.fontSizeMin = 12f;
+            text.fontSizeMax = 17f;
+            text.enableAutoSizing = true;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.MidlineRight;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         private static void StyleBarBackground(Transform root, string objectName)
@@ -591,8 +611,39 @@ namespace FXOverdose.UI.TopBar
             background.color = new Color32(2, 8, 18, 245);
             Outline outline = background.GetComponent<Outline>();
             if (outline == null) outline = background.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color32(35, 55, 74, 255);
-            outline.effectDistance = new Vector2(1f, -1f);
+            outline.effectColor = new Color32(48, 78, 99, 255);
+            outline.effectDistance = new Vector2(2f, -2f);
+            outline.useGraphicAlpha = true;
+        }
+
+        private static void AddFillHighlight(Transform fill, Color color)
+        {
+            GameObject highlight = GetOrCreateUi(fill, "FillHighlight");
+            RectTransform rect = highlight.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 0.68f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            highlight.GetComponent<Image>().color = color;
+            highlight.GetComponent<Image>().raycastTarget = false;
+        }
+
+        private static void AddBarTicks(Transform slider)
+        {
+            for (int i = 1; i < 10; i++)
+            {
+                GameObject tick = GetOrCreateUi(slider, $"GaugeTick_{i:00}");
+                RectTransform rect = tick.GetComponent<RectTransform>();
+                float x = i / 10f;
+                rect.anchorMin = new Vector2(x, 0.08f);
+                rect.anchorMax = new Vector2(x, 0.92f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = Vector2.zero;
+                rect.sizeDelta = new Vector2(1.5f, 0f);
+                Image image = tick.GetComponent<Image>();
+                image.color = new Color32(3, 10, 20, 150);
+                image.raycastTarget = false;
+                tick.transform.SetAsLastSibling();
+            }
         }
 
         private static void StyleSettingsButton(Transform root)

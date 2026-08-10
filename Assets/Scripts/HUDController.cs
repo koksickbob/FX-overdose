@@ -18,6 +18,17 @@ public class HUDController : MonoBehaviour
     [SerializeField] private Slider healthSlider;
     [SerializeField] private Slider mentalSlider;
 
+    private TMP_Text healthValueText;
+    private TMP_Text mentalValueText;
+    private Image healthFillImage;
+    private Image mentalFillImage;
+    private bool statusVisualsResolved;
+
+    private static readonly Color HealthGood = new Color32(45, 212, 191, 255);
+    private static readonly Color MentalGood = new Color32(168, 85, 247, 255);
+    private static readonly Color Warning = new Color32(251, 191, 36, 255);
+    private static readonly Color Danger = new Color32(248, 67, 92, 255);
+
     private void Start()
     {
         ResolveReferences();
@@ -59,6 +70,50 @@ public class HUDController : MonoBehaviour
             mentalSlider.maxValue = 1f;
             EnsureSliderVisualSetup(mentalSlider);
         }
+
+        ResolveStatusVisuals();
+    }
+
+    private void ResolveStatusVisuals()
+    {
+        if (statusVisualsResolved || healthSlider == null || mentalSlider == null) return;
+
+        Transform vitalsPanel = healthSlider.transform.parent;
+        if (vitalsPanel == null) return;
+
+        healthValueText = FindChild(vitalsPanel, "HealthValue")?.GetComponent<TMP_Text>()
+                          ?? FindChild(vitalsPanel, "HPValue")?.GetComponent<TMP_Text>();
+        mentalValueText = FindChild(vitalsPanel, "MentalValue")?.GetComponent<TMP_Text>();
+        healthFillImage = healthSlider.fillRect != null ? healthSlider.fillRect.GetComponent<Image>() : null;
+        mentalFillImage = mentalSlider.fillRect != null ? mentalSlider.fillRect.GetComponent<Image>() : null;
+
+        ConfigureValueText(healthValueText);
+        ConfigureValueText(mentalValueText);
+        statusVisualsResolved = true;
+    }
+
+    private static Transform FindChild(Transform root, string objectName)
+    {
+        if (root == null) return null;
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == objectName) return child;
+        }
+        return null;
+    }
+
+    private static void ConfigureValueText(TMP_Text text)
+    {
+        if (text == null) return;
+        text.gameObject.SetActive(true);
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 12f;
+        text.fontSizeMax = 17f;
+        text.fontStyle = FontStyles.Bold;
+        text.alignment = TextAlignmentOptions.MidlineRight;
+        text.color = new Color32(226, 245, 250, 255);
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.raycastTarget = false;
     }
 
     private void EnsureSliderVisualSetup(Slider slider)
@@ -123,13 +178,30 @@ public class HUDController : MonoBehaviour
         // TraderStatus에서 0~1 사이 비율을 받아 Slider에 적용
         if (healthSlider != null && traderStatus != null)
         {
-            healthSlider.value = traderStatus.HealthRatio;
+            float ratio = Mathf.Clamp01(traderStatus.HealthRatio);
+            healthSlider.value = ratio;
             EnsureSliderVisualSetup(healthSlider);
+            if (healthValueText != null)
+                healthValueText.text = $"{Mathf.CeilToInt(traderStatus.CurrentHealth)} / {Mathf.CeilToInt(traderStatus.MaxHealth)}";
+            if (healthFillImage != null)
+                healthFillImage.color = GetVitalColor(ratio, HealthGood);
         }
         if (mentalSlider != null && traderStatus != null)
         {
-            mentalSlider.value = traderStatus.MentalRatio;
+            float ratio = Mathf.Clamp01(traderStatus.MentalRatio);
+            mentalSlider.value = ratio;
             EnsureSliderVisualSetup(mentalSlider);
+            if (mentalValueText != null)
+                mentalValueText.text = $"{Mathf.CeilToInt(traderStatus.CurrentMental)} / {Mathf.CeilToInt(traderStatus.EffectiveMaxMental)}";
+            if (mentalFillImage != null)
+                mentalFillImage.color = GetVitalColor(ratio, MentalGood);
         }
+    }
+
+    private static Color GetVitalColor(float ratio, Color healthyColor)
+    {
+        if (ratio <= 0.25f) return Danger;
+        if (ratio <= 0.5f) return Warning;
+        return healthyColor;
     }
 }

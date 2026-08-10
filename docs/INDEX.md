@@ -64,3 +64,12 @@ LLM(Yomi) 모델 관련 문서와 데이터셋, 스크립트 모음입니다.
 - [스토리 아트 발주서](file:///d:/Project/fx%20overdose/docs/05_Art_Assets/스토리_아트_발주서.md)
 - [유카타 스프라이트 생성 프롬프트](file:///d:/Project/fx%20overdose/docs/05_Art_Assets/유카타_스프라이트_생성_프롬프트.md)
 - [한복 스프라이트 생성 프롬프트](file:///d:/Project/fx%20overdose/docs/05_Art_Assets/한복_스프라이트_생성_프롬프트.md)
+
+---
+
+## 🌐 06_P2P (Steam 멀티플레이)
+CHALLENGE 모드를 기반으로 한 Steam PC판 1~4인 경쟁 멀티플레이 기획 문서입니다.
+- [P2P 멀티플레이 기획서 초안](06_P2P/P2P_멀티플레이_기획서_초안.md)
+- [P2P 기능명세서](06_P2P/P2P_기능명세서.md)
+- [P2P 페이즈별 구현 계획](06_P2P/P2P_페이즈별_구현계획.md)
+- [P2P Phase 0 기술 검증 기록](06_P2P/P2P_Phase0_기술검증기록.md)
