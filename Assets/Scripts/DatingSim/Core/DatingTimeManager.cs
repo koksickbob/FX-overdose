@@ -49,6 +49,24 @@ namespace FXOverdose.DatingSim.Core
             }
         }
 
+        private void Start()
+        {
+            // 테스트 씬처럼 SaveLoadManager가 개입하여 LoadFromSaveData를 호출하지 않는 환경을 위한 방어 코드
+            if (maxStamina == 0)
+            {
+                maxStamina = 100;
+                currentStamina = 100;
+                currentTimeSlot = 5;
+                currentDay = 1;
+
+                // UI 갱신을 위해 이벤트 강제 호출
+                OnStaminaChanged?.Invoke(currentStamina, maxStamina);
+                OnTimeSlotChanged?.Invoke(currentTimeSlot);
+                OnAffectionChanged?.Invoke(currentAffection);
+                OnObsessionChanged?.Invoke(currentObsession);
+            }
+        }
+
         // --- SaveLoadManager에서 호출될 Load/Save 헬퍼 ---
         public void LoadFromSaveData(SaveData data)
         {
