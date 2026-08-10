@@ -62,6 +62,8 @@ namespace FXOverdose.Core
         private GameObject leverageHighlight;
         private GameObject shopHighlight;
         private GameObject aiStyleHighlight;
+        private GameObject tradingModeHighlight;
+        private GameObject skillHUDHighlight;
         private GameObject longButtonHighlight;
         private GameObject shortButtonHighlight;
         private GameObject closeButtonHighlight;
@@ -183,7 +185,8 @@ namespace FXOverdose.Core
             yield return new WaitForEndOfFrame();
             Canvas.ForceUpdateCanvases();
 
-            AutoBindHighlights();
+            // 런타임에 생성되는 AUTO STYLE / SKILL / AUTO-USER 버튼까지 준비될 때까지 재시도합니다.
+            yield return StartCoroutine(BindHighlightsWhenReady());
 
             SetButtonsInteractable(false);
             DisableAllHighlights();
@@ -368,6 +371,30 @@ namespace FXOverdose.Core
             {
                 closeButtonHighlight = CreateHighlightOverlay(btnClose.transform);
             }
+
+            // 9. AUTO / USER trading mode toggle
+            if (tradingModeHighlight == null)
+            {
+                SettingsMenuController settings = FindAnyObjectByType<SettingsMenuController>();
+                if (settings != null && settings.TutorialTradingModeHighlightTarget != null)
+                    tradingModeHighlight = CreateHighlightOverlay(settings.TutorialTradingModeHighlightTarget);
+            }
+
+            // 10. AUTO STYLE tab
+            if (aiStyleHighlight == null)
+            {
+                var panelUI = FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>();
+                if (panelUI != null && panelUI.TutorialAIStyleHighlightTarget != null)
+                    aiStyleHighlight = CreateHighlightOverlay(panelUI.TutorialAIStyleHighlightTarget);
+            }
+
+            // 11. Consolidated skill HUD button
+            if (skillHUDHighlight == null)
+            {
+                ActiveSkillHUDController skillHUD = FindAnyObjectByType<ActiveSkillHUDController>();
+                if (skillHUD != null && skillHUD.TutorialSkillHUDHighlightTarget != null)
+                    skillHUDHighlight = CreateHighlightOverlay(skillHUD.TutorialSkillHUDHighlightTarget);
+            }
         }
 
         private IEnumerator BindHighlightsWhenReady()
@@ -387,7 +414,8 @@ namespace FXOverdose.Core
                 $"chart={chartHighlight != null}, balance={balanceHighlight != null}, " +
                 $"margin={marginHighlight != null}, leverage={leverageHighlight != null}, " +
                 $"mental={mentalHighlight != null}, shop={shopHighlight != null}, level={levelHighlight != null}, " +
-                $"long={longButtonHighlight != null}, short={shortButtonHighlight != null}, close={closeButtonHighlight != null}",
+                $"long={longButtonHighlight != null}, short={shortButtonHighlight != null}, close={closeButtonHighlight != null}, " +
+                $"mode={tradingModeHighlight != null}, aiStyle={aiStyleHighlight != null}, skill={skillHUDHighlight != null}",
                 this);
         }
 
@@ -402,7 +430,10 @@ namespace FXOverdose.Core
                    levelHighlight != null &&
                    longButtonHighlight != null &&
                    shortButtonHighlight != null &&
-                   closeButtonHighlight != null;
+                   closeButtonHighlight != null &&
+                   tradingModeHighlight != null &&
+                   aiStyleHighlight != null &&
+                   skillHUDHighlight != null;
         }
 
 
@@ -514,6 +545,8 @@ namespace FXOverdose.Core
             if (mentalHighlight != null) mentalHighlight.SetActive(false);
             if (shopHighlight != null) shopHighlight.SetActive(false);
             if (aiStyleHighlight != null) aiStyleHighlight.SetActive(false);
+            if (tradingModeHighlight != null) tradingModeHighlight.SetActive(false);
+            if (skillHUDHighlight != null) skillHUDHighlight.SetActive(false);
             if (levelHighlight != null) levelHighlight.SetActive(false);
             if (longButtonHighlight != null) longButtonHighlight.SetActive(false);
             if (shortButtonHighlight != null) shortButtonHighlight.SetActive(false);
@@ -676,18 +709,34 @@ namespace FXOverdose.Core
         private IEnumerator Step1_2_TerminologyCutscene()
         {
             CurrentState = TutorialState.TerminologyCutscene;
-            
+
             yield return StartCoroutine(PlayDialogueAndWait("트레이딩이 처음이라고? 걱정 마! 롱, 숏, 레버리지가 뭔지 알기 쉽게 만화로 준비했어. 한 번 읽어볼래?"));
             
-            GameObject comicCutscenePanel = GameObject.Find("ComicCutscenePanel");
-            if (comicCutscenePanel != null)
+            // tutorial 씬에는 원래 스토리용 ComicCutsceneCanvas가 없으므로,
+            // 씬 배치 인스턴스가 없을 때 동일한 UI를 런타임으로 생성합니다.
+            FXOverdose.UI.ComicCutsceneController comic =
+                FXOverdose.UI.ComicCutsceneController.GetOrCreateRuntime(gameObject.scene);
+            if (comic != null)
             {
-                comicCutscenePanel.SetActive(true);
-                yield return new WaitUntil(() => !comicCutscenePanel.activeSelf);
+                // 스토리 모드 1일차 오프닝과 동일하게 컷씬 재생 중에는
+                // 게임 시간과 시장 진행을 멈추고, 종료 콜백에서만 재개합니다.
+                GameManager gameManager = FindAnyObjectByType<GameManager>();
+                bool resumeAfterCutscene = gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing;
+                if (resumeAfterCutscene)
+                    gameManager.PauseGame();
+
+                bool completed = false;
+                comic.PlayTerminologyTutorial(() =>
+                {
+                    if (resumeAfterCutscene && gameManager != null)
+                        gameManager.ResumeGame();
+                    completed = true;
+                });
+                yield return new WaitUntil(() => completed);
             }
             else
             {
-                Debug.LogWarning("[TutorialManager] ComicCutscenePanel을 찾을 수 없어 만화 컷씬을 스킵합니다.");
+                Debug.LogWarning("[TutorialManager] ComicCutsceneController를 찾을 수 없어 만화 컷씬을 스킵합니다.");
             }
         }
 
@@ -801,7 +850,9 @@ namespace FXOverdose.Core
         {
             CurrentState = TutorialState.AITradingExplanation;
             
+            if (tradingModeHighlight != null) SetHighlight(tradingModeHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("언제든 설정에서 자동 매매와 수동 매매를 자유롭게 전환할 수 있어!"));
+            if (tradingModeHighlight != null) SetHighlight(tradingModeHighlight, false);
             
             if (aiStyleHighlight != null) SetHighlight(aiStyleHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("여기 'AUTO STYLE' 탭을 누르면 내가 안전하게 할지, 공격적으로 할지 오빠가 직접 성향을 골라줄 수 있어!"));
@@ -895,9 +946,11 @@ namespace FXOverdose.Core
             if (levelHighlight != null) SetHighlight(levelHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("오빠가 성공적으로 매매를 이어갈수록 레벨이 오를 거야!"));
             yield return StartCoroutine(PlayDialogueAndWait("주인공 레벨이 오르면 오빠가 한 번에 투자할 수 있는 증거금 비율과 최고 레버리지 한도도 점점 늘어나니까 열심히 경험치를 모아봐!"));
+            if (levelHighlight != null) SetHighlight(levelHighlight, false);
+            if (skillHUDHighlight != null) SetHighlight(skillHUDHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("레벨이 오르면 요미의 차트 분석력이나 멘탈, 인내력 같은 스킬들을 직접 업그레이드할 수 있어."));
             yield return StartCoroutine(PlayDialogueAndWait("투자를 통해 요미를 최고의 파트너로 키워줘!"));
-            if (levelHighlight != null) SetHighlight(levelHighlight, false);
+            if (skillHUDHighlight != null) SetHighlight(skillHUDHighlight, false);
         }
 
         private IEnumerator Step9_SuddenEvent()

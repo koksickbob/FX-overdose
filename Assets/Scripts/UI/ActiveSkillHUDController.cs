@@ -35,6 +35,9 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private TMP_Text timeTransitionClock;
     private bool isUpgradeSequencePlaying;
 
+    /// <summary>튜토리얼에서 통합 SKILL 버튼을 강조하기 위한 안정적인 타겟입니다.</summary>
+    public RectTransform TutorialSkillHUDHighlightTarget => skillRow;
+
     private sealed class SkillCardView
     {
         public TMP_Text Level;

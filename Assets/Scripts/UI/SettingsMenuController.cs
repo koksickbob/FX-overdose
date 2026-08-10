@@ -24,6 +24,10 @@ public class SettingsMenuController : MonoBehaviour
     private TMP_Text fpsButtonText;
     private GameObject overwriteConfirmPanel;
 
+    /// <summary>튜토리얼에서 AUTO/USER 전환 버튼 전체를 강조할 때 사용하는 고정 타겟입니다.</summary>
+    public RectTransform TutorialTradingModeHighlightTarget =>
+        floatingModeButton != null ? floatingModeButton.GetComponent<RectTransform>() : null;
+
     [Header("오디오 설정 UI (UI 담당자 할당)")]
     [SerializeField] private Slider bgmVolumeSlider;
     [SerializeField] private Slider sfxVolumeSlider;
