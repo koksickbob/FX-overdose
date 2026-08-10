@@ -101,12 +101,11 @@ namespace FXOverdose.DatingSim.LLM.Scenario
 
             // 3. 기록 및 반환
             recentScenarios.Add(bestEntry.scenarioID);
-                if (recentScenarios.Count > 10) // 큐 방식 제한 필요 시 구현
-                {
-                    // 단순화를 위해 주기적 클리어 구조 (추후 최적화 가능)
-                    // 현재는 데모용으로 해시셋이 너무 커지면 초기화
-                    if(recentScenarios.Count > 50) recentScenarios.Clear(); 
-                }
+            if (recentScenarios.Count > 10) // 큐 방식 제한 필요 시 구현
+            {
+                // 단순화를 위해 주기적 클리어 구조 (추후 최적화 가능)
+                // 현재는 데모용으로 해시셋이 너무 커지면 초기화
+                if (recentScenarios.Count > 50) recentScenarios.Clear();
             }
 
             return bestEntry;

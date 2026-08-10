@@ -110,43 +110,169 @@ namespace FXOverdose.DatingSim.UI
             WorldMapManager manager = FindInScene<WorldMapManager>(scene);
             if (manager == null) manager = CreateInScene<WorldMapManager>(scene, "WorldMapManager");
             EnsureDefaultMapData(manager);
-            if (FindObject(scene, "Canvas_WorldMap") != null) return;
+            if (FindObject(scene, "Canvas_WorldMap_Runtime") != null) return;
+            GameObject oldCanvas = FindObject(scene, "Canvas_WorldMap");
+            if (oldCanvas != null)
+            {
+                oldCanvas.name = "Canvas_WorldMap_Legacy";
+                oldCanvas.SetActive(false);
+                Object.Destroy(oldCanvas);
+            }
 
-            Canvas canvas = CreateCanvas(scene, "Canvas_WorldMap");
-            CreateImage(canvas.transform, "Backdrop", new Color32(5, 13, 25, 255), Vector2.zero, Vector2.one);
+            Canvas canvas = CreateCanvas(scene, "Canvas_WorldMap_Runtime");
+            Image map = CreateImage(canvas.transform, "SeoulMapBackground", Color.white, Vector2.zero, Vector2.one);
+            map.sprite = LoadResourceSprite("DatingSim/WorldMap/UI/SeoulMapBackground");
+            map.preserveAspect = false;
+            CreateImage(canvas.transform, "MapTint", new Color32(2, 7, 18, 42), Vector2.zero, Vector2.one).raycastTarget = false;
 
-            RectTransform header = CreatePanel(canvas.transform, "ResourceHeader",
-                new Vector2(0.025f, 0.865f), new Vector2(0.975f, 0.975f));
-            TextMeshProUGUI stamina = CreateStatus(header, "StaminaText", "STAMINA  100 / 100", 0f, 0.32f, Cyan);
-            TextMeshProUGUI slots = CreateStatus(header, "TimeSlotText", "TIME SLOT  5", 0.32f, 0.64f, Gold);
-            TextMeshProUGUI balance = CreateStatus(header, "BalanceText", "BALANCE  $0", 0.64f, 1f, Pink);
+            RectTransform top = CreatePanel(canvas.transform, "WorldMapHeader", new Vector2(0f, 0.87f), Vector2.one);
+            float[] x = { 0.01f, 0.112f, 0.214f, 0.316f };
+            string[] initial = { "체력  100/100", "남은 시간  5/5", "호감도  0%", "보유 자산  ₩0" };
+            Color[] statusColors = { Cyan, Gold, Pink, new Color32(134, 239, 172, 255) };
+            string[] statusIcons = { "♥", "◷", "♡", "₩" };
+            TextMeshProUGUI[] statusTexts = new TextMeshProUGUI[4];
+            Image staminaFill = null;
+            Image affectionFill = null;
+            Image[] timePips = new Image[5];
+            for (int i = 0; i < 4; i++)
+            {
+                RectTransform card = CreatePanel(top, $"StatusCard_{i}", new Vector2(x[i], 0.14f), new Vector2(x[i] + 0.094f, 0.88f));
+                TextMeshProUGUI icon = CreateText(card, "Icon", statusIcons[i], 21f, new Vector2(0.04f, 0.42f), new Vector2(0.25f, 0.9f), TextAlignmentOptions.Center);
+                icon.color = statusColors[i];
+                statusTexts[i] = CreateText(card, "Value", initial[i], 17f, new Vector2(0.23f, 0.38f), new Vector2(0.96f, 0.92f), TextAlignmentOptions.Center);
+                statusTexts[i].color = statusColors[i];
+                statusTexts[i].fontStyle = FontStyles.Bold;
+                if (i == 0 || i == 2)
+                {
+                    Image track = CreateImage(card, "Track", new Color32(27, 45, 61, 255), new Vector2(0.08f, 0.13f), new Vector2(0.92f, 0.25f));
+                    Image fill = CreateImage(track.transform, "Fill", statusColors[i], Vector2.zero, Vector2.one);
+                    fill.type = Image.Type.Filled;
+                    fill.fillMethod = Image.FillMethod.Horizontal;
+                    fill.fillOrigin = 0;
+                    if (i == 0) staminaFill = fill;
+                    else affectionFill = fill;
+                }
+                else if (i == 1)
+                {
+                    for (int pip = 0; pip < 5; pip++)
+                    {
+                        float pipX = 0.08f + pip * 0.175f;
+                        timePips[pip] = CreateImage(card, $"Pip_{pip}", statusColors[i], new Vector2(pipX, 0.12f), new Vector2(pipX + 0.12f, 0.25f));
+                    }
+                }
+            }
 
-            TMP_Text title = CreateText(canvas.transform, "MapTitle", "CITY MAP", 34f,
-                new Vector2(0.04f, 0.76f), new Vector2(0.42f, 0.84f), TextAlignmentOptions.Left);
+            TMP_Text title = CreateText(top, "MapTitle", "SEOUL CITY MAP", 38f, new Vector2(0.43f, 0.42f), new Vector2(0.88f, 0.94f), TextAlignmentOptions.Center);
             title.color = Cyan;
-            title.characterSpacing = 5f;
-            TMP_Text subtitle = CreateText(canvas.transform, "MapSubtitle", "남은 시간과 체력을 확인하고 목적지를 선택하세요.", 17f,
-                new Vector2(0.04f, 0.71f), new Vector2(0.62f, 0.76f), TextAlignmentOptions.Left);
-            subtitle.color = Muted;
+            title.fontStyle = FontStyles.Bold;
+            title.characterSpacing = 4f;
+            TMP_Text subtitle = CreateText(top, "MapSubtitle", "오늘 어디로 갈까요?", 17f, new Vector2(0.48f, 0.08f), new Vector2(0.83f, 0.42f), TextAlignmentOptions.Center);
+            subtitle.color = new Color32(104, 173, 224, 255);
+            BuildWorldMapSettingsButton(top);
 
-            RectTransform jobCard = CreatePanel(canvas.transform, "JobLocationCard",
-                new Vector2(0.07f, 0.27f), new Vector2(0.46f, 0.68f));
-            CreateLocationCopy(jobCard, "PART-TIME JOB", "편의점 야간 알바", "체력 -20  ·  시간 슬롯 -2\n성공 보상  $1,200", Cyan);
-            Button job = CreateWideButton(jobCard, "JobButton", "알바 시작", Cyan);
+            RectTransform pinLayer = new GameObject("LocationPins", typeof(RectTransform)).GetComponent<RectTransform>();
+            pinLayer.SetParent(canvas.transform, false);
+            SetRect(pinLayer, new Vector2(0f, 0.25f), new Vector2(1f, 0.87f));
+            Button room = CreateMapPin(pinLayer, "RoomPin", "요미의 방", "DatingSim/WorldMap/UI/PinHome", new Vector2(0.35f, 0.56f), Cyan);
+            Button job = CreateMapPin(pinLayer, "JobPin", "편의점 알바", "DatingSim/WorldMap/UI/PinWork", new Vector2(0.62f, 0.58f), Gold);
+            Button date = CreateMapPin(pinLayer, "DatePin", "한강공원 데이트", "DatingSim/WorldMap/UI/PinDate", new Vector2(0.49f, 0.25f), Pink);
+            Button arcade = CreateMapPin(pinLayer, "ArcadePin", "홍대 오락실", "DatingSim/WorldMap/UI/PinLeisure", new Vector2(0.17f, 0.64f), Purple);
+            Button cafe = CreateMapPin(pinLayer, "CafePin", "성수 카페", "DatingSim/WorldMap/UI/PinDate", new Vector2(0.82f, 0.52f), Pink);
+            RectTransform[] routeDots = CreateDottedRoute(pinLayer);
 
-            RectTransform dateCard = CreatePanel(canvas.transform, "DateLocationCard",
-                new Vector2(0.54f, 0.27f), new Vector2(0.93f, 0.68f));
-            CreateLocationCopy(dateCard, "DATE COURSE", "야경 카페 데이트", "체력 -10  ·  시간 슬롯 -1\n비용  $500", Pink);
-            Button date = CreateWideButton(dateCard, "DateButton", "데이트 시작", Pink);
+            RectTransform filters = CreatePanel(canvas.transform, "MapFilters", new Vector2(0.015f, 0.235f), new Vector2(0.34f, 0.3f));
+            string[] filterLabels = { "전체", "알바", "데이트", "휴식" };
+            Color[] filterColors = { Cyan, Gold, Pink, Purple };
+            Button[] filterButtons = new Button[4];
+            for (int i = 0; i < 4; i++)
+            {
+                float min = 0.015f + i * 0.246f;
+                filterButtons[i] = CreateStandaloneButton(filters, $"Filter_{i}", filterLabels[i], new Vector2(min, 0.12f), new Vector2(min + 0.23f, 0.88f), filterColors[i]);
+            }
+            filters.gameObject.SetActive(false);
 
-            RectTransform feedbackPanel = CreatePanel(canvas.transform, "FeedbackPanel",
-                new Vector2(0.07f, 0.075f), new Vector2(0.78f, 0.20f));
-            TextMeshProUGUI feedback = CreateText(feedbackPanel, "FeedbackText", "행동을 선택해 주세요.", 20f,
-                new Vector2(0.04f, 0.1f), new Vector2(0.96f, 0.9f), TextAlignmentOptions.Center);
-            Button room = CreateStandaloneButton(canvas.transform, "RoomButton", "요미의 방으로", new Vector2(0.80f, 0.075f), new Vector2(0.93f, 0.20f), Purple);
+            RectTransform detail = CreatePanel(canvas.transform, "LocationDetail", new Vector2(0.008f, 0.015f), new Vector2(0.992f, 0.225f));
+            Image thumbnail = CreateImage(detail, "Thumbnail", Color.white, new Vector2(0.025f, 0.12f), new Vector2(0.245f, 0.88f));
+            thumbnail.sprite = LoadResourceSprite("DatingSim/YomiRoom/Morning/RoomLeft");
+            thumbnail.preserveAspect = true;
+            TextMeshProUGUI detailTitle = CreateText(detail, "LocationTitle", "요미의 방", 30f, new Vector2(0.28f, 0.57f), new Vector2(0.72f, 0.88f), TextAlignmentOptions.Left);
+            detailTitle.color = Cyan;
+            detailTitle.fontStyle = FontStyles.Bold;
+            TextMeshProUGUI detailMeta = CreateText(detail, "LocationMeta", "현재 위치  ·  비용 없음", 18f, new Vector2(0.28f, 0.35f), new Vector2(0.72f, 0.58f), TextAlignmentOptions.Left);
+            detailMeta.color = Text;
+            TextMeshProUGUI detailDescription = CreateText(detail, "LocationDescription", "휴식을 취하고 다음 일정을 계획할 수 있습니다.", 16f, new Vector2(0.28f, 0.12f), new Vector2(0.72f, 0.35f), TextAlignmentOptions.Left);
+            detailDescription.color = Muted;
+            Button action = CreateStandaloneButton(detail, "PrimaryAction", "돌아가기", new Vector2(0.77f, 0.24f), new Vector2(0.965f, 0.76f), Cyan);
+            TextMeshProUGUI actionLabel = action.transform.Find("Label").GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI feedback = CreateText(detail, "FeedbackText", string.Empty, 14f, new Vector2(0.73f, 0.02f), new Vector2(0.98f, 0.2f), TextAlignmentOptions.Center);
+            feedback.color = Pink;
 
             WorldMapUIController ui = canvas.gameObject.AddComponent<WorldMapUIController>();
-            ui.Configure(stamina, slots, balance, job, date, room, feedback);
+            ui.ConfigureMapUI(statusTexts[0], statusTexts[1], statusTexts[3], statusTexts[2], room, job, date, arcade, cafe,
+                action, filterButtons, new[] { room.gameObject, job.gameObject, date.gameObject, arcade.gameObject, cafe.gameObject },
+                detailTitle, detailMeta, detailDescription, actionLabel, feedback, staminaFill, affectionFill, timePips,
+                routeDots, new[] { room.GetComponent<RectTransform>(), job.GetComponent<RectTransform>(), date.GetComponent<RectTransform>(),
+                    arcade.GetComponent<RectTransform>(), cafe.GetComponent<RectTransform>() });
+        }
+
+        private static RectTransform[] CreateDottedRoute(Transform parent)
+        {
+            const int dotCount = 11;
+            RectTransform[] dots = new RectTransform[dotCount];
+            for (int i = 0; i < dotCount; i++)
+            {
+                GameObject dot = new($"RouteDot_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                dot.transform.SetParent(parent, false);
+                RectTransform rect = dot.GetComponent<RectTransform>();
+                rect.anchorMin = rect.anchorMax = new Vector2(0.35f, 0.56f);
+                rect.sizeDelta = new Vector2(10f, 10f);
+                Image image = dot.GetComponent<Image>();
+                image.color = new Color32(34, 211, 238, (byte)(130 + i * 10));
+                image.raycastTarget = false;
+                dot.transform.SetSiblingIndex(0);
+                dot.SetActive(false);
+                dots[i] = rect;
+            }
+            return dots;
+        }
+
+        private static Button CreateMapPin(Transform parent, string name, string label, string spritePath, Vector2 center, Color accent)
+        {
+            GameObject root = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            root.transform.SetParent(parent, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = center;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(118f, 146f);
+            Image image = root.GetComponent<Image>();
+            image.sprite = LoadResourceSprite(spritePath);
+            image.color = Color.white;
+            image.preserveAspect = true;
+            Button button = root.GetComponent<Button>();
+            button.targetGraphic = image;
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = new Color32(210, 248, 255, 255);
+            colors.pressedColor = new Color32(145, 185, 205, 255);
+            button.colors = colors;
+            RectTransform labelPanel = CreatePanel(root.transform, "LabelPanel", new Vector2(-0.28f, -0.18f), new Vector2(1.28f, 0.12f));
+            labelPanel.GetComponent<Image>().raycastTarget = false;
+            labelPanel.GetComponent<Outline>().effectColor = accent;
+            TextMeshProUGUI text = CreateText(labelPanel, "Label", label, 16f, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), TextAlignmentOptions.Center);
+            text.color = accent;
+            text.fontStyle = FontStyles.Bold;
+            return button;
+        }
+
+        private static void BuildWorldMapSettingsButton(Transform parent)
+        {
+            Button button = CreateStandaloneButton(parent, "SettingsButton", string.Empty, new Vector2(0.945f, 0.18f), new Vector2(0.988f, 0.86f), Cyan);
+            Image gear = CreateImage(button.transform, "SettingsButtonVisual", Color.white, new Vector2(0.18f, 0.18f), new Vector2(0.82f, 0.82f));
+            gear.sprite = LoadResourceSprite("DatingSim/YomiRoom/UI/SettingsGear");
+            gear.preserveAspect = true;
+            button.gameObject.SetActive(false);
+            SettingsMenuController settings = button.gameObject.AddComponent<SettingsMenuController>();
+            settings.ConfigureRoomButton(button);
+            button.gameObject.SetActive(true);
         }
 
         private static void EnsureDefaultMapData(WorldMapManager manager)
@@ -300,6 +426,24 @@ namespace FXOverdose.DatingSim.UI
             image.color = color;
             SetRect(image.rectTransform, min, max);
             return image;
+        }
+
+        private static Sprite LoadResourceSprite(string resourcePath)
+        {
+            // Sprite 타입으로 임포트된 UI 에셋은 Unity가 생성한 원본 Sprite를 우선 사용합니다.
+            // Texture2D에서 런타임 Sprite를 재생성하면 플랫폼별 압축 포맷에서 색상 채널이 손실될 수 있습니다.
+            Sprite importedSprite = Resources.Load<Sprite>(resourcePath);
+            if (importedSprite != null) return importedSprite;
+
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            if (texture == null)
+            {
+                Debug.LogWarning($"[DatingSimUI] UI 텍스처를 찾지 못했습니다: {resourcePath}");
+                return null;
+            }
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
         }
 
         private static TextMeshProUGUI CreateText(Transform parent, string name, string value, float size, Vector2 min, Vector2 max, TextAlignmentOptions alignment)
