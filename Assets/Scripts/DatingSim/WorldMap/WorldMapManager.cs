@@ -1,0 +1,116 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using FXOverdose.DatingSim.Core;
+
+namespace FXOverdose.DatingSim.WorldMap
+{
+    [Serializable]
+    public struct PartTimeJobData
+    {
+        public string jobName;
+        public int staminaCost;
+        public float rewardAmount;
+    }
+
+    [Serializable]
+    public struct DateCourseData
+    {
+        public string courseName;
+        public int timeSlotCost;
+        public int staminaCost;
+        public float moneyCost;
+    }
+
+    public class WorldMapManager : MonoBehaviour
+    {
+        public static WorldMapManager Instance { get; private set; }
+
+        [Header("Job & Date Configuration")]
+        public List<PartTimeJobData> availableJobs = new List<PartTimeJobData>();
+        public List<DateCourseData> availableDateCourses = new List<DateCourseData>();
+
+        public event Action OnActionFailed; // 자원 부족 시 발생
+        public event Action<string, float> OnJobFinished; // 알바 성공 콜백 (UI 연동용)
+        public event Action<string> OnDateStarted; // 데이트 진입 콜백
+
+        private void Awake()
+        {
+            if (Instance == null) Instance = this;
+            else Destroy(gameObject);
+        }
+
+        public void TryStartPartTimeJob(int jobIndex)
+        {
+            if (jobIndex < 0 || jobIndex >= availableJobs.Count) return;
+            
+            var job = availableJobs[jobIndex];
+            int requiredSlots = 2; // 기획서 고정 (알바는 2슬롯 소모)
+
+            if (DatingTimeManager.Instance == null) return;
+            
+            // 1. 체력 및 슬롯 사전 검사
+            if (DatingTimeManager.Instance.CurrentStamina < job.staminaCost || DatingTimeManager.Instance.CurrentTimeSlot < requiredSlots)
+            {
+                OnActionFailed?.Invoke();
+                return;
+            }
+
+            // 2. 자원 차감
+            DatingTimeManager.Instance.TryConsumeTimeSlot(requiredSlots);
+            DatingTimeManager.Instance.TryConsumeStamina(job.staminaCost);
+            
+            // 3. 미니게임 컷(스킵) 및 즉시 보상 지급
+            FinishPartTimeJob(true, jobIndex);
+        }
+
+        public void FinishPartTimeJob(bool success, int jobIndex)
+        {
+            if (!success) return;
+            
+            var job = availableJobs[jobIndex];
+            
+            // 트레이딩 코어 자산(Balance)에 합산
+            var gameManager = FindObjectOfType<GameManager>();
+            if (gameManager != null)
+            {
+                gameManager.ChangeBalance(job.rewardAmount);
+            }
+            
+            OnJobFinished?.Invoke(job.jobName, job.rewardAmount);
+        }
+
+        public void TryStartDateCourse(int courseIndex)
+        {
+            if (courseIndex < 0 || courseIndex >= availableDateCourses.Count) return;
+
+            var course = availableDateCourses[courseIndex];
+
+            if (DatingTimeManager.Instance == null) return;
+
+            // 1. 체력 및 슬롯 검사 (사전)
+            if (DatingTimeManager.Instance.CurrentStamina < course.staminaCost || DatingTimeManager.Instance.CurrentTimeSlot < course.timeSlotCost)
+            {
+                OnActionFailed?.Invoke();
+                return;
+            }
+
+            // 2. 자금 검사 및 차감 (GameManager 연동)
+            var gameManager = FindObjectOfType<GameManager>();
+            if (gameManager == null) return;
+            
+            if (!gameManager.TrySpendBalance(course.moneyCost))
+            {
+                OnActionFailed?.Invoke(); // 잔고 부족
+                return;
+            }
+
+            // 3. 실제 시간 및 체력 차감
+            DatingTimeManager.Instance.TryConsumeTimeSlot(course.timeSlotCost);
+            DatingTimeManager.Instance.TryConsumeStamina(course.staminaCost);
+            
+            // 4. 연출 트리거 (P2_04의 LoadingSceneManager를 통해 씬 전환 예정)
+            OnDateStarted?.Invoke(course.courseName);
+        }
+    }
+}

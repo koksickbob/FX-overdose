@@ -110,5 +110,14 @@ namespace FXOverdose.Core
         // --- 보스 데이터 ---
         public float SavedBossStartingAsset = -1f;
         public float SavedBossCurrentAsset = -1f;
+
+        // --- DatingSim 상태 (Phase 2) ---
+        public int DatingStamina = 100;
+        public int DatingMaxStamina = 100;
+        public int DatingAffection = 0;
+        public int DatingObsession = 0;
+        public int StoryProgressStage = 0;
+        public int DatingTimeSlot = 5;
+        public int DatingDay = 1;
     }
 }

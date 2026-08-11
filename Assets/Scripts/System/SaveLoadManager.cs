@@ -167,6 +167,9 @@ namespace FXOverdose.Core
                 data.SavedBossCurrentAsset = bossManager.BossCurrentAsset;
             }
 
+            // DatingSim 상태 저장
+            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.SaveToData(data);
+
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
             // SaveLoadManager에서 직접 데이터를 얻거나 GameManager처럼 public Getter가 있으면 좋음.
@@ -438,6 +441,9 @@ namespace FXOverdose.Core
                 bossManager.LoadedBossStartingAsset = CurrentData.SavedBossStartingAsset;
                 bossManager.LoadedBossCurrentAsset = CurrentData.SavedBossCurrentAsset;
             }
+
+            // DatingSim 상태 주입
+            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
 
             IsPendingLoad = false;
             CurrentData = null;
