@@ -1,0 +1,21 @@
+{
+  "name": "FXOverdose.P2P.Core.Tests",
+  "rootNamespace": "FXOverdose.P2P.Core.Tests",
+  "references": [
+    "FXOverdose.P2P.Core"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

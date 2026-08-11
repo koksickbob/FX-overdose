@@ -1,22 +1,37 @@
 using System;
-using Steamworks;
+using FXOverdose.P2P.Steam;
 using UnityEngine;
 
 namespace FXOverdose.P2P.Infrastructure
 {
-    /// <summary>
-    /// Steam PC 빌드에서 Steamworks API의 생명주기를 관리합니다.
-    /// 실제 App ID가 발급되기 전에는 steam_appid.txt의 개발용 App ID 480을 사용합니다.
-    /// </summary>
+    /// <summary>Steam 서비스의 Unity 생명주기와 콜백 펌프를 담당합니다.</summary>
     [DefaultExecutionOrder(-10000)]
     public sealed class SteamRuntimeBootstrap : MonoBehaviour
     {
+        // Valve의 Spacewar 테스트 App ID입니다. 출시 전 실제 게임 App ID로 교체해야 합니다.
         private const uint DevelopmentAppId = 480;
+        private SteamRuntimeService runtimeService;
 
         public static SteamRuntimeBootstrap Instance { get; private set; }
-        public static bool IsInitialized { get; private set; }
-        public static ulong LocalSteamId { get; private set; }
-        public static string LocalPersonaName { get; private set; } = string.Empty;
+        public static SteamRuntimeStatus CurrentStatus => Instance != null
+            ? Instance.runtimeService.Status
+            : new SteamRuntimeStatus(SteamRuntimeState.NotStarted);
+        public static bool IsInitialized => CurrentStatus.State == SteamRuntimeState.Ready;
+        public static bool CanUseP2P => CurrentStatus.CanUseP2P;
+        public static ulong LocalSteamId => CurrentStatus.SteamId;
+        public static string LocalPersonaName => CurrentStatus.PersonaName;
+
+        /// <summary>타이틀 UI와 로비 계층이 초기화 결과를 구독하는 이벤트입니다.</summary>
+        public static event Action<SteamRuntimeStatus> StatusChanged;
+
+        public ISteamRuntimeService Service => runtimeService;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+            StatusChanged = null;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateRuntimeInstance()
@@ -41,98 +56,65 @@ namespace FXOverdose.P2P.Infrastructure
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            InitializeSteam();
-        }
+            runtimeService = new SteamRuntimeService(new SteamworksRuntimeBackend());
+            runtimeService.StatusChanged += HandleStatusChanged;
 
-        private void Update()
-        {
-            if (IsInitialized)
+            // Editor에서 RestartAppIfNecessary를 호출하면 Unity 자체가 종료될 수 있습니다.
+            runtimeService.Initialize(DevelopmentAppId, !Application.isEditor);
+            if (CurrentStatus.Error == SteamInitializationError.RestartRequired)
             {
-                SteamAPI.RunCallbacks();
+                Application.Quit();
             }
         }
 
-        private void OnApplicationQuit()
-        {
-            ShutdownSteam();
-        }
+        private void Update() => runtimeService?.PumpCallbacks();
+
+        private void OnApplicationQuit() => ShutdownSteam();
 
         private void OnDestroy()
         {
-            if (Instance == this)
-            {
-                ShutdownSteam();
-                Instance = null;
-            }
-        }
-
-        private static void InitializeSteam()
-        {
-            if (IsInitialized)
+            if (Instance != this)
             {
                 return;
             }
 
-            try
+            ShutdownSteam();
+            Instance = null;
+        }
+
+        private void HandleStatusChanged(SteamRuntimeStatus status)
+        {
+            StatusChanged?.Invoke(status);
+
+            if (status.State == SteamRuntimeState.Ready)
             {
-#if !UNITY_EDITOR
-                if (SteamAPI.RestartAppIfNecessary(new AppId_t(DevelopmentAppId)))
-                {
-                    Debug.Log("[Steam Runtime] Steam을 통해 재실행이 요청되어 현재 프로세스를 종료합니다.");
-                    Application.Quit();
-                    return;
-                }
-#endif
-
-                if (!Packsize.Test())
-                {
-                    Debug.LogError("[Steam Runtime] Steamworks 구조체 Packsize가 현재 플랫폼과 맞지 않습니다.");
-                    return;
-                }
-
-                if (!DllCheck.Test())
-                {
-                    Debug.LogError("[Steam Runtime] Steamworks 네이티브 라이브러리 버전이 맞지 않습니다.");
-                    return;
-                }
-
-                if (!SteamAPI.Init())
-                {
-                    Debug.LogError("[Steam Runtime] SteamAPI.Init 실패. Steam 클라이언트 실행 및 로그인을 확인해 주세요.");
-                    return;
-                }
-
-                IsInitialized = true;
-                LocalSteamId = SteamUser.GetSteamID().m_SteamID;
-                LocalPersonaName = SteamFriends.GetPersonaName();
-                SteamNetworkingUtils.InitRelayNetworkAccess();
-
                 Debug.Log(
                     "[Steam Runtime] READY\n" +
-                    $"App ID: {SteamUtils.GetAppID().m_AppId}\n" +
-                    $"Steam ID: {LocalSteamId}\n" +
-                    $"Persona: {LocalPersonaName}\n" +
+                    $"App ID: {status.AppId}\n" +
+                    $"Steam ID: {status.SteamId}\n" +
+                    $"Persona: {status.PersonaName}\n" +
                     "Steam Networking Sockets: READY");
             }
-            catch (Exception exception)
+            else if (status.State == SteamRuntimeState.Failed)
             {
-                Debug.LogError($"[Steam Runtime] 초기화 예외: {exception}");
-                ShutdownSteam();
+                // 실패해도 게임을 종료하지 않으며 STORY 등 오프라인 모드는 계속 사용할 수 있습니다.
+                Debug.LogWarning($"[Steam Runtime] P2P 비활성화 ({status.Error}): {status.Message}");
+            }
+            else if (status.State == SteamRuntimeState.Shutdown)
+            {
+                Debug.Log("[Steam Runtime] SHUTDOWN");
             }
         }
 
-        private static void ShutdownSteam()
+        private void ShutdownSteam()
         {
-            if (!IsInitialized)
+            if (runtimeService == null)
             {
                 return;
             }
 
-            SteamAPI.Shutdown();
-            IsInitialized = false;
-            LocalSteamId = 0;
-            LocalPersonaName = string.Empty;
-            Debug.Log("[Steam Runtime] SHUTDOWN");
+            runtimeService.Shutdown();
+            runtimeService.StatusChanged -= HandleStatusChanged;
         }
     }
 }

@@ -11,10 +11,16 @@ namespace FXOverdose.P2P.Infrastructure
     /// </summary>
     public static class P2PTechnologyProbe
     {
+        // 패키지 타입을 직접 참조하는 대신 로드된 어셈블리 이름으로 설치 상태를 판별합니다.
+        // 덕분에 선택 패키지가 빠진 환경에서도 이 진단 코드 자체는 컴파일될 수 있습니다.
         private const string NetcodeAssemblyPrefix = "Unity.Netcode";
         private const string SteamworksAssemblyPrefix = "com.rlabrecque.steamworks.net";
         private const string SteamworksFallbackAssemblyPrefix = "Steamworks.NET";
 
+        /// <summary>
+        /// 한 번의 기술 스택 검사 결과를 변경 불가능한 값으로 묶어 전달합니다.
+        /// 실제 Steam 로그인 성공 여부가 아니라 필요한 어셈블리의 로드 여부만 나타냅니다.
+        /// </summary>
         public readonly struct Result
         {
             public Result(
@@ -39,10 +45,17 @@ namespace FXOverdose.P2P.Infrastructure
             public bool HasNetcodeForGameObjects { get; }
             public bool HasSteamworksNet { get; }
             public bool HasSteamTransport { get; }
+
+            // NGO와 Steamworks.NET은 P2P 코드가 컴파일되기 위한 최소 구성입니다.
             public bool HasCorePackages => HasNetcodeForGameObjects && HasSteamworksNet;
+
+            // Transport까지 로드돼야 Steam 연결 프로토타입을 실행할 수 있습니다.
             public bool IsReadyForSteamConnectionPrototype => HasCorePackages && HasSteamTransport;
         }
 
+        /// <summary>
+        /// 현재 AppDomain에 로드된 어셈블리를 조사하여 P2P 기술 준비 상태를 반환합니다.
+        /// </summary>
         public static Result Evaluate()
         {
             string[] assemblyNames = AppDomain.CurrentDomain
@@ -58,6 +71,9 @@ namespace FXOverdose.P2P.Infrastructure
                 name.StartsWith(SteamworksFallbackAssemblyPrefix, StringComparison.OrdinalIgnoreCase) ||
                 name.Equals("Steamworks", StringComparison.OrdinalIgnoreCase));
 
+            // 채택한 패키지의 실제 어셈블리 이름은
+            // "SteamNetworkingSockets Transport for Netcode for GameObjects"입니다.
+            // 특정 구현명에 종속되지 않도록 Steam과 Transport가 함께 포함됐는지 검사합니다.
             bool hasSteamTransport = assemblyNames.Any(name =>
                 name.Contains("Steam", StringComparison.OrdinalIgnoreCase) &&
                 name.Contains("Transport", StringComparison.OrdinalIgnoreCase));
@@ -91,6 +107,7 @@ namespace FXOverdose.P2P.Infrastructure
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 릴리스 빌드에서는 진단 로그를 남기지 않아 불필요한 환경 정보 노출을 피합니다.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void LogDevelopmentReport()
         {
