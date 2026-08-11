@@ -131,13 +131,19 @@ namespace FXOverdose.UI
                     Debug.LogWarning("[LoadingScreen] RequireLLM이 설정되었으나 타겟 씬에 DatingSimLLMController가 없습니다.");
                 }
             }
-            else
+            else if (targetSceneName == "GameScene" || targetSceneName == "tutorial")
             {
                 while (!AreChartSystemsPresent())
                 {
                     SetProgress(0.9f, "PREPARING CHART");
                     yield return null;
                 }
+            }
+            else
+            {
+                // YomiRoom/WorldMap 등 비트레이딩 씬에는 차트 시스템이 존재하지 않습니다.
+                SetProgress(0.9f, "PREPARING UI");
+                yield return null;
             }
 
             SetProgress(1f, "READY");
@@ -158,10 +164,13 @@ namespace FXOverdose.UI
             // 정지 구간이 끝난 다음 게임 시간과 시장을 시작합니다.
             yield return null;
             // 매 진입마다 현재 GameScene의 매니저와 시장을 명시적으로 개장해 Loading 상태 고착을 방지합니다.
-            GameManager gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
-            gameManager?.FinishLoadingAndStartPlaying();
-            MarketSimulationEngine market = Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
-            market?.OpenMarketAfterLoading();
+            if (targetSceneName == "GameScene" || targetSceneName == "tutorial")
+            {
+                GameManager gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager?.FinishLoadingAndStartPlaying();
+                MarketSimulationEngine market = Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
+                market?.OpenMarketAfterLoading();
+            }
 
             Scene loadingScene = gameObject.scene;
             if (loadingScene.IsValid() && loadingScene.isLoaded)
@@ -215,4 +224,3 @@ namespace FXOverdose.UI
         }
     }
 }
-

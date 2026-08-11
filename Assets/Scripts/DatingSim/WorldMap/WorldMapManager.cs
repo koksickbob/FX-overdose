@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using FXOverdose.DatingSim.Core;
+using FXOverdose.UI;
+using UnityEngine.SceneManagement;
+using FXOverdose.Core;
 
 namespace FXOverdose.DatingSim.WorldMap
 {
@@ -76,6 +79,10 @@ namespace FXOverdose.DatingSim.WorldMap
             {
                 gameManager.ChangeBalance(job.rewardAmount);
             }
+            else if (SaveLoadManager.Instance?.CurrentData != null)
+            {
+                SaveLoadManager.Instance.CurrentData.Balance += job.rewardAmount;
+            }
             
             OnJobFinished?.Invoke(job.jobName, job.rewardAmount);
         }
@@ -97,9 +104,23 @@ namespace FXOverdose.DatingSim.WorldMap
 
             // 2. 자금 검사 및 차감 (GameManager 연동)
             var gameManager = FindObjectOfType<GameManager>();
-            if (gameManager == null) return;
-            
-            if (!gameManager.TrySpendBalance(course.moneyCost))
+            bool paid;
+            if (gameManager != null)
+            {
+                paid = gameManager.TrySpendBalance(course.moneyCost);
+            }
+            else if (SaveLoadManager.Instance?.CurrentData != null &&
+                     SaveLoadManager.Instance.CurrentData.Balance >= course.moneyCost)
+            {
+                SaveLoadManager.Instance.CurrentData.Balance -= course.moneyCost;
+                paid = true;
+            }
+            else
+            {
+                paid = false;
+            }
+
+            if (!paid)
             {
                 OnActionFailed?.Invoke(); // 잔고 부족
                 return;
@@ -111,6 +132,13 @@ namespace FXOverdose.DatingSim.WorldMap
             
             // 4. 연출 트리거 (P2_04의 LoadingSceneManager를 통해 씬 전환 예정)
             OnDateStarted?.Invoke(course.courseName);
+        }
+
+        public void ReturnToRoom()
+        {
+            LoadingScreenController.RequireLLM = true;
+            LoadingScreenController.TargetSceneToLoad = "YomiRoomScene";
+            SceneManager.LoadScene("LoadingScene");
         }
     }
 }

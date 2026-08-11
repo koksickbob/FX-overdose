@@ -11,8 +11,6 @@ using LLMUnity;
 
 namespace FXOverdose.DatingSim.LLM
 {
-    [RequireComponent(typeof(LLMUnity.LLM))]
-    [RequireComponent(typeof(LLMUnity.LLMAgent))]
     public class DatingSimLLMController : MonoBehaviour
     {
         public static DatingSimLLMController Instance { get; private set; }
@@ -129,6 +127,13 @@ namespace FXOverdose.DatingSim.LLM
             }
 
             return finalDialogue;
+        }
+
+        // 기존 자유대화 호출부와의 호환용 오버로드입니다. 현재 프롬프트는 단기 대화 버퍼를
+        // 공통으로 사용하며, topic 기반 장기 기억 분기는 추후 Retriever 연동 시 확장합니다.
+        public Task<string> GenerateChatAsync(string userMessage, MemoryTopic topic)
+        {
+            return GenerateChatAsync(userMessage);
         }
 
         private string ConstructPrompt(string userMsg)

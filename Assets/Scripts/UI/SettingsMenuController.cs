@@ -11,6 +11,7 @@ public class SettingsMenuController : MonoBehaviour
     [SerializeField] private Button settingsButton;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private TMP_FontAsset font;
+    [SerializeField] private bool createFloatingModeToggle = true;
 
     private GameObject overlay;
     private bool pausedBySettings;
@@ -39,7 +40,7 @@ public class SettingsMenuController : MonoBehaviour
 
         BuildMenu();
         settingsButton?.onClick.AddListener(ToggleMenu);
-        CreateFloatingModeToggleButton();
+        if (createFloatingModeToggle) CreateFloatingModeToggleButton();
 
         // 오디오 슬라이더 이벤트 연동
         if (bgmVolumeSlider != null)
@@ -54,6 +55,13 @@ public class SettingsMenuController : MonoBehaviour
             if (FXOverdose.Core.AudioManager.Instance != null)
                 sfxVolumeSlider.value = FXOverdose.Core.AudioManager.Instance.sfxVolume;
         }
+    }
+
+    /// <summary>요미 방처럼 설정 버튼만 재사용하는 화면에서는 트레이딩 모드 버튼 생성을 생략합니다.</summary>
+    public void ConfigureRoomButton(Button button)
+    {
+        settingsButton = button;
+        createFloatingModeToggle = false;
     }
 
     public void OnBgmVolumeChanged(float value)
