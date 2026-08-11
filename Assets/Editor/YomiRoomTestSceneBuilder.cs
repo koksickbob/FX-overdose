@@ -7,8 +7,6 @@ using TMPro;
 using System.IO;
 using FXOverdose.DatingSim.Core;
 using FXOverdose.DatingSim.YomiRoom;
-using FXOverdose.DatingSim.LLM;
-using FXOverdose.DatingSim.LLM.Memory;
 
 namespace FXOverdose.EditorTools
 {
@@ -36,16 +34,7 @@ namespace FXOverdose.EditorTools
             // 3. 전역 매니저 세팅 (Logic & Data Layer)
             GameObject managersObj = new GameObject("Managers");
             managersObj.AddComponent<DatingTimeManager>();
-            managersObj.AddComponent<DatingSimMemoryDB>();
-            managersObj.AddComponent<DatingSimLLMController>();
             managersObj.AddComponent<YomiRoomManager>();
-
-            // LLM 모델 기본 경로 자동 할당 (씬 재생성 시 모델 누락 방지)
-            LLMUnity.LLM llm = managersObj.GetComponent<LLMUnity.LLM>();
-            if (llm != null)
-            {
-                llm.model = "Assets/StreamingAssets/Models/Qwen2.5-7B-Instruct-Q4_K_M.gguf";
-            }
 
             // 4. UI 캔버스 세팅
             GameObject canvasObj = new GameObject("Canvas");
@@ -92,7 +81,7 @@ namespace FXOverdose.EditorTools
             TextMeshProUGUI chatLogTxt = CreateText("ChatLogText", chatPanelObj.transform, "대화를 시작하세요.\n");
             chatLogTxt.GetComponent<RectTransform>().sizeDelta = new Vector2(560, 380);
             chatLogTxt.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, 40);
-            chatLogTxt.enableWordWrapping = true;
+            chatLogTxt.textWrappingMode = TextWrappingModes.Normal;
             chatLogTxt.alignment = TextAlignmentOptions.TopLeft;
 
             // InputField 생성을 위해 Image가 필요함

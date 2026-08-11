@@ -59,7 +59,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void BindButtons()
         {
             if (freeChatButton != null)
-                freeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartFreeChat());
+                freeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartChat());
             
             if (restButton != null)
                 restButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryRest());
@@ -74,7 +74,7 @@ namespace FXOverdose.DatingSim.YomiRoom
                 chatSendButton.onClick.AddListener(OnChatSendClicked);
             
             if (closeChatButton != null)
-                closeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.CloseFreeChat());
+                closeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.CloseChat());
         }
 
         private void OnChatSendClicked()
@@ -142,10 +142,9 @@ namespace FXOverdose.DatingSim.YomiRoom
             {
                 roomStateText.text = state switch
                 {
-                    YomiRoomState.LLMLoading => "요미의 생각(LLM)을 불러오는 중...",
-                    YomiRoomState.LLMProcessing => "요미가 대답을 생각하는 중...",
+                    YomiRoomState.Responding => "요미가 대답을 생각하는 중...",
                     YomiRoomState.Idle => "요미가 당신을 기다리고 있어요.",
-                    YomiRoomState.FreeChatting => "요미와 대화하는 중...",
+                    YomiRoomState.Chatting => "요미와 대화하는 중...",
                     YomiRoomState.Resting => "잠시 쉬는 중...",
                     _ => "이동을 준비하고 있어요..."
                 };
@@ -159,16 +158,16 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (tradingButton != null) tradingButton.interactable = isIdle;
 
             // 채팅창 활성화 제어
-            bool isChatting = (state == YomiRoomState.FreeChatting || state == YomiRoomState.LLMProcessing);
+            bool isChatting = (state == YomiRoomState.Chatting || state == YomiRoomState.Responding);
             if (chatPanel != null) chatPanel.SetActive(isChatting);
 
             // 채팅 입력창 제어 (응답 대기 중엔 비활성화)
-            bool canType = (state == YomiRoomState.FreeChatting);
+            bool canType = (state == YomiRoomState.Chatting);
             if (chatInputField != null) chatInputField.interactable = canType;
             if (chatSendButton != null) chatSendButton.interactable = canType;
 
             // 로딩 표시
-            if (state == YomiRoomState.LLMProcessing && chatLogText != null)
+            if (state == YomiRoomState.Responding && chatLogText != null)
             {
                 chatLogText.text += "\n<color=yellow>[System] 요미가 타이핑 중...</color>";
             }

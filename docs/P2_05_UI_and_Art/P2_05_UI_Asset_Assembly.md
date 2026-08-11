@@ -1,7 +1,7 @@
 # P2_05: UI 담당자 전용 가이드 및 조립 문서
 
 ## 개요
-이 문서는 프로그래머 파트에서 작성된 Phase 2의 미연시 코어 로직(YomiRoom, WorldMap, LLM, Loading)을 실제 유니티 에디터 씬 상에서 어떻게 배치하고 UI와 연결해야 하는지 명시하는 **최종 조립 매뉴얼**입니다.
+이 문서는 프로그래머 파트에서 작성된 Phase 2의 미연시 코어 로직(YomiRoom, WorldMap, Dialogue, Loading)을 실제 유니티 에디터 씬 상에서 어떻게 배치하고 UI와 연결해야 하는지 명시하는 **최종 조립 매뉴얼**입니다.
 UI 담당자 및 레벨 디자이너는 아래 가이드에 따라 빈 게임 오브젝트를 생성하고 캔버스의 UI 요소들을 인스펙터에 할당해 주십시오.
 
 ---
@@ -16,7 +16,7 @@ UI 담당자 및 레벨 디자이너는 아래 가이드에 따라 빈 게임 �
   - 집착도(Obsession) 텍스트
   - 현재 상태 알림 텍스트 (피드백 출력용)
 - **액션 버튼 (`Button`)**
-  - `자유대화` 버튼
+  - `대화` 버튼 (구 `자유대화`. 버튼 자체는 유지, 응답 생성 기능만 제거됨)
   - `휴식` 버튼
   - `월드맵 외출` 버튼
   - `트레이딩 시작` 버튼
@@ -25,7 +25,7 @@ UI 담당자 및 레벨 디자이너는 아래 가이드에 따라 빈 게임 �
 씬 계층 구조(Hierarchy) 최상단에 빈 게임 오브젝트를 3개 생성하고 다음 스크립트를 부착하십시오:
 - `YomiRoomManager`
 - `DatingTimeManager` (이미 씬 간 전환 시 넘어왔다면 생략 가능)
-- `DatingSimLLMController` (네임스페이스: `FXOverdose.DatingSim.LLM`)
+- ~~`DatingSimLLMController`~~ — **2026-08-12 삭제됨. 더 이상 부착하지 마십시오.**
 
 ### 3) UI 컨트롤러 바인딩
 1. Canvas 게임 오브젝트에 `YomiRoomUIController` 스크립트를 부착합니다.
@@ -67,12 +67,13 @@ UI 담당자 및 레벨 디자이너는 아래 가이드에 따라 빈 게임 �
 ### 2) 씬 조립 및 바인딩
 - 기존에 존재하던 `LoadingScreenController` 스크립트가 부착된 캔버스/매니저 객체에 방금 생성한 UI 요소들을 할당합니다.
 
-### 3) [중요] 미연시 씬 진입 트리거 가이드
-일반적인 트레이딩 씬 진입과 달리, 미연시 씬(요미의 방, 데이트 씬 등)으로 이동할 때는 **반드시** Qwen2.5 7B 로컬 모델의 로딩 대기 로직을 타야 합니다. 씬 이동 버튼의 OnClick 혹은 스크립트 호출 시 아래와 같이 `RequireLLM` 플래그를 활성화해 주십시오:
+### 3) 씬 진입 트리거 가이드
+
+> [!IMPORTANT]
+> **[2026-08-12 변경]** 자유 채팅(로컬 LLM) 제거로 `RequireLLM` 플래그가 삭제되었습니다. 미연시 씬도 트레이딩 씬과 동일하게 처리하십시오.
 
 ```csharp
-// 미연시 관련 씬으로 이동 시 반드시 추가해야 하는 로직
-FXOverdose.UI.LoadingScreenController.RequireLLM = true;
+// 모든 씬 이동에 공통으로 적용되는 로직
 FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "YomiRoomScene"; // 전환할 대상 씬 입력
 UnityEngine.SceneManagement.SceneManager.LoadScene("LoadingScene");
 ```

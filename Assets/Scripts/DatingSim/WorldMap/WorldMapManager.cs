@@ -74,7 +74,7 @@ namespace FXOverdose.DatingSim.WorldMap
             var job = availableJobs[jobIndex];
             
             // 트레이딩 코어 자산(Balance)에 합산
-            var gameManager = FindObjectOfType<GameManager>();
+            var gameManager = FindAnyObjectByType<GameManager>();
             if (gameManager != null)
             {
                 gameManager.ChangeBalance(job.rewardAmount);
@@ -103,7 +103,7 @@ namespace FXOverdose.DatingSim.WorldMap
             }
 
             // 2. 자금 검사 및 차감 (GameManager 연동)
-            var gameManager = FindObjectOfType<GameManager>();
+            var gameManager = FindAnyObjectByType<GameManager>();
             bool paid;
             if (gameManager != null)
             {
@@ -136,7 +136,6 @@ namespace FXOverdose.DatingSim.WorldMap
 
         public void ReturnToRoom()
         {
-            LoadingScreenController.RequireLLM = true;
             LoadingScreenController.TargetSceneToLoad = "YomiRoomScene";
             SceneManager.LoadScene("LoadingScene");
         }

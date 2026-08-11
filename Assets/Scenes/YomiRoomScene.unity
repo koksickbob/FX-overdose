@@ -1310,56 +1310,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 924960390}
   m_CullTransparentMesh: 1
---- !u!1 &994468814
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 994468816}
-  - component: {fileID: 994468815}
-  m_Layer: 0
-  m_Name: DatingSimLLMController
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &994468815
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 994468814}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ea32607d366a20d4ea6c41980da16cc4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.DatingSim.LLM.DatingSimLLMController
-  memoryRetrievalCount: 2
-  obsessionDistortionThreshold: 70
-  dummyDialogues:
-  - "\uB9C8\uC2A4\uD130... \uBB34\uC2A8 \uC18C\uB9AC \uD558\uB294 \uAC70\uC57C...?"
-  - "\uACC4\uC18D \uB098\uB9CC \uBC14\uB77C\uBD10 \uC918..."
-  - "\uC751, \uB9C8\uC2A4\uD130\uAC00 \uADF8\uB807\uAC8C \uB9D0\uD55C\uB2E4\uBA74..."
---- !u!4 &994468816
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 994468814}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1067916028
 GameObject:
   m_ObjectHideFlags: 0
@@ -3429,5 +3379,4 @@ SceneRoots:
   - {fileID: 1906484990}
   - {fileID: 1699239441}
   - {fileID: 1856213170}
-  - {fileID: 994468816}
   - {fileID: 1564295486}

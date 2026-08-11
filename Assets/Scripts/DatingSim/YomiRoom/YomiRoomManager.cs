@@ -1,21 +1,20 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
 using FXOverdose.DatingSim.Core;
+using FXOverdose.DatingSim.Dialogue;
 using FXOverdose.UI;
 using UnityEngine.SceneManagement;
-using FXOverdose.DatingSim.LLM;
-using FXOverdose.DatingSim.LLM.Memory;
 
 namespace FXOverdose.DatingSim.YomiRoom
 {
     public enum YomiRoomState
     {
-        LLMLoading,     // LLM 모델 로딩 대기 중 (추가)
         Idle,           // 대기 상태 (UI 입력 대기)
-        FreeChatting,   // 자유 대화 중 (LLM 연동 중)
+        Chatting,       // 대화 패널을 연 상태
+        Responding,     // 요미의 응답을 만드는 중
         Resting,        // 휴식 중 (연출 중)
-        Transitioning,  // 월드맵/트레이딩 등 씬 이동 중
-        LLMProcessing   // LLM 응답 대기 중
+        Transitioning   // 월드맵/트레이딩 등 씬 이동 중
     }
 
     public class YomiRoomManager : MonoBehaviour
@@ -25,12 +24,15 @@ namespace FXOverdose.DatingSim.YomiRoom
         [Header("Room Settings")]
         [SerializeField, Tooltip("휴식 시 회복되는 미연시 체력량")]
         private int restStaminaRecoverAmount = 10;
-        
+
         [SerializeField, Tooltip("휴식 시 소모되는 시간 슬롯")]
         private int restTimeSlotCost = 1;
 
-        [SerializeField, Tooltip("자유 대화 시 소모되는 시간 슬롯")]
-        private int freeChatTimeSlotCost = 1;
+        // 자리 표시자 응답이 즉시 반환되어 '생각 중' 연출이 보이지 않는 것을 막는 최소 지연입니다.
+        private const int ResponseDelayMilliseconds = 600;
+
+        // 대화 응답 공급자. 대체 대화 시스템이 확정되면 이 참조만 교체하면 됩니다.
+        private IYomiDialogueProvider dialogueProvider = PlaceholderDialogueProvider.Default;
 
         // 상태 캡슐화 (외부 직접 수정 차단)
         private YomiRoomState currentState = YomiRoomState.Idle;
@@ -43,74 +45,62 @@ namespace FXOverdose.DatingSim.YomiRoom
 
         private void Awake()
         {
-            if (Instance == null) 
+            if (Instance == null)
             {
                 Instance = this;
             }
-            else 
+            else
             {
                 Destroy(gameObject);
             }
         }
 
-        private async void Start()
+        private void Start()
         {
-            // 시작 시 모델이 준비될 때까지 대기
-            ChangeState(YomiRoomState.LLMLoading);
-            
-            if (DatingSimLLMController.Instance != null)
-            {
-                await DatingSimLLMController.Instance.WaitUntilReadyAsync();
-            }
-
-            // 로딩 완료 후 대기 상태로 전환
             ChangeState(YomiRoomState.Idle);
         }
 
+        /// <summary>대체 대화 시스템을 주입합니다. 미주입 시 자리 표시자가 사용됩니다.</summary>
+        public void SetDialogueProvider(IYomiDialogueProvider provider)
+        {
+            dialogueProvider = provider ?? PlaceholderDialogueProvider.Default;
+        }
+
         // --- 외부(UI 버튼 등) 호출용 public 인터페이스 ---
-        
-        public void TryStartFreeChat()
+
+        public void TryStartChat()
         {
             if (currentState != YomiRoomState.Idle) return;
-            
-            if (DatingTimeManager.Instance != null && DatingTimeManager.Instance.TryConsumeTimeSlot(freeChatTimeSlotCost))
-            {
-                ChangeState(YomiRoomState.FreeChatting);
-            }
-            else
-            {
-                OnActionFailed?.Invoke();
-            }
+
+            // TODO(P2): 대체 대화 시스템 확정 시 시간 슬롯 소모 비용을 다시 붙입니다.
+            //           자리 표시자 응답만 나오는 현재는 자원을 소모시키지 않습니다.
+            ChangeState(YomiRoomState.Chatting);
         }
 
         public async void ProcessUserChatInput(string userMessage)
         {
-            if (currentState != YomiRoomState.FreeChatting) return;
+            if (currentState != YomiRoomState.Chatting) return;
 
-            ChangeState(YomiRoomState.LLMProcessing);
+            ChangeState(YomiRoomState.Responding);
 
-            if (DatingSimLLMController.Instance != null)
-            {
-                string response = await DatingSimLLMController.Instance.GenerateChatAsync(userMessage, MemoryTopic.Daily);
-                
-                OnChatUpdated?.Invoke(userMessage, response);
-                
-                // 대화 성공 시 임시로 호감도 소폭 증가 연동
-                DatingTimeManager.Instance.ModifyAffection(UnityEngine.Random.Range(1, 4));
-            }
-            else
-            {
-                Debug.LogError("[YomiRoom] DatingSimLLMController.Instance가 없습니다.");
-                OnChatUpdated?.Invoke(userMessage, "(시스템 오류: LLM 응답 실패)");
-            }
+            string response = dialogueProvider.GetResponse(userMessage);
+            await Task.Delay(ResponseDelayMilliseconds);
 
-            // 응답 완료 후 다시 채팅 대기 상태로 복귀
-            ChangeState(YomiRoomState.FreeChatting);
+            // 씬 전환 등으로 매니저가 파괴된 뒤 응답이 도착하는 경우를 방어합니다.
+            if (this == null) return;
+
+            OnChatUpdated?.Invoke(userMessage, response);
+
+            // TODO(P2): 실제 대화가 성립할 때만 호감도를 지급합니다.
+            //           자리 표시자 응답으로 호감도를 올리면 밸런스가 왜곡되므로 보류합니다.
+
+            // 응답 완료 후 다시 대화 대기 상태로 복귀
+            ChangeState(YomiRoomState.Chatting);
         }
 
-        public void CloseFreeChat()
+        public void CloseChat()
         {
-            if (currentState == YomiRoomState.FreeChatting)
+            if (currentState == YomiRoomState.Chatting)
             {
                 ChangeState(YomiRoomState.Idle);
             }
@@ -119,7 +109,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         public void TryRest()
         {
             if (currentState != YomiRoomState.Idle) return;
-            
+
             if (DatingTimeManager.Instance != null && DatingTimeManager.Instance.TryConsumeTimeSlot(restTimeSlotCost))
             {
                 ChangeState(YomiRoomState.Resting);
@@ -137,7 +127,6 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
-            LoadingScreenController.RequireLLM = false;
             LoadingScreenController.TargetSceneToLoad = "WorldMapScene";
             SceneManager.LoadScene("LoadingScene");
         }
@@ -146,7 +135,6 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
-            LoadingScreenController.RequireLLM = false;
             LoadingScreenController.TargetSceneToLoad = "GameScene";
             SceneManager.LoadScene("LoadingScene");
         }
@@ -154,7 +142,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         /// <summary>대화 UI 또는 방 내부 연출이 종료된 뒤 탐색 상태로 복귀합니다.</summary>
         public void CompleteRoomInteraction()
         {
-            if (currentState == YomiRoomState.FreeChatting || currentState == YomiRoomState.Resting)
+            if (currentState == YomiRoomState.Chatting || currentState == YomiRoomState.Resting)
                 ChangeState(YomiRoomState.Idle);
         }
 

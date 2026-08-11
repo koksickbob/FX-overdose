@@ -189,7 +189,7 @@ namespace FXOverdose.DatingSim.WorldMap
 
         private void UpdateBalanceUI()
         {
-            var gm = FindObjectOfType<GameManager>();
+            var gm = FindAnyObjectByType<GameManager>();
             if (gm != null && balanceText != null)
             {
                 balanceText.text = $"보유 자산  ₩{gm.CurrentBalance:N0}";

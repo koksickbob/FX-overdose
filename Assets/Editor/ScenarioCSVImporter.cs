@@ -4,7 +4,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace FXOverdose.DatingSim.LLM.Scenario.Editor
+namespace FXOverdose.DatingSim.Scenario.Editor
 {
     public class ScenarioCSVImporter : EditorWindow
     {

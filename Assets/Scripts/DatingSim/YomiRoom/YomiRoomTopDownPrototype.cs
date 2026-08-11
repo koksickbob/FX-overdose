@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -5,8 +7,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using FXOverdose.DatingSim.Core;
-using FXOverdose.DatingSim.LLM;
-using FXOverdose.DatingSim.LLM.Memory;
+using FXOverdose.DatingSim.Dialogue;
 
 namespace FXOverdose.DatingSim.YomiRoom
 {
@@ -51,6 +52,9 @@ namespace FXOverdose.DatingSim.YomiRoom
         private Button confirmButton;
         private bool inputLocked;
 
+        // 방 안 상호작용 오브젝트는 개수가 고정적이므로 캐싱합니다. 매 프레임 씬 전체를 스캔하지 않기 위함입니다.
+        private readonly List<YomiRoomInteractable> interactables = new List<YomiRoomInteractable>();
+
         public Vector2 MoveInput => input;
 
         public void Configure(Rigidbody2D playerBody, TMP_Text prompt, TMP_Text feedback,
@@ -64,6 +68,14 @@ namespace FXOverdose.DatingSim.YomiRoom
             modalTitle = title;
             modalBody = bodyText;
             confirmButton = confirm;
+            RefreshInteractables();
+        }
+
+        /// <summary>방 안 상호작용 오브젝트 목록을 다시 수집합니다. 오브젝트를 런타임에 추가/제거했다면 호출하십시오.</summary>
+        public void RefreshInteractables()
+        {
+            interactables.Clear();
+            interactables.AddRange(FindObjectsByType<YomiRoomInteractable>(FindObjectsInactive.Exclude));
         }
 
         private void Update()
@@ -103,8 +115,11 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             YomiRoomInteractable best = null;
             float bestDistance = interactionRadius;
-            foreach (YomiRoomInteractable candidate in FindObjectsByType<YomiRoomInteractable>(FindObjectsSortMode.None))
+            for (int i = 0; i < interactables.Count; i++)
             {
+                YomiRoomInteractable candidate = interactables[i];
+                if (candidate == null) continue; // 파괴된 오브젝트 방어
+
                 float distance = Vector2.Distance(body.position, candidate.transform.position);
                 if (distance >= bestDistance) continue;
                 best = candidate;
@@ -400,6 +415,12 @@ namespace FXOverdose.DatingSim.YomiRoom
         private bool sending;
         private bool sessionStarted;
 
+        // 자리 표시자 응답이 즉시 반환되어 '생각 중' 연출이 보이지 않는 것을 막는 최소 지연입니다.
+        private const int ResponseDelayMilliseconds = 600;
+
+        // 대화 응답 공급자. 대체 대화 시스템이 확정되면 이 참조만 교체하면 됩니다.
+        private IYomiDialogueProvider dialogueProvider = PlaceholderDialogueProvider.Default;
+
         public void Configure(RectTransform content, TMP_InputField input, Button send, ScrollRect scroll,
             Sprite yomiFrame, Sprite masterFrame, Sprite portraitFrame, Sprite yomiPortrait)
         {
@@ -434,13 +455,8 @@ namespace FXOverdose.DatingSim.YomiRoom
 
             if (!sessionStarted)
             {
-                if (DatingTimeManager.Instance == null || DatingTimeManager.Instance.CurrentTimeSlot < 1)
-                {
-                    AppendLine("SYSTEM", "남은 시간 슬롯이 부족합니다.", "#F87171");
-                    return;
-                }
-
-                YomiRoomManager.Instance?.TryStartFreeChat();
+                // TODO(P2): 대체 대화 시스템이 확정되면 시간 슬롯 소모 조건을 다시 붙입니다.
+                YomiRoomManager.Instance?.TryStartChat();
                 sessionStarted = true;
             }
 
@@ -451,18 +467,12 @@ namespace FXOverdose.DatingSim.YomiRoom
             AppendLine("마스터", message, "#22D3EE");
             AppendLine("요미", "...", "#F472B6");
 
-            string response;
-            try
-            {
-                response = DatingSimLLMController.Instance != null
-                    ? await DatingSimLLMController.Instance.GenerateChatAsync(message, MemoryTopic.Daily)
-                    : "마스터, 지금은 대화 준비가 아직 안 됐어...";
-            }
-            catch (System.Exception exception)
-            {
-                Debug.LogException(exception);
-                response = "미안해, 잠깐 생각이 끊겼어. 다시 말해 줄래?";
-            }
+            string response = dialogueProvider.GetResponse(message);
+            // 응답이 즉시 반환되므로 '생각 중' 연출이 보이도록 최소 지연을 줍니다.
+            await Task.Delay(ResponseDelayMilliseconds);
+
+            // 씬 전환 등으로 패널이 파괴된 뒤 응답이 도착하는 경우를 방어합니다.
+            if (this == null || messageContent == null) return;
 
             RemoveThinkingLine();
             AppendLine("요미", response, "#F472B6");

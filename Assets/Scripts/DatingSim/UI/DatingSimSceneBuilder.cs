@@ -5,7 +5,6 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using FXOverdose.DatingSim.Core;
-using FXOverdose.DatingSim.LLM;
 using FXOverdose.DatingSim.WorldMap;
 using FXOverdose.DatingSim.YomiRoom;
 
@@ -51,8 +50,6 @@ namespace FXOverdose.DatingSim.UI
         {
             if (FindInScene<YomiRoomManager>(scene) == null)
                 CreateInScene<YomiRoomManager>(scene, "YomiRoomManager");
-            if (FindInScene<DatingSimLLMController>(scene) == null)
-                CreateInScene<DatingSimLLMController>(scene, "DatingSimLLMController");
 
             // P2_03: 버튼 메뉴 대신 실제로 걸어 다니는 탑다운 방 프로토타입을 우선 사용합니다.
             YomiRoomTopDownPrototype.Build(scene);

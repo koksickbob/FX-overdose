@@ -47,7 +47,7 @@ flowchart TD
 | LoadingScene | `Canvas_LoadingScreen` | `LoadingScreenBuilder` 자동 생성 | 로딩 이미지, 진행 바, 상태 문구 |
 | GameScene | `TradingViewCanvas` | 씬 직렬화 + 다수 Bootstrap | 차트, 주문, PnL, 상점, 인벤토리, 스킬, 보스 |
 | tutorial | `TradingViewCanvas` | GameScene 구조 + TutorialManager | 트레이딩 UI, 하이라이트, 만화 컷씬 |
-| YomiRoomScene | `Canvas_YomiRoomTopDown` | `DatingSimSceneBuilder` 자동 생성 | 탑다운 방, 상태 카드, 자유대화, 설정 |
+| YomiRoomScene | `Canvas_YomiRoomTopDown` | `DatingSimSceneBuilder` 자동 생성 | 탑다운 방, 상태 카드, 대화, 설정 |
 | WorldMapScene | `Canvas_WorldMap` | 씬 + `DatingSimSceneBuilder` 보장 | 알바, 데이트, 방 복귀, 상태 표시 |
 
 ## 4. 공통 Canvas 규칙
@@ -120,7 +120,10 @@ Canvas_LoadingScreen
 - 이미지 리소스: `Resources/UI/Loading/SleepingChibi`
 - `LoadingScreenController.Configure()`에 Slider, 진행률, 상태 텍스트, CanvasGroup을 전달한다.
 
-LLM 준비가 필요한 씬 전환에서는 `LoadingScreenController.RequireLLM`과 `TargetSceneToLoad`를 설정한 뒤 LoadingScene으로 이동해야 한다.
+씬 전환 시에는 `LoadingScreenController.TargetSceneToLoad`를 설정한 뒤 LoadingScene으로 이동한다.
+
+> [!NOTE]
+> **[2026-08-12 변경]** 자유 채팅(로컬 LLM) 제거로 `RequireLLM` 플래그는 삭제되었습니다. 설정할 값은 `TargetSceneToLoad` 하나뿐입니다.
 
 ## 7. GameScene 트레이딩 UI
 
@@ -205,7 +208,7 @@ Bootstrap은 `TradingViewCanvas`를 우선 검색하고 없으면 Root Canvas를
 
 ### 9.1 생성 흐름
 
-`DatingSimSceneBuilder`가 YomiRoomScene 진입을 감지하고 `YomiRoomManager`, `DatingSimLLMController`를 보장한 뒤 `YomiRoomTopDownPrototype.Build()`를 호출한다.
+`DatingSimSceneBuilder`가 YomiRoomScene 진입을 감지하고 `YomiRoomManager`를 보장한 뒤 `YomiRoomTopDownPrototype.Build()`를 호출한다.
 
 담당 코드:
 
@@ -231,7 +234,10 @@ Canvas_YomiRoomTopDown
 └── InteractionModal
 ```
 
-상태 카드는 `DatingTimeManager` 이벤트에 연결된다. 채팅은 `YomiRoomDialogueUI`가 `DatingSimLLMController.GenerateChatAsync()`를 호출하며 첫 자유대화에서 시간 슬롯을 확인한다.
+상태 카드는 `DatingTimeManager` 이벤트에 연결된다. 채팅은 `YomiRoomDialogueUI`가 `IYomiDialogueProvider.GetResponse()`를 호출한다.
+
+> [!NOTE]
+> **[2026-08-12 변경]** 자유 채팅(로컬 LLM)이 제거되어 현재는 자리 표시자(`PlaceholderDialogueProvider`)가 고정 대사를 반환하며, 시간 슬롯을 소모하지 않습니다. **채팅 UI 계층과 리소스는 그대로 유지**되므로 UI 작업에는 영향이 없습니다.
 
 채팅 프레임 리소스:
 
