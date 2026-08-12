@@ -43,7 +43,7 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
-        public void Liquidation_ClosesPositionButRemainingEquityPreventsFalseBankruptcy()
+        public void Liquidation_WithCatastrophicLoss_DepletesMentalAndEliminatesPlayer()
         {
             var rules = new P2PMatchRules(maximumMarginRatio: 0.99d, tradingFeeRate: 0d);
             var match = new P2PLocalMatch(rules);
@@ -51,12 +51,27 @@ namespace FXOverdose.P2P.Core.Tests
             match.Start(100d);
             match.SubmitTrade(1, new P2PTradeRequest(1, P2PTradeAction.OpenLong, 10, 0.99d));
 
-            // 남은 1% 현금 때문에 청산 후 총자산이 0보다 커서 아직 파산은 아닙니다.
+            // 현금이 조금 남아도 대규모 실현 손실로 멘탈이 0이면 멘탈 탈락입니다.
             match.UpdateMarketPrice(90.5d, 10);
 
             Assert.That(player.Position.IsOpen, Is.False);
-            Assert.That(player.IsEliminated, Is.False);
+            Assert.That(player.IsEliminated, Is.True);
+            Assert.That(player.EliminationReason, Is.EqualTo(P2PEliminationReason.MentalDepleted));
             Assert.That(player.CashBalance, Is.GreaterThan(0d));
+        }
+
+        [Test]
+        public void ConsecutiveRealizedLosses_ImmediatelyReduceAuthoritativeMental()
+        {
+            var match=new P2PLocalMatch(new P2PMatchRules(tradingFeeRate:0d));
+            var player=match.AddPlayer(1,"P1");match.Start(100d);
+            match.SubmitTrade(1,new P2PTradeRequest(1,P2PTradeAction.OpenLong,1,.5d));
+            match.UpdateMarketPrice(90d,1);match.SubmitTrade(1,new P2PTradeRequest(2,P2PTradeAction.ClosePosition));
+            double afterFirst=player.Mental;
+            match.SubmitTrade(1,new P2PTradeRequest(3,P2PTradeAction.OpenLong,1,.5d));
+            match.UpdateMarketPrice(81d,2);match.SubmitTrade(1,new P2PTradeRequest(4,P2PTradeAction.ClosePosition));
+            Assert.That(afterFirst,Is.LessThan(100d));
+            Assert.That(player.Mental,Is.LessThan(afterFirst));
         }
     }
 }

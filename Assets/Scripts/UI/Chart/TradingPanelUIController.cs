@@ -1391,7 +1391,11 @@ namespace FXOverdose.UI.Chart
 
                 if (profit)
                 {
+                    // 수익 실현은 초록색으로 한 번 점멸해 손실의 빨간 점멸과 동일하게 결과를 즉시 전달합니다.
+                    positionFxDim.color = new Color(resultColor.r, resultColor.g, resultColor.b, 0.20f);
                     SpawnPixelParticles(resultColor, isLong ? 1 : -1);
+                    yield return new WaitForSecondsRealtime(0.18f);
+                    positionFxDim.color = Color.clear;
                 }
                 else
                 {

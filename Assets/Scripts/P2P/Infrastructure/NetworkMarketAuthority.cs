@@ -11,7 +11,8 @@ namespace FXOverdose.P2P.Infrastructure
     {
         private const string SnapshotMessage = "FXO.P2P.MarketSnapshot.v1";
         private const string RequestMessage = "FXO.P2P.MarketSnapshotRequest.v1";
-        private const double SnapshotInterval = 0.2;
+        // 기존 차트의 분당 5틱 움직임을 클라이언트에서도 빠뜨리지 않도록 10Hz로 복제합니다.
+        private const double SnapshotInterval = 0.1;
         private NetworkManager networkManager;
         private P2PMarketSimulationEngine hostEngine;
         private P2PMarketReplica replica = new();

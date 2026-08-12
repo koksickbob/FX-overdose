@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FXOverdose.Trading;
+using FXOverdose.P2P.Market;
 
 #pragma warning disable CS0649
 
@@ -67,9 +68,16 @@ namespace FXOverdose.UI.Chart
         private TMP_Text entryDirectionTagText;
         private Image entryDirectionLineImage;
         private readonly List<Image> entryDirectionDashes = new List<Image>();
+        private readonly List<CandleData> p2pMinuteCandles = new List<CandleData>();
+        private CandleData p2pLiveCandle;
+        private float p2pCurrentPrice;
+        private bool useP2PMarket;
 
         private void Start()
         {
+            // P2P도 기존 MarketSimulationEngine의 캔들 버퍼를 외부 가격 입력으로 구동합니다.
+            // 별도 차트 데이터 경로를 사용하지 않아 싱글과 동일한 렌더링을 유지합니다.
+            useP2PMarket = false;
             ApplyMainHudHorizontalMargins();
             if (marketEngine == null)
             {
@@ -156,6 +164,44 @@ namespace FXOverdose.UI.Chart
             UpdateButtonHighlight(btn1D, tf == Timeframe.D1);
 
             RefreshChartDisplay();
+        }
+
+        /// <summary>P2P 호스트 스냅샷을 기존 캔들 차트 렌더러에 공급합니다.</summary>
+        public void ApplyP2PSnapshot(P2PMarketSnapshot snapshot)
+        {
+            useP2PMarket = true;
+            p2pCurrentPrice = (float)snapshot.Price;
+            var next = new CandleData(snapshot.TotalMinutes, (float)snapshot.Open, (float)snapshot.High,
+                (float)snapshot.Low, (float)snapshot.Price, (float)snapshot.Volume);
+            if (p2pLiveCandle != null && p2pLiveCandle.timestampMinutes != next.timestampMinutes)
+            {
+                p2pMinuteCandles.Add(p2pLiveCandle);
+                if (p2pMinuteCandles.Count > 1440) p2pMinuteCandles.RemoveAt(0);
+            }
+            p2pLiveCandle = next;
+            UpdatePriceHeaderP2P(p2pCurrentPrice);
+            RefreshChartDisplay();
+        }
+
+        private List<CandleData> GetP2PCandles(Timeframe timeframe)
+        {
+            int size=(int)timeframe;if(size<=1)return new List<CandleData>(p2pMinuteCandles);
+            var result=new List<CandleData>();var bucket=new List<CandleData>();long bucketStart=-1;
+            foreach(var candle in p2pMinuteCandles){long start=candle.timestampMinutes/size*size;if(bucketStart>=0&&start!=bucketStart){result.Add(CandleData.Aggregate(bucket,bucketStart));bucket.Clear();}bucketStart=start;bucket.Add(candle);}
+            if(bucket.Count>0)result.Add(CandleData.Aggregate(bucket,bucketStart));return result;
+        }
+
+        private CandleData GetP2PLiveCandle(Timeframe timeframe)
+        {
+            if(p2pLiveCandle==null)return null;int size=(int)timeframe;if(size<=1)return p2pLiveCandle;
+            long start=p2pLiveCandle.timestampMinutes/size*size;var bucket=new List<CandleData>();foreach(var c in p2pMinuteCandles)if(c.timestampMinutes>=start)bucket.Add(c);bucket.Add(p2pLiveCandle);return CandleData.Aggregate(bucket,start);
+        }
+
+        private void UpdatePriceHeaderP2P(float current)
+        {
+            if(priceHeaderLabel!=null)priceHeaderLabel.text=current.ToString("N1");
+            float open=p2pMinuteCandles.Count>0?p2pMinuteCandles[0].open:(p2pLiveCandle?.open??current);float pct=open>0?(current-open)/open*100f:0;
+            if(priceChangeLabel!=null){priceChangeLabel.text=$"≈ ${current:N2} {pct:+0.00;-0.00;0.00}%";priceChangeLabel.color=pct>=0?bullishText:bearishText;}
         }
 
         private void UpdateButtonHighlight(Button btn, bool isSelected)
@@ -371,15 +417,15 @@ namespace FXOverdose.UI.Chart
         // 화면에 차트를 그리는 메인 로직
         public void RefreshChartDisplay()
         {
-            if (marketEngine == null || chartAreaTransform == null || candlePrefab == null)
+            if ((!useP2PMarket && marketEngine == null) || chartAreaTransform == null || candlePrefab == null)
             {
                 return;
             }
 
             CleanupOldScrollView();
 
-            List<CandleData> history = marketEngine.GetCandleHistory(currentSelectedTimeframe);
-            CandleData liveCandle = marketEngine.GetLiveCandle(currentSelectedTimeframe);
+            List<CandleData> history = useP2PMarket ? GetP2PCandles(currentSelectedTimeframe) : marketEngine.GetCandleHistory(currentSelectedTimeframe);
+            CandleData liveCandle = useP2PMarket ? GetP2PLiveCandle(currentSelectedTimeframe) : marketEngine.GetLiveCandle(currentSelectedTimeframe);
 
             float chartWidth = chartAreaTransform.rect.width > 0 ? chartAreaTransform.rect.width : 700f;
             float chartHeight = chartAreaTransform.rect.height > 0 ? chartAreaTransform.rect.height : 400f;
@@ -469,7 +515,7 @@ namespace FXOverdose.UI.Chart
             }
 
             UpdateXAxisTimeLabels(visibleCandles);
-            UpdateCurrentPriceLine(marketEngine.CurrentPrice);
+            UpdateCurrentPriceLine(useP2PMarket ? p2pCurrentPrice : marketEngine.CurrentPrice);
         }
 
         // 우측 Y축 눈금 업데이트

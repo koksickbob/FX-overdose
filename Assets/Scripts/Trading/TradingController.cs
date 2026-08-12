@@ -6,6 +6,18 @@ namespace FXOverdose.Trading
 {
     public class TradingController : MonoBehaviour
     {
+        private bool p2pExternalMode;
+        private float p2pUnrealizedPnL;
+        public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
+        public void ApplyP2PVisualState(FXOverdose.P2P.Core.P2PPlayerTradeSnapshot state,float currentPrice)
+        {
+            PositionType next=state.Side==FXOverdose.P2P.Core.P2PPositionSide.Long?PositionType.Long:state.Side==FXOverdose.P2P.Core.P2PPositionSide.Short?PositionType.Short:PositionType.None;
+            PositionType previous=currentPosition;float previousPnl=p2pUnrealizedPnL;currentPosition=next;currentOwner=OwnerType.Player;entryPrice=(float)state.EntryPrice;marginAmount=(float)state.Margin;currentLeverage=state.Leverage;p2pUnrealizedPnL=(float)state.UnrealizedPnL;
+            if(next!=PositionType.None&&state.EntryPrice>0){float distance=(float)state.EntryPrice/Mathf.Max(1,state.Leverage);liquidationPrice=next==PositionType.Long?(float)state.EntryPrice-distance:(float)state.EntryPrice+distance;}
+            if(previous==PositionType.None&&next!=PositionType.None){OnPositionOpened?.Invoke(next,marginAmount,currentLeverage);OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionOpened,FXOverdose.AI.DialoguePriority.High);}
+            else if(previous!=PositionType.None&&next==PositionType.None){playerTradeCooldownEndTime=Time.time+PlayerTradeCooldownSeconds;OnPositionClosed?.Invoke(Mathf.Max(0,marginAmount+previousPnl),previousPnl);OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed,FXOverdose.AI.DialoguePriority.High);}
+            OnPositionChanged?.Invoke();
+        }
         public enum PositionType
         {
             None,
@@ -330,6 +342,7 @@ namespace FXOverdose.Trading
 
         private void Update()
         {
+            if(p2pExternalMode)return;
             // 일시정지/정산 중에는 자동 보호시간 만료가 포지션을 청산하지 않게 합니다.
             // 특히 Settlement에서는 GameManager가 잔고 변경을 거부하므로, 여기서 청산하면
             // 회수금 반영 없이 포지션만 초기화될 수 있습니다.
@@ -1142,6 +1155,7 @@ namespace FXOverdose.Trading
         // 실시간 미실현 손익 (Unrealized PnL) 계산
         public float CalculateUnrealizedPnL()
         {
+            if(p2pExternalMode)return p2pUnrealizedPnL;
             if (currentPosition == PositionType.None || marketEngine == null || entryPrice <= 0f)
             {
                 return 0f;

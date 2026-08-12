@@ -63,7 +63,7 @@ namespace FXOverdose.P2P.Core
             processedRequests.Add(key);
 
             if (request.Action == P2PTradeAction.ClosePosition)
-                P2PTradeCalculator.ClosePosition(player, Rules, MarketPrice);
+                ClosePositionAndApplyVitals(player);
             else
                 P2PTradeCalculator.OpenPosition(player, request, Rules, MarketPrice);
 
@@ -83,7 +83,7 @@ namespace FXOverdose.P2P.Core
 
                 player.Position.MarkToMarket(marketPrice);
                 if (P2PTradeCalculator.HasReachedLiquidationPrice(player.Position, marketPrice))
-                    P2PTradeCalculator.ClosePosition(player, Rules, marketPrice);
+                    ClosePositionAndApplyVitals(player);
 
                 P2PEliminationEvaluator.EvaluateAndApply(player, serverTick);
             }
@@ -91,11 +91,23 @@ namespace FXOverdose.P2P.Core
 
         public IReadOnlyList<P2PPlayerRuntimeState> GetLeaderboard() => MultiplayerLeaderboard.Rank(players.Values);
 
+        private void ClosePositionAndApplyVitals(P2PPlayerRuntimeState player)
+        {
+            if (player == null || !player.Position.IsOpen) return;
+            player.Position.MarkToMarket(MarketPrice);
+            double exitFee=P2PTradeCalculator.CalculateFee(player.Position.MarginAmount,player.Position.Leverage,Rules.TradingFeeRate);
+            double realizedPnl=player.Position.UnrealizedPnL-exitFee;
+            P2PTradeCalculator.ClosePosition(player,Rules,MarketPrice);
+            // 싱글플레이 정산 규칙과 동일하게 손실 5%를 멘탈 피해로, 수익 2%와 체력 5를 회복으로 반영합니다.
+            if(realizedPnl<0)player.ChangeMental(realizedPnl*.05d);
+            else if(realizedPnl>0){player.ChangeMental(realizedPnl*.02d);player.ChangeHealth(5d);}
+        }
+
         public void Finish()
         {
             if (Phase != P2PMatchPhase.Playing) return;
             foreach (P2PPlayerRuntimeState player in players.Values)
-                if (player.Position.IsOpen) P2PTradeCalculator.ClosePosition(player, Rules, MarketPrice);
+                if (player.Position.IsOpen) ClosePositionAndApplyVitals(player);
             Phase = P2PMatchPhase.Finished;
         }
 

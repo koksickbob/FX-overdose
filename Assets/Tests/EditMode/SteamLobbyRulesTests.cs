@@ -51,6 +51,14 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
+        public void CanStart_AllowsSoloHostForLocalMultiplayerVerification()
+        {
+            var members = new List<SteamLobbyMember> { new SteamLobbyMember(1, "Host", true, false, 0) };
+            var lobby = new SteamLobbySnapshot(10, 1, new SteamLobbySettings(4, 20, 0.5), 1, false, members);
+            Assert.That(SteamLobbyRules.CanStart(lobby, 1), Is.True);
+        }
+
+        [Test]
         public void CanStart_RejectsStartedLobbyAndStaleReadyClient()
         {
             var stale = new List<SteamLobbyMember>

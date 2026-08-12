@@ -4,6 +4,14 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    private bool p2pExternalMode;
+    public void EnableP2PExternalMode(){p2pExternalMode=true;currentState=GameState.Playing;}
+    public void ApplyP2PState(int totalMinutes,float balance)
+    {
+        int nextHour=totalMinutes/60,nextMinute=totalMinutes%60;bool minuteChanged=nextHour!=currentHour||nextMinute!=currentMinute;
+        currentDay=1;currentHour=nextHour;currentMinute=nextMinute;currentBalance=balance;currentState=GameState.Playing;
+        if(minuteChanged)OnGameMinuteAdvanced?.Invoke();
+    }
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
     // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
@@ -122,6 +130,7 @@ public class GameManager : MonoBehaviour
     // 게임 시작 시 한 번 실행
     private void Start()
     {
+        if(p2pExternalMode){currentDay=1;currentHour=9;currentMinute=0;currentState=GameState.Playing;EnsureDayTimeBackgroundController();return;}
         var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
         if (saveManager != null && saveManager.IsPendingLoad)
         {
@@ -152,6 +161,7 @@ public class GameManager : MonoBehaviour
     // 게임 실행 중 매 프레임 호출
     private void Update()
     {
+        if(p2pExternalMode)return;
         // 게임 진행 상태가 아니면 시간을 흐르게 하지 않음
         if (currentState != GameState.Playing)
         {

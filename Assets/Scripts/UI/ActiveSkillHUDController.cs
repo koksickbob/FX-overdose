@@ -549,6 +549,7 @@ public static class ActiveSkillHUDBootstrap
 
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true) return;
         if (scene.name != "GameScene" &&
             !string.Equals(scene.name, "tutorial", System.StringComparison.OrdinalIgnoreCase))
         {

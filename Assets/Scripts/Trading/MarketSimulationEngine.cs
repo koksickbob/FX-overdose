@@ -6,6 +6,13 @@ namespace FXOverdose.Trading
 {
     public class MarketSimulationEngine : MonoBehaviour
     {
+        private bool p2pExternalMode;
+        public void EnableP2PExternalMode()=>p2pExternalMode=true;
+        public void ApplyP2PExternalTick(float price,float bid,float ask,float volume)
+        {
+            if(!IsDataPrepared)return;currentPrice=price;currentBidPrice=bid;currentAskPrice=ask;currentSpread=Mathf.Max(0,ask-bid);
+            UpdateLiveCandlesWithTick(price,Mathf.Max(0,volume));OnPriceUpdated?.Invoke(price);
+        }
         // 시장 거시 국면 (Regime)
         public enum MarketRegime
         {
@@ -317,6 +324,7 @@ namespace FXOverdose.Trading
 
         private void Update()
         {
+            if(p2pExternalMode)return;
             if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || !IsMarketOpen)
             {
                 return;

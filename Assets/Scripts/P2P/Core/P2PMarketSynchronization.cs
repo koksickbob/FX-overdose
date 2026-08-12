@@ -35,6 +35,7 @@ namespace FXOverdose.P2P.Market
     {
         private uint randomState;
         private double minuteAccumulator;
+        private double tickAccumulator;
 
         public P2PMarketSimulationEngine(int seed, double initialPrice = 67842.1)
         {
@@ -54,13 +55,18 @@ namespace FXOverdose.P2P.Market
         {
             if (realSeconds <= 0 || secondsPerGameMinute <= 0 || Snapshot.Paused || Snapshot.IsFinished) return;
             minuteAccumulator += realSeconds;
-            while (minuteAccumulator >= secondsPerGameMinute && !Snapshot.IsFinished)
+            tickAccumulator += realSeconds;
+            double tickInterval = secondsPerGameMinute / 5d;
+            while (tickAccumulator >= tickInterval && !Snapshot.IsFinished)
             {
-                minuteAccumulator -= secondsPerGameMinute;
-                double noise = (NextUnit() - 0.5) * 0.0024;
+                tickAccumulator -= tickInterval;
+                bool advanceMinute = minuteAccumulator >= secondsPerGameMinute;
+                if (advanceMinute) minuteAccumulator -= secondsPerGameMinute;
+                // 기존 시장처럼 한 게임 분을 다섯 개의 작은 틱으로 구성합니다.
+                double noise = (NextUnit() - 0.5) * 0.00108;
                 double meanReversion = (67842.1 - Snapshot.Price) / 67842.1 * 0.00012;
                 double next = Math.Max(10, Snapshot.Price * (1 + noise + meanReversion));
-                Apply(next, Snapshot.TotalMinutes + 1, false, Math.Abs(noise) * 1000);
+                Apply(next, Snapshot.TotalMinutes + (advanceMinute ? 1 : 0), false, Math.Abs(noise) * 200);
             }
         }
 

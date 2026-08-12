@@ -40,6 +40,18 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
+        public void OneGameMinute_ContainsFivePriceTicksAndOneMinuteAdvance()
+        {
+            var engine=new P2PMarketSimulationEngine(77);engine.SetPaused(false);ulong start=engine.Snapshot.Sequence;
+            engine.Advance(0.665,0.666);
+            Assert.That(engine.Snapshot.TotalMinutes,Is.EqualTo(9*60));
+            Assert.That(engine.Snapshot.Sequence-start,Is.EqualTo(4));
+            engine.Advance(0.002,0.666);
+            Assert.That(engine.Snapshot.TotalMinutes,Is.EqualTo(9*60+1));
+            Assert.That(engine.Snapshot.Sequence-start,Is.EqualTo(5));
+        }
+
+        [Test]
         public void Replica_DiscardsLateSnapshot()
         {
             var engine = new P2PMarketSimulationEngine(9);

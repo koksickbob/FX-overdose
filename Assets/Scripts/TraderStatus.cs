@@ -4,6 +4,14 @@ using UnityEngine;
 
 public class TraderStatus : MonoBehaviour
 {
+    private bool p2pExternalMode;
+    public void EnableP2PExternalMode()=>p2pExternalMode=true;
+    public void ApplyP2PVitals(float health,float mental)
+    {
+        float hd=health-currentHealth,md=mental-currentMental;currentHealth=Mathf.Clamp(health,0,MaxHealth);currentMental=Mathf.Clamp(mental,0,EffectiveMaxMental);
+        // 네트워크 복제는 값 표시만 갱신합니다. 매 패킷을 멘탈 감소 사유 팝업으로 출력하지 않습니다.
+        if(!Mathf.Approximately(hd,0))OnHealthChanged?.Invoke(hd);if(!Mathf.Approximately(md,0))OnMentalValueChanged?.Invoke(md);UpdateMentalState();SyncAllInstances();
+    }
     // 트레이더의 현재 감정 상태
     public enum MentalState
     {
@@ -260,6 +268,7 @@ public class TraderStatus : MonoBehaviour
 
     private void Update()
     {
+        if(p2pExternalMode)return;
         // 씬 내 중복된 TraderStatus가 존재할 경우 메인(CanonicalInstance)만 연산하고, 서브 인스턴스는 매 프레임 동기화합니다.
         if (this != CanonicalInstance)
         {
