@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FXOverdose.P2P.Core;
 using FXOverdose.P2P.Infrastructure;
 using FXOverdose.P2P.Lobby;
 using FXOverdose.P2P.Steam;
@@ -28,6 +29,7 @@ namespace FXOverdose.P2P.UI
         private TMP_Text settingsText;
         private TMP_Text membersText;
         private TMP_Text networkStatus;
+        private TMP_Text tradingStatus;
         private Button readyButton;
         private Button startButton;
         private readonly List<Button> ruleButtons = new();
@@ -100,6 +102,7 @@ namespace FXOverdose.P2P.UI
             var market = authority.CurrentSnapshot;
             networkStatus.text = $"NGO 동기화 | {market.Hour:00}:{market.Minute:00} | {market.Price:N1} | #{market.Sequence}";
             networkStatus.color = Cyan;
+            RefreshTradingStatus();
         }
 
         private void OnDisable()
@@ -191,6 +194,10 @@ namespace FXOverdose.P2P.UI
             startButton.onClick.AddListener(() => SteamLobbyManager.Instance?.TryStartMatch());
             CreateButton(roomView.transform, "Leave", "나가기", new Vector2(0.46f, 0.12f), new Vector2(0.62f, 0.23f), Muted).onClick.AddListener(() => SteamLobbyManager.Instance?.LeaveLobby());
             networkStatus = CreateText(roomView.transform, "NetworkStatus", "NGO: 대기", 16, Muted, new Vector2(0.66f, 0.12f), new Vector2(0.96f, 0.23f), TextAlignmentOptions.Left);
+            tradingStatus = CreateText(roomView.transform, "TradingStatus", "매매 연결 대기", 14, TextColor, new Vector2(0.52f, 0.24f), new Vector2(0.96f, 0.34f), TextAlignmentOptions.TopLeft);
+            CreateButton(roomView.transform, "Long", "LONG", new Vector2(0.04f, 0.01f), new Vector2(0.18f, 0.09f), Cyan).onClick.AddListener(() => SubmitTrade(P2PTradeAction.OpenLong));
+            CreateButton(roomView.transform, "Short", "SHORT", new Vector2(0.20f, 0.01f), new Vector2(0.34f, 0.09f), Pink).onClick.AddListener(() => SubmitTrade(P2PTradeAction.OpenShort));
+            CreateButton(roomView.transform, "ClosePosition", "포지션 종료", new Vector2(0.36f, 0.01f), new Vector2(0.51f, 0.09f), Muted).onClick.AddListener(() => SubmitTrade(P2PTradeAction.ClosePosition));
             roomView.SetActive(false);
             window.SetActive(false);
         }
@@ -230,6 +237,24 @@ namespace FXOverdose.P2P.UI
                 if (lobby.Members[i].SteamId == SteamRuntimeBootstrap.LocalSteamId)
                     localReady = SteamLobbyRules.IsEffectivelyReady(lobby.Members[i], lobby.RulesRevision);
             SteamLobbyManager.Instance.SetReady(!localReady);
+        }
+
+        private void SubmitTrade(P2PTradeAction action)
+        {
+            var trading = P2PNetworkSessionManager.Instance?.TradingAuthority;
+            if (trading == null) return;
+            trading.Submit(action, leveragePresets[leverageIndex],
+                action == P2PTradeAction.ClosePosition ? 0 : marginPresets[marginIndex]);
+        }
+
+        private void RefreshTradingStatus()
+        {
+            var trading = P2PNetworkSessionManager.Instance?.TradingAuthority;
+            if (trading == null || trading.Players.Count == 0 || tradingStatus == null) return;
+            var lines = new List<string>();
+            foreach (var player in trading.Players)
+                lines.Add($"#{player.Rank} {player.Name} {player.Equity:N0} {player.Side} PnL {player.UnrealizedPnL:+0;-0;0}");
+            tradingStatus.text = string.Join("\n", lines) + $"\n결과: {trading.LastResult.RejectReason} @ {trading.LastResult.FillPrice:N1}";
         }
 
         private void OnSteamStatus(SteamRuntimeStatus _) => RefreshAll();
