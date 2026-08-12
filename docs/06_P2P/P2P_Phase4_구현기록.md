@@ -56,8 +56,8 @@ Steam Lobby 전원 준비
 
 - Unity 내장 Roslyn으로 Core 전체 컴파일 성공
 - Payload 및 승인 규칙 테스트 6개 메서드, 10개 검증 시나리오 추가
-- 열려 있는 Unity Editor가 최신 Infrastructure 소스를 아직 임포트하지 않아 NGO·Transport 어댑터 컴파일은 확인 대기
-- 한 Steam 계정은 동일 App ID로 자기 자신에게 별도 클라이언트 연결을 만들 수 없으므로 실제 검증에는 Steam 계정 2개가 필요
+- 사용자가 2026-08-11 두 Steam 클라이언트의 실제 연결 성공을 확인함
+- Host와 Client의 로비 참가, 준비 및 NGO 연결 경로 검증 완료
 
 ## 다음 검증
 

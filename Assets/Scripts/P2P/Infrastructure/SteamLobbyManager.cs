@@ -233,7 +233,10 @@ namespace FXOverdose.P2P.Infrastructure
         private static bool SetLobbyData(CSteamID lobby, string key, string value) => SteamMatchmaking.SetLobbyData(lobby, key, value);
         private static int ParseInt(string value, int fallback) => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result) ? result : fallback;
         private static double ParseDouble(string value, double fallback) => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) ? result : fallback;
-        private static ELobbyType ToSteamVisibility(SteamLobbyVisibility visibility) => visibility == SteamLobbyVisibility.Public ? ELobbyType.k_ELobbyTypePublic : visibility == SteamLobbyVisibility.FriendsOnly ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePrivate;
+        private static ELobbyType ToSteamVisibility(SteamLobbyVisibility visibility) =>
+            visibility == SteamLobbyVisibility.Public
+                ? ELobbyType.k_ELobbyTypePublic
+                : ELobbyType.k_ELobbyTypePrivate;
 
         private void OnDestroy()
         {

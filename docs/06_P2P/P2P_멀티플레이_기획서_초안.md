@@ -324,7 +324,7 @@ MVP 기본 인벤토리 수량과 상점 가격은 기존 밸런스를 먼저 �
 
 ### 6.1. 권장 구조: 호스트 권위형 P2P
 
-Steam Lobby의 소유자가 호스트와 서버 역할을 함께 수행하는 Listen Server 구조를 사용합니다. Steam 친구 초대와 공개·비공개 로비 검색은 Steam Matchmaking을 사용하고, 실제 경기 패킷은 Steam Networking을 통해 전송합니다.
+Steam Lobby의 소유자가 호스트와 서버 역할을 함께 수행하는 Listen Server 구조를 사용합니다. 공개 로비 검색과 초대 전용 친구 로비는 Steam Matchmaking을 사용하고, 실제 경기 패킷은 Steam Networking을 통해 전송합니다.
 
 ```text
                  [Host / Authority]

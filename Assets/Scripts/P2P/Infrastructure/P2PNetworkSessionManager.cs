@@ -16,6 +16,7 @@ namespace FXOverdose.P2P.Infrastructure
         private readonly HashSet<ulong> connectedSteamIds = new HashSet<ulong>();
         private NetworkManager networkManager;
         private SteamNetworkingSocketsTransport transport;
+        private NetworkMarketAuthority marketAuthority;
         private string attemptedNonce = string.Empty;
 
         public static P2PNetworkSessionManager Instance { get; private set; }
@@ -23,6 +24,7 @@ namespace FXOverdose.P2P.Infrastructure
         public event Action<ulong, ulong> ClientMapped;
         public event Action<ulong> ClientDisconnected;
         public event Action<string> ConnectionFailed;
+        public NetworkMarketAuthority MarketAuthority => marketAuthority;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateInstance()
@@ -96,6 +98,7 @@ namespace FXOverdose.P2P.Infrastructure
             if (networkManager != null) return;
             transport = gameObject.AddComponent<SteamNetworkingSocketsTransport>();
             networkManager = gameObject.AddComponent<NetworkManager>();
+            marketAuthority = gameObject.AddComponent<NetworkMarketAuthority>();
             networkManager.NetworkConfig = new NetworkConfig
             {
                 NetworkTransport = transport,

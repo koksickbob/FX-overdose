@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace FXOverdose.P2P.Lobby
 {
-    public enum SteamLobbyVisibility { Public, FriendsOnly, Private }
+    /// <summary>공개 검색 로비 또는 Steam 초대로만 들어오는 친구 로비입니다.</summary>
+    public enum SteamLobbyVisibility { Public, InviteOnly }
     public enum SteamLobbyState { Idle, Creating, Joining, InLobby, Searching, Failed }
 
     public readonly struct SteamLobbySettings

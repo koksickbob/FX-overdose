@@ -35,7 +35,7 @@
 | 게임 엔진 | Unity 6 / C# | 클라이언트 및 게임 로직 |
 | 플랫폼 API | Steamworks SDK | Steam 사용자, 로비, 친구 초대 및 네트워킹 기반 |
 | Unity 바인딩 | Steamworks.NET | C#에서 Steamworks API 접근 |
-| 매치 로비 | Steam Matchmaking & Lobbies | 공개·친구·비공개 로비 생성 및 참가 |
+| 매치 로비 | Steam Matchmaking & Lobbies | 공개 검색 로비와 초대 전용 친구 로비 생성 및 참가 |
 | 게임 동기화 | Netcode for GameObjects | 접속자 관리, RPC와 권위 상태 복제 |
 | 전송 계층 | Steam Networking 기반 NGO Transport | Steam ID 기반 P2P 패킷 송수신 |
 | 패킷 경로 | Steam Datagram Relay | NAT 우회 및 사용자 IP 보호 |
@@ -591,7 +591,7 @@ CurrentReturn = (TotalEquity - StartingBalance) / StartingBalance × 100
 - 최대 레버리지 선택
 - 최대 마진 비율 선택
 - 친구 초대
-- 공개·친구·비공개 상태
+- 공개 검색·초대 전용 친구 로비 상태
 - 연결 품질
 - 버전 불일치 및 참가 실패 메시지
 
@@ -697,7 +697,7 @@ MVP에서는 안전한 호스트 이전보다 명시적인 경기 무효 처리�
 ## 21. 완료 기준
 
 - Steam 초기화와 종료가 안정적으로 동작합니다.
-- Steam 공개·친구·비공개 로비를 생성하고 참가할 수 있습니다.
+- Steam 공개 검색 로비와 초대 전용 친구 로비를 생성하고 참가할 수 있습니다.
 - 1~4명의 Steam ID가 NGO Client ID와 정확히 연결됩니다.
 - 모든 참가자에게 동일한 시장과 시간이 표시됩니다.
 - 호스트가 주문, 자산, 체력, 멘탈과 아이템을 권위 처리합니다.

@@ -21,17 +21,23 @@ namespace FXOverdose.P2P.UI
         private static readonly Color32 Muted = new(126, 160, 184, 255);
 
         private GameObject window;
+        private GameObject browserView;
+        private GameObject roomView;
         private TMP_Text steamStatus;
         private TMP_Text lobbyStatus;
         private TMP_Text settingsText;
         private TMP_Text membersText;
         private TMP_Text networkStatus;
+        private Button readyButton;
+        private Button startButton;
+        private readonly List<Button> ruleButtons = new();
         private readonly List<Button> searchButtons = new();
         private int leverageIndex = 4;
         private int marginIndex = 2;
         private readonly int[] leveragePresets = { 1, 2, 5, 10, 20, 50, 100 };
         private readonly double[] marginPresets = { 0.1, 0.25, 0.5, 0.75, 1.0 };
         private bool localReady;
+        private float marketUiTimer;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Initialize()
@@ -83,6 +89,19 @@ namespace FXOverdose.P2P.UI
             RefreshAll();
         }
 
+        private void Update()
+        {
+            if (window == null || !window.activeSelf) return;
+            marketUiTimer += Time.unscaledDeltaTime;
+            if (marketUiTimer < 0.25f) return;
+            marketUiTimer = 0f;
+            var authority = P2PNetworkSessionManager.Instance?.MarketAuthority;
+            if (authority == null || authority.CurrentSnapshot.Sequence == 0) return;
+            var market = authority.CurrentSnapshot;
+            networkStatus.text = $"NGO 동기화 | {market.Hour:00}:{market.Minute:00} | {market.Price:N1} | #{market.Sequence}";
+            networkStatus.color = Cyan;
+        }
+
         private void OnDisable()
         {
             SteamRuntimeBootstrap.StatusChanged -= OnSteamStatus;
@@ -125,43 +144,54 @@ namespace FXOverdose.P2P.UI
                 window.SetActive(true);
                 window.transform.SetAsLastSibling();
                 RefreshAll();
+                if (SteamLobbyManager.Instance?.CurrentLobby == null && SteamRuntimeBootstrap.CanUseP2P)
+                    Search();
             });
 
             window = CreateImage(transform, "P2PLobbyPanel", new Color32(2, 8, 18, 235), Vector2.zero, Vector2.one).gameObject;
             Image modal = CreateImage(window.transform, "Window", Panel, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.94f));
             modal.gameObject.AddComponent<Outline>().effectColor = Cyan;
-            CreateText(modal.transform, "Title", "STEAM P2P LOBBY", 32, TextColor, new Vector2(0.04f, 0.91f), new Vector2(0.96f, 0.98f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
+            CreateText(modal.transform, "Title", "STEAM P2P", 32, TextColor, new Vector2(0.04f, 0.91f), new Vector2(0.96f, 0.98f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
             steamStatus = CreateText(modal.transform, "SteamStatus", "STEAM 확인 중", 15, Muted, new Vector2(0.04f, 0.855f), new Vector2(0.96f, 0.91f), TextAlignmentOptions.Left);
             lobbyStatus = CreateText(modal.transform, "LobbyStatus", "로비 없음", 16, Cyan, new Vector2(0.04f, 0.80f), new Vector2(0.96f, 0.855f), TextAlignmentOptions.Left);
-
-            CreateButton(modal.transform, "Public", "공개 방 만들기", new Vector2(0.04f, 0.71f), new Vector2(0.21f, 0.78f), Cyan).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.Public));
-            CreateButton(modal.transform, "Friends", "친구 방 만들기", new Vector2(0.225f, 0.71f), new Vector2(0.395f, 0.78f), Cyan).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.FriendsOnly));
-            CreateButton(modal.transform, "Private", "비공개 방", new Vector2(0.41f, 0.71f), new Vector2(0.56f, 0.78f), Cyan).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.Private));
-            CreateButton(modal.transform, "Search", "공개 방 검색", new Vector2(0.575f, 0.71f), new Vector2(0.73f, 0.78f), Cyan).onClick.AddListener(Search);
-            CreateButton(modal.transform, "Invite", "친구 초대", new Vector2(0.745f, 0.71f), new Vector2(0.86f, 0.78f), Pink).onClick.AddListener(() => SteamLobbyManager.Instance?.OpenInviteOverlay());
             CreateButton(modal.transform, "Close", "X", new Vector2(0.91f, 0.91f), new Vector2(0.97f, 0.98f), Pink).onClick.AddListener(() => window.SetActive(false));
 
-            settingsText = CreateText(modal.transform, "Settings", "", 18, TextColor, new Vector2(0.04f, 0.62f), new Vector2(0.45f, 0.69f), TextAlignmentOptions.Left);
-            CreateButton(modal.transform, "LevDown", "레버리지 -", new Vector2(0.04f, 0.55f), new Vector2(0.16f, 0.615f), Cyan).onClick.AddListener(() => ChangeLeverage(-1));
-            CreateButton(modal.transform, "LevUp", "레버리지 +", new Vector2(0.17f, 0.55f), new Vector2(0.29f, 0.615f), Cyan).onClick.AddListener(() => ChangeLeverage(1));
-            CreateButton(modal.transform, "MarginDown", "마진 -", new Vector2(0.30f, 0.55f), new Vector2(0.40f, 0.615f), Cyan).onClick.AddListener(() => ChangeMargin(-1));
-            CreateButton(modal.transform, "MarginUp", "마진 +", new Vector2(0.41f, 0.55f), new Vector2(0.51f, 0.615f), Cyan).onClick.AddListener(() => ChangeMargin(1));
-
-            membersText = CreateText(modal.transform, "Members", "참가자 없음", 17, TextColor, new Vector2(0.04f, 0.20f), new Vector2(0.51f, 0.53f), TextAlignmentOptions.TopLeft);
-            CreateText(modal.transform, "SearchTitle", "검색 결과", 18, Cyan, new Vector2(0.55f, 0.62f), new Vector2(0.90f, 0.68f), TextAlignmentOptions.Left);
+            browserView = CreateView(modal.transform, "LobbyBrowserView");
+            CreateText(browserView.transform, "BrowserTitle", "전체 로비", 25, TextColor, new Vector2(0.04f, 0.86f), new Vector2(0.96f, 0.96f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
+            CreateButton(browserView.transform, "Refresh", "목록 새로고침", new Vector2(0.04f, 0.75f), new Vector2(0.20f, 0.84f), Cyan).onClick.AddListener(Search);
+            CreateButton(browserView.transform, "Public", "공개 로비 생성", new Vector2(0.57f, 0.75f), new Vector2(0.75f, 0.84f), Cyan).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.Public));
+            // 친구 로비는 목록에 노출되지 않으며 Steam 초대로만 참가합니다.
+            CreateButton(browserView.transform, "Friends", "친구 로비 생성", new Vector2(0.77f, 0.75f), new Vector2(0.96f, 0.84f), Pink).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.InviteOnly));
+            CreateText(browserView.transform, "SearchTitle", "공개 로비 목록", 18, Cyan, new Vector2(0.04f, 0.65f), new Vector2(0.96f, 0.72f), TextAlignmentOptions.Left);
             for (int i = 0; i < 4; i++)
             {
                 int index = i;
-                Button result = CreateButton(modal.transform, $"SearchResult{i}", "-", new Vector2(0.55f, 0.53f - i * 0.08f), new Vector2(0.90f, 0.595f - i * 0.08f), Cyan);
+                Button result = CreateButton(browserView.transform, $"SearchResult{i}", "-", new Vector2(0.04f, 0.54f - i * 0.11f), new Vector2(0.96f, 0.63f - i * 0.11f), Cyan);
                 result.gameObject.SetActive(false);
                 result.onClick.AddListener(() => JoinSearchResult(index));
                 searchButtons.Add(result);
             }
 
-            CreateButton(modal.transform, "Ready", "준비 / 취소", new Vector2(0.04f, 0.10f), new Vector2(0.19f, 0.175f), Cyan).onClick.AddListener(ToggleReady);
-            CreateButton(modal.transform, "Start", "경기 시작", new Vector2(0.205f, 0.10f), new Vector2(0.35f, 0.175f), Pink).onClick.AddListener(() => SteamLobbyManager.Instance?.TryStartMatch());
-            CreateButton(modal.transform, "Leave", "로비 나가기", new Vector2(0.365f, 0.10f), new Vector2(0.51f, 0.175f), Muted).onClick.AddListener(() => SteamLobbyManager.Instance?.LeaveLobby());
-            networkStatus = CreateText(modal.transform, "NetworkStatus", "NGO: 대기", 16, Muted, new Vector2(0.55f, 0.10f), new Vector2(0.90f, 0.175f), TextAlignmentOptions.Left);
+            roomView = CreateView(modal.transform, "LobbyRoomView");
+            CreateText(roomView.transform, "RoomTitle", "특정 로비", 25, TextColor, new Vector2(0.04f, 0.86f), new Vector2(0.96f, 0.96f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
+            membersText = CreateText(roomView.transform, "Members", "참가자 없음", 18, TextColor, new Vector2(0.04f, 0.32f), new Vector2(0.48f, 0.82f), TextAlignmentOptions.TopLeft);
+            settingsText = CreateText(roomView.transform, "Settings", "", 18, TextColor, new Vector2(0.52f, 0.70f), new Vector2(0.96f, 0.82f), TextAlignmentOptions.Left);
+            ruleButtons.Add(CreateButton(roomView.transform, "LevDown", "레버리지 -", new Vector2(0.52f, 0.59f), new Vector2(0.72f, 0.68f), Cyan));
+            ruleButtons[0].onClick.AddListener(() => ChangeLeverage(-1));
+            ruleButtons.Add(CreateButton(roomView.transform, "LevUp", "레버리지 +", new Vector2(0.75f, 0.59f), new Vector2(0.96f, 0.68f), Cyan));
+            ruleButtons[1].onClick.AddListener(() => ChangeLeverage(1));
+            ruleButtons.Add(CreateButton(roomView.transform, "MarginDown", "마진 -", new Vector2(0.52f, 0.48f), new Vector2(0.72f, 0.57f), Cyan));
+            ruleButtons[2].onClick.AddListener(() => ChangeMargin(-1));
+            ruleButtons.Add(CreateButton(roomView.transform, "MarginUp", "마진 +", new Vector2(0.75f, 0.48f), new Vector2(0.96f, 0.57f), Cyan));
+            ruleButtons[3].onClick.AddListener(() => ChangeMargin(1));
+            CreateButton(roomView.transform, "Invite", "친구 초대", new Vector2(0.52f, 0.36f), new Vector2(0.72f, 0.45f), Pink).onClick.AddListener(() => SteamLobbyManager.Instance?.OpenInviteOverlay());
+            readyButton = CreateButton(roomView.transform, "Ready", "준비", new Vector2(0.04f, 0.12f), new Vector2(0.22f, 0.23f), Cyan);
+            readyButton.onClick.AddListener(ToggleReady);
+            startButton = CreateButton(roomView.transform, "Start", "경기 시작", new Vector2(0.25f, 0.12f), new Vector2(0.43f, 0.23f), Pink);
+            startButton.onClick.AddListener(() => SteamLobbyManager.Instance?.TryStartMatch());
+            CreateButton(roomView.transform, "Leave", "나가기", new Vector2(0.46f, 0.12f), new Vector2(0.62f, 0.23f), Muted).onClick.AddListener(() => SteamLobbyManager.Instance?.LeaveLobby());
+            networkStatus = CreateText(roomView.transform, "NetworkStatus", "NGO: 대기", 16, Muted, new Vector2(0.66f, 0.12f), new Vector2(0.96f, 0.23f), TextAlignmentOptions.Left);
+            roomView.SetActive(false);
             window.SetActive(false);
         }
 
@@ -230,6 +260,9 @@ namespace FXOverdose.P2P.UI
             steamStatus.color = steam.CanUseP2P ? Cyan : Pink;
             SteamLobbyManager manager = SteamLobbyManager.Instance;
             SteamLobbySnapshot lobby = manager?.CurrentLobby;
+            bool isInRoom = lobby != null;
+            if (browserView != null) browserView.SetActive(!isInRoom);
+            if (roomView != null) roomView.SetActive(isInRoom);
             lobbyStatus.text = lobby == null ? $"상태: {manager?.State ?? SteamLobbyState.Idle}  {manager?.LastError}" : $"LOBBY {lobby.LobbyId}  |  {(lobby.MatchStarted ? "게임 시작됨" : "대기 중")}";
             if (lobby == null)
             {
@@ -252,6 +285,11 @@ namespace FXOverdose.P2P.UI
                     if (member.SteamId == SteamRuntimeBootstrap.LocalSteamId) localReady = ready;
                 }
                 membersText.text = string.Join("\n", lines);
+                bool isHost = lobby.OwnerSteamId == SteamRuntimeBootstrap.LocalSteamId;
+                foreach (Button button in ruleButtons) button.interactable = isHost && !lobby.MatchStarted;
+                startButton.interactable = isHost && SteamLobbyRules.CanStart(lobby, SteamRuntimeBootstrap.LocalSteamId);
+                readyButton.interactable = !isHost && !lobby.MatchStarted;
+                readyButton.GetComponentInChildren<TMP_Text>().text = localReady ? "준비 취소" : "준비";
             }
             networkStatus.text = P2PNetworkSessionManager.Instance?.IsRunning == true ? "NGO: 연결 실행 중" : "NGO: 로비 시작 대기";
         }
@@ -261,6 +299,14 @@ namespace FXOverdose.P2P.UI
             var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(parent, false); var image = go.GetComponent<Image>(); image.color = color;
             SetRect(go.GetComponent<RectTransform>(), min, max); return image;
+        }
+
+        private static GameObject CreateView(Transform parent, string name)
+        {
+            var view = new GameObject(name, typeof(RectTransform));
+            view.transform.SetParent(parent, false);
+            SetRect(view.GetComponent<RectTransform>(), new Vector2(0.02f, 0.04f), new Vector2(0.98f, 0.80f));
+            return view;
         }
 
         private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, Vector2 min, Vector2 max, TextAlignmentOptions alignment)

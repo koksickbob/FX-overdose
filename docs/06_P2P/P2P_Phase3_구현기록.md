@@ -6,7 +6,7 @@ Steamworks.NET Lobby API를 사용하는 `SteamLobbyManager`와 SDK 비종속 �
 
 ## 구현 기능
 
-- 공개, 친구 전용, 비공개 1~4인 로비 생성
+- 공개 검색 로비와 초대 전용 친구 로비 생성
 - 게임·모드·빌드 버전 필터를 적용한 공개 로비 검색
 - Lobby ID 직접 참가와 Steam 초대 수락 참가
 - Steam 친구 초대 Overlay
@@ -21,6 +21,9 @@ Steamworks.NET Lobby API를 사용하는 `SteamLobbyManager`와 SDK 비종속 �
 - 로비 퇴장과 Steam 연결 해제 시 상태 정리
 - 타이틀 화면의 `P2P MULTI` 버튼 및 로비 조작 패널
 - Steam 상태, 로비 오류와 NGO 연결 상태 표시
+- `P2P MULTI → 전체 로비 → 특정 로비`의 3단계 화면 흐름
+- 전체 로비에서는 공개 목록·새로고침·공개/친구 로비 생성만 제공
+- 특정 로비에서는 참가자·설정·초대·준비·시작·나가기만 제공
 
 ## 데이터 구조
 
