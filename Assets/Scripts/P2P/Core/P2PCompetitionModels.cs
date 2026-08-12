@@ -10,11 +10,11 @@ namespace FXOverdose.P2P.Core
     public readonly struct P2PCompetitionPlayerSnapshot
     {
         public P2PCompetitionPlayerSnapshot(ulong id, double health, double mental, bool eliminated,
-            P2PEliminationReason reason, int water, int medicine, int comfort)
-        { PlayerId=id; Health=health; Mental=mental; IsEliminated=eliminated; Reason=reason; Water=water; Medicine=medicine; Comfort=comfort; }
+            P2PEliminationReason reason, int energyDrink, int dessert, int sedative, int supplement)
+        { PlayerId=id; Health=health; Mental=mental; IsEliminated=eliminated; Reason=reason; EnergyDrink=energyDrink; Dessert=dessert; Sedative=sedative; Supplement=supplement; }
         public ulong PlayerId { get; } public double Health { get; } public double Mental { get; }
         public bool IsEliminated { get; } public P2PEliminationReason Reason { get; }
-        public int Water { get; } public int Medicine { get; } public int Comfort { get; }
+        public int EnergyDrink { get; } public int Dessert { get; } public int Sedative { get; } public int Supplement { get; }
     }
 
     public sealed class P2PCompetitionSnapshot
@@ -33,8 +33,8 @@ namespace FXOverdose.P2P.Core
         public static bool TryDecodeAction(byte[] b,out ulong id,out P2PCompetitionAction action,out string value)
         { id=0;action=default;value="";try{using var s=new MemoryStream(b,false);using var r=new BinaryReader(s,Encoding.UTF8);id=r.ReadUInt64();action=(P2PCompetitionAction)r.ReadByte();value=r.ReadString();return s.Position==s.Length&&Enum.IsDefined(typeof(P2PCompetitionAction),action);}catch{return false;} }
         public static byte[] EncodeState(P2PCompetitionSnapshot x)
-        { using var s=new MemoryStream();using var w=new BinaryWriter(s,Encoding.UTF8);w.Write(x.EventActive);w.Write(x.EventId);w.Write(x.EventTitle);w.Write(x.EventSecondsLeft);w.Write(x.Finished);w.Write(x.LastMessage);w.Write(x.Players.Count);foreach(var p in x.Players){w.Write(p.PlayerId);w.Write(p.Health);w.Write(p.Mental);w.Write(p.IsEliminated);w.Write((byte)p.Reason);w.Write(p.Water);w.Write(p.Medicine);w.Write(p.Comfort);}return s.ToArray(); }
+        { using var s=new MemoryStream();using var w=new BinaryWriter(s,Encoding.UTF8);w.Write(x.EventActive);w.Write(x.EventId);w.Write(x.EventTitle);w.Write(x.EventSecondsLeft);w.Write(x.Finished);w.Write(x.LastMessage);w.Write(x.Players.Count);foreach(var p in x.Players){w.Write(p.PlayerId);w.Write(p.Health);w.Write(p.Mental);w.Write(p.IsEliminated);w.Write((byte)p.Reason);w.Write(p.EnergyDrink);w.Write(p.Dessert);w.Write(p.Sedative);w.Write(p.Supplement);}return s.ToArray(); }
         public static bool TryDecodeState(byte[] b,ulong localId,out P2PCompetitionSnapshot x)
-        { x=null;try{using var s=new MemoryStream(b,false);using var r=new BinaryReader(s,Encoding.UTF8);var y=new P2PCompetitionSnapshot{EventActive=r.ReadBoolean(),EventId=r.ReadInt32(),EventTitle=r.ReadString(),EventSecondsLeft=r.ReadSingle(),Finished=r.ReadBoolean(),LastMessage=r.ReadString()};int n=r.ReadInt32();if(n<0||n>4)return false;var list=new List<P2PCompetitionPlayerSnapshot>(n);for(int i=0;i<n;i++){ulong id=r.ReadUInt64();var p=new P2PCompetitionPlayerSnapshot(id,r.ReadDouble(),r.ReadDouble(),r.ReadBoolean(),(P2PEliminationReason)r.ReadByte(),r.ReadInt32(),r.ReadInt32(),r.ReadInt32());list.Add(p);}if(s.Position!=s.Length)return false;y.Players=list;x=y;return true;}catch{return false;} }
+        { x=null;try{using var s=new MemoryStream(b,false);using var r=new BinaryReader(s,Encoding.UTF8);var y=new P2PCompetitionSnapshot{EventActive=r.ReadBoolean(),EventId=r.ReadInt32(),EventTitle=r.ReadString(),EventSecondsLeft=r.ReadSingle(),Finished=r.ReadBoolean(),LastMessage=r.ReadString()};int n=r.ReadInt32();if(n<0||n>4)return false;var list=new List<P2PCompetitionPlayerSnapshot>(n);for(int i=0;i<n;i++){ulong id=r.ReadUInt64();var p=new P2PCompetitionPlayerSnapshot(id,r.ReadDouble(),r.ReadDouble(),r.ReadBoolean(),(P2PEliminationReason)r.ReadByte(),r.ReadInt32(),r.ReadInt32(),r.ReadInt32(),r.ReadInt32());list.Add(p);}if(s.Position!=s.Length)return false;y.Players=list;x=y;return true;}catch{return false;} }
     }
 }

@@ -12,12 +12,12 @@ namespace FXOverdose.P2P.Tests
             {
                 EventActive=true, EventId=2, EventTitle="stress", EventSecondsLeft=12.5f,
                 Finished=true, LastMessage="done",
-                Players=new[]{new P2PCompetitionPlayerSnapshot(77,45,0,true,P2PEliminationReason.MentalDepleted,1,2,3)}
+                Players=new[]{new P2PCompetitionPlayerSnapshot(77,45,0,true,P2PEliminationReason.MentalDepleted,0,1,2,3)}
             };
             byte[] bytes=P2PCompetitionCodec.EncodeState(source);
             Assert.That(P2PCompetitionCodec.TryDecodeState(bytes,77,out var decoded),Is.True);
             Assert.That(decoded.Finished,Is.True); Assert.That(decoded.Players[0].Mental,Is.Zero);
-            Assert.That(decoded.Players[0].Comfort,Is.EqualTo(3));
+            Assert.That(decoded.Players[0].Supplement,Is.EqualTo(3));
         }
 
         [Test]

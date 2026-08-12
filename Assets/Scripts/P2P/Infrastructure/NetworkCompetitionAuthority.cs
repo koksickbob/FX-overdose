@@ -27,7 +27,7 @@ namespace FXOverdose.P2P.Infrastructure
         {
             net ??= NetworkManager.Singleton; if(net==null||!net.IsListening)return; EnsureRegistered();
             if(!net.IsServer)return; var match=trading.HostMatch;if(match==null)return;
-            if(!initialized){initialized=true;foreach(var p in match.Players){p.SetInventoryAmount("water",1);p.SetInventoryAmount("comfort",1);}Broadcast("경기가 시작됐어용");}
+            if(!initialized){initialized=true;foreach(var p in match.Players){p.SetInventoryAmount("energy_drink",5);p.SetInventoryAmount("dessert",5);p.SetInventoryAmount("sedative",2);p.SetInventoryAmount("supplement",2);}Broadcast("경기가 시작됐어용");}
             if(finished)return;
             tick+=Time.unscaledDeltaTime;broadcastTick+=Time.unscaledDeltaTime;
             if(tick>=1f){float seconds=tick;tick=0;foreach(var p in match.Players){if(p.IsEliminated)continue;p.ChangeHealth(-.035*seconds);double loss=Math.Max(0,-p.Position.UnrealizedPnL);p.ChangeMental((-.02-loss/50000d)*seconds);Evaluate(p,match);}}
@@ -56,11 +56,11 @@ namespace FXOverdose.P2P.Infrastructure
         }
 
         private static string Buy(P2PPlayerRuntimeState p,string id)
-        { if(!TryItem(id,out int cost,out _,out _))return "P2P에서 사용할 수 없는 아이템이에용";if(p.CashBalance<cost)return "잔액이 부족해용";p.ChangeCash(-cost);p.SetInventoryAmount(id,Count(p,id)+1);return $"{id} 구매 완료"; }
+        { if(!TryItem(id,out int cost,out _,out _))return "배달음식과 액티브 기어는 사용할 수 없어용";if(p.CashBalance<cost)return "잔액이 부족해용";p.ChangeCash(-cost);p.SetInventoryAmount(id,Count(p,id)+1);return $"{id} 구매 완료"; }
         private static string Use(P2PPlayerRuntimeState p,string id)
         { if(!TryItem(id,out _,out double health,out double mental)||Count(p,id)<=0)return "사용할 수 없는 아이템이에용";p.SetInventoryAmount(id,Count(p,id)-1);p.ChangeHealth(health);p.ChangeMental(mental);return $"{id} 사용 완료"; }
         private static bool TryItem(string id,out int cost,out double health,out double mental)
-        { cost=0;health=mental=0;switch(id){case "water":cost=150;health=15;return true;case "medicine":cost=400;health=35;return true;case "comfort":cost=300;mental=25;return true;default:return false;} }
+        { cost=0;health=mental=0;switch(id){case "energy_drink":cost=500;health=30;return true;case "dessert":cost=600;mental=20;return true;case "sedative":cost=1000;mental=40;return true;case "supplement":cost=900;health=50;return true;default:return false;} }
         private static int Count(P2PPlayerRuntimeState p,string id)=>p.Inventory.TryGetValue(id,out int n)?n:0;
 
         private void StartEvent(){eventActive=true;eventId++;choices.Clear();eventDeadline=Time.unscaledTime+15f;trading.HostMatch.IsChoiceEventActive=true;market.SetPausedByHost(true);Broadcast("돌발 이벤트: 15초 안에 선택해용");}
@@ -71,7 +71,7 @@ namespace FXOverdose.P2P.Infrastructure
         private void Finish(P2PLocalMatch match){finished=true;eventActive=false;market.SetPausedByHost(true);match.IsChoiceEventActive=false;match.Finish();trading.BroadcastCurrentState();Broadcast("경기 종료 · 최종 순위가 확정됐어용");}
 
         private void Broadcast(string message)
-        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"water"),Count(p,"medicine"),Count(p,"comfort")));var x=new P2PCompetitionSnapshot{Players=list,EventActive=eventActive,EventId=eventId,EventTitle=eventActive?"긴급 시장 스트레스":"",EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,NetworkDelivery.ReliableSequenced); }
+        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"energy_drink"),Count(p,"dessert"),Count(p,"sedative"),Count(p,"supplement")));var x=new P2PCompetitionSnapshot{Players=list,EventActive=eventActive,EventId=eventId,EventTitle=eventActive?"긴급 시장 스트레스":"",EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,NetworkDelivery.ReliableSequenced); }
         private void ReceiveAction(ulong sender,FastBufferReader reader){if(!net.IsServer)return;reader.ReadValueSafe(out byte[] b);Process(sender,b);}
         private void ReceiveState(ulong sender,FastBufferReader reader){if(net.IsServer||sender!=NetworkManager.ServerClientId)return;reader.ReadValueSafe(out byte[] b);Apply(b);}
         private void Apply(byte[] b){if(!P2PCompetitionCodec.TryDecodeState(b,SteamRuntimeBootstrap.LocalSteamId,out var x))return;Current=x;StateChanged?.Invoke();}
