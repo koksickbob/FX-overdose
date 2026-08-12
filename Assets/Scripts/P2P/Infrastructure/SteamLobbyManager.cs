@@ -131,6 +131,22 @@ namespace FXOverdose.P2P.Infrastructure
             return success;
         }
 
+        /// <summary>결과 화면에서 같은 Steam 로비를 재대결 준비 상태로 되돌립니다.</summary>
+        public bool ResetMatchForRematch()
+        {
+            if (CurrentLobby == null || CurrentLobby.OwnerSteamId != SteamRuntimeBootstrap.LocalSteamId) return false;
+            var lobby = new CSteamID(currentLobbyId);
+            bool success = SetLobbyData(lobby, SteamLobbyDataKeys.MatchStarted, "0") &&
+                SetLobbyData(lobby, SteamLobbyDataKeys.ConnectionNonce, string.Empty) &&
+                SteamMatchmaking.SetLobbyJoinable(lobby, true);
+            if (success)
+            {
+                SteamMatchmaking.SetLobbyMemberData(lobby, SteamLobbyDataKeys.Ready, "0");
+                RefreshSnapshot();
+            }
+            return success;
+        }
+
         public void OpenInviteOverlay()
         {
             if (currentLobbyId != 0) SteamFriends.ActivateGameOverlayInviteDialog(new CSteamID(currentLobbyId));

@@ -22,6 +22,13 @@ namespace FXOverdose.P2P.Infrastructure
         public IReadOnlyList<P2PPlayerTradeSnapshot> Players { get; private set; } = Array.Empty<P2PPlayerTradeSnapshot>();
         public P2PTradeResult LastResult { get; private set; }
         public event Action StateChanged;
+        public P2PLocalMatch HostMatch => hostMatch;
+
+        public void ResetForSession()
+        {
+            hostMatch=null; Players=Array.Empty<P2PPlayerTradeSnapshot>(); LastResult=default;
+            nextRequestId=1; lastMarketPrice=0;
+        }
 
         private void Update()
         {
@@ -31,7 +38,7 @@ namespace FXOverdose.P2P.Infrastructure
             if (!networkManager.IsServer) return;
             EnsureHostMatch();
             double price = market != null ? market.AuthoritativePrice : 0;
-            if (price > 0 && Math.Abs(price - lastMarketPrice) > 0.000001)
+            if (price > 0 && hostMatch != null && hostMatch.Phase == P2PMatchPhase.Playing && Math.Abs(price - lastMarketPrice) > 0.000001)
             {
                 lastMarketPrice = price;
                 hostMatch.UpdateMarketPrice(price, (long)(market.CurrentSnapshot.Sequence));
@@ -84,8 +91,11 @@ namespace FXOverdose.P2P.Infrastructure
             Broadcast(result);
         }
 
+        public void BroadcastCurrentState() => Broadcast(new P2PTradeResult(0, P2PTradeRejectReason.None, lastMarketPrice));
+
         private void Broadcast(P2PTradeResult result)
         {
+            if (hostMatch == null) return;
             byte[] bytes = P2PNetworkTradingCodec.EncodeState(result, hostMatch.GetLeaderboard());
             ApplyState(bytes);
             using var writer = Writer(bytes);

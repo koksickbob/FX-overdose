@@ -14,7 +14,7 @@ namespace FXOverdose.P2P.Infrastructure
         private const double SnapshotInterval = 0.2;
         private NetworkManager networkManager;
         private P2PMarketSimulationEngine hostEngine;
-        private readonly P2PMarketReplica replica = new();
+        private P2PMarketReplica replica = new();
         private double sendAccumulator;
         private bool registered;
 
@@ -22,6 +22,11 @@ namespace FXOverdose.P2P.Infrastructure
             ? hostEngine.Snapshot : replica.Snapshot;
         public double AuthoritativePrice => CurrentSnapshot.Price;
         public event Action<P2PMarketSnapshot> SnapshotChanged;
+
+        public void ResetForSession()
+        {
+            hostEngine = null; replica = new P2PMarketReplica(); sendAccumulator = 0;
+        }
 
         private void Update()
         {

@@ -5,6 +5,7 @@ using FXOverdose.P2P.Lobby;
 using Netcode.Transports;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace FXOverdose.P2P.Infrastructure
 {
@@ -18,7 +19,9 @@ namespace FXOverdose.P2P.Infrastructure
         private SteamNetworkingSocketsTransport transport;
         private NetworkMarketAuthority marketAuthority;
         private NetworkTradingAuthority tradingAuthority;
+        private NetworkCompetitionAuthority competitionAuthority;
         private string attemptedNonce = string.Empty;
+        private bool gameplaySceneRequested;
 
         public static P2PNetworkSessionManager Instance { get; private set; }
         public bool IsRunning => networkManager != null && networkManager.IsListening;
@@ -27,6 +30,7 @@ namespace FXOverdose.P2P.Infrastructure
         public event Action<string> ConnectionFailed;
         public NetworkMarketAuthority MarketAuthority => marketAuthority;
         public NetworkTradingAuthority TradingAuthority => tradingAuthority;
+        public NetworkCompetitionAuthority CompetitionAuthority => competitionAuthority;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateInstance()
@@ -75,6 +79,7 @@ namespace FXOverdose.P2P.Infrastructure
                 lobby.LobbyId, SteamRuntimeBootstrap.LocalSteamId, Application.version, lobby.ConnectionNonce));
             networkManager.ConnectionApprovalCallback = ApproveConnection;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            networkManager.OnClientConnectedCallback += OnClientConnected;
             networkManager.OnTransportFailure += OnTransportFailure;
 
             bool isHost = lobby.OwnerSteamId == SteamRuntimeBootstrap.LocalSteamId;
@@ -82,7 +87,19 @@ namespace FXOverdose.P2P.Infrastructure
             bool started = isHost ? networkManager.StartHost() : networkManager.StartClient();
             if (!started) CleanupCallbacks();
             Debug.Log(started ? $"[P2P Network] {(isHost ? "HOST" : "CLIENT")} 시작" : "[P2P Network] 시작 실패");
+            if (started && isHost) Invoke(nameof(TryLoadGameplayScene), 0.5f);
             return started;
+        }
+
+        private void OnClientConnected(ulong _) => TryLoadGameplayScene();
+
+        private void TryLoadGameplayScene()
+        {
+            if (gameplaySceneRequested || networkManager == null || !networkManager.IsServer || !networkManager.IsListening) return;
+            SteamLobbySnapshot lobby = SteamLobbyManager.Instance?.CurrentLobby;
+            if (lobby == null || networkManager.ConnectedClientsIds.Count < lobby.Members.Count) return;
+            gameplaySceneRequested = true;
+            networkManager.SceneManager.LoadScene("GameScene", LoadSceneMode.Single);
         }
 
         public bool TryGetSteamId(ulong networkClientId, out ulong steamId) => networkToSteam.TryGetValue(networkClientId, out steamId);
@@ -93,6 +110,10 @@ namespace FXOverdose.P2P.Infrastructure
             CleanupCallbacks();
             networkToSteam.Clear();
             connectedSteamIds.Clear();
+            gameplaySceneRequested = false;
+            marketAuthority?.ResetForSession();
+            tradingAuthority?.ResetForSession();
+            competitionAuthority?.ResetForSession();
         }
 
         private void EnsureNetworkManager()
@@ -102,6 +123,7 @@ namespace FXOverdose.P2P.Infrastructure
             networkManager = gameObject.AddComponent<NetworkManager>();
             marketAuthority = gameObject.AddComponent<NetworkMarketAuthority>();
             tradingAuthority = gameObject.AddComponent<NetworkTradingAuthority>();
+            competitionAuthority = gameObject.AddComponent<NetworkCompetitionAuthority>();
             networkManager.NetworkConfig = new NetworkConfig
             {
                 NetworkTransport = transport,
@@ -164,6 +186,7 @@ namespace FXOverdose.P2P.Infrastructure
             if (networkManager == null) return;
             networkManager.ConnectionApprovalCallback = null;
             networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            networkManager.OnClientConnectedCallback -= OnClientConnected;
             networkManager.OnTransportFailure -= OnTransportFailure;
         }
 

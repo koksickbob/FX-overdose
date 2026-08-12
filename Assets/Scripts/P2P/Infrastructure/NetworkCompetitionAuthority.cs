@@ -1,0 +1,82 @@
+using System;
+using System.Collections.Generic;
+using FXOverdose.P2P.Core;
+using Unity.Collections;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace FXOverdose.P2P.Infrastructure
+{
+    /// <summary>체력·멘탈, 케어 아이템, 15초 공통 이벤트와 경기 종료를 호스트에서 판정합니다.</summary>
+    public sealed class NetworkCompetitionAuthority : MonoBehaviour
+    {
+        private const string ActionMessage="FXO.P2P.CompetitionAction.v1", StateMessage="FXO.P2P.CompetitionState.v1";
+        private NetworkManager net; private NetworkTradingAuthority trading; private NetworkMarketAuthority market;
+        private bool registered, initialized, eventActive, finished; private float tick, broadcastTick, eventDeadline;
+        private int eventId; private readonly Dictionary<ulong,int> choices=new();
+        public P2PCompetitionSnapshot Current { get; private set; } = new();
+        public event Action StateChanged;
+
+        public void ResetForSession()
+        {
+            initialized=false;eventActive=false;finished=false;tick=broadcastTick=eventDeadline=0;eventId=0;
+            choices.Clear();Current=new P2PCompetitionSnapshot();
+        }
+
+        private void Update()
+        {
+            net ??= NetworkManager.Singleton; if(net==null||!net.IsListening)return; EnsureRegistered();
+            if(!net.IsServer)return; var match=trading.HostMatch;if(match==null)return;
+            if(!initialized){initialized=true;foreach(var p in match.Players){p.SetInventoryAmount("water",1);p.SetInventoryAmount("comfort",1);}Broadcast("경기가 시작됐어용");}
+            if(finished)return;
+            tick+=Time.unscaledDeltaTime;broadcastTick+=Time.unscaledDeltaTime;
+            if(tick>=1f){float seconds=tick;tick=0;foreach(var p in match.Players){if(p.IsEliminated)continue;p.ChangeHealth(-.035*seconds);double loss=Math.Max(0,-p.Position.UnrealizedPnL);p.ChangeMental((-.02-loss/50000d)*seconds);Evaluate(p,match);}}
+            var snapshot=market.CurrentSnapshot;
+            if(!eventActive && snapshot.TotalMinutes>=720 && eventId==0) StartEvent();
+            if(!eventActive && snapshot.TotalMinutes>=1080 && eventId==1) StartEvent();
+            if(eventActive && Time.unscaledTime>=eventDeadline) ResolveEvent(match);
+            int alive=0;foreach(var p in match.Players)if(!p.IsEliminated)alive++;
+            if(snapshot.IsFinished || (match.Players.Count>1&&alive<=1)) Finish(match);
+            if(broadcastTick>=.25f){broadcastTick=0;Broadcast(string.Empty);}
+        }
+
+        public void Submit(P2PCompetitionAction action,string value)
+        { if(net==null||!net.IsListening)return;byte[] b=P2PCompetitionCodec.EncodeAction(SteamRuntimeBootstrap.LocalSteamId,action,value);if(net.IsServer)Process(net.LocalClientId,b);else{using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(ActionMessage,NetworkManager.ServerClientId,w,NetworkDelivery.ReliableSequenced);} }
+
+        private void Process(ulong sender,byte[] bytes)
+        {
+            if(finished||!P2PCompetitionCodec.TryDecodeAction(bytes,out ulong claimed,out var action,out string value))return;
+            ulong actual=SteamRuntimeBootstrap.LocalSteamId;if(sender!=net.LocalClientId&&(!P2PNetworkSessionManager.Instance.TryGetSteamId(sender,out actual)||actual!=claimed))return;
+            var match=trading.HostMatch;if(match==null||!match.TryGetPlayer(actual,out var p)||p.IsEliminated)return;
+            string message=string.Empty;
+            if(action==P2PCompetitionAction.ChooseEvent){if(eventActive&&int.TryParse(value,out int c)&&c>=0&&c<3&&!choices.ContainsKey(actual)){choices[actual]=c;message=$"{p.DisplayName} 선택 완료";}}
+            else if(action==P2PCompetitionAction.BuyItem) message=Buy(p,value);
+            else if(action==P2PCompetitionAction.UseItem) message=Use(p,value);
+            Broadcast(message);trading.BroadcastCurrentState();
+        }
+
+        private static string Buy(P2PPlayerRuntimeState p,string id)
+        { if(!TryItem(id,out int cost,out _,out _))return "P2P에서 사용할 수 없는 아이템이에용";if(p.CashBalance<cost)return "잔액이 부족해용";p.ChangeCash(-cost);p.SetInventoryAmount(id,Count(p,id)+1);return $"{id} 구매 완료"; }
+        private static string Use(P2PPlayerRuntimeState p,string id)
+        { if(!TryItem(id,out _,out double health,out double mental)||Count(p,id)<=0)return "사용할 수 없는 아이템이에용";p.SetInventoryAmount(id,Count(p,id)-1);p.ChangeHealth(health);p.ChangeMental(mental);return $"{id} 사용 완료"; }
+        private static bool TryItem(string id,out int cost,out double health,out double mental)
+        { cost=0;health=mental=0;switch(id){case "water":cost=150;health=15;return true;case "medicine":cost=400;health=35;return true;case "comfort":cost=300;mental=25;return true;default:return false;} }
+        private static int Count(P2PPlayerRuntimeState p,string id)=>p.Inventory.TryGetValue(id,out int n)?n:0;
+
+        private void StartEvent(){eventActive=true;eventId++;choices.Clear();eventDeadline=Time.unscaledTime+15f;trading.HostMatch.IsChoiceEventActive=true;market.SetPausedByHost(true);Broadcast("돌발 이벤트: 15초 안에 선택해용");}
+        private void ResolveEvent(P2PLocalMatch match)
+        { foreach(var p in match.Players){if(p.IsEliminated)continue;if(!choices.TryGetValue(p.PlayerId,out int c))c=(int)((p.PlayerId+(ulong)eventId)%3);if(c==0)p.ChangeHealth(15);else if(c==1){p.ChangeMental(20);p.ChangeHealth(-5);}else{p.ChangeMental(-15);p.ChangeCash(500);}Evaluate(p,match);}eventActive=false;match.IsChoiceEventActive=false;market.SetPausedByHost(false);Broadcast("이벤트 결과가 적용됐어용");trading.BroadcastCurrentState(); }
+        private static void Evaluate(P2PPlayerRuntimeState p,P2PLocalMatch match)
+        { P2PEliminationReason reason=p.Mental<=0?P2PEliminationReason.MentalDepleted:p.TotalEquity<=0?P2PEliminationReason.Bankruptcy:P2PEliminationReason.None;if(reason==P2PEliminationReason.None)return;if(p.Position.IsOpen)P2PTradeCalculator.ClosePosition(p,match.Rules,match.MarketPrice);p.TryEliminate(reason,(long)Time.unscaledTime); }
+        private void Finish(P2PLocalMatch match){finished=true;eventActive=false;market.SetPausedByHost(true);match.IsChoiceEventActive=false;match.Finish();trading.BroadcastCurrentState();Broadcast("경기 종료 · 최종 순위가 확정됐어용");}
+
+        private void Broadcast(string message)
+        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"water"),Count(p,"medicine"),Count(p,"comfort")));var x=new P2PCompetitionSnapshot{Players=list,EventActive=eventActive,EventId=eventId,EventTitle=eventActive?"긴급 시장 스트레스":"",EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,NetworkDelivery.ReliableSequenced); }
+        private void ReceiveAction(ulong sender,FastBufferReader reader){if(!net.IsServer)return;reader.ReadValueSafe(out byte[] b);Process(sender,b);}
+        private void ReceiveState(ulong sender,FastBufferReader reader){if(net.IsServer||sender!=NetworkManager.ServerClientId)return;reader.ReadValueSafe(out byte[] b);Apply(b);}
+        private void Apply(byte[] b){if(!P2PCompetitionCodec.TryDecodeState(b,SteamRuntimeBootstrap.LocalSteamId,out var x))return;Current=x;StateChanged?.Invoke();}
+        private void EnsureRegistered(){if(registered)return;registered=true;trading=GetComponent<NetworkTradingAuthority>();market=GetComponent<NetworkMarketAuthority>();net.CustomMessagingManager.RegisterNamedMessageHandler(ActionMessage,ReceiveAction);net.CustomMessagingManager.RegisterNamedMessageHandler(StateMessage,ReceiveState);}
+        private static FastBufferWriter Writer(byte[] b){var w=new FastBufferWriter(sizeof(int)+b.Length,Allocator.Temp);w.WriteValueSafe(b);return w;}
+        private void OnDestroy(){if(!registered||net?.CustomMessagingManager==null)return;net.CustomMessagingManager.UnregisterNamedMessageHandler(ActionMessage);net.CustomMessagingManager.UnregisterNamedMessageHandler(StateMessage);}
+    }
+}

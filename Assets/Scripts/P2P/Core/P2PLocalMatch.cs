@@ -23,6 +23,8 @@ namespace FXOverdose.P2P.Core
         public double MarketPrice { get; private set; }
         public IReadOnlyCollection<P2PPlayerRuntimeState> Players => players.Values;
 
+        public bool TryGetPlayer(ulong playerId, out P2PPlayerRuntimeState player) => players.TryGetValue(playerId, out player);
+
         public P2PPlayerRuntimeState AddPlayer(ulong playerId, string displayName)
         {
             if (Phase != P2PMatchPhase.Lobby) throw new InvalidOperationException("로비 단계에서만 참가할 수 있습니다.");
@@ -88,6 +90,14 @@ namespace FXOverdose.P2P.Core
         }
 
         public IReadOnlyList<P2PPlayerRuntimeState> GetLeaderboard() => MultiplayerLeaderboard.Rank(players.Values);
+
+        public void Finish()
+        {
+            if (Phase != P2PMatchPhase.Playing) return;
+            foreach (P2PPlayerRuntimeState player in players.Values)
+                if (player.Position.IsOpen) P2PTradeCalculator.ClosePosition(player, Rules, MarketPrice);
+            Phase = P2PMatchPhase.Finished;
+        }
 
         private readonly struct PlayerRequestKey : IEquatable<PlayerRequestKey>
         {
