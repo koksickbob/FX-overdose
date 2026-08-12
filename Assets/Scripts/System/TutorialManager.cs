@@ -962,7 +962,7 @@ namespace FXOverdose.Core
             // 대사 출력 및 클릭(넘김) 완료 대기
             yield return playWait;
 
-            // 돌발 이벤트 팝업 띄우기 (미리 예열된 LLM 데이터 사용)
+            // 돌발 이벤트 팝업 띄우기 (텍스트가 확정된 고정 이벤트 사용 — 아래 TriggerSpecificEvent 참고)
             var choiceController = FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
             if (choiceController != null)
             {

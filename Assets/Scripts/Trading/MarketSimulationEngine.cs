@@ -961,10 +961,20 @@ namespace FXOverdose.Trading
         }
 
         // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)
-        public void OverrideMarketTrend(float targetChangePercent, int durationSeconds, bool isWhipsaw = false)
+        /// <summary>
+        /// 돌발 이벤트의 강제 빔을 주입합니다.
+        /// </summary>
+        /// <param name="targetChangePercent">목표 변동률(%). 부호가 방향입니다.</param>
+        /// <param name="durationInGameMinutes">
+        /// 목표 변동률까지 도달하는 데 쓸 <b>인게임 분</b>. 0 이하면 기본 30분.
+        /// ⚠️ 과거 이 인자는 이름이 durationSeconds였고 메서드 안에서 30으로 덮어써져 완전히 무시됐습니다.
+        ///    호출부가 넘기던 150은 아무 효과가 없었습니다. (C3)
+        /// </param>
+        /// <param name="isWhipsaw">트랩(휩소) 여부. 신호 종류와 변동성 배수가 달라집니다.</param>
+        public void OverrideMarketTrend(float targetChangePercent, int durationInGameMinutes, bool isWhipsaw = false)
         {
-            // 💡 [순간이동 제거] 1프레임 만에 주가를 순간 이동시키지 않고, 인게임시간 30분(5분봉 6캔들) 동안 점진적 드리프트로 이동하도록 설정
-            int durationMins = 30; // 사용자 요청: 돌발이벤트 차트 변동을 30분으로 일괄 확대
+            // 💡 [순간이동 제거] 1프레임 만에 주가를 순간 이동시키지 않고, 인게임 시간 동안 점진적 드리프트로 이동시킵니다.
+            int durationMins = durationInGameMinutes > 0 ? durationInGameMinutes : 30;
             InitiateEventSignalOverride(targetChangePercent, durationMins, isWhipsaw);
         }
 
@@ -978,8 +988,9 @@ namespace FXOverdose.Trading
             int graceMins = 2;
             currentVolatility *= (isWhipsaw ? 3.0f : 1.8f);
             
-            // TradingController의 150초(30분) 이벤트 쉴드와 아다리가 맞도록 
-            // 실제 드리프트 시간(durationMins)에서 graceMins를 빼서 총합 30분이 되도록 맞춥니다.
+            // 골든타임을 포함해 총합이 durationMins가 되도록, 실제 드리프트 시간에서 graceMins를 뺍니다.
+            // ⚠️ 이 시간은 인게임 분입니다. TradingController의 이벤트 쉴드는 실시간 초라 단위가 다릅니다.
+            //    (secondsPerGameMinute = 1인 GameScene 기준 30분 ≈ 실시간 30초, 쉴드 기본값은 150초)
             int actualDriftMins = Mathf.Max(5, durationMins - graceMins);
             minutesUntilNextRegimeChange = actualDriftMins + graceMins;
 

@@ -3,6 +3,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using FXOverdose.AI.LLM;
 
 namespace FXOverdose.Events
 {
@@ -15,6 +16,15 @@ namespace FXOverdose.Events
     {
         private const int EventPopupSortingOrder = 150;
         private const int OptionCount = 3;
+
+        // ── 표시 길이 상한 (최종 방어선) ──────────────────────────────────
+        // 생성 텍스트 검증(LLMOutputSanitizer)은 이보다 훨씬 빡빡하게 잡혀 있습니다.
+        // 여기 값은 검증을 거치지 않는 경로(하드코딩 이벤트·튜토리얼 동적 이벤트)까지 포함해
+        // "레이아웃이 무너질 정도로 긴 문자열"만 걸러내기 위한 것이므로 넉넉히 둡니다.
+        // (하드코딩 30개 이벤트 실측: 제목 58자 / 본문 158자 / 요미 대사 159자)
+        private const int DisplayMaxTitleLength = 80;
+        private const int DisplayMaxDescriptionLength = 400;
+        private const int DisplayMaxMonologueLength = 200;
         private const float ModalWidth = 1500f;
         private const float ModalHeight = 920f;
 
@@ -105,7 +115,11 @@ namespace FXOverdose.Events
 
             string eventId = string.IsNullOrWhiteSpace(eventData.EventID) ? "market-alert" : eventData.EventID.Trim();
             string category = GetEventCategory(eventData.TriggerCondition);
+            // ⭐ 표시 직전 최종 방어선: 프롬프트 잔재로 보이면 경고를 남기고, 과도한 길이는 잘라냅니다.
+            WarnIfPromptResidue(eventId, eventData);
+
             string title = string.IsNullOrWhiteSpace(eventData.ScenarioTitle) ? "긴급 시장 속보" : eventData.ScenarioTitle;
+            title = LLMOutputSanitizer.TruncateForDisplay(title, DisplayMaxTitleLength, "ScenarioTitle");
 
             if (scenarioTitleText != null)
             {
@@ -114,9 +128,10 @@ namespace FXOverdose.Events
 
             if (scenarioDescText != null)
             {
-                scenarioDescText.text = string.IsNullOrWhiteSpace(eventData.ScenarioDescription)
+                string description = string.IsNullOrWhiteSpace(eventData.ScenarioDescription)
                     ? "현재 시장 상황을 분석하고 대응 방안을 선택해 주세요."
                     : eventData.ScenarioDescription;
+                scenarioDescText.text = LLMOutputSanitizer.TruncateForDisplay(description, DisplayMaxDescriptionLength, "ScenarioDescription");
             }
 
             if (aiMonologueText != null)
@@ -124,6 +139,7 @@ namespace FXOverdose.Events
                 string monologue = string.IsNullOrWhiteSpace(eventData.AIMonologue)
                     ? "시장 데이터가 불안정해요. 대응 방향을 정해 주세요."
                     : eventData.AIMonologue;
+                monologue = LLMOutputSanitizer.TruncateForDisplay(monologue, DisplayMaxMonologueLength, "AIMonologue");
                 aiMonologueText.text =
                     $"<color=#06B6D4><b>YOMI // AI MARKET ANALYST</b></color>\n" +
                     $"<color=#CFFAFE>“{monologue}”</color>";
@@ -161,6 +177,26 @@ namespace FXOverdose.Events
             popupPanel.SetActive(false);
             if (breakingNewsCoroutine != null) StopCoroutine(breakingNewsCoroutine);
             breakingNewsCoroutine = StartCoroutine(ShowBreakingNewsThenArticle(category));
+        }
+
+        /// <summary>
+        /// 표시하려는 텍스트에 프롬프트 잔재(안내 문구·JSON 필드명·중괄호)가 섞여 있으면 경고를 남깁니다.
+        /// 표시를 막지는 않습니다 — 생성 경로의 검증은 LLMSafeGenerator가 이미 수행했고,
+        /// 여기서는 검증을 우회한 경로가 있는지 계측하는 것이 목적입니다.
+        /// </summary>
+        private void WarnIfPromptResidue(string eventId, ChoiceEventSO eventData)
+        {
+            if (LLMOutputSanitizer.LooksLikePromptResidue(eventData.ScenarioTitle) ||
+                LLMOutputSanitizer.LooksLikePromptResidue(eventData.ScenarioDescription) ||
+                LLMOutputSanitizer.LooksLikePromptResidue(eventData.AIMonologue))
+            {
+                Debug.LogError(
+                    $"[ChoiceEventUI] 🚨 이벤트 '{eventId}' 텍스트에 프롬프트 잔재로 보이는 패턴이 있습니다. " +
+                    $"생성 검증을 우회한 경로가 있는지 확인하십시오.\n" +
+                    $"  제목: {eventData.ScenarioTitle}\n" +
+                    $"  본문: {eventData.ScenarioDescription}\n" +
+                    $"  요미: {eventData.AIMonologue}");
+            }
         }
 
         private void RefreshOptionStates()

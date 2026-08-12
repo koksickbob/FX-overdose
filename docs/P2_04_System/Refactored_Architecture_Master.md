@@ -94,4 +94,83 @@
 * `ScenarioManager.StartNewScenario` / `IncrementTurn` 재연결
 
 ---
+
+### 4. 돌발 선택 이벤트 시스템 리팩토링 (2026-08-12)
+
+계획서: [ChoiceEvent_System_Refactoring_Plan.md](ChoiceEvent_System_Refactoring_Plan.md)
+증상: 이벤트 본문과 요미 대사에 **LLM 프롬프트 안내 문구가 그대로 출력됨**
+
+#### 4.1 근본 구조 변경 — 텍스트는 로직의 종속 산출물
+
+기존에는 **로직(템플릿)을 뽑고 → 그 로직을 모르는 채 텍스트를 생성**했고, 텍스트 생성이 실패하면
+템플릿을 통째로 버리고 **완전히 다른 하드코딩 이벤트로 폴백**했습니다. 즉 폴백이 로직 일관성을 깨뜨렸습니다.
+
+이제 템플릿이 단일 진실 공급원입니다.
+
+```
+템플릿 선택 (로직 확정)
+      │
+      ├─ 텍스트 생성 시도 (LLM, 선택지 힌트를 프롬프트에 주입)
+      │        ├─ 위생 검사 통과 → 생성분 사용
+      │        └─ 기각/실패      → 템플릿 사전 작성 텍스트 사용
+      │
+      └─ 선택지 로직(LogicOptions) — 어느 쪽이든 그대로 유지
+```
+
+`ShowLLMChoiceDialog` → **`ShowTemplateEvent`** 로 개편. 텍스트 출처만 분기하고 로직은 불변입니다.
+요미 대사는 `YomiDialogueDatabase`(810개, 검수 완료) → LLM 생성분 → 템플릿 사전 대사 → 기본 문구 순으로 조회합니다.
+
+#### 4.2 신설
+
+| 파일 | 역할 |
+| --- | --- |
+| `Assets/Scripts/AI/LLM/LLMOutputSanitizer.cs` | 출력 위생 검사기. 프롬프트 복창·안내문 마커·길이·한국어 비율을 검사해 한 항목이라도 실패하면 전체 기각 |
+| `LLMGenerationStats` (동 파일) | 폴백률 계측. 10회 이상 시도에서 50% 초과하면 경고 (리스크 #5 판단 근거) |
+| `Assets/Scripts/Editor/ChoiceEventDebugMenu.cs` | 강제 발생 / 텍스트 생성 N회 검증 / 자산 점검 메뉴 |
+| `Assets/Scripts/Editor/MigrateEventTemplates.cs` | 기존 자산을 C3·C4 규격으로 이관 (생성기 재실행 아님) |
+| `Assets/Scripts/Editor/GenerateTemplateFallbackText.cs` | 242개 템플릿 사전 작성 텍스트 초안 생성 |
+
+#### 4.3 결함 수정 요약
+
+| # | 결함 | 처리 |
+| --- | --- | --- |
+| C1 | 복창을 걸러내는 검증 없음 (`koreanCount >= 5`) | `LLMOutputSanitizer`로 교체. 정적 지시문 블록과 12자 이상 연속 일치 시 기각 |
+| C2 | 프롬프트에 빈 JSON 스켈레톤 포함 | 완전히 채워진 few-shot 예시 1개로 교체 |
+| C3 | `OverrideDurationSeconds`가 어디서도 안 읽힘 | 이벤트 쉴드에 실제 전달. **`OverrideMarketTrend`의 인자는 메서드 내부에서 30으로 덮어써져 아예 무시되고 있었음** — 인자를 되살리고 단위를 `durationInGameMinutes`로 정정 |
+| C4 | 방향성 선택지 멘탈이 성공 시에만 적용되는데 데이터는 음수 | `MentalPenaltyOnFail`/`HealthPenaltyOnFail` 필드 신설. 성공=보상 / 실패=페널티로 분리 |
+| C5·R1·R4 | 프리페치 경쟁 상태 | `CancellationTokenSource` + 세대 카운터. 완료 시 자신이 최신 세대일 때만 캐시에 기록 |
+| R2 | 선택지 힌트를 계산만 하고 프롬프트에 미주입 | 동적 컨텍스트 블록에 실제 주입 |
+| R3 | `LogicOptions[0..2]` 무방비 인덱싱 | `HasValidOptions` 검증 후 풀에 편입. **전수 검사 결과 242개 모두 3개 보유 — 실제 발생 사례는 없었음** |
+| R5 | Safe 선택지가 트랩 판정을 받음 | 트랩 판정을 "베팅에 실패했을 때"로 한정. Safe/SpecialItem은 성패 판정 대상이 아님 |
+| R6 | 실패 시 빔 부호 규칙이 데이터와 충돌 | 단일 규칙으로 통일 — 데이터의 **크기**만 쓰고 **부호**는 포지션+성패에서 유도 |
+| R7 | `ThemeTag`가 태그가 아니라 상황 서술 | `GetThemeDescription()`으로 `[ID]` 접두사를 제거한 서술만 프롬프트에 주입 |
+| R8 | LLM 부재 시 환경마다 동작이 갈림 | 부재를 정상 경로로 취급. 사전 작성 텍스트로 동일하게 표시되므로 에디터/빌드 동작 일치 |
+| R9 | 요미 대사 DB가 이벤트 팝업에서 미사용 | `YomiDialogueMatcher.GetEventDialogue("ChoiceEvent_{카테고리}_{흐름}")` 우선 조회 |
+| M1 | `GenerateDailySettlementAsync` 죽은 기능 | 삭제 (호출자 0) |
+| M2 | `TriggerPrefetchedEvent` 죽은 API | `ForceTriggerTemplateEvent`로 대체하여 디버그 메뉴에서 실사용 |
+| M3 | 튜토리얼 주석이 사실과 다름 | 정정 |
+| M4 | 표시 실패에도 `eventsTriggeredToday++` | 성공 시에만 증가, 실패 시 10분 뒤 재시도 예약 |
+| M6 | `LowMental` 트리거에 `Any` 이벤트 혼입 | 조건 일치 이벤트만 후보. 전용 이벤트가 없을 때만 `Any`로 확장 |
+| M7 | UI에 길이 상한/이상 패턴 필터 없음 | 표시 직전 절단 + 프롬프트 잔재 감지 시 에러 로그 |
+
+#### 4.4 모델 파라미터 (코드에서 강제)
+
+`TitleScene`의 `LLMAgent` 직렬화 값은 LLMUnity 기본값 그대로였습니다(영어 시스템 프롬프트 / `numPredict: -1` / `temperature: 0.2` / grammar 없음).
+`LLMSafeGenerator.Awake()`에서 코드로 덮어씁니다.
+
+| 설정 | 변경 |
+| --- | --- |
+| `systemPrompt` | 한국어 JSON 생성기 역할 부여 |
+| `numPredict` | `-1` → `320` (무제한 복창 차단) |
+| `temperature` | `0.2` → `0.65` (낮은 온도가 예시 복사를 조장) |
+| `grammar` | 3필드 JSON GBNF 강제. **호출 직전에 걸고 직후 해제** — grammar는 에이전트 전역이라 다른 용도까지 JSON에 묶이기 때문 |
+
+#### 4.5 잔여 과제
+
+* **Phase 0 미완**: 실제 모델 출력 로그로 3.1 인과 사슬 확정 (플레이모드 필요)
+* 242개 템플릿 사전 텍스트는 **자동 생성 초안** 상태 — 작가 검수 필요
+* `YomiDialogueDatabase`에 `ChoiceEvent_*` 카테고리 신규 집필 필요 (현재는 조회 실패 시 다음 순위로 폴백)
+* 이벤트 쉴드 150초 vs 차트 드리프트 30인게임분(≈실시간 30초)의 불일치 — 기획 판단 대기
+
+---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

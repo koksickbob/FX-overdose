@@ -16,9 +16,33 @@ namespace FXOverdose.Editor
 
         private static string[] Items = { "energy_drink", "sedative", "supplement", "dessert" };
 
-        [MenuItem("Tools/FX OVERDOSE/Generate 240 Event Templates")]
+        /// <summary>이벤트 쉴드 기본 지속 시간(실시간 초). ChoiceEventController.DefaultEventShieldSeconds와 같아야 합니다.</summary>
+        private const int EventShieldSeconds = 150;
+
+        /// <summary>
+        /// ⚠️ 이 메뉴는 기존 자산을 <b>덮어씁니다.</b>
+        ///
+        /// 현재 Resources/Events/Templates의 242개 자산은 이 코드와 다른 버전으로 생성되어 있습니다.
+        /// 실측: 베팅 선택지의 OverrideSignalProbTrue가 자산은 0.002~0.399인데 아래 코드는 0.4~0.7입니다.
+        /// 즉 재실행하면 성공 확률이 평균 0.2에서 0.55로 뛰어 밸런스가 통째로 바뀝니다.
+        ///
+        /// 기존 자산에 C3/C4 규격만 반영하려면 이 메뉴가 아니라
+        /// <c>Tools/FX OVERDOSE/Migrate Event Templates (C3+C4)</c> 를 쓰십시오.
+        /// </summary>
+        [MenuItem("Tools/FX OVERDOSE/Generate 240 Event Templates (전체 재생성 · 밸런스 변경 주의)")]
         public static void GenerateTemplates()
         {
+            bool proceed = EditorUtility.DisplayDialog(
+                "템플릿 전체 재생성",
+                "기존 242개 템플릿 자산을 덮어씁니다.\n\n" +
+                "⚠️ 현재 자산의 베팅 성공 확률은 0.002~0.399이지만 이 생성기는 0.4~0.7로 만듭니다.\n" +
+                "재생성하면 난이도가 크게 낮아집니다.\n\n" +
+                "기존 값을 지키면서 C3/C4 규격만 맞추려면\n" +
+                "'Migrate Event Templates (C3+C4)' 메뉴를 사용하십시오.\n\n" +
+                "그래도 전체 재생성을 진행할까요?",
+                "재생성", "취소");
+            if (!proceed) return;
+
             string dir = "Assets/Resources/Events/Templates";
             if (!Directory.Exists(dir))
             {
@@ -99,10 +123,11 @@ namespace FXOverdose.Editor
                 OptionTitle = "안전하게 포지션을 종료하고 관망한다.",
                 OptionDescription = "시장의 불확실성을 피하여 잠시 휴식하며 멘탈과 체력을 회복합니다.",
                 ForcePosition = TradingController.PositionType.None,
+                // Safe는 성패 판정을 받지 않으므로 보상이 무조건 적용됩니다. 페널티 필드는 쓰이지 않습니다.
                 MentalChangeAmount = Random.Range(5, 20),
                 HealthChangeAmount = Random.Range(5, 15),
                 OverrideBeamPercent = (flow == "Pump" || flow == "Crash") ? (flow == "Pump" ? baseBeam * 0.2f : -baseBeam * 0.2f) : 0f,
-                OverrideDurationSeconds = 10
+                OverrideDurationSeconds = EventShieldSeconds
             };
 
             // [Option 1: Aggressive / Directional]
@@ -122,10 +147,13 @@ namespace FXOverdose.Editor
                 OptionDescription = "시장의 방향성에 공격적으로 베팅하여 큰 수익을 노리거나 큰 손실을 감수합니다.",
                 ForcePosition = (flow == "Crash") ? TradingController.PositionType.Short : TradingController.PositionType.Long,
                 ForceLeverage = risk == "High" ? Random.Range(75, 126) : Random.Range(30, 76),
-                MentalChangeAmount = Random.Range(-40, -10) * riskMultiplier,
+                // C4: 베팅 선택지는 성공하면 보상, 실패하면 페널티를 받습니다.
+                //     과거에는 음수 한 개만 있어서 "성공하면 멘탈 폭락, 실패하면 무사"가 됐습니다.
+                MentalChangeAmount = Random.Range(5, 13) * riskMultiplier,
+                MentalPenaltyOnFail = Random.Range(-40, -10) * riskMultiplier,
                 OverrideSignalProbTrue = Random.Range(0.4f, 0.7f),
                 OverrideBeamPercent = aggressiveBeam,
-                OverrideDurationSeconds = 15
+                OverrideDurationSeconds = EventShieldSeconds
             };
 
             // [Option 2: SpecialItem]
@@ -141,9 +169,9 @@ namespace FXOverdose.Editor
                 ForceLeverage = Random.Range(15, 30),
                 MentalChangeAmount = Random.Range(15, 40),
                 HealthChangeAmount = Random.Range(10, 30),
-                OverrideSignalProbTrue = 1.0f, // 100% 성공 보장
+                OverrideSignalProbTrue = 1.0f, // 100% 성공 보장 → 보상만 적용되고 페널티 필드는 쓰이지 않음
                 OverrideBeamPercent = Mathf.Abs(baseBeam) * Random.Range(0.8f, 1.2f),
-                OverrideDurationSeconds = 15
+                OverrideDurationSeconds = EventShieldSeconds
             };
 
             return options;
