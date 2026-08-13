@@ -19,6 +19,8 @@ namespace FXOverdose.P2P.Infrastructure
         private uint nextRequestId = 1;
         private double lastMarketPrice;
         private float stateBroadcastTimer;
+        private ulong stateSequence,lastAppliedSequence;
+        private readonly P2PRequestSecurityGuard requestGuard=new();
 
         public IReadOnlyList<P2PPlayerTradeSnapshot> Players { get; private set; } = Array.Empty<P2PPlayerTradeSnapshot>();
         public P2PTradeResult LastResult { get; private set; }
@@ -28,7 +30,7 @@ namespace FXOverdose.P2P.Infrastructure
         public void ResetForSession()
         {
             hostMatch=null; Players=Array.Empty<P2PPlayerTradeSnapshot>(); LastResult=default;
-            nextRequestId=1; lastMarketPrice=0;
+            nextRequestId=1; lastMarketPrice=0;stateSequence=lastAppliedSequence=0;requestGuard.Reset();
         }
 
         private void Update()
@@ -51,8 +53,10 @@ namespace FXOverdose.P2P.Infrastructure
         public void Submit(P2PTradeAction action, int leverage, double marginRatio)
         {
             if (networkManager == null || !networkManager.IsListening) return;
-            var request = new P2PTradeRequest(nextRequestId++, action, leverage, marginRatio);
+            uint requestId=nextRequestId++;if(nextRequestId==0)nextRequestId=1;
+            var request = new P2PTradeRequest(requestId, action, leverage, marginRatio);
             byte[] bytes = P2PNetworkTradingCodec.EncodeRequest(SteamRuntimeBootstrap.LocalSteamId, request);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length);
             if (networkManager.IsServer) ProcessRequest(networkManager.LocalClientId, bytes);
             else { using var writer = Writer(bytes); networkManager.CustomMessagingManager.SendNamedMessage(RequestMessage, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableSequenced); }
         }
@@ -78,19 +82,34 @@ namespace FXOverdose.P2P.Infrastructure
         private void ReceiveRequest(ulong sender, FastBufferReader reader)
         {
             if (!networkManager.IsServer) return; reader.ReadValueSafe(out byte[] bytes); ProcessRequest(sender, bytes);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordReceived(bytes?.Length??0);
         }
 
         private void ProcessRequest(ulong sender, byte[] bytes)
         {
             EnsureHostMatch();
-            if (hostMatch == null || !P2PNetworkTradingCodec.TryDecodeRequest(bytes, out ulong claimedSteamId, out var request)) return;
-            // 원격 요청은 NGO 연결 승인 때 매핑된 Steam ID와 Payload의 Steam ID가 반드시 같아야 합니다.
             ulong actualSteamId = SteamRuntimeBootstrap.LocalSteamId;
-            if (sender != networkManager.LocalClientId && (!P2PNetworkSessionManager.Instance.TryGetSteamId(sender, out actualSteamId) || actualSteamId != claimedSteamId)) return;
+            if(sender!=networkManager.LocalClientId&&!P2PNetworkSessionManager.Instance.TryGetSteamId(sender,out actualSteamId)){BlockClient(sender,"Steam ID mapping missing");return;}
+            if(hostMatch==null)return;
+            P2PRequestGuardResult guardResult=requestGuard.TryConsume(actualSteamId,Time.unscaledTime);
+            if(guardResult!=P2PRequestGuardResult.Allowed){if(guardResult==P2PRequestGuardResult.Blocked)BlockClient(sender,"trade rate limit");return;}
+            if(!P2PNetworkTradingCodec.TryDecodeRequest(bytes,out ulong claimedSteamId,out var request))
+            {if(requestGuard.RecordViolation(actualSteamId,Time.unscaledTime)==P2PRequestGuardResult.Blocked)BlockClient(sender,"malformed trade packets");return;}
+            // 원격 요청은 NGO 연결 승인 때 매핑된 Steam ID와 Payload의 Steam ID가 반드시 같아야 합니다.
+            if(actualSteamId!=claimedSteamId)
+            {if(requestGuard.RecordViolation(actualSteamId,Time.unscaledTime)==P2PRequestGuardResult.Blocked)BlockClient(sender,"spoofed Steam ID");return;}
             hostMatch.UpdateMarketPrice(market.AuthoritativePrice, (long)market.CurrentSnapshot.Sequence);
             P2PTradeResult result = hostMatch.SubmitTrade(actualSteamId, request);
-            Debug.Log($"[P2P Trade] {actualSteamId} {request.Action} x{request.Leverage} margin {request.MarginRatio:P0} => {result.RejectReason} @ {result.FillPrice:F1}");
+            if(result.RejectReason==P2PTradeRejectReason.InvalidLeverage||result.RejectReason==P2PTradeRejectReason.InvalidMargin)
+                if(requestGuard.RecordViolation(actualSteamId,Time.unscaledTime)==P2PRequestGuardResult.Blocked){BlockClient(sender,"invalid trade requests");return;}
+            Debug.Log($"[P2P Trade][{P2PNetworkSessionManager.Instance?.MatchId}] {actualSteamId} req={request.RequestId} {request.Action} x{request.Leverage} margin {request.MarginRatio:P0} => {result.RejectReason} @ {result.FillPrice:F1}");
             Broadcast(result,true);
+        }
+
+        private void BlockClient(ulong sender,string reason)
+        {
+            Debug.LogWarning($"[P2P Security][{P2PNetworkSessionManager.Instance?.MatchId}] client={sender} 차단 · {reason}");
+            if(sender!=networkManager.LocalClientId)networkManager.DisconnectClient(sender);
         }
 
         public void BroadcastCurrentState() => Broadcast(new P2PTradeResult(0, P2PTradeRejectReason.None, lastMarketPrice),true);
@@ -98,7 +117,8 @@ namespace FXOverdose.P2P.Infrastructure
         private void Broadcast(P2PTradeResult result,bool reliable=true)
         {
             if (hostMatch == null) return;
-            byte[] bytes = P2PNetworkTradingCodec.EncodeState(result, hostMatch.GetLeaderboard());
+            byte[] bytes = P2PNetworkTradingCodec.EncodeState(++stateSequence,result, hostMatch.GetLeaderboard());
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length*networkManager.ConnectedClientsIds.Count);
             ApplyState(bytes);
             using var writer = Writer(bytes);
             networkManager.CustomMessagingManager.SendNamedMessage(StateMessage,networkManager.ConnectedClientsIds,writer,reliable?NetworkDelivery.ReliableSequenced:NetworkDelivery.UnreliableSequenced);
@@ -108,13 +128,17 @@ namespace FXOverdose.P2P.Infrastructure
         {
             if (networkManager.IsServer || sender != NetworkManager.ServerClientId) return;
             reader.ReadValueSafe(out byte[] bytes); ApplyState(bytes);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordReceived(bytes?.Length??0);
         }
 
         private void ApplyState(byte[] bytes)
         {
-            if (!P2PNetworkTradingCodec.TryDecodeState(bytes, out var result, out var players)) return;
+            if (!P2PNetworkTradingCodec.TryDecodeState(bytes,out ulong sequence, out var result, out var players)||!IsSequenceNewer(sequence,lastAppliedSequence)) return;
+            lastAppliedSequence=sequence;
             LastResult = result; Players = players; StateChanged?.Invoke();
         }
+
+        private static bool IsSequenceNewer(ulong candidate,ulong previous)=>candidate!=previous&&unchecked((long)(candidate-previous))>0;
 
         private static FastBufferWriter Writer(byte[] bytes)
         {

@@ -33,17 +33,29 @@ namespace FXOverdose.P2P.Market
     /// <summary>호스트에서만 실행하는 결정적 가격 및 09:00~24:00 시간 엔진입니다.</summary>
     public sealed class P2PMarketSimulationEngine
     {
+        public const double SecondsPerGameMinute = 1d;
+
+        private enum MarketRegime { Bull, Bear, Sideways, Squeeze }
+
         private uint randomState;
         private double minuteAccumulator;
         private double tickAccumulator;
         private double forcedTrendPerTick;
         private int forcedTrendTicks;
+        private double simulatedSeconds;
+        private double currentVolatility = 0.002;
+        private double ouCenterPrice;
+        private MarketRegime currentRegime = MarketRegime.Sideways;
+        private MarketRegime dailyRegime;
+        private int minutesUntilNextRegimeChange = 60;
 
         public P2PMarketSimulationEngine(int seed, double initialPrice = 67842.1)
         {
             if (initialPrice <= 0 || double.IsNaN(initialPrice) || double.IsInfinity(initialPrice))
                 throw new ArgumentOutOfRangeException(nameof(initialPrice));
             Seed = seed; randomState = unchecked((uint)seed) | 1u;
+            ouCenterPrice = initialPrice;
+            dailyRegime = PickDailyRegime();
             Snapshot = new P2PMarketSnapshot(0, seed, initialPrice, initialPrice, initialPrice,
                 9 * 60, true, initialPrice, initialPrice, initialPrice, 0);
         }
@@ -60,7 +72,7 @@ namespace FXOverdose.P2P.Market
             forcedTrendPerTick = percent / 100d / forcedTrendTicks;
         }
 
-        public void Advance(double realSeconds, double secondsPerGameMinute = 0.666)
+        public void Advance(double realSeconds, double secondsPerGameMinute = SecondsPerGameMinute)
         {
             if (realSeconds <= 0 || secondsPerGameMinute <= 0 || Snapshot.Paused || Snapshot.IsFinished) return;
             minuteAccumulator += realSeconds;
@@ -71,17 +83,71 @@ namespace FXOverdose.P2P.Market
                 tickAccumulator -= tickInterval;
                 bool advanceMinute = minuteAccumulator >= secondsPerGameMinute;
                 if (advanceMinute) minuteAccumulator -= secondsPerGameMinute;
-                // 기존 시장처럼 한 게임 분을 다섯 개의 작은 틱으로 구성합니다.
-                double noise = (NextUnit() - 0.5) * 0.00108;
+                // 원본 MarketSimulationEngine과 동일하게 한 게임 분을 다섯 틱으로 나누고,
+                // 국면/세션 변동성, 단기 파동, GARCH 완화, OU 평균회귀를 함께 적용합니다.
+                simulatedSeconds += tickInterval;
+                double dtFraction = tickInterval / secondsPerGameMinute;
+                GetRegimeParameters(out double drift,out double targetVol,out double ouTheta);
+
+                int hour=Snapshot.TotalMinutes/60;
+                double sessionVolMultiplier=hour<8?0.5:hour<16?1.2:2.0;
+                targetVol*=sessionVolMultiplier;
+
+                double marketClock=Snapshot.TotalMinutes*60d+simulatedSeconds;
+                double waveDrift=Math.Sin(marketClock%350d/350d*Math.PI*2d)*0.0004
+                    +Math.Cos(marketClock%130d/130d*Math.PI*2d)*0.0002
+                    +Math.Sin(simulatedSeconds%15d/15d*Math.PI*2d)*0.00015;
+                double macroDrift=dailyRegime==MarketRegime.Bull?0.00015
+                    :dailyRegime==MarketRegime.Bear?-0.00015
+                    :dailyRegime==MarketRegime.Squeeze?Range(-0.0003,0.0003):0;
+                drift+=waveDrift+macroDrift;
+
+                currentVolatility=Lerp(currentVolatility,targetVol,Math.Min(1d,dtFraction*5d));
+                double ouTerm=ouTheta*(ouCenterPrice-Snapshot.Price)/Snapshot.Price;
+                double u1=Math.Max(1e-6,NextUnit()),u2=NextUnit();
+                double normal=Math.Sqrt(-2d*Math.Log(u1))*Math.Sin(2d*Math.PI*u2);
+                double stochasticNoise=currentVolatility*Math.Sqrt(dtFraction)*normal;
+                double totalReturn=drift*dtFraction+ouTerm*dtFraction+stochasticNoise;
+
                 if (forcedTrendTicks > 0)
                 {
-                    noise += forcedTrendPerTick;
+                    totalReturn += forcedTrendPerTick;
                     forcedTrendTicks--;
                 }
-                double meanReversion = (67842.1 - Snapshot.Price) / 67842.1 * 0.00012;
-                double next = Math.Max(10, Snapshot.Price * (1 + noise + meanReversion));
-                Apply(next, Snapshot.TotalMinutes + (advanceMinute ? 1 : 0), false, Math.Abs(noise) * 200);
+                double next = Math.Max(10, Snapshot.Price * (1 + totalReturn));
+                double volume=Math.Abs(next-Snapshot.Price)*Range(2d,10d);
+                Apply(next, Snapshot.TotalMinutes + (advanceMinute ? 1 : 0), false, volume);
+                if(advanceMinute)AdvanceRegimeClock();
             }
+        }
+
+        private void GetRegimeParameters(out double drift,out double targetVol,out double ouTheta)
+        {
+            switch(currentRegime)
+            {
+                case MarketRegime.Bull:drift=0.0004;targetVol=0.0035;ouTheta=0.02;break;
+                case MarketRegime.Bear:drift=-0.0004;targetVol=0.0045;ouTheta=0.02;break;
+                case MarketRegime.Squeeze:drift=Range(-0.0008,0.0008);targetVol=0.012;ouTheta=0.01;break;
+                default:drift=0;targetVol=0.0025;ouTheta=0.15;break;
+            }
+        }
+
+        private void AdvanceRegimeClock()
+        {
+            ouCenterPrice=Lerp(ouCenterPrice,Snapshot.Price,0.05);
+            if(--minutesUntilNextRegimeChange>0)return;
+            double value=NextUnit();
+            if(dailyRegime==MarketRegime.Bull)currentRegime=value<.60?MarketRegime.Bull:value<.80?MarketRegime.Sideways:value<.90?MarketRegime.Bear:MarketRegime.Squeeze;
+            else if(dailyRegime==MarketRegime.Bear)currentRegime=value<.60?MarketRegime.Bear:value<.80?MarketRegime.Sideways:value<.90?MarketRegime.Bull:MarketRegime.Squeeze;
+            else if(dailyRegime==MarketRegime.Squeeze)currentRegime=value<.50?MarketRegime.Squeeze:value<.70?MarketRegime.Bull:value<.90?MarketRegime.Bear:MarketRegime.Sideways;
+            else currentRegime=value<.40?MarketRegime.Sideways:value<.65?MarketRegime.Bull:value<.90?MarketRegime.Bear:MarketRegime.Squeeze;
+            minutesUntilNextRegimeChange=RangeInt(30,120);
+        }
+
+        private MarketRegime PickDailyRegime()
+        {
+            double value=NextUnit();
+            return value<.35?MarketRegime.Sideways:value<.60?MarketRegime.Bull:value<.85?MarketRegime.Bear:MarketRegime.Squeeze;
         }
 
         private void Apply(double price, int totalMinutes, bool paused, double volume)
@@ -90,7 +156,8 @@ namespace FXOverdose.P2P.Market
             double open = newMinute ? Snapshot.Price : Snapshot.Open;
             double high = newMinute ? Math.Max(open, price) : Math.Max(Snapshot.High, price);
             double low = newMinute ? Math.Min(open, price) : Math.Min(Snapshot.Low, price);
-            double spread = Math.Max(0.01, price * 0.0002);
+            // 원본의 변동성 기반 스프레드와 0.5% 소프트 캡을 그대로 사용합니다.
+            double spread = Math.Min(price*0.005,Math.Max(0.01,price*currentVolatility*0.5));
             Snapshot = new P2PMarketSnapshot(Snapshot.Sequence + 1, Seed, price,
                 price - spread / 2, price + spread / 2, Math.Min(totalMinutes, 24 * 60),
                 paused, open, high, low, newMinute ? volume : Snapshot.Volume + volume);
@@ -101,6 +168,10 @@ namespace FXOverdose.P2P.Market
             randomState ^= randomState << 13; randomState ^= randomState >> 17; randomState ^= randomState << 5;
             return randomState / (double)uint.MaxValue;
         }
+
+        private double Range(double min,double max)=>min+(max-min)*NextUnit();
+        private int RangeInt(int min,int max)=>min+(int)Math.Floor(NextUnit()*(max-min));
+        private static double Lerp(double from,double to,double amount)=>from+(to-from)*amount;
     }
 
     public sealed class P2PMarketReplica
@@ -108,9 +179,10 @@ namespace FXOverdose.P2P.Market
         public P2PMarketSnapshot Snapshot { get; private set; }
         public bool TryApply(P2PMarketSnapshot snapshot)
         {
-            if (snapshot.Sequence <= Snapshot.Sequence || snapshot.Checksum != P2PMarketChecksum.Calculate(snapshot)) return false;
+            if (!IsSequenceNewer(snapshot.Sequence,Snapshot.Sequence) || snapshot.Checksum != P2PMarketChecksum.Calculate(snapshot)) return false;
             Snapshot = snapshot; return true;
         }
+        private static bool IsSequenceNewer(ulong candidate,ulong previous)=>candidate!=previous&&unchecked((long)(candidate-previous))>0;
     }
 
     public static class P2PMarketSnapshotCodec

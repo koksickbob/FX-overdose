@@ -23,7 +23,7 @@ namespace FXOverdose.P2P.Core.Tests
             var engine = new P2PMarketSimulationEngine(55);
             Assert.That(engine.Snapshot.Hour, Is.EqualTo(9));
             engine.SetPaused(false);
-            engine.Advance(2000, 0.666);
+            engine.Advance(2000);
             Assert.That(engine.Snapshot.Hour, Is.EqualTo(24));
             Assert.That(engine.Snapshot.Minute, Is.Zero);
             Assert.That(engine.Snapshot.IsFinished, Is.True);
@@ -43,10 +43,10 @@ namespace FXOverdose.P2P.Core.Tests
         public void OneGameMinute_ContainsFivePriceTicksAndOneMinuteAdvance()
         {
             var engine=new P2PMarketSimulationEngine(77);engine.SetPaused(false);ulong start=engine.Snapshot.Sequence;
-            engine.Advance(0.665,0.666);
+            engine.Advance(0.999);
             Assert.That(engine.Snapshot.TotalMinutes,Is.EqualTo(9*60));
             Assert.That(engine.Snapshot.Sequence-start,Is.EqualTo(4));
-            engine.Advance(0.002,0.666);
+            engine.Advance(0.002);
             Assert.That(engine.Snapshot.TotalMinutes,Is.EqualTo(9*60+1));
             Assert.That(engine.Snapshot.Sequence-start,Is.EqualTo(5));
         }

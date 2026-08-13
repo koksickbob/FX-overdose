@@ -83,6 +83,7 @@ namespace FXOverdose.P2P.Infrastructure
         {
             if (networkManager == null || !networkManager.IsServer || networkManager.ConnectedClientsIds.Count == 0) return;
             byte[] bytes = P2PMarketSnapshotCodec.Encode(snapshot);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length*networkManager.ConnectedClientsIds.Count);
             using var writer = new FastBufferWriter(sizeof(int) + bytes.Length, Allocator.Temp);
             writer.WriteValueSafe(bytes);
             networkManager.CustomMessagingManager.SendNamedMessage(SnapshotMessage,
@@ -93,6 +94,7 @@ namespace FXOverdose.P2P.Infrastructure
         {
             if (networkManager == null || networkManager.IsServer || senderClientId != NetworkManager.ServerClientId) return;
             reader.ReadValueSafe(out byte[] bytes);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordReceived(bytes?.Length??0);
             if (!P2PMarketSnapshotCodec.TryDecode(bytes, out var snapshot) || !replica.TryApply(snapshot)) return;
             SnapshotChanged?.Invoke(snapshot);
         }
@@ -101,6 +103,7 @@ namespace FXOverdose.P2P.Infrastructure
         {
             if (networkManager == null || !networkManager.IsServer || hostEngine == null) return;
             byte[] bytes = P2PMarketSnapshotCodec.Encode(hostEngine.Snapshot);
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length);
             using var writer = new FastBufferWriter(sizeof(int) + bytes.Length, Allocator.Temp);
             writer.WriteValueSafe(bytes);
             networkManager.CustomMessagingManager.SendNamedMessage(SnapshotMessage, senderClientId, writer, NetworkDelivery.ReliableSequenced);
@@ -108,6 +111,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void SendSnapshotRequest()
         {
+            P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(1);
             using var writer = new FastBufferWriter(1, Allocator.Temp);
             networkManager.CustomMessagingManager.SendNamedMessage(RequestMessage, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableSequenced);
         }

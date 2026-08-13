@@ -10,7 +10,7 @@ namespace FXOverdose.P2P.Tests
         {
             var source = new P2PCompetitionSnapshot
             {
-                EventActive=true, EventId=2, EventKey="EVENT_01", EventTitle="stress",
+                StateSequence=42, EventActive=true, EventId=2, EventKey="EVENT_01", EventTitle="stress",
                 EventDescription="original article", EventMonologue="yomi line",
                 Choice1Title="safe", Choice1Description="safe result", Choice1Type=0,
                 Choice2Title="risk", Choice2Description="risk result", Choice2Type=1,
@@ -25,6 +25,7 @@ namespace FXOverdose.P2P.Tests
             Assert.That(decoded.EventKey,Is.EqualTo("EVENT_01"));
             Assert.That(decoded.EventDescription,Is.EqualTo("original article"));
             Assert.That(decoded.Choice2Title,Is.EqualTo("risk"));
+            Assert.That(decoded.StateSequence,Is.EqualTo(42));
         }
 
         [Test]

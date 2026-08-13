@@ -129,8 +129,8 @@ public class ShopManager : MonoBehaviour
         if(P2PNetworkSessionManager.Instance?.IsRunning==true)
         {
             if(item==null||!(item.ItemId=="energy_drink"||item.ItemId=="dessert"||item.ItemId=="sedative"||item.ItemId=="supplement"))return false;
-            P2PNetworkSessionManager.Instance.CompetitionAuthority?.Submit(P2PCompetitionAction.BuyItem,item.ItemId);
-            return true;
+            var authority=P2PNetworkSessionManager.Instance.CompetitionAuthority;
+            return authority!=null&&authority.Submit(P2PCompetitionAction.BuyItem,item.ItemId);
         }
         if (!IsOpen)
         {

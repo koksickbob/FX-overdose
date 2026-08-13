@@ -24,6 +24,12 @@ public class SettingsMenuController : MonoBehaviour
     private Button fpsMenuButton;
     private TMP_Text fpsButtonText;
     private GameObject overwriteConfirmPanel;
+    private RectTransform settingsPanelRect;
+    private GameObject settingsHeaderSurface;
+    private GameObject settingsActionSurface;
+    private GameObject[] p2pHiddenSettingsObjects;
+    private Button resumeMenuButton;
+    private Button quitMenuButton;
 
     /// <summary>튜토리얼에서 AUTO/USER 전환 버튼 전체를 강조할 때 사용하는 고정 타겟입니다.</summary>
     public RectTransform TutorialTradingModeHighlightTarget =>
@@ -277,6 +283,7 @@ public class SettingsMenuController : MonoBehaviour
 
         previousTimeScale = Time.timeScale;
         Time.timeScale = 0f;
+        ApplyP2PMenuLayout();
         UpdateModeButtonVisuals();
         overlay.SetActive(true);
         overlay.transform.SetAsLastSibling();
@@ -400,6 +407,7 @@ public class SettingsMenuController : MonoBehaviour
 
         GameObject panel = CreateUIObject("SettingsPanel", overlay.transform);
         RectTransform panelRect = panel.GetComponent<RectTransform>();
+        settingsPanelRect = panelRect;
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.sizeDelta = new Vector2(640f, 900f);
         panelRect.anchoredPosition = Vector2.zero;
@@ -427,6 +435,8 @@ public class SettingsMenuController : MonoBehaviour
             new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.515f), new Color32(9, 20, 37, 255));
         GameObject actionSurface = CreateSectionPanel(inner.transform, "ActionSurface",
             new Vector2(0.06f, 0.025f), new Vector2(0.94f, 0.36f), new Color32(9, 20, 37, 255));
+        settingsHeaderSurface = headerSurface;
+        settingsActionSurface = actionSurface;
         headerSurface.transform.SetAsFirstSibling();
         audioSurface.transform.SetSiblingIndex(1);
         displaySurface.transform.SetSiblingIndex(2);
@@ -473,17 +483,58 @@ public class SettingsMenuController : MonoBehaviour
         SetRect(saveMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.205f), new Vector2(0.89f, 0.27f));
         saveMenuButton.onClick.AddListener(OnSaveButtonClicked);
 
-        Button resumeButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
-        SetRect(resumeButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.12f), new Vector2(0.89f, 0.185f));
-        resumeButton.onClick.AddListener(CloseMenu);
+        resumeMenuButton = CreateButton(inner.transform, "ResumeButton", "CONTINUE", new Color(0.05f, 0.46f, 0.58f, 1f));
+        SetRect(resumeMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.12f), new Vector2(0.89f, 0.185f));
+        resumeMenuButton.onClick.AddListener(CloseMenu);
 
-        Button quitButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
-        SetRect(quitButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.035f), new Vector2(0.89f, 0.10f));
-        quitButton.onClick.AddListener(QuitGame);
+        quitMenuButton = CreateButton(inner.transform, "QuitButton", "RETURN TO TITLE", new Color(0.60f, 0.15f, 0.22f, 1f));
+        SetRect(quitMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.035f), new Vector2(0.89f, 0.10f));
+        quitMenuButton.onClick.AddListener(QuitGame);
 
+        p2pHiddenSettingsObjects = new[]
+        {
+            achievementsMenuButton.gameObject, saveMenuButton.gameObject
+        };
+
+        ApplyP2PMenuLayout();
         UpdateModeButtonVisuals();
         CreateOverwriteConfirmDialog();
         overlay.SetActive(false);
+    }
+
+    /// <summary>P2P 경기에서는 업적·세이브만 숨기고 오디오·FPS 설정과 종료 동작을 제공합니다.</summary>
+    private void ApplyP2PMenuLayout()
+    {
+        bool isP2P = FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true;
+
+        if (p2pHiddenSettingsObjects != null)
+        {
+            foreach (GameObject target in p2pHiddenSettingsObjects)
+            {
+                if (target != null) target.SetActive(!isP2P);
+            }
+        }
+
+        if (settingsPanelRect != null)
+            settingsPanelRect.sizeDelta = new Vector2(640f, 900f);
+
+        if (settingsHeaderSurface != null)
+            SetRect(settingsHeaderSurface.GetComponent<RectTransform>(),
+                new Vector2(0.04f, 0.815f), new Vector2(0.96f, 0.96f));
+
+        if (settingsActionSurface != null)
+            SetRect(settingsActionSurface.GetComponent<RectTransform>(),
+                new Vector2(0.06f, 0.025f), new Vector2(0.94f, 0.36f));
+
+        if (resumeMenuButton != null)
+            SetRect(resumeMenuButton.GetComponent<RectTransform>(),
+                isP2P ? new Vector2(0.11f, 0.29f) : new Vector2(0.11f, 0.12f),
+                isP2P ? new Vector2(0.89f, 0.355f) : new Vector2(0.89f, 0.185f));
+
+        if (quitMenuButton != null)
+            SetRect(quitMenuButton.GetComponent<RectTransform>(),
+                isP2P ? new Vector2(0.11f, 0.205f) : new Vector2(0.11f, 0.035f),
+                isP2P ? new Vector2(0.89f, 0.27f) : new Vector2(0.89f, 0.10f));
     }
 
     private void CreateOverwriteConfirmDialog()

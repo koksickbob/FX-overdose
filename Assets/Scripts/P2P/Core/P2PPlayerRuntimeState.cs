@@ -45,6 +45,7 @@ namespace FXOverdose.P2P.Core
         public long EliminationTick { get; private set; } = -1;
         public P2PPositionState Position { get; }
         public IReadOnlyDictionary<string, int> Inventory => inventory;
+        public int LosingStreak { get; private set; }
 
         public double TotalEquity => CashBalance + (Position.IsOpen ? Position.MarginAmount + Position.UnrealizedPnL : 0d);
         public double ReturnRate => StartingEquity > 0d ? (TotalEquity - StartingEquity) / StartingEquity : 0d;
@@ -57,6 +58,15 @@ namespace FXOverdose.P2P.Core
 
         public void ChangeHealth(double amount) => Health = ClampVital(Health + amount);
         public void ChangeMental(double amount) => Mental = ClampVital(Mental + amount);
+        public void RecordPositionOpened() => ChangeMental(-10d);
+        public void RecordTradeResult(double realizedPnl)
+        {
+            if(realizedPnl>=0d){LosingStreak=0;return;}
+            LosingStreak++;
+            // 원본 MentalDrainGimmickController: 수동매매 손절 페널티에 1.5배 책임 전가 보정.
+            double penalty=LosingStreak switch{1=>5d,2=>12d,3=>25d,_=>0d};
+            ChangeMental(-penalty*1.5d);
+        }
         public void SetConnected(bool connected) => IsConnected = connected;
 
         public void SetInventoryAmount(string itemId, int amount)

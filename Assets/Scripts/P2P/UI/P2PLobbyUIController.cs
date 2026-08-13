@@ -189,6 +189,8 @@ namespace FXOverdose.P2P.UI
             CreateText(createPanel.transform, "CreateTitle", "로비 생성", 27, TextColor, new Vector2(0.07f, 0.81f), new Vector2(0.93f, 0.94f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
             CreateButton(createPanel.transform, "Public", "PUBLIC LOBBY\n공개 로비 생성", new Vector2(0.07f, 0.32f), new Vector2(0.93f, 0.53f), Cyan, 17).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.Public));
             CreateButton(createPanel.transform, "Friends", "FRIENDS LOBBY\n친구 로비 생성", new Vector2(0.07f, 0.07f), new Vector2(0.93f, 0.28f), Pink, 17).onClick.AddListener(() => CreateLobby(SteamLobbyVisibility.InviteOnly));
+            CreateButton(browserView.transform, "ExitMainLobby", "나가기", new Vector2(0.052f, 0.025f), new Vector2(0.22f, 0.085f), Muted, 19)
+                .onClick.AddListener(CloseMainLobby);
 
             roomView = CreateScreenView(modal, "LobbyRoomView");
             Image roomHeader = CreatePanel(roomView.transform, "RoomHeader", new Vector2(0.052f, 0.56f), new Vector2(0.36f, 0.65f), Cyan);
@@ -231,6 +233,12 @@ namespace FXOverdose.P2P.UI
             networkStatus = CreateText(roomView.transform, "NetworkStatus", "NGO: 대기", 14, Muted, new Vector2(0.80f, 0.30f), new Vector2(0.95f, 0.40f), TextAlignmentOptions.TopLeft);
             roomView.SetActive(false);
             window.SetActive(false);
+        }
+
+        private void CloseMainLobby()
+        {
+            HideSearchResults();
+            if(window!=null)window.SetActive(false);
         }
 
         private static void ArrangeTitleMenu()

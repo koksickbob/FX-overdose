@@ -20,8 +20,9 @@ namespace FXOverdose.P2P.Core.Tests
             var match = new P2PLocalMatch(new P2PMatchRules());
             match.AddPlayer(1, "A"); match.AddPlayer(2, "B"); match.Start(100);
             var result = match.SubmitTrade(1, new P2PTradeRequest(1, P2PTradeAction.OpenLong, 10, 0.5));
-            byte[] bytes = P2PNetworkTradingCodec.EncodeState(result, match.GetLeaderboard());
-            Assert.That(P2PNetworkTradingCodec.TryDecodeState(bytes, out var decoded, out var players), Is.True);
+            byte[] bytes = P2PNetworkTradingCodec.EncodeState(12,result, match.GetLeaderboard());
+            Assert.That(P2PNetworkTradingCodec.TryDecodeState(bytes,out ulong sequence, out var decoded, out var players), Is.True);
+            Assert.That(sequence,Is.EqualTo(12));
             Assert.That(decoded.IsAccepted, Is.True); Assert.That(players.Count, Is.EqualTo(2));
             Assert.That(players[0].Rank, Is.EqualTo(1));
         }

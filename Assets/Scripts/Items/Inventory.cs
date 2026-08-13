@@ -231,6 +231,23 @@ public class Inventory : MonoBehaviour
         return slot?.Quantity ?? 0;
     }
 
+    /// <summary>호스트 권위 인벤토리 수량을 로컬 UI에 복제합니다. 아이템 사용 효과는 발생시키지 않습니다.</summary>
+    public void ApplyNetworkQuantity(ItemData item, int amount)
+    {
+        if(item==null)return;
+        int next=Mathf.Max(0,amount);
+        InventorySlot slot=FindSlot(item);
+        int previous=slot?.Quantity??0;
+        if(previous==next)return;
+        if(slot==null)
+        {
+            slot=new InventorySlot(item,next);
+            slots.Add(slot);
+        }
+        else slot.SetQuantity(next);
+        QuantityChanged?.Invoke(item,next);
+    }
+
     /// <summary>두 인벤토리 슬롯의 표시 순서를 맞바꿉니다.</summary>
     public bool SwapSlots(int firstIndex, int secondIndex)
     {
@@ -245,7 +262,8 @@ public class Inventory : MonoBehaviour
 
     private InventorySlot FindSlot(ItemData item)
     {
-        return slots.Find(slot => slot != null && slot.Item == item);
+        return slots.Find(slot => slot != null && slot.Item != null &&
+            (slot.Item == item || (!string.IsNullOrEmpty(item?.ItemId) && slot.Item.ItemId == item.ItemId)));
     }
 
     // Inspector에서 비어 있는 슬롯과 중복 아이템을 정리합니다.

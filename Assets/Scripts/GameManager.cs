@@ -16,9 +16,12 @@ public class GameManager : MonoBehaviour
     }
     public void ApplyP2PState(int totalMinutes,float balance)
     {
-        int nextHour=totalMinutes/60,nextMinute=totalMinutes%60;bool minuteChanged=nextHour!=currentHour||nextMinute!=currentMinute;
+        int previousTotalMinutes=currentHour*60+currentMinute;
+        int nextHour=totalMinutes/60,nextMinute=totalMinutes%60;
+        int advancedMinutes=Mathf.Max(0,totalMinutes-previousTotalMinutes);
         currentDay=1;currentHour=nextHour;currentMinute=nextMinute;currentBalance=balance;currentState=GameState.Playing;
-        if(minuteChanged)OnGameMinuteAdvanced?.Invoke();
+        // 패킷 지연으로 두 분 이상 건너뛰어도 원본 캔들 엔진이 분봉을 빠뜨리지 않게 합니다.
+        for(int i=0;i<advancedMinutes;i++)OnGameMinuteAdvanced?.Invoke();
     }
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;

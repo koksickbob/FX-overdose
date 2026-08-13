@@ -56,7 +56,7 @@ public class ShopItemButton : MonoBehaviour
 
     private void OnInventoryChanged(ItemData changedItem, int qty)
     {
-        if (changedItem == item) Refresh();
+        if (changedItem == item || (changedItem != null && item != null && changedItem.ItemId == item.ItemId)) Refresh();
     }
 
     private void OnDestroy()
@@ -76,6 +76,10 @@ public class ShopItemButton : MonoBehaviour
         TMP_Text targetPrice,
         TMP_Text targetOwned)
     {
+        if (inventory != null)
+        {
+            inventory.QuantityChanged -= OnInventoryChanged;
+        }
         shopManager = targetShop;
         inventory = targetInventory;
         item = targetItem;
@@ -83,6 +87,12 @@ public class ShopItemButton : MonoBehaviour
         nameText = targetName;
         priceText = targetPrice;
         ownedText = targetOwned;
+        // 동적 카드는 OnEnable 이후 Configure되므로 실제 Inventory가 정해진 이 시점에 구독합니다.
+        if (inventory != null)
+        {
+            inventory.QuantityChanged -= OnInventoryChanged;
+            inventory.QuantityChanged += OnInventoryChanged;
+        }
         Refresh();
     }
 

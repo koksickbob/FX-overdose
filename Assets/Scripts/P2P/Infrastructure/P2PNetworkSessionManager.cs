@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using FXOverdose.P2P.Connection;
 using FXOverdose.P2P.Lobby;
 using Netcode.Transports;
@@ -21,8 +22,11 @@ namespace FXOverdose.P2P.Infrastructure
         private NetworkMarketAuthority marketAuthority;
         private NetworkTradingAuthority tradingAuthority;
         private NetworkCompetitionAuthority competitionAuthority;
+        private P2PNetworkDiagnostics diagnostics;
         private string attemptedNonce = string.Empty;
         private bool gameplaySceneRequested;
+        private bool intentionalShutdown,reconnecting;
+        private ulong sessionHostSteamId;
 
         public static P2PNetworkSessionManager Instance { get; private set; }
         public bool IsRunning => networkManager != null && networkManager.IsListening;
@@ -33,6 +37,8 @@ namespace FXOverdose.P2P.Infrastructure
         public NetworkMarketAuthority MarketAuthority => marketAuthority;
         public NetworkTradingAuthority TradingAuthority => tradingAuthority;
         public NetworkCompetitionAuthority CompetitionAuthority => competitionAuthority;
+        public string MatchId { get; private set; } = string.Empty;
+        public P2PNetworkDiagnostics Diagnostics => diagnostics;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateInstance()
@@ -75,6 +81,7 @@ namespace FXOverdose.P2P.Infrastructure
 
             EnsureNetworkManager();
             if (networkManager.IsListening) return false;
+            intentionalShutdown=false;
 
             networkManager.NetworkConfig.ConnectionApproval = true;
             networkManager.NetworkConfig.ConnectionData = P2PConnectionPayloadCodec.Encode(new P2PConnectionPayload(
@@ -84,11 +91,13 @@ namespace FXOverdose.P2P.Infrastructure
             networkManager.OnClientConnectedCallback += OnClientConnected;
             networkManager.OnTransportFailure += OnTransportFailure;
 
-            bool isHost = lobby.OwnerSteamId == SteamRuntimeBootstrap.LocalSteamId;
-            if (!isHost) transport.ConnectToSteamID = lobby.OwnerSteamId;
+            if(sessionHostSteamId==0)sessionHostSteamId=lobby.OwnerSteamId;
+            MatchId=$"{lobby.LobbyId:X}-{lobby.ConnectionNonce.Substring(0,Math.Min(8,lobby.ConnectionNonce.Length))}";
+            bool isHost = sessionHostSteamId == SteamRuntimeBootstrap.LocalSteamId;
+            if (!isHost) transport.ConnectToSteamID = sessionHostSteamId;
             bool started = isHost ? networkManager.StartHost() : networkManager.StartClient();
             if (!started) CleanupCallbacks();
-            Debug.Log(started ? $"[P2P Network] {(isHost ? "HOST" : "CLIENT")} 시작" : "[P2P Network] 시작 실패");
+            Debug.Log(started ? $"[P2P Network][{MatchId}] {(isHost ? "HOST" : "CLIENT")} 시작" : $"[P2P Network][{MatchId}] 시작 실패");
             if (started && isHost) Invoke(nameof(TryLoadGameplayScene), 0.5f);
             return started;
         }
@@ -108,14 +117,18 @@ namespace FXOverdose.P2P.Infrastructure
 
         public void ShutdownSession()
         {
+            intentionalShutdown=true;
+            StopAllCoroutines();reconnecting=false;
             if (networkManager != null && networkManager.IsListening) networkManager.Shutdown();
             CleanupCallbacks();
             networkToSteam.Clear();
             connectedSteamIds.Clear();
             gameplaySceneRequested = false;
+            sessionHostSteamId=0;MatchId=string.Empty;
             marketAuthority?.ResetForSession();
             tradingAuthority?.ResetForSession();
             competitionAuthority?.ResetForSession();
+            diagnostics?.ResetCounters();
         }
 
         private void EnsureNetworkManager()
@@ -136,6 +149,7 @@ namespace FXOverdose.P2P.Infrastructure
             marketAuthority = gameObject.AddComponent<NetworkMarketAuthority>();
             tradingAuthority = gameObject.AddComponent<NetworkTradingAuthority>();
             competitionAuthority = gameObject.AddComponent<NetworkCompetitionAuthority>();
+            diagnostics = gameObject.AddComponent<P2PNetworkDiagnostics>();
             networkManager.NetworkConfig = new NetworkConfig
             {
                 NetworkTransport = transport,
@@ -187,14 +201,46 @@ namespace FXOverdose.P2P.Infrastructure
                 disconnectedSteamId=steamId;
                 networkToSteam.Remove(clientId); connectedSteamIds.Remove(steamId);
             }
-            Debug.LogWarning($"[P2P Network] 연결 종료 · NGO client={clientId} · Steam={disconnectedSteamId} · reason={networkManager?.DisconnectReason}");
+            Debug.LogWarning($"[P2P Network][{MatchId}] 연결 종료 · NGO client={clientId} · Steam={disconnectedSteamId} · reason={networkManager?.DisconnectReason}");
             if (disconnectedSteamId != 0) SteamClientDisconnected?.Invoke(disconnectedSteamId);
             if (networkManager != null && networkManager.IsClient && !networkManager.IsServer && clientId == networkManager.LocalClientId)
-                ConnectionFailed?.Invoke(networkManager.DisconnectReason);
+            {
+                if(!intentionalShutdown&&!reconnecting)StartCoroutine(TryReconnectClient());
+            }
             ClientDisconnected?.Invoke(clientId);
         }
 
-        private void OnTransportFailure() => ConnectionFailed?.Invoke("Steam Transport failure");
+        private IEnumerator TryReconnectClient()
+        {
+            reconnecting=true;
+            string lastReason=string.IsNullOrWhiteSpace(networkManager?.DisconnectReason)?"호스트 연결 종료":networkManager.DisconnectReason;
+            for(int attempt=1;attempt<=3;attempt++)
+            {
+                yield return new WaitForSecondsRealtime(2f);
+                if(intentionalShutdown){reconnecting=false;yield break;}
+                CleanupCallbacks();
+                if(StartFromCurrentLobby())
+                {
+                    Debug.Log($"[P2P Reconnect][{MatchId}] 자동 재접속 시도 {attempt}/3");
+                    float deadline=Time.unscaledTime+3f;
+                    while(Time.unscaledTime<deadline)
+                    {
+                        if(networkManager!=null&&networkManager.IsConnectedClient){reconnecting=false;yield break;}
+                        yield return null;
+                    }
+                    if(networkManager!=null&&networkManager.IsListening)networkManager.Shutdown();
+                }
+            }
+            reconnecting=false;
+            ConnectionFailed?.Invoke($"{lastReason} · 재접속 실패로 경기가 무효 처리됐어용");
+        }
+
+        private void OnTransportFailure()
+        {
+            if(networkManager!=null&&networkManager.IsClient&&!networkManager.IsServer&&!intentionalShutdown&&!reconnecting)
+                StartCoroutine(TryReconnectClient());
+            else if(!intentionalShutdown)ConnectionFailed?.Invoke("Steam Transport failure");
+        }
         private bool Fail(string reason) { ConnectionFailed?.Invoke(reason); Debug.LogWarning($"[P2P Network] {reason}"); return false; }
 
         private void CleanupCallbacks()

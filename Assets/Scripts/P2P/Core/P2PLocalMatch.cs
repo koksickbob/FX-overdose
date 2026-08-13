@@ -10,7 +10,7 @@ namespace FXOverdose.P2P.Core
     public sealed class P2PLocalMatch
     {
         private readonly Dictionary<ulong, P2PPlayerRuntimeState> players = new Dictionary<ulong, P2PPlayerRuntimeState>();
-        private readonly HashSet<PlayerRequestKey> processedRequests = new HashSet<PlayerRequestKey>();
+        private readonly Dictionary<ulong,uint> lastAcceptedRequestIds = new Dictionary<ulong,uint>();
 
         public P2PLocalMatch(P2PMatchRules rules)
         {
@@ -51,8 +51,8 @@ namespace FXOverdose.P2P.Core
             if (!players.TryGetValue(playerId, out P2PPlayerRuntimeState player))
                 return new P2PTradeResult(request.RequestId, P2PTradeRejectReason.PlayerDisconnected, MarketPrice);
 
-            var key = new PlayerRequestKey(playerId, request.RequestId);
-            bool duplicate = processedRequests.Contains(key);
+            bool duplicate = lastAcceptedRequestIds.TryGetValue(playerId,out uint previousRequestId) &&
+                !IsSequenceNewer(request.RequestId,previousRequestId);
             P2PTradeRejectReason rejection = P2PTradeValidator.Validate(
                 request, player, Rules, Phase, IsChoiceEventActive, duplicate, MarketPrice);
 
@@ -60,12 +60,16 @@ namespace FXOverdose.P2P.Core
                 return new P2PTradeResult(request.RequestId, rejection, MarketPrice);
 
             // 승인된 요청만 기록합니다. 일시적인 경기 상태 오류로 거절된 요청은 재시도할 수 있습니다.
-            processedRequests.Add(key);
+            lastAcceptedRequestIds[playerId]=request.RequestId;
 
             if (request.Action == P2PTradeAction.ClosePosition)
                 ClosePositionAndApplyVitals(player);
             else
+            {
                 P2PTradeCalculator.OpenPosition(player, request, Rules, MarketPrice);
+                // 원본 MentalDrainGimmickController의 포지션 진입 고정 멘탈 -10.
+                player.RecordPositionOpened();
+            }
 
             P2PEliminationEvaluator.EvaluateAndApply(player, 0);
             return new P2PTradeResult(request.RequestId, P2PTradeRejectReason.None, MarketPrice);
@@ -99,6 +103,16 @@ namespace FXOverdose.P2P.Core
             return player.TryEliminate(P2PEliminationReason.DisconnectForfeit, serverTick);
         }
 
+        public bool SetPlayerConnected(ulong playerId,bool connected)
+        {
+            if(!players.TryGetValue(playerId,out P2PPlayerRuntimeState player)||player.IsEliminated)return false;
+            player.SetConnected(connected);
+            return true;
+        }
+
+        // uint 최대값에서 0으로 넘어가는 경우도 앞으로 진행한 요청으로 판정합니다.
+        private static bool IsSequenceNewer(uint candidate,uint previous)=>unchecked((int)(candidate-previous))>0;
+
         private void ClosePositionAndApplyVitals(P2PPlayerRuntimeState player)
         {
             if (player == null || !player.Position.IsOpen) return;
@@ -109,6 +123,8 @@ namespace FXOverdose.P2P.Core
             // 싱글플레이 정산 규칙과 동일하게 손실 5%를 멘탈 피해로, 수익 2%와 체력 5를 회복으로 반영합니다.
             if(realizedPnl<0)player.ChangeMental(realizedPnl*.05d);
             else if(realizedPnl>0){player.ChangeMental(realizedPnl*.02d);player.ChangeHealth(5d);}
+            // 원본 연속 손절 5/12/25 및 수동매매 1.5배 페널티를 별도로 누적합니다.
+            player.RecordTradeResult(realizedPnl);
         }
 
         public void Finish()
@@ -119,19 +135,5 @@ namespace FXOverdose.P2P.Core
             Phase = P2PMatchPhase.Finished;
         }
 
-        private readonly struct PlayerRequestKey : IEquatable<PlayerRequestKey>
-        {
-            public PlayerRequestKey(ulong playerId, uint requestId)
-            {
-                PlayerId = playerId;
-                RequestId = requestId;
-            }
-
-            private ulong PlayerId { get; }
-            private uint RequestId { get; }
-            public bool Equals(PlayerRequestKey other) => PlayerId == other.PlayerId && RequestId == other.RequestId;
-            public override bool Equals(object obj) => obj is PlayerRequestKey other && Equals(other);
-            public override int GetHashCode() => unchecked((PlayerId.GetHashCode() * 397) ^ (int)RequestId);
-        }
     }
 }

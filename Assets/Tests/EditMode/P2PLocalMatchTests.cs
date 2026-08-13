@@ -43,6 +43,30 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
+        public void RequestId_WrapAround_AcceptsNewSequenceAndRejectsOldPacket()
+        {
+            var match=new P2PLocalMatch(new P2PMatchRules());
+            match.AddPlayer(1,"P1");match.Start(100d);
+            Assert.That(match.SubmitTrade(1,new P2PTradeRequest(uint.MaxValue,P2PTradeAction.OpenLong,2,.25d)).IsAccepted,Is.True);
+            Assert.That(match.SubmitTrade(1,new P2PTradeRequest(1,P2PTradeAction.ClosePosition)).IsAccepted,Is.True);
+            Assert.That(match.SubmitTrade(1,new P2PTradeRequest(uint.MaxValue,P2PTradeAction.OpenLong,2,.25d)).RejectReason,
+                Is.EqualTo(P2PTradeRejectReason.DuplicateRequest));
+        }
+
+        [Test]
+        public void ReconnectGrace_BlocksOrdersAndRestoresExistingState()
+        {
+            var match=new P2PLocalMatch(new P2PMatchRules());
+            var player=match.AddPlayer(1,"P1");match.Start(100d);
+            Assert.That(match.SetPlayerConnected(1,false),Is.True);
+            Assert.That(match.SubmitTrade(1,new P2PTradeRequest(1,P2PTradeAction.OpenLong,2,.25d)).RejectReason,
+                Is.EqualTo(P2PTradeRejectReason.PlayerDisconnected));
+            Assert.That(match.SetPlayerConnected(1,true),Is.True);
+            Assert.That(player.IsEliminated,Is.False);
+            Assert.That(match.SubmitTrade(1,new P2PTradeRequest(1,P2PTradeAction.OpenLong,2,.25d)).IsAccepted,Is.True);
+        }
+
+        [Test]
         public void Liquidation_WithCatastrophicLoss_DepletesMentalAndEliminatesPlayer()
         {
             var rules = new P2PMatchRules(maximumMarginRatio: 0.99d, tradingFeeRate: 0d);
@@ -72,6 +96,25 @@ namespace FXOverdose.P2P.Core.Tests
             match.UpdateMarketPrice(81d,2);match.SubmitTrade(1,new P2PTradeRequest(4,P2PTradeAction.ClosePosition));
             Assert.That(afterFirst,Is.LessThan(100d));
             Assert.That(player.Mental,Is.LessThan(afterFirst));
+        }
+
+        [Test]
+        public void ManualMentalRules_MatchOriginalEntryAndLossStreakPenalties()
+        {
+            var player=new P2PPlayerRuntimeState(1,"P1",7000d);
+            player.RecordPositionOpened();
+            Assert.That(player.Mental,Is.EqualTo(90d));
+
+            player.RecordTradeResult(-1d);
+            Assert.That(player.LosingStreak,Is.EqualTo(1));
+            Assert.That(player.Mental,Is.EqualTo(82.5d));
+
+            player.RecordTradeResult(-1d);
+            Assert.That(player.LosingStreak,Is.EqualTo(2));
+            Assert.That(player.Mental,Is.EqualTo(64.5d));
+
+            player.RecordTradeResult(1d);
+            Assert.That(player.LosingStreak,Is.Zero);
         }
     }
 }
