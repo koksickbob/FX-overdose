@@ -1401,3 +1401,327 @@ public TalkChoice(string text, TalkTrait trait, int affection, string reply = nu
 **검증**: 린터 위반 0 · 경고 0, `Assembly-CSharp` 클린 컴파일. 축 커버리지(12장)와 호감도 배분(10.4절)은 손대지 않아 그대로 통과.
 
 **남은 일**: `Tools/Prebake All Scripts Text into Font` (기지개·잠꼬대·숨소리 등 새 글자 다수).
+
+---
+
+## 14. 자유 채팅 경제 개편 — 하루 1회 · 체력 소모 · 호감도 ±상한 (2026-08-14)
+
+> **발의**: 2026-08-14. **"호감도 증가 수치가 너무 높다"** — 한 판 최대 +12, 하루 2판이면 +24로 20일 게임에서 호감도 100이 나흘이면 찬다
+> **상태**: 구현 완료
+
+### 14.1. 확정 규칙
+
+| 항목 | 이전 | 개정 |
+| --- | --- | --- |
+| 횟수 | 슬롯이 남는 만큼 (하루 최대 5회) | **하루 1회.** 카운트는 **대화 종료 시점**에 소모 (완주 `FinishTalk`·중도 종료 `CloseTalk` 모두) |
+| 소모 자원 | 시간 슬롯 1칸 | **체력 10** (`talkStaminaCost`). 시간 슬롯은 소모하지 않는다 |
+| 총획득 | 토픽당 최대 +12 | **정확히 +3** (직면 +2 · 착지 +1, 나머지 노드는 전부 0) |
+| 총감소 | 없음 (마이너스 금지, S9) | **정확히 -2** — 토픽마다 **-1 선택지 2개를 서로 다른 노드에** 신설 (12개) |
+| 힌트 임계 | 4(모호) / 7(명시) | **2 / 3** — 총획득이 3이 되면서 옛 임계는 도달 불가라 함께 조정 |
+| 선택지 범위 | +0 ~ +3 | **-1 ~ +2** |
+
+**-1 선택지의 결** — 비웃음·조롱이 아니라 **외면·묵살**이다. 플레이어의 결함(화면 우선, 귀찮음)이 그대로 나간 말이고, 요미의 아픈 곳(무시당함, 얹혀사는 부채감, 만든 것을 부정당함)을 정통으로 밟는다. 예: `바빠. 차트 봐야 돼.` / `불었으면 그냥 버리자.` / `그게 그렇게 화낼 일이야?`
+
+**하루 1회 한도의 구멍 막기** — 카운트를 종료 시점에 소모하면 앱 강제 종료로 한도를 우회할 수 있다. 끝맺지 못한 대화의 잔존 기록(`TalkActiveTopicId`)이 남아 있으면 **오늘 몫으로 친다.** 정상 경로(버튼)로는 대화 중 방을 못 나가므로(상태 가드) 일반 플레이에는 영향이 없다.
+
+### 14.2. ⚠️ 기존 결함 수정 — 일일 리셋이 계획만 있고 구현이 없었다
+
+4.5절이 "일차 전환 시 `TalkAffectionGainToday` / `TalkTopicsUsedToday`를 비운다"고 정했지만, **비우는 코드가 어디에도 없었다.** `SyncToNewDay()`는 슬롯만 리필한다.
+
+| 증상 | 원인 |
+| --- | --- |
+| 토픽이 **영구 소진** — 6편을 다 보면 자유대화 버튼이 영영 실패 | `TalkTopicsUsedToday`가 안 비워짐 |
+| 힌트 임계가 **둘째 날부터 공짜 통과** — 전날 획득량이 누적 | `TalkAffectionGainToday`가 안 비워짐 |
+
+**수정**: `YomiRoomManager.EnsureDailyTalkState()` — 대화 시작 때 `SaveData.TalkDailyStateDay`와 오늘 일차를 비교해 다르면 스스로 비운다. 매니저 간 배선(GameManager → DatingTimeManager → 세이브)을 늘리는 대신 **읽는 쪽에서 자가 치유**하는 방식이라, 씬 단독 재생(5.2절 임시 데이터)에서도 똑같이 동작한다.
+
+### 14.3. 시나리오 소진 검토 (요청 5번)
+
+**하루 안에서**: 후보(해금 ∩ 시간대 ∩ 당일 미사용)가 비면 `PickTopic()`이 null → 자원을 아무것도 소모하지 않고 `OnActionFailed`로 빠진다(TS11 순서 덕). 이번 개편으로 현행 대화 패널이 사유를 지문 줄로 표시한다 — 이전에는 **버튼이 소리 없이 죽어 버그처럼 보였다.**
+
+**날이 바뀌면**: 14.2 수정으로 `TalkTopicsUsedToday`가 비워지므로 같은 토픽이 다시 나온다. 즉 **소진은 영구 상태가 아니라 당일 상태**다. 다만 하루 1회가 되면서 하루에 토픽 1편만 쓰므로, 당일 소진은 사실상 "그 시간대에 해금 토픽이 0편"일 때만 발생한다.
+
+**반복 체감 문제(잔여)**: 아침 시간대는 호감도 0 토픽이 `TALK_GREET_001` 하나뿐이라, 아침마다 대화하는 플레이어는 매일 같은 장면을 본다. `TalkTopicsSeenTotal`의 미열람 우선 로직은 후보가 2편 이상일 때만 의미가 있다. **토픽 증설(10.5절 2차: CHART/SELF/JEALOUS)이 근본 대응**이고 이번 개편 범위 밖이다.
+
+### 14.4. 저장 테이블 (요청 7번)
+
+| 필드 | 용도 | 리셋 |
+| --- | --- | --- |
+| `TalkLastSessionEndDay` 🆕 | 자유 채팅을 마친 일차. 오늘과 같으면 시작 거부 (하루 1회) | 리셋 불필요 — 일차 비교 방식 |
+| `TalkDailyStateDay` 🆕 | 당일 한정 필드가 어느 일차의 것인지. 다르면 `EnsureDailyTalkState()`가 비움 | 자가 갱신 |
+
+마이그레이션: 두 필드 모두 `SaveDataMigrator` 1.6.0 게이트에서 `<= 0 → -1` 정규화. 다만 기본값 0이어도 오동작이 없다(일차는 1부터 시작하고, `TalkDailyStateDay` 불일치는 리셋 한 번으로 수렴). 세이브 왕복 검사기는 리플렉션 전수 순회라 신규 필드가 자동 포함된다.
+
+체력은 기존 `DatingStamina`가 그대로 저장하므로 추가 필드가 없다. 시간 슬롯 소모 제거로 빠지는 필드도 없다.
+
+### 14.5. 구현 기록
+
+| 대상 | 반영 |
+| --- | --- |
+| `YomiRoomManager` | `talkTimeSlotCost` → `talkStaminaCost = 10` · 임계 2/3 · 하루 1회 가드 · `EnsureDailyTalkState()` · `SelectChoice()`가 마이너스도 `ModifyAffection`으로 전달 · `OnActionFailed`가 `Action<string>`으로 사유 전달 |
+| `YomiTalkTopics` | 선택지 104개 재배분(직면 +2 · 착지 +1 · 나머지 0) + **-1 선택지 12개 신설**(즉답 포함) |
+| `SaveData` / `SaveDataMigrator` | 14.4절 필드 2개 + 백필 |
+| `YomiRoomDialogueUI` | `OnActionFailed` 구독 — 실패 사유를 지문 채널로 표시 |
+| `yomi_dialogue_lint.py` | 호감도 계약 전면 개정 — 선택지 -1~+2 · 총획득 **정확히** +3 · 총감소 **정확히** -2 · 피크(+2) 노드 1개·후반 절반·Anxious/Duty 동석. `CHOICE_RE`가 음수 부호를 잡도록 수정 (TS14 원칙: 데이터보다 검사기 먼저) |
+
+**검증**: `python yomi_dialogue_lint.py` 위반 0 · 경고 0, `Assembly-CSharp` 클린 컴파일.
+
+**씬 주의**: `YomiRoomScene.unity`에 `talkTimeSlotCost`/`hintThreshold*`의 직렬화 값이 **없음을 확인**했다(필드가 씬 저장 이후에 추가됨). 따라서 스크립트 기본값(10 / 2 / 3)이 그대로 적용된다. 씬을 에디터에서 다시 저장하면 그 시점 값이 박제되므로, 이후 수치 조정은 씬 값을 함께 본다.
+
+**남은 일**: 에디터에서 `Tools/Prebake All Scripts Text into Font` 실행 — -1 선택지·즉답·실패 사유 문구의 새 한글이 □로 렌더될 수 있다 (TS21).
+
+---
+
+## 15. 대화 중단 시나리오 결함 조사 (2026-08-14)
+
+> **발의**: 2026-08-14. **"자유 채팅 도중 저장·다른 행동·트레이딩 시작·일차 진행이 겹치면 시나리오 관리와 진행도, 한 판의 호감도 총량이 어떻게 다뤄지는가"**
+> **상태**: 조사 완료 / **수정 착수 전**
+> 14장 개편 직후의 검증이다. 결함 대부분은 개편 이전부터 있었으나, 대화가 **하루 1회·체력 10** 짜리 자원이 되면서 사고 비용이 올라갔다.
+
+### 15.1. 결론 요약
+
+**호감도 총량은 안전하다.** 세션당 +3/-2는 데이터 구조가 보장하고 린터가 강제하며, 하루 +3 상한도 실질적으로 지켜진다 — 호감도를 1이라도 얻으면 `ModifyAffection` → `SaveCurrentGame`이 진행 마커를 디스크에 flush 하므로 그날 두 번째 대화가 차단된다.
+
+**위험은 다른 곳에 있었다.** 방이 대화 상태를 모른다는 점(15.2)과, 대화 종료가 디스크에 안 남을 수 있다는 점(15.3)이다.
+
+### 15.2. ⚠️ I-1 · 대화 중 PC/침대를 쓰면 조작이 영구 잠긴다
+
+`YomiRoomTopDownController`는 **대화 상태를 전혀 구독하지 않는다.** `OnStateChanged`의 유일한 구독자가 도달 불가능한 구형 `YomiRoomUIController`뿐이라, 대화 중에도 방을 걸어다니며 상호작용 모달을 열 수 있다.
+
+```
+대화 중(Chatting) → PC 클릭 → 모달(inputLocked = true)
+      │
+      ▼
+[확인] → CloseModal(false)      ← inputLocked를 켠 채로 닫는다
+      │
+      ▼
+StartTrading() → if (currentState != Idle) return;   ← 조용히 no-op
+      │
+      ▼
+inputLocked = true 로 고착. 이동·상호작용·ESC 전부 차단
+```
+
+`Escape` 처리부가 `if (!inputLocked ...)` 안에 있어 모달을 다시 열 수도, 취소할 수도 없다. **씬 재진입 외 복구 수단이 없다.** 침대의 `오늘은 여기까지`(취침)도 `TrySleep()` no-op으로 같은 소프트락에 빠진다.
+
+| ID | 상호작용 | 대화 중 결과 |
+| --- | --- | --- |
+| **I-1** | PC `확인` / 침대 `오늘은 여기까지` | **소프트락.** 복구 불가 |
+| **I-2** | 침대 `잠깐 눈 붙이기` | 락은 없으나 `TryRest()`가 no-op인데 **"체력이 10 회복됐어요"를 거짓 표시**. 취침도 "잠들었습니다..."를 먼저 띄우고 실패한다 |
+
+두 건 모두 **피드백을 행동보다 먼저 출력**하는 구조에서 나온다. `ConfirmInteraction`/`SecondaryInteraction`이 반환값을 보지 않는다.
+
+### 15.3. I-3 · 대화 종료가 디스크에 안 남을 수 있다
+
+`FinishTalk` / `CloseTalk`은 **저장을 호출하지 않는다.** 지금 하루 1회 한도가 지켜지는 것은 순전히 우연이다 — 힌트가 발급되면 `DailyMarketOutlook.MarkRevealed()` → `Persist()` → `SaveCurrentGame()`이 대신 flush 해준다.
+
+**획득 호감도가 0이면 힌트 임계(2)에 미달해 그 flush가 일어나지 않는다.** 모든 노드에 0짜리 선택지가 있으므로 실제로 가능한 경로다. 이 상태에서 `설정 → 타이틀로 나가기`(저장하지 않음)를 하면 그날 대화를 다시 할 수 있다.
+
+### 15.4. I-4 · 시작 시점의 저장 순서가 뒤집혀 있다
+
+`TryStartTalk()`에서 `TryConsumeStamina()`가 **먼저** 저장하고, `TalkActiveTopicId` / `TalkTopicsUsedToday`는 **그 뒤에** 기록된다.
+
+```
+PickTopic() → TryConsumeStamina() ──► SaveCurrentGame()   ← 이 순간의 디스크: 체력만 깎이고 대화 흔적 0
+            → TalkTopicsUsedToday.Add(...)                 ← 메모리에만 존재
+            → TalkActiveTopicId = ...
+```
+
+**TS1(여는 즉시 소비)의 의도가 메모리에서만 지켜진다.** I-3과 결합하면 "체력 10을 내고 마음에 안 드는 토픽을 다시 굴리기"가 성립한다. 호감도 이득은 없으므로 파밍은 아니지만, 장면 선택을 우회한다.
+
+### 15.5. I-5 · `CloseTalk`이 죽은 코드다
+
+유일한 호출자가 구형 `YomiRoomUIController`(도달 불가)다. **현행 패널에는 진행 중인 대화를 끊는 수단이 아예 없다.** 14장에서 `CloseTalk`에 넣은 하루 1회 카운트 소모는 실행되지 않는다.
+
+### 15.6. I-6 · 설정 메뉴가 대화 중에도 열린다
+
+방의 설정 버튼은 대화 상태와 무관하게 **수동 저장**과 **타이틀로 나가기**를 허용한다.
+
+* **대화 중 수동 저장** → `TalkActiveTopicId`가 디스크에 박제 → 재로드 시 그날 대화가 영구 차단(체력 10 + 하루치 소멸). 설계상 "중단된 대화는 재개하지 않는다"의 결과지만 **플레이어에게 원인이 표시되지 않는다.**
+* **대화 중 자유대화 버튼 재클릭** → 상태 가드에서 `OnActionFailed` 없이 `false` 반환. 무음이다.
+
+### 15.7. ⚠️ 저장 테이블 추가 조사 — 대화 시스템 밖에서 온 결함
+
+같은 현상(중단·재시작·슬롯 재사용)을 저장 계층 전체로 넓혀 확인한 결과다.
+
+#### S-1. 새 게임이 이전 슬롯의 데이터를 상속한다 — **가장 심각**
+
+`DeleteSave`에 해당하는 코드가 **프로젝트 어디에도 없다.** `PrepareNewGame()`은 `CurrentData = null`과 static 2종(`DeliveryFoodManager` / `DailyMarketOutlook`) 리셋만 한다. 슬롯 파일은 그대로 남는다.
+
+```csharp
+// SaveLoadManager.SaveGame()
+SaveData data = CurrentData ?? ReadSaveFile(slotIndex) ?? new SaveData();
+//               ^ 새 게임이라 null      ^ 이전 판의 파일이 베이스가 된다
+```
+
+새 게임의 **첫 저장이 이전 플레이의 세이브를 베이스로 삼는다.** 씬에 있는 매니저가 자기 필드를 덮어쓸 뿐, **주인 없는 필드는 전부 살아남는다.** `Talk*` 필드는 `YomiRoomManager`가 요미의 방에서만 기회적으로 쓰므로, 새 게임 시작 시점에는 주인이 없다.
+
+| 상속되는 것 | 결과 |
+| --- | --- |
+| `TalkPeakAffection` | **새 게임 1일차에 3단계 토픽(`TALK_LOVE_001`)이 해금**된다 |
+| `TalkTopicsSeenTotal` | 미열람 우선 로직(`PickTopic`)이 "전부 봤다"고 판단해 무력화 |
+| `TalkCompletedFlags` / `TalkChoiceHistory` | 이전 판의 이력이 그대로 누적 |
+| `TalkHintIssuedDay` / `TalkLastGreetingDay` 등 | 일차 기반이라 대개 자가 치유되나 값은 오염 |
+
+> 당일 한정 필드(`TalkTopicsUsedToday` / `TalkAffectionGainToday`)만은 14장의 `EnsureDailyTalkState()`가 일차 불일치를 보고 비워 준다. **우연히 막힌 것이지 설계된 방어가 아니다.**
+
+#### S-2. `DatingTimeManager`가 새 게임에서 리셋되지 않는다
+
+`DontDestroyOnLoad`인데 `PrepareNewGame()`의 리셋 목록에 없다. 같은 앱 세션에서 요미의 방을 다녀온 뒤 타이틀로 나가 새 게임을 시작하면, **이전 판의 호감도·집착도·체력·peak·일차·슬롯이 매니저에 그대로 남아** 새 게임의 첫 저장에 `SaveToData()`로 기록된다. `DeliveryFoodManager` / `DailyMarketOutlook`은 리셋하면서 이쪽만 빠진 비대칭이다.
+
+#### S-3. 왕복 검사기가 `YomiRoomManager`를 안 본다
+
+`SaveRoundTripTester.RunFieldCoverageAudit()`의 소스 목록에 **`YomiRoomManager.cs`가 없다.** `Talk*` 15개 필드의 유일한 수집처가 검사 범위 밖이다. 게다가 orphan 판정은 `return 0` — **경고만 찍고 실패로 세지 않는다.**
+
+현재도 4건이 조용히 경고만 남기고 있다: `TalkActiveNodeIndex` · `TalkHintTier` · `TalkAffectionGainToday` · `TalkAffectionTierSeen`.
+
+#### S-4. 쓰기 전용 / 사문 필드
+
+| 필드 | 상태 |
+| --- | --- |
+| `TalkAffectionTierSeen` | **읽지도 쓰지도 않는다.** 완전 사문. 8.4절이 "스키마를 두 번 깨지 않으려고" 미리 넣은 것 |
+| `TalkHintTier` / `TalkHintLineId` | 쓰기만 한다. TS6가 의도한 재발급 차단은 실제로 `TalkHintIssuedDay`가 수행 중 |
+| `TalkActiveNodeIndex` / `TalkCompletedFlags` | 쓰기만 한다. 5.1절이 "기록용"으로 의도한 것이라 결함은 아님 |
+
+#### S-5. 일차 기준이 두 개다 (잠재 결함)
+
+`Talk*`의 모든 하루 게이트는 **`data.CurrentDay`(트레이딩 일차)** 를 본다. 반면 데이팅 UI·슬롯·`DatingTimeManager`는 **`DatingDay`** 를 쓴다. 지금은 `GameManager.FinalizeProceedToNextDay()` → `SyncToNewDay(currentDay)` 덕에 두 값이 항상 같지만, **이 계약이 어디에도 문서화돼 있지 않다.** 데이팅 전용 일차 진행이 생기는 순간 인사·힌트·하루 1회·일일 리셋이 **한꺼번에 조용히** 깨진다.
+
+### 15.8. 확인 결과 — 문제 없는 것
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| 대화 도중 일차 진행 | **정상 경로로 발생하지 않는다.** `TrySleep`/`StartTrading`/`MoveToWorldMap`이 모두 `Idle` 가드다. 설령 발생해도 `EnsureDailyTalkState()`가 잔존 마커를 지운다 |
+| 다른 매니저가 대화 필드를 덮어씀 | 없음. `SaveGame`이 `CurrentData`를 **베이스로 변형**하므로 직접 쓴 필드가 보존된다 (SV-A6) |
+| 세션당 호감도 ±총량 | 데이터 구조가 보장하고 린터가 강제 (총획득 +3 / 총감소 -2) |
+| 하루 호감도 상한 | 실질적으로 지켜진다. 호감도 변동이 곧 저장을 일으켜 마커가 flush되기 때문 |
+| 중단 후 재개 | 설계대로 재개하지 않는다 (TS1). `TalkActiveTopicId`는 기록용 |
+
+### 15.9. 수정 계획 (착수 전)
+
+| # | 대상 | 작업 | 해결 |
+| --- | --- | --- | --- |
+| **F-1** | `YomiRoomTopDownController` | `YomiRoomManager.OnStateChanged` 구독 → 대화 중에는 상호작용 자체를 막는다. 프롬프트도 숨긴다 | I-1 · I-2 |
+| **F-2** | 동 파일 | `ConfirmInteraction`/`SecondaryInteraction`이 **반환값을 보고** 피드백을 출력. 실패 시 `inputLocked` 해제 | I-1 · I-2 (이중 방어) |
+| **F-3** | `YomiRoomManager` | `FinishTalk`/`CloseTalk` 끝에 명시적 `SaveCurrentGame()` | I-3 |
+| **F-4** | 동 파일 | `TryStartTalk`의 마커 기록을 **체력 차감보다 먼저**로 이동 | I-4 |
+| **F-5** | 현행 대화 패널 | 대화 중단 버튼 배선 (`CloseTalk`) | I-5 |
+| **F-6** | `SaveLoadManager.PrepareNewGame` | 슬롯 파일 삭제 또는 `new SaveData()` 강제 + `DatingTimeManager` 리셋 추가 | **S-1 · S-2** |
+| **F-7** | `SaveRoundTripTester` | 소스 목록에 `YomiRoomManager.cs` 추가 + orphan을 **실패로 승격** | S-3 |
+| **F-8** | `SaveData` | `TalkAffectionTierSeen` 제거 여부 결정 (사문) | S-4 |
+| **F-9** | 문서 | `CurrentDay` == `DatingDay` 계약 명시 | S-5 |
+
+> **F-6이 이 목록에서 가장 크고 가장 위험하다.** 대화 시스템 밖(세이브 코어)을 건드리며 트레이딩 파트 전체에 영향이 간다. **별도 작업으로 분리하고 왕복 검사기를 먼저 강화(F-7)한 뒤 착수한다.**
+
+### 15.10. 작업 순서 확정 (2026-08-14)
+
+**원칙**: 검사기를 먼저 세우고(F-7), 폭발 반경이 좁은 것부터 넓은 것 순으로 간다. **세이브 코어를 건드리는 F-6은 맨 끝에 별도 작업으로 분리한다.**
+
+| 순 | # | 작업 | 폭발 반경 | 근거 |
+| --- | --- | --- | --- | --- |
+| **1** | **F-7 + F-8** | 왕복 검사기 강화 + 사문 필드 제거 | 에디터 도구 · `SaveData` 1필드 | **안전망이 먼저다.** 이후 모든 작업의 회귀를 이 검사기가 받는다. F-8을 함께 하는 이유는 아래 실측 참조 |
+| **2** | **F-1 + F-2** | 대화 중 상호작용 차단 + 실패 시 피드백/락 교정 | 요미의 방 씬 | 유일하게 **복구 불가능한** 결함(I-1). 플레이어 체감 1순위 |
+| **3** | **F-3 + F-4** | 대화 종료 명시 저장 + 시작 시 마커 기록 순서 교정 | `YomiRoomManager` | 하루 1회 한도의 실제 보장. 데이터 무결성 |
+| **4** | **F-5** | 대화 중단 버튼 배선 | 대화 패널 | 중단 수단 부재 해소. 3번이 끝나야 한도 소모가 올바르게 걸린다 |
+| **5** | **F-9** | `CurrentDay` == `DatingDay` 계약 문서화 | 문서만 | 잠재 결함 방지 |
+| **6** | **F-6** | **별도 작업** — 새 게임 리셋(슬롯 초기화 + `DatingTimeManager` 리셋) | **세이브 코어 · 트레이딩 포함 전 시스템** | 가장 위험. 1번의 검사기가 선 뒤에 착수 |
+
+#### F-7에 F-8을 붙이는 이유 — orphan 실측
+
+현재 검사기 소스 목록으로 `SaveData`의 public 필드 98개를 훑으면 **orphan이 6건**이고, 전부 경고로만 흘러간다.
+
+| 소스 목록 | orphan |
+| --- | --- |
+| 현행 | 6건 — `OutlookRegime` · `OutlookRevealed` · `TalkAffectionGainToday` · `TalkActiveNodeIndex` · `TalkHintTier` · `TalkAffectionTierSeen` |
+| `+ YomiRoomManager.cs` | 3건 |
+| `+ YomiRoomManager.cs` · `DailyMarketOutlook.cs` | **1건 — `TalkAffectionTierSeen`** |
+
+`DailyMarketOutlook.cs`도 목록에서 빠져 있었다(S-3의 범위가 대화 시스템만이 아니었다). 두 파일을 넣으면 **진짜 사문 필드 하나만 남는다.** 그것을 지워야(F-8) orphan을 실패로 승격(F-7)해도 검사가 통과한다 — **승격과 정리는 같이 가야 한다.**
+
+### 15.11. 구현 기록 (2026-08-14) — F-1 ~ F-9 완료
+
+15.10의 순서대로 전부 반영했다.
+
+| # | 반영 |
+| --- | --- |
+| **F-7** | 검사기 소스 목록에 `YomiRoomManager.cs` · **`DailyMarketOutlook.cs`** 추가. orphan을 **경고 → 실패로 승격**. 소스 경로가 사라진 경우도 실패로 잡는다 — 파일이 빠지면 그 파일 소유 필드가 통째로 데드로 오판되기 때문이다 |
+| **F-8** | `TalkAffectionTierSeen` 제거. 구버전 JSON의 잔존 키는 `JsonUtility`가 무시하므로 마이그레이션 불필요 |
+| **F-1** | `YomiRoomTopDownController.RoomBusy` — 매니저가 `Idle`이 아니면 상호작용을 열지 않고 프롬프트도 숨긴다 |
+| **F-2** | `TryRest` / `TrySleep` / `StartTrading` / `MoveToWorldMap` **반환형 `void` → `bool`**. 호출부가 결과를 보고 피드백을 고르고, **실패 시 `inputLocked`를 반드시 되돌린다** |
+| **F-4** | `TryStartTalk`이 **체력을 먼저 확인 → 마커 기록 → 차감** 순서로 바뀌었다. `TryConsumeStamina`가 일으키는 저장에 마커가 함께 실린다. 사전 확인 덕에 롤백 코드가 필요 없다 |
+| **F-3** | `FinishTalk` / `CloseTalk` 끝에 명시적 `SaveCurrentGame()`. 힌트 발급이 우연히 저장을 일으켜 주던 것에 의존하지 않는다 |
+| **F-5** | 하단 버튼 하나가 **`자유대화` ↔ `대화 종료`** 를 겸한다. 라벨·활성화는 `YomiRoomDialogueUI`가 `OnStateChanged`로 전환. 중단 시 출력 대기열과 코루틴을 먼저 정리해 끊은 뒤에도 요미가 계속 말하지 않게 했다 (TS12) |
+| **F-9** | `SaveData.DatingDay == SaveData.CurrentDay` 계약을 `DatingTimeManager.SyncToNewDay`와 `YomiRoomManager.ProgressData` 주석에 명시 |
+| **F-6** | `PrepareNewGame()`이 `CurrentData`를 **`null` → `new SaveData()`** 로 바꾼다. 슬롯 파일은 지우지 않는다(새 게임을 시작만 하고 그만둘 수 있으므로). 같은 객체를 `DatingTimeManager.LoadFromSaveData()`에 먹여 **S-2까지 한 줄로 함께 해결**했다 |
+
+#### 부수 효과 — I-6이 함께 해소됐다
+
+F-3 + F-5로 **대화 중 수동 저장의 결과가 정상 종료와 같아졌다.** 이전에는 저장이 `TalkActiveTopicId`를 박제해 그날 대화가 원인 표시 없이 막혔지만, 이제 플레이어가 `대화 종료`로 명시적으로 끊을 수 있고 끊으면 그 즉시 저장된다. 남는 손실은 "중단하면 남은 노드를 못 본다"뿐이며, 이는 TS1의 설계 의도 그대로다.
+
+#### 검증
+
+| 항목 | 결과 |
+| --- | --- |
+| `Assembly-CSharp` / `Assembly-CSharp-Editor` | 클린 컴파일 (경고 0 · 오류 0) |
+| `python yomi_dialogue_lint.py` | 위반 0 · 경고 0 |
+| 필드 커버리지 (검사기 로직 오프라인 재현) | 소스 11건 전부 존재, `SaveData` 97필드 중 **orphan 0건** |
+
+#### 남은 일
+
+* **에디터에서 `Tools/Prebake All Scripts Text into Font` 실행** — `대화 종료` · `대화를 여기서 마쳤다.` · `지금은 자리를 뜰 수 없어요.` 등 신규 UI 문구 (TS21)
+* **플레이 검증**: 에디터에서 `FXOverdose/Debug/세이브 왕복(Round-trip) 검사` 실행 — 이번에 orphan이 실패로 승격됐으므로 이 검사가 실제로 도는지 확인이 필요하다
+* **회귀 확인 3종**: ① 대화 중 PC/침대 클릭이 막히는지 ② 대화 종료 버튼 → 타이틀 → 이어하기 시 그날 재대화가 막히는지 ③ 새 게임 1일차에 `TALK_LOVE_001`이 안 열리는지
+
+### 15.12. 폰트 프리베이크가 첫 실행 이후 계속 실패하고 있었다 (2026-08-14)
+
+> **발단**: 15.11의 남은 일로 `Tools/Prebake All Scripts Text into Font`를 실행했더니
+> `Unable to add characters to font asset [PFStardustBold Dynamic SDF] because its AtlasPopulationMode is set to Static.` 경고 발생
+
+#### 원인 — 자기가 잠근 문을 다시 두드리고 있었다
+
+[PrebakeTMPFont.cs](../../Assets/Scripts/Editor/PrebakeTMPFont.cs)가 이 순서였다.
+
+```csharp
+font.TryAddCharacters(sb.ToString());              // ① 글자 추가
+font.atlasPopulationMode = AtlasPopulationMode.Static;  // ② 잠금
+Debug.Log($"Successfully prebaked {uniqueChars.Count} characters...");  // ③ 무조건 성공 로그
+```
+
+`TryAddCharacters`는 **`Static`이면 경고만 남기고 즉시 반환**한다(TMP_FontAsset.cs:2018). ②가 폰트를 Static으로 박제하므로 **첫 실행 이후의 모든 실행은 통째로 no-op**이다. 그런데 ③이 반환값을 보지 않아 **매번 "Successfully prebaked 2158 characters"를 출력했다.** 계획서가 `TS14`로 못 박은 실패 패턴 — *실패가 성공처럼 보인다* — 이 빌드 툴에 그대로 있었다.
+
+#### 영향 — □가 아니라 글꼴이 튄다
+
+실측 결과 아틀라스에 **19자가 누락**돼 있었고, 그중 **9자가 실제 화면 문구**였다.
+
+| 글자 | 출처 |
+| --- | --- |
+| 깼 · 껐 · 뗐 · 몫 · 셌 · 켰 | `YomiTalkTopics` — 기존 대사 (`요미 자다 깼는데` / `화면도 껐어` / `눈 뗐네` / `내 몫` / `안 셌어` / `기지개 켰잖아`) |
+| 눴 | `YomiRoomManager` — 14장에서 추가한 `이야기를 나눴어요` |
+| 눕 · 뗍 | `ChoiceEventAssetGenerator` — 이벤트 팝업 본문 |
+
+나머지 10자는 주석과 `LLMSafeGenerator`의 GBNF 문법 문자열(`[가-힣]`)이라 화면에 뜨지 않는다.
+
+**□로 보이지 않았던 이유**는 폴백 사슬이 받아냈기 때문이다.
+
+```
+PFStardustBold Dynamic SDF (Static, 2163자)  ← 없음
+        ↓ m_FallbackFontAssetTable
+KoreanDynamicFont_TMP (Dynamic)              ← 런타임에 malgun.ttf에서 즉석 생성
+```
+
+폴백이 **Dynamic**이라 그 자리에서 글리프를 만들어 낸다. 게다가 `TMP Settings`의 `m_warningsDisabled: 1`이라 경고도 안 뜬다. 결과적으로 **문장 한복판에서 몇 글자만 다른 글꼴로 렌더**되고 있었다. 눈에 잘 안 띄는 종류의 결함이라 오래 살아남았다.
+
+> **TTF에는 글리프가 다 있다.** `PF스타더스트 3.0 Bold.ttf`의 cmap을 직접 읽어 확인한 결과 **한글 음절 11,172자 전부**를 담고 있다. 폰트의 한계가 아니라 순전히 베이크 순서 문제였다.
+
+#### 수정
+
+| 항목 | 내용 |
+| --- | --- |
+| 순서 | `Dynamic`으로 전환 → `TryAddCharacters` → `finally`에서 `Static` 복구. 예외가 나도 잠금 상태가 새지 않는다 |
+| 결과 확인 | `TryAddCharacters(s, out string missing)` 오버로드로 바꿔 **반환값과 누락 목록을 검사**한다 |
+| 로그 | 실패는 `LogError`, 글리프 부재는 `LogWarning`으로 문자를 나열, 성공 로그는 **진짜 성공했을 때만** |
+
+`m_SourceFontFile`이 `{fileID: 0}`이지만 `m_SourceFontFileGUID`가 남아 있고, `LoadFontFace()`가 에디터에서 `SourceFont_EditorRef`로 되살리므로(TMP_FontAsset.cs:1181) Dynamic 전환에 문제가 없다.
+
+#### 다시 실행할 것
+
+에디터에서 `Tools/Prebake All Scripts Text into Font`를 **한 번 더** 실행하십시오. 이번에는 19자가 실제로 추가되고, 로그가 `[Prebake] 요청 N자 처리 완료. 아틀라스 등록 문자 M자.` 형태로 바뀐다. 경고가 뜨면 그 글자는 폰트에 없는 것이므로 문구를 바꿔야 한다.

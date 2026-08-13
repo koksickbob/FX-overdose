@@ -54,6 +54,8 @@ namespace FXOverdose.Core
                 if (data.TalkActiveTopicId == null) data.TalkActiveTopicId = "";
                 if (data.TalkHintLineId == null) data.TalkHintLineId = "";
                 if (data.TalkLastGreetingDay <= 0) data.TalkLastGreetingDay = -1;
+                if (data.TalkLastSessionEndDay <= 0) data.TalkLastSessionEndDay = -1;
+                if (data.TalkDailyStateDay <= 0) data.TalkDailyStateDay = -1;
 
                 // ⚠️ 이 필드만은 기본값 0으로 두면 안 됩니다.
                 //    호감도 70인 기존 세이브가 로드 즉시 1단계로 강등되어 열려 있던 화제가 사라집니다. (TS9)

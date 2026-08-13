@@ -103,7 +103,7 @@ namespace FXOverdose.DatingSim.YomiRoom
 
             Mouse mouse = Mouse.current;
             bool pointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            if (!inputLocked && !pointerOverUI && mouse != null && mouse.leftButton.wasPressedThisFrame && nearby != null)
+            if (!inputLocked && !RoomBusy && !pointerOverUI && mouse != null && mouse.leftButton.wasPressedThisFrame && nearby != null)
                 OpenInteraction(nearby);
 
             input = Vector2.ClampMagnitude(keyboard, 1f);
@@ -135,8 +135,24 @@ namespace FXOverdose.DatingSim.YomiRoom
             nearby = best;
             if (promptText != null)
             {
-                promptText.gameObject.SetActive(nearby != null && !inputLocked);
+                promptText.gameObject.SetActive(nearby != null && !inputLocked && !RoomBusy);
                 if (nearby != null) promptText.text = $"마우스 좌클릭  ·  {nearby.DisplayName} 사용";
+            }
+        }
+
+        /// <summary>
+        /// 대화·휴식 등으로 방이 다른 일을 하고 있는지. 이때는 상호작용을 열지 않습니다. (F-1)
+        ///
+        /// ⚠️ 이 가드가 없으면 대화 중에 PC/침대를 눌러 <b>조작이 영구히 잠깁니다.</b>
+        ///    매니저의 StartTrading/TrySleep이 Idle이 아니면 조용히 no-op 하는데,
+        ///    호출부는 이미 inputLocked를 켠 채 모달을 닫아버려 되돌릴 손잡이가 사라지기 때문입니다. (I-1)
+        /// </summary>
+        private static bool RoomBusy
+        {
+            get
+            {
+                YomiRoomManager manager = YomiRoomManager.Instance;
+                return manager != null && manager.CurrentState != YomiRoomState.Idle;
             }
         }
 
@@ -198,7 +214,13 @@ namespace FXOverdose.DatingSim.YomiRoom
             return type == YomiRoomInteractionType.RestBed ? "오늘은 여기까지" : string.Empty;
         }
 
-        /// <summary>주 행동. 침대는 휴식, PC는 거래 개시.</summary>
+        /// <summary>
+        /// 주 행동. 침대는 휴식, PC는 거래 개시.
+        ///
+        /// ⚠️ <b>피드백을 행동보다 먼저 출력하지 마십시오.</b> 매니저의 행동은 실패할 수 있고,
+        ///    실패했는데 성공 문구를 띄우면 플레이어는 체력이 회복된 줄 압니다. (I-2)
+        ///    씬 전환에 실패하면 방에 남으므로 inputLocked도 반드시 되돌려야 합니다. (I-1)
+        /// </summary>
         public void ConfirmInteraction()
         {
             if (pending == null || YomiRoomManager.Instance == null) return;
@@ -209,11 +231,17 @@ namespace FXOverdose.DatingSim.YomiRoom
             {
                 case YomiRoomInteractionType.TradingPC:
                     if (!EnsureNoOpenPosition()) return;
-                    YomiRoomManager.Instance.StartTrading();
+                    // 성공하면 씬이 넘어가므로 잠금을 유지합니다. 실패했을 때만 방에 남습니다.
+                    if (!YomiRoomManager.Instance.StartTrading())
+                    {
+                        ShowFeedback("지금은 자리를 뜰 수 없어요.");
+                        inputLocked = false;
+                    }
                     break;
                 case YomiRoomInteractionType.RestBed:
-                    YomiRoomManager.Instance.TryRest();
-                    ShowFeedback("잠시 쉬었습니다. 체력이 10 회복됐어요.");
+                    ShowFeedback(YomiRoomManager.Instance.TryRest()
+                        ? "잠시 쉬었습니다. 체력이 10 회복됐어요."
+                        : "지금은 쉴 수 없어요.");
                     inputLocked = false;
                     break;
             }
@@ -232,8 +260,15 @@ namespace FXOverdose.DatingSim.YomiRoom
                 return;
             }
 
-            ShowFeedback("오늘은 여기까지. 잠들었습니다...");
-            YomiRoomManager.Instance.TrySleep();
+            // 취침도 실패할 수 있습니다. "잠들었습니다"를 먼저 띄우면 거짓말이 됩니다. (I-2)
+            if (YomiRoomManager.Instance.TrySleep())
+            {
+                ShowFeedback("오늘은 여기까지. 잠들었습니다...");
+                return;
+            }
+
+            ShowFeedback("지금은 잠들 수 없어요.");
+            inputLocked = false;
         }
 
         /// <summary>
@@ -502,9 +537,14 @@ namespace FXOverdose.DatingSim.YomiRoom
         private const float NarrationTail = 0.55f;      // 지문은 타자기 없이 즉시 표시 후 이 텀 (D-4)
         private const float ChoiceDelay = 0.3f;         // 마지막 글자와 동시에 버튼이 튀어나오지 않게 (D-5)
 
+        // 하단 버튼 하나가 상태에 따라 "자유대화"와 "대화 종료"를 겸합니다. (F-5)
+        // 진행 중인 대화를 끊을 수단이 아예 없어서, 대화 중에는 방을 떠나지도 저장을 정리하지도 못했습니다.
+        private Button talkToggleButton;
+        private TMP_Text talkToggleLabel;
+
         public void Configure(RectTransform content, TMP_InputField input, Button send, ScrollRect scroll,
             Sprite yomiFrame, Sprite masterFrame, Sprite portraitFrame, Sprite yomiPortrait,
-            Button[] choices = null)
+            Button[] choices = null, Button talkToggle = null)
         {
             messageContent = content;
             inputField = input;
@@ -514,6 +554,13 @@ namespace FXOverdose.DatingSim.YomiRoom
             masterBubble = masterFrame;
             avatarFrame = portraitFrame;
             portrait = yomiPortrait;
+
+            talkToggleButton = talkToggle;
+            if (talkToggleButton != null)
+            {
+                talkToggleLabel = talkToggleButton.GetComponentInChildren<TMP_Text>();
+                talkToggleButton.onClick.AddListener(OnTalkToggleClicked);
+            }
 
             choiceButtons = choices ?? new Button[0];
             choiceLabels = new TMP_Text[choiceButtons.Length];
@@ -541,6 +588,9 @@ namespace FXOverdose.DatingSim.YomiRoom
                 manager.OnYomiReplied += HandleYomiReply;
                 manager.OnTalkFinished += HandleTalkFinished;
                 manager.OnYomiGreeted += HandleGreeting;
+                manager.OnActionFailed += HandleActionFailed;
+                manager.OnStateChanged += HandleStateChanged;
+                HandleStateChanged(manager.CurrentState);
                 manager.TryGreetOnEnter();
             }
         }
@@ -555,6 +605,8 @@ namespace FXOverdose.DatingSim.YomiRoom
                 manager.OnYomiReplied -= HandleYomiReply;
                 manager.OnTalkFinished -= HandleTalkFinished;
                 manager.OnYomiGreeted -= HandleGreeting;
+                manager.OnActionFailed -= HandleActionFailed;
+                manager.OnStateChanged -= HandleStateChanged;
             }
 
             // 파괴된 UI에 코루틴이 계속 append하지 않도록 끊습니다. (TS12)
@@ -566,6 +618,46 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void HandleGreeting(string line)
         {
             Enqueue(new[] { line });
+        }
+
+        // 대화 시작 실패(하루 1회 소진 / 체력 부족 / 토픽 없음)는 소리 없이 버튼만 죽으면
+        // 버그로 읽히므로, 사유를 지문 채널로 한 줄 남깁니다.
+        private void HandleActionFailed(string reason)
+        {
+            AppendNarration(reason);
+        }
+
+        /// <summary>하단 버튼 하나로 개시와 중단을 겸합니다. 상태에 따라 라벨과 동작이 갈립니다. (F-5)</summary>
+        private void OnTalkToggleClicked()
+        {
+            YomiRoomManager manager = YomiRoomManager.Instance;
+            if (manager == null) return;
+
+            if (manager.HasActiveTopic)
+            {
+                // 출력 중이던 줄은 버립니다. 안 그러면 끊은 뒤에도 요미가 계속 말합니다. (TS12)
+                StopAllCoroutines();
+                lineQueue.Clear();
+                drainRoutine = null;
+                HideChoices();
+                pendingChoices = null;
+
+                manager.CloseTalk();
+                AppendNarration("대화를 여기서 마쳤다.");
+                return;
+            }
+
+            manager.TryStartTalk();
+        }
+
+        private void HandleStateChanged(YomiRoomState state)
+        {
+            if (talkToggleButton == null) return;
+
+            bool chatting = state == YomiRoomState.Chatting || state == YomiRoomState.Responding;
+            if (talkToggleLabel != null) talkToggleLabel.text = chatting ? "대화 종료" : "자유대화";
+            // 씬 전환·휴식 중에는 누를 수 없어야 합니다. 눌러도 매니저가 막지만 버튼이 살아 있으면 눌러보게 됩니다.
+            talkToggleButton.interactable = chatting || state == YomiRoomState.Idle;
         }
 
         private void HandleTalkNode(TalkNode node)

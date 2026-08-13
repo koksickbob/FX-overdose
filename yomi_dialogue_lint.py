@@ -139,14 +139,22 @@ TALK_TABLE = "Assets/Scripts/DatingSim/Dialogue/YomiTalkTopics.cs"
 MAX_CHOICE_LEN = 25    # 선택지 버튼 1줄 · 17pt
 MAX_BURST_LEN = 60     # 말풍선 1개 (일상 대사 상한)
 MAX_NARRATION_LEN = 40 # 지문 1줄
-MAX_TOPIC_AFFECTION = 12  # 토픽 1편의 최대 획득. 힌트 임계(4/7)가 무의미해지지 않게 하는 상한 (TS19)
+
+# ── 호감도 배분 (2026-08-14 개편, 계획서 14장) ──
+# 자유 채팅이 하루 1회가 되면서 토픽 1편 = 하루치다. 힌트 임계(2/3)와 직결되므로
+# 총획득은 상한이 아니라 "정확히" 검사한다 — 모자라면 명시 힌트가 영영 안 나온다.
+TOPIC_GAIN_TOTAL = 3   # 토픽 1편의 총획득 (직면 +2 · 착지 +1)
+TOPIC_LOSS_TOTAL = -2  # 토픽 1편의 총감소 (-1 선택지를 서로 다른 노드에 2개)
+CHOICE_AFF_MIN = -1    # 선택지 하나의 하한
+CHOICE_AFF_MAX = 2     # 선택지 하나의 상한 (= 토픽의 피크. 직면 노드에만 둔다)
 NARRATION_MARK = "※"
 RICH_TAG = re.compile(r"<[^>]+>")   # 타자기 연출이 글자 수를 그대로 센다 (TS28)
 
 # ⚠️ 선택지는 3인자(즉답 포함)가 될 수 있다. 닫는 괄호를 바로 요구하면 즉답이 붙은 선택지를
 #    통째로 못 보고 "선택지 0개"로 세면서 조용히 통과한다 — 실패가 성공처럼 보인다. (TS14)
+#    호감도는 음수(-1)가 허용되므로 부호까지 잡는다.
 CHOICE_RE = re.compile(
-    r'new TalkChoice\("((?:[^"\\]|\\.)*)"\s*,\s*TalkTrait\.(\w+)\s*,\s*(\d+)'
+    r'new TalkChoice\("((?:[^"\\]|\\.)*)"\s*,\s*TalkTrait\.(\w+)\s*,\s*(-?\d+)'
     r'\s*(?:,\s*"((?:[^"\\]|\\.)*)")?\s*\)', re.S
 )
 
@@ -229,7 +237,8 @@ def check_talk_table():
             failures += 1
 
         topic_max = 0          # 토픽 최대 획득 호감도
-        best_nodes = []        # +3 선택지가 있는 노드 인덱스
+        topic_min = 0          # 토픽 최대 감소 호감도 (음수)
+        best_nodes = []        # 피크(+2) 선택지가 있는 노드 인덱스
         choice_counts = []
         narration = 0
         seen_lines = {}        # 같은 장면 안에서의 문장 중복 검사
@@ -285,6 +294,7 @@ def check_talk_table():
             yomi_words = set(re.findall(r"[가-힣]{2,}", " ".join(lines))) - {"오빠", "요미"}
 
             node_max = 0
+            node_min = 0
             traits_in_node[n] = set()
             for text, trait, aff, reply in choices:
                 if is_plain_end(text):
@@ -294,8 +304,12 @@ def check_talk_table():
                 if FILLER.match(text):
                     filler += 1
                 aff = int(aff)
+                if not CHOICE_AFF_MIN <= aff <= CHOICE_AFF_MAX:
+                    print(f"  ❌ {topic_id}[{n}]: 호감도 {aff:+d} — 선택지 하나는 {CHOICE_AFF_MIN}~+{CHOICE_AFF_MAX} 범위여야 한다")
+                    failures += 1
                 node_max = max(node_max, aff)
-                if aff == 3 and n not in best_nodes:
+                node_min = min(node_min, aff)
+                if aff == CHOICE_AFF_MAX and n not in best_nodes:
                     best_nodes.append(n)
 
                 # --- 플레이어 대사 검사 (12장 P-7) ---
@@ -324,18 +338,24 @@ def check_talk_table():
                         failures += 1
                     failures += once("즉답", reply, f"[{n}]")
             topic_max += node_max
+            topic_min += node_min
 
-        # --- 토픽 단위 계약 (10.4절) ---
-        if topic_max > MAX_TOPIC_AFFECTION:
-            print(f"  ❌ {topic_id}: 최대 획득 +{topic_max} (상한 +{MAX_TOPIC_AFFECTION}) — 힌트 임계가 무의미해진다")
+        # --- 토픽 단위 계약 (14장, 2026-08-14 개편) ---
+        # 총획득은 정확히 검사한다. 모자라면 명시 힌트(임계 3)가 구조적으로 못 나온다.
+        if topic_max != TOPIC_GAIN_TOTAL:
+            print(f"  ❌ {topic_id}: 최대 획득 +{topic_max} (정확히 +{TOPIC_GAIN_TOTAL}이어야 함) — 힌트 임계 2/3과 어긋난다")
             failures += 1
-        if not 1 <= len(best_nodes) <= 2:
-            print(f"  ❌ {topic_id}: +3 노드 {len(best_nodes)}개 (토픽당 1~2개여야 함)")
+        # 총감소도 정확히 -2. 감소 선택지가 아예 없으면 이번 개편의 요구가 빠진 것이고, 넘치면 하루 한도를 깬다.
+        if topic_min != TOPIC_LOSS_TOTAL:
+            print(f"  ❌ {topic_id}: 최대 감소 {topic_min} (정확히 {TOPIC_LOSS_TOTAL}이어야 함) — -1 선택지를 서로 다른 노드에 2개 둔다")
+            failures += 1
+        if len(best_nodes) != 1:
+            print(f"  ❌ {topic_id}: 피크(+{CHOICE_AFF_MAX}) 노드 {len(best_nodes)}개 (토픽당 정확히 1개여야 함)")
             failures += 1
         half = len(nodes) // 2
         early = [n for n in best_nodes if n < half]
         if early:
-            print(f"  ❌ {topic_id}: +3이 전반부 노드 {early}에 있다 (후반 절반에만 둔다)")
+            print(f"  ❌ {topic_id}: 피크(+{CHOICE_AFF_MAX})가 전반부 노드 {early}에 있다 (후반 절반에만 둔다)")
             failures += 1
         if nodes and not 3 <= narration <= 5:
             print(f"  ❌ {topic_id}: 지문 {narration}줄 (3~5줄이어야 함)")
@@ -363,10 +383,10 @@ def check_talk_table():
             if filler < FILLER_MIN:
                 print(f"  ⚠️  {topic_id}: 추임새 개시 {filler}개 — 최소 {FILLER_MIN}개 (V-3)")
 
-        # 요미가 가장 무방비한 노드(+3이 있는 곳)에서 플레이어도 자기를 열어야 한다.
+        # 요미가 가장 무방비한 노드(피크가 있는 곳)에서 플레이어도 자기를 열어야 한다.
         # 전부 요미를 향한 위로·질문이면 대화가 아니라 상담이 된다. (12.2절)
         if best_nodes and not any(traits_in_node.get(n, set()) & {"Anxious", "Duty"} for n in best_nodes):
-            print(f"  ❌ {topic_id}: +3 노드 {best_nodes}에 Anxious/Duty가 없다 — 플레이어가 자기를 여는 자리가 없다")
+            print(f"  ❌ {topic_id}: 피크 노드 {best_nodes}에 Anxious/Duty가 없다 — 플레이어가 자기를 여는 자리가 없다")
             failures += 1
 
     # 힌트 풀: 4 Regime × 2 티어 = 8칸이 전부 차 있어야 하고, Squeeze 명시 티어엔 방향 단어가 없어야 한다.

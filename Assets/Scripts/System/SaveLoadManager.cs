@@ -353,11 +353,23 @@ namespace FXOverdose.Core
             ActiveStorySlotIndex = mode == GameMode.Story
                 ? Mathf.Clamp(storySlotIndex, 0, 2)
                 : 0;
-            CurrentData = null;
+
+            // ⚠️ null이 아니라 <b>빈 SaveData</b>를 넣습니다. (S-1)
+            //    null로 두면 새 게임의 첫 저장에서 SaveGame()의 `CurrentData ?? ReadSaveFile(slot)` 이
+            //    <b>이전 판의 슬롯 파일을 베이스로 집습니다.</b> 씬에 있는 매니저만 자기 필드를 덮어쓰므로,
+            //    주인 없는 필드(요미 대화 이력 Talk* 전체 등)가 새 게임에 통째로 상속됐습니다.
+            //    실제 증상: 새 게임 1일차에 TalkPeakAffection이 남아 3단계 토픽이 열려 있었습니다.
+            //    파일을 지우지 않는 이유는, 플레이어가 새 게임을 시작만 하고 그만둘 수 있기 때문입니다.
+            //    기존 세이브는 이 슬롯에 처음 저장하는 순간 정상적으로 덮어써집니다.
+            CurrentData = new SaveData();
             IsPendingLoad = false;
+
             DeliveryFoodManager.ResetStateForNewGame();
             // static이라 이전 판의 방향성이 남습니다. 새 게임에서 반드시 비웁니다. (S8)
             DailyMarketOutlook.Reset();
+            // DontDestroyOnLoad라 이전 판의 호감도·집착도·체력·일차가 매니저에 그대로 남습니다.
+            // 위에서 만든 기본값 SaveData를 그대로 먹여 초기 상태로 되돌립니다. (S-2)
+            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
             Debug.Log($"[SaveLoadManager] 새 게임 준비: {CurrentGameMode}" +
                       (CurrentGameMode == GameMode.Story ? $" / Slot {ActiveStorySlotIndex + 1}" : string.Empty));
         }
