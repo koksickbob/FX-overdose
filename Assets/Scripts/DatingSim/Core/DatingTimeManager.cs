@@ -177,6 +177,13 @@ namespace FXOverdose.DatingSim.Core
         ///
         /// 일차를 여기서 스스로 올리지 않는 것이 핵심입니다. 일차의 주인은 GameManager 하나뿐이며,
         /// 이 매니저의 currentDay는 그 값을 따라가는 읽기 전용 사본입니다.
+        ///
+        /// ⚠️ <b>계약: SaveData.DatingDay == SaveData.CurrentDay 는 항상 성립해야 합니다.</b> (F-9 / S-5)
+        ///    요미 대화의 모든 하루 게이트 — 선제 인사(TalkLastGreetingDay), 힌트 발급(TalkHintIssuedDay),
+        ///    하루 1회 한도(TalkLastSessionEndDay), 일일 리셋(TalkDailyStateDay) — 는 <b>CurrentDay</b>를 보는데,
+        ///    데이팅 UI와 슬롯은 <b>DatingDay</b>를 봅니다. 지금은 이 메서드가 유일한 일차 진입점이라 둘이 같습니다.
+        ///    데이팅 전용 일차 진행을 만들면 그 게이트들이 <b>한꺼번에 조용히</b> 깨집니다.
+        ///    그런 경로가 필요해지면 CurrentDay도 함께 올리거나, 게이트의 기준을 DatingDay로 통일하십시오.
         /// </summary>
         public void SyncToNewDay(int newDay, int defaultTimeSlots = 5)
         {

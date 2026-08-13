@@ -180,10 +180,20 @@ namespace FXOverdose.Core
         public List<string> TalkCompletedFlags = new List<string>();
         public int TalkLastGreetingDay = -1;
 
+        // --- 자유 채팅 일일 한도 (2026-08-14 개편) ---
+        // 자유 채팅은 하루 1회. 카운트는 대화가 끝나는 시점(완주·중도 종료 모두)에 소모됩니다.
+        public int TalkLastSessionEndDay = -1;
+        // 당일 한정 필드(TalkAffectionGainToday/TalkTopicsUsedToday)가 어느 일차의 것인지.
+        // 일차 전환 리셋이 계획(4.5절)만 있고 구현이 없었어서, 읽는 쪽(YomiRoomManager)이
+        // 일차가 바뀐 것을 보면 스스로 비웁니다. 값이 어긋나 있어도 다음 대화 시작 때 자가 치유됩니다.
+        public int TalkDailyStateDay = -1;
+
         // --- 호감도 기반 토픽 해금 ---
         // 해금은 '현재 호감도'가 아니라 '역대 최고'로 판정합니다.
         // 호감도가 깎였다고 이미 열린 화제가 다시 잠기면 진행하던 대화가 증발합니다. (TS8)
         public int TalkPeakAffection = 0;
-        public int TalkAffectionTierSeen = 0; // 플레이어가 인지한 해금 단계. 승급 연출용
+        // TalkAffectionTierSeen 제거 (2026-08-14, F-8): "승급 연출용"으로 미리 넣었으나 읽지도 쓰지도
+        // 않는 사문 필드였습니다. 연출을 실제로 만들 때 그 코드와 함께 추가하십시오.
+        // 구버전 JSON에 남은 키는 JsonUtility가 조용히 무시하므로 마이그레이션이 필요 없습니다.
     }
 }

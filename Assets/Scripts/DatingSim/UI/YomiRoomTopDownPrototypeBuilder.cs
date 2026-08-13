@@ -310,13 +310,14 @@ namespace FXOverdose.DatingSim.UI
                 }
             }
 
-            YomiRoomDialogueUI dialogue = panel.gameObject.AddComponent<YomiRoomDialogueUI>();
-            dialogue.Configure(history, input, send, scroll, yomiBubble, masterBubble, avatarFrame, portrait, choices);
-
-            // 대화 개시 버튼. 슬롯을 소모하고 오늘 안 쓴 토픽을 하나 엽니다.
-            Button startTalk = CreateButton(panel, "StartTalkButton", "자유대화",
+            // 대화 개시/중단 겸용 버튼. 하루 1회, 체력을 소모하고 오늘 안 쓴 토픽을 하나 엽니다.
+            // 대화 중에는 "대화 종료"로 바뀝니다 — 리스너와 라벨 전환은 YomiRoomDialogueUI가 맡습니다. (F-5)
+            Button talkToggle = CreateButton(panel, "StartTalkButton", "자유대화",
                 new Vector2(0.055f, 0.02f), new Vector2(0.945f, 0.058f), Pink);
-            startTalk.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartTalk());
+
+            YomiRoomDialogueUI dialogue = panel.gameObject.AddComponent<YomiRoomDialogueUI>();
+            dialogue.Configure(history, input, send, scroll, yomiBubble, masterBubble, avatarFrame, portrait,
+                choices, talkToggle);
         }
 
         private static void BuildRoomSettingsButton(Transform parent)

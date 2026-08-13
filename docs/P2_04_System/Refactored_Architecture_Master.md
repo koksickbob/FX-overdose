@@ -173,4 +173,32 @@
 * 이벤트 쉴드 150초 vs 차트 드리프트 30인게임분(≈실시간 30초)의 불일치 — 기획 판단 대기
 
 ---
+
+## 5. 자유 채팅 경제 개편 (2026-08-14)
+
+상세는 [YomiRoom_ChoiceTalk_System_Plan.md](YomiRoom_ChoiceTalk_System_Plan.md) 14장.
+
+| 항목 | 변경 |
+| --- | --- |
+| 소모 자원 | 시간 슬롯 1칸 → **미연시 체력 10** (`talkStaminaCost`) |
+| 횟수 | **하루 1회.** 카운트는 대화 종료 시점(완주·중도 종료 모두)에 소모 — `SaveData.TalkLastSessionEndDay` |
+| 호감도 | 토픽 총획득 **정확히 +3** (직면 +2 · 착지 +1), 총감소 **정확히 -2** (-1 선택지 12개 신설) |
+| 힌트 임계 | 4/7 → **2/3** (총획득 상한과 정합) |
+| 버그 수정 | **일일 리셋 미구현** — `TalkTopicsUsedToday`/`TalkAffectionGainToday`가 영영 안 비워져 토픽 영구 소진 + 힌트 임계 무력화. `YomiRoomManager.EnsureDailyTalkState()`가 일차 변화를 보고 자가 리셋 (`SaveData.TalkDailyStateDay`) |
+| API | `YomiRoomManager.OnActionFailed`가 `Action<string>`으로 사유 문구 전달. 현행 대화 패널이 지문 채널로 표시 |
+
+### 5.1 세이브 코어 결함 수정 (2026-08-14) ✅
+
+조사 전문과 나머지 7건은 [YomiRoom_ChoiceTalk_System_Plan.md](YomiRoom_ChoiceTalk_System_Plan.md) 15장. **세이브 코어에 영향이 간 2건만 여기 남긴다.** 둘 다 자유 채팅 개편과 무관한 기존 결함이었다.
+
+| ID | 결함 | 수정 |
+| --- | --- | --- |
+| **S-1** | `PrepareNewGame()`이 `CurrentData = null`로 두는 바람에, 새 게임의 첫 저장에서 `SaveGame()`의 `CurrentData ?? ReadSaveFile(slot)` 이 **이전 판의 슬롯 파일을 베이스로 삼았다.** 씬에 있는 매니저만 자기 필드를 덮어쓰므로 주인 없는 필드(`Talk*` 전체)가 통째로 상속됐다 — 새 게임 1일차에 3단계 토픽이 열려 있었다 | `CurrentData = new SaveData()`. **슬롯 파일은 지우지 않는다** — 새 게임을 시작만 하고 그만둘 수 있으므로, 첫 저장 때 정상적으로 덮어쓴다 |
+| **S-2** | `DatingTimeManager`가 `DontDestroyOnLoad`인데 `PrepareNewGame()`의 리셋 목록에 없어, 같은 세션에서 새 게임 시 이전 판의 호감도·집착도·체력·일차가 첫 저장에 기록됐다 | 위에서 만든 기본값 `SaveData`를 그대로 `LoadFromSaveData()`에 먹인다 (한 줄) |
+
+**안전망을 먼저 세운 뒤 착수했다.** `SaveRoundTripTester.RunFieldCoverageAudit()`의 소스 목록에 `YomiRoomManager.cs`(`Talk*` 15필드)와 `DailyMarketOutlook.cs`(`Outlook*` 2필드)가 **빠져 있었고**, orphan 판정이 경고로만 흘러 6건이 방치돼 있었다. 두 파일을 넣고 **orphan을 실패로 승격**했다. 현재 `SaveData` 97필드 중 orphan 0건.
+
+> **새 저장 경로를 만들면 반드시 그 소스를 `RunFieldCoverageAudit`의 목록에 추가할 것.** 빠뜨리면 그 파일이 소유한 필드가 전부 데드로 오판된다.
+
+---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*
