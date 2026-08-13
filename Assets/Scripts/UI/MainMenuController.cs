@@ -220,6 +220,8 @@ namespace FXOverdose.UI
         {
             if (loadGamePanel == null) return;
 
+            Transform slotRoot = EnsureStorySlotList();
+
             TMP_Text title = loadGamePanel.transform.Find("ModalWindow/Txt_Title")?.GetComponent<TMP_Text>();
             TMP_Text subtitle = loadGamePanel.transform.Find("ModalWindow/Txt_Subtitle")?.GetComponent<TMP_Text>();
             if (title != null) title.text = allowCreatingStorySlot ? "STORY MODE" : "CONTINUE";
@@ -237,10 +239,10 @@ namespace FXOverdose.UI
                 close.onClick.AddListener(CloseLoadGamePanel);
             }
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < SaveLoadManager.MaxStorySlots; i++)
             {
                 int slotIndex = i;
-                Transform slot = loadGamePanel.transform.Find($"ModalWindow/SaveSlot_{i + 1}");
+                Transform slot = slotRoot != null ? slotRoot.Find($"SaveSlot_{i + 1}") : null;
                 if (slot == null) continue;
 
                 bool hasSave = SaveLoadManager.Instance != null && SaveLoadManager.Instance.HasSave(i);
@@ -253,6 +255,12 @@ namespace FXOverdose.UI
                 }
 
                 TMP_Text state = slot.Find("State")?.GetComponent<TMP_Text>();
+                TMP_Text slotName = slot.Find("SlotName")?.GetComponent<TMP_Text>();
+                if (slotName != null)
+                {
+                    string saveName = hasSave ? SaveLoadManager.Instance.GetSaveName(i) : string.Empty;
+                    slotName.text = string.IsNullOrWhiteSpace(saveName) ? $"SAVE {i + 1:00}" : saveName;
+                }
                 if (state != null)
                 {
                     if (allowCreatingStorySlot)
@@ -265,6 +273,119 @@ namespace FXOverdose.UI
                     }
                 }
             }
+        }
+
+        /// <summary>기존 3개 슬롯을 보존하면서 20개짜리 스크롤 목록으로 확장합니다.</summary>
+        private Transform EnsureStorySlotList()
+        {
+            Transform window = loadGamePanel.transform.Find("ModalWindow");
+            if (window == null) return null;
+
+            Transform existingContent = window.Find("SaveSlotScroll/Viewport/Content");
+            if (existingContent != null)
+            {
+                LayoutStorySlots(existingContent);
+                return existingContent;
+            }
+
+            Transform template = window.Find("SaveSlot_1");
+            if (template == null) return window;
+
+            GameObject scrollObject = new("SaveSlotScroll", typeof(RectTransform), typeof(ScrollRect));
+            RectTransform scrollRect = scrollObject.GetComponent<RectTransform>();
+            scrollRect.SetParent(window, false);
+            scrollRect.anchorMin = new Vector2(0.08f, 0.20f);
+            scrollRect.anchorMax = new Vector2(0.92f, 0.74f);
+            scrollRect.offsetMin = Vector2.zero;
+            scrollRect.offsetMax = Vector2.zero;
+
+            GameObject viewportObject = new("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            RectTransform viewport = viewportObject.GetComponent<RectTransform>();
+            viewport.SetParent(scrollRect, false);
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = Vector2.zero;
+            Image viewportImage = viewportObject.GetComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject contentObject = new("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            RectTransform content = contentObject.GetComponent<RectTransform>();
+            content.SetParent(viewport, false);
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            // 해상도와 비활성 패널 상태에 따라 ContentSizeFitter가 높이를 0으로 계산하는 경우가 있어
+            // 슬롯 목록은 아래에서 픽셀 단위로 확정 배치합니다.
+            contentObject.GetComponent<VerticalLayoutGroup>().enabled = false;
+            contentObject.GetComponent<ContentSizeFitter>().enabled = false;
+
+            for (int i = 1; i <= SaveLoadManager.MaxStorySlots; i++)
+            {
+                Transform slot = window.Find($"SaveSlot_{i}");
+                if (slot == null)
+                {
+                    slot = Instantiate(template.gameObject, content).transform;
+                    slot.name = $"SaveSlot_{i}";
+                }
+                else slot.SetParent(content, false);
+
+                TMP_Text slotName = slot.Find("SlotName")?.GetComponent<TMP_Text>();
+                if (slotName != null) slotName.text = $"SAVE {i:00}";
+            }
+
+            LayoutStorySlots(content);
+
+            ScrollRect scrolling = scrollObject.GetComponent<ScrollRect>();
+            scrolling.viewport = viewport;
+            scrolling.content = content;
+            scrolling.horizontal = false;
+            scrolling.vertical = true;
+            scrolling.movementType = ScrollRect.MovementType.Clamped;
+            scrolling.scrollSensitivity = 35f;
+            return content;
+        }
+
+        private static void LayoutStorySlots(Transform contentTransform)
+        {
+            if (contentTransform == null) return;
+
+            const float slotHeight = 82f;
+            const float gap = 12f;
+            const float sidePadding = 3f;
+            RectTransform content = contentTransform as RectTransform;
+            if (content == null) return;
+
+            VerticalLayoutGroup layout = content.GetComponent<VerticalLayoutGroup>();
+            if (layout != null) layout.enabled = false;
+            ContentSizeFitter fitter = content.GetComponent<ContentSizeFitter>();
+            if (fitter != null) fitter.enabled = false;
+
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = new Vector2(0f, SaveLoadManager.MaxStorySlots * (slotHeight + gap));
+
+            for (int i = 0; i < SaveLoadManager.MaxStorySlots; i++)
+            {
+                RectTransform slot = contentTransform.Find($"SaveSlot_{i + 1}") as RectTransform;
+                if (slot == null) continue;
+
+                float top = -i * (slotHeight + gap);
+                slot.anchorMin = new Vector2(0f, 1f);
+                slot.anchorMax = new Vector2(1f, 1f);
+                slot.pivot = new Vector2(0.5f, 1f);
+                slot.offsetMin = new Vector2(sidePadding, top - slotHeight);
+                slot.offsetMax = new Vector2(-sidePadding, top);
+                slot.localScale = Vector3.one;
+                slot.gameObject.SetActive(true);
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
         }
 
         private void OpenStorySlotPanel()

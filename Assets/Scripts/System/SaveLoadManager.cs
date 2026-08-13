@@ -9,6 +9,7 @@ namespace FXOverdose.Core
 {
     public class SaveLoadManager : MonoBehaviour
     {
+        public const int MaxStorySlots = 20;
         public static SaveLoadManager Instance { get; private set; }
 
         public SaveData CurrentData { get; private set; }
@@ -48,7 +49,7 @@ namespace FXOverdose.Core
             return File.Exists(GetSaveFilePath(slotIndex));
         }
 
-        public bool SaveGame(int slotIndex)
+        public bool SaveGame(int slotIndex, string saveName = null)
         {
             if (!AllowsSaving)
             {
@@ -56,7 +57,7 @@ namespace FXOverdose.Core
                 return false;
             }
 
-            slotIndex = Mathf.Clamp(slotIndex, 0, 2);
+            slotIndex = Mathf.Clamp(slotIndex, 0, MaxStorySlots - 1);
             ActiveStorySlotIndex = slotIndex;
 
             var gm = FindAnyObjectByType<GameManager>();
@@ -91,7 +92,14 @@ namespace FXOverdose.Core
             // 💡 [부분 저장] 직전 저장/로드본을 베이스로 삼습니다.
             //    씬에 없는 매니저의 필드를 기본값으로 덮어써 날려버리는 것을 막습니다. (SV-A6)
             //    베이스가 없으면 디스크의 기존 세이브를 읽어 옵니다. 그것도 없어야 새 데이터입니다.
-            SaveData data = CurrentData ?? ReadSaveFile(slotIndex) ?? new SaveData();
+            // 이름을 지정한 수동 저장은 대상 슬롯의 오래된 데이터를 베이스로 삼지 않습니다.
+            // 현재 플레이 스냅샷으로 새 데이터를 만든 뒤 원자적으로 파일을 교체합니다.
+            SaveData data = CurrentData ??
+                            (!string.IsNullOrWhiteSpace(saveName) ? new SaveData() : ReadSaveFile(slotIndex)) ??
+                            new SaveData();
+
+            if (!string.IsNullOrWhiteSpace(saveName))
+                data.SaveName = saveName.Trim();
 
             data.Version = Application.version;
             data.GameMode = CurrentGameMode;
@@ -237,6 +245,13 @@ namespace FXOverdose.Core
             return SaveGame(ActiveStorySlotIndex);
         }
 
+        public string GetSaveName(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= MaxStorySlots) return string.Empty;
+            SaveData data = ReadSaveFile(slotIndex);
+            return data == null ? string.Empty : data.SaveName?.Trim() ?? string.Empty;
+        }
+
         private void ExtractMemoryData(TraderMemoryManager memory, SaveData data)
         {
             try
@@ -279,7 +294,7 @@ namespace FXOverdose.Core
 
         public bool PrepareLoadGame(int slotIndex)
         {
-            slotIndex = Mathf.Clamp(slotIndex, 0, 2);
+            slotIndex = Mathf.Clamp(slotIndex, 0, MaxStorySlots - 1);
             string path = GetSaveFilePath(slotIndex);
             if (!File.Exists(path))
             {
@@ -351,7 +366,7 @@ namespace FXOverdose.Core
 
             CurrentGameMode = mode;
             ActiveStorySlotIndex = mode == GameMode.Story
-                ? Mathf.Clamp(storySlotIndex, 0, 2)
+                ? Mathf.Clamp(storySlotIndex, 0, MaxStorySlots - 1)
                 : 0;
             CurrentData = null;
             IsPendingLoad = false;

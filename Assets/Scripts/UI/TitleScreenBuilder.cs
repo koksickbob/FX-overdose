@@ -402,7 +402,7 @@ namespace FXOverdose.UI
             Image window = CreateWindow(overlay.transform, "ModalWindow", new Vector2(0.30f, 0.19f), new Vector2(0.70f, 0.81f));
             CreateModalTitle(window.transform, "LOAD GAME", "저장된 거래 기록을 선택하세요");
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < SaveLoadManager.MaxStorySlots; i++)
             {
                 int slotIndex = i;
                 bool hasSave = SaveLoadManager.Instance != null && SaveLoadManager.Instance.HasSave(i);

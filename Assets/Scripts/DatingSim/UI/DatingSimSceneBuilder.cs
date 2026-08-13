@@ -117,10 +117,19 @@ namespace FXOverdose.DatingSim.UI
             }
 
             Canvas canvas = CreateCanvas(scene, "Canvas_WorldMap_Runtime");
-            Image map = CreateImage(canvas.transform, "SeoulMapBackground", Color.white, Vector2.zero, Vector2.one);
+            Image map = CreateImage(canvas.transform, "RegionMapBackground", Color.white, Vector2.zero, Vector2.one);
             map.sprite = LoadResourceSprite("DatingSim/WorldMap/UI/SeoulMapBackground");
             map.preserveAspect = false;
             CreateImage(canvas.transform, "MapTint", new Color32(2, 7, 18, 42), Vector2.zero, Vector2.one).raycastTarget = false;
+
+            Button previousRegion = CreateStandaloneButton(canvas.transform, "PreviousRegionButton", "<",
+                new Vector2(0.012f, 0.46f), new Vector2(0.068f, 0.60f), Cyan);
+            Button nextRegion = CreateStandaloneButton(canvas.transform, "NextRegionButton", ">",
+                new Vector2(0.932f, 0.46f), new Vector2(0.988f, 0.60f), Cyan);
+            TMP_Text previousLabel = previousRegion.transform.Find("Label").GetComponent<TMP_Text>();
+            TMP_Text nextLabel = nextRegion.transform.Find("Label").GetComponent<TMP_Text>();
+            previousLabel.fontSize = nextLabel.fontSize = 42f;
+            previousLabel.fontStyle = nextLabel.fontStyle = FontStyles.Bold;
 
             RectTransform top = CreatePanel(canvas.transform, "WorldMapHeader", new Vector2(0f, 0.87f), Vector2.one);
             float[] x = { 0.01f, 0.112f, 0.214f, 0.316f };
@@ -210,6 +219,7 @@ namespace FXOverdose.DatingSim.UI
                 detailTitle, detailMeta, detailDescription, actionLabel, feedback, staminaFill, affectionFill, timePips,
                 routeDots, new[] { room.GetComponent<RectTransform>(), job.GetComponent<RectTransform>(), date.GetComponent<RectTransform>(),
                     arcade.GetComponent<RectTransform>(), cafe.GetComponent<RectTransform>() });
+            ui.ConfigureRegionNavigation(map, title, previousRegion, nextRegion, pinLayer.gameObject, detail.gameObject);
         }
 
         private static RectTransform[] CreateDottedRoute(Transform parent)

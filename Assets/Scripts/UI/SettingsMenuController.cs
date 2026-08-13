@@ -24,6 +24,10 @@ public class SettingsMenuController : MonoBehaviour
     private Button fpsMenuButton;
     private TMP_Text fpsButtonText;
     private GameObject overwriteConfirmPanel;
+    private GameObject saveSlotPanel;
+    private TMP_InputField saveNameInput;
+    private TMP_Text saveSlotFeedback;
+    private int pendingSaveSlotIndex = -1;
     private RectTransform settingsPanelRect;
     private GameObject settingsHeaderSurface;
     private GameObject settingsActionSurface;
@@ -130,7 +134,7 @@ public class SettingsMenuController : MonoBehaviour
             if (saveLabel != null)
             {
                 saveLabel.text = canSave
-                    ? $"SAVE STORY {Mathf.Clamp((saveManager?.ActiveStorySlotIndex ?? 0) + 1, 1, 3):00}"
+                    ? "SAVE STORY"
                     : "STORY MODE ONLY";
             }
         }
@@ -310,30 +314,34 @@ public class SettingsMenuController : MonoBehaviour
 
     private void OnSaveButtonClicked()
     {
-        if (FXOverdose.Core.SaveLoadManager.Instance != null)
-        {
-            int slotIndex = FXOverdose.Core.SaveLoadManager.Instance.ActiveStorySlotIndex;
-            if (FXOverdose.Core.SaveLoadManager.Instance.HasSave(slotIndex))
-            {
-                if (overwriteConfirmPanel != null) overwriteConfirmPanel.SetActive(true);
-            }
-            else
-            {
-                SaveGame();
-            }
-        }
+        if (FXOverdose.Core.SaveLoadManager.Instance == null || saveSlotPanel == null) return;
+        RefreshSaveSlotPanel();
+        saveSlotPanel.SetActive(true);
+        saveSlotPanel.transform.SetAsLastSibling();
     }
 
     public void SaveGame()
     {
         if (overwriteConfirmPanel != null) overwriteConfirmPanel.SetActive(false);
 
+        int slotIndex = pendingSaveSlotIndex >= 0
+            ? pendingSaveSlotIndex
+            : FXOverdose.Core.SaveLoadManager.Instance?.ActiveStorySlotIndex ?? 0;
+        string saveName = saveNameInput != null ? saveNameInput.text.Trim() : string.Empty;
+        if (string.IsNullOrWhiteSpace(saveName))
+        {
+            if (saveSlotFeedback != null) saveSlotFeedback.text = "저장 데이터 이름을 입력해 주세요.";
+            return;
+        }
+
         if (FXOverdose.Core.SaveLoadManager.Instance != null)
         {
-            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveCurrentGame();
+            bool saved = FXOverdose.Core.SaveLoadManager.Instance.SaveGame(slotIndex, saveName);
             Debug.Log(saved
-                ? $"[SettingsMenuController] 스토리 저장 완료 (Slot {FXOverdose.Core.SaveLoadManager.Instance.ActiveStorySlotIndex + 1})"
+                ? $"[SettingsMenuController] 스토리 저장 완료 (Slot {slotIndex + 1}: {saveName})"
                 : "[SettingsMenuController] 열린 포지션 또는 시스템 상태로 인해 저장하지 못했습니다.");
+
+            if (saved && saveSlotPanel != null) saveSlotPanel.SetActive(false);
             
             Transform saveBtnObj = overlay.transform.Find("SettingsPanel/InnerFrame/SaveButton");
             if (saveBtnObj != null)
@@ -366,7 +374,7 @@ public class SettingsMenuController : MonoBehaviour
             {
                 var manager = FXOverdose.Core.SaveLoadManager.Instance;
                 tmpText.text = manager == null || manager.AllowsSaving
-                    ? $"SAVE STORY {Mathf.Clamp((manager?.ActiveStorySlotIndex ?? 0) + 1, 1, 3):00}"
+                    ? "SAVE STORY"
                     : "STORY MODE ONLY";
             }
         }
@@ -499,6 +507,7 @@ public class SettingsMenuController : MonoBehaviour
         ApplyP2PMenuLayout();
         UpdateModeButtonVisuals();
         CreateOverwriteConfirmDialog();
+        CreateSaveSlotDialog();
         overlay.SetActive(false);
     }
 
@@ -573,6 +582,120 @@ public class SettingsMenuController : MonoBehaviour
         noBtn.GetComponentInChildren<TMP_Text>().fontSize = 20f;
 
         overwriteConfirmPanel.SetActive(false);
+    }
+
+    private void CreateSaveSlotDialog()
+    {
+        saveSlotPanel = CreateUIObject("SaveSlotPanel", overlay.transform);
+        Stretch(saveSlotPanel.GetComponent<RectTransform>());
+        Image dim = saveSlotPanel.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.88f);
+        dim.raycastTarget = true;
+
+        GameObject box = CreateUIObject("Box", saveSlotPanel.transform);
+        RectTransform boxRect = box.GetComponent<RectTransform>();
+        boxRect.anchorMin = boxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        boxRect.sizeDelta = new Vector2(820f, 760f);
+        boxRect.anchoredPosition = Vector2.zero;
+        box.GetComponent<Image>().color = new Color32(13, 26, 46, 255);
+        Outline outline = box.AddComponent<Outline>();
+        outline.effectColor = new Color32(6, 182, 212, 255);
+        outline.effectDistance = new Vector2(3f, -3f);
+
+        TMP_Text title = CreateText(box.transform, "Title", "SELECT SAVE SLOT", 34f, TextAlignmentOptions.Center);
+        SetRect(title.rectTransform, new Vector2(0.05f, 0.91f), new Vector2(0.95f, 0.98f));
+
+        for (int i = 0; i < FXOverdose.Core.SaveLoadManager.MaxStorySlots; i++)
+        {
+            int slotIndex = i;
+            int column = i / 10;
+            int row = i % 10;
+            float xMin = column == 0 ? 0.06f : 0.52f;
+            float xMax = column == 0 ? 0.48f : 0.94f;
+            float yMax = 0.89f - row * 0.061f;
+            Button button = CreateButton(box.transform, $"SaveSlot_{i + 1}", string.Empty, new Color(0.08f, 0.22f, 0.34f, 1f));
+            SetRect(button.GetComponent<RectTransform>(), new Vector2(xMin, yMax - 0.047f), new Vector2(xMax, yMax));
+            button.GetComponentInChildren<TMP_Text>().fontSize = 18f;
+            button.onClick.AddListener(() => SelectSaveSlot(slotIndex));
+        }
+
+        GameObject inputBackground = CreateUIObject("SaveNameInput", box.transform, typeof(TMP_InputField));
+        SetRect(inputBackground.GetComponent<RectTransform>(), new Vector2(0.06f, 0.17f), new Vector2(0.94f, 0.245f));
+        inputBackground.GetComponent<Image>().color = new Color32(4, 14, 28, 255);
+        TMP_Text inputText = CreateText(inputBackground.transform, "Text", string.Empty, 22f, TextAlignmentOptions.MidlineLeft);
+        SetRect(inputText.rectTransform, new Vector2(0.035f, 0.08f), new Vector2(0.965f, 0.92f));
+        TMP_Text placeholder = CreateText(inputBackground.transform, "Placeholder", "저장 데이터 이름을 입력하세요", 20f, TextAlignmentOptions.MidlineLeft);
+        SetRect(placeholder.rectTransform, new Vector2(0.035f, 0.08f), new Vector2(0.965f, 0.92f));
+        placeholder.color = new Color32(100, 126, 151, 255);
+        saveNameInput = inputBackground.GetComponent<TMP_InputField>();
+        saveNameInput.textComponent = inputText;
+        saveNameInput.placeholder = placeholder;
+        saveNameInput.lineType = TMP_InputField.LineType.SingleLine;
+        saveNameInput.characterLimit = 30;
+
+        saveSlotFeedback = CreateText(box.transform, "Feedback", "슬롯을 선택하고 저장 이름을 입력해 주세요.", 16f, TextAlignmentOptions.Center);
+        SetRect(saveSlotFeedback.rectTransform, new Vector2(0.06f, 0.12f), new Vector2(0.94f, 0.165f));
+        saveSlotFeedback.color = new Color32(126, 160, 184, 255);
+
+        Button save = CreateButton(box.transform, "ConfirmSave", "SAVE", new Color(0.18f, 0.55f, 0.34f, 1f));
+        SetRect(save.GetComponent<RectTransform>(), new Vector2(0.12f, 0.035f), new Vector2(0.46f, 0.105f));
+        save.onClick.AddListener(RequestSaveSelectedSlot);
+        Button cancel = CreateButton(box.transform, "Cancel", "CANCEL", new Color(0.10f, 0.35f, 0.48f, 1f));
+        SetRect(cancel.GetComponent<RectTransform>(), new Vector2(0.54f, 0.035f), new Vector2(0.88f, 0.105f));
+        cancel.onClick.AddListener(() => saveSlotPanel.SetActive(false));
+
+        saveSlotPanel.SetActive(false);
+    }
+
+    private void RefreshSaveSlotPanel()
+    {
+        var manager = FXOverdose.Core.SaveLoadManager.Instance;
+        if (manager == null || saveSlotPanel == null) return;
+        pendingSaveSlotIndex = -1;
+        if (saveNameInput != null) saveNameInput.SetTextWithoutNotify(string.Empty);
+        if (saveSlotFeedback != null) saveSlotFeedback.text = "슬롯을 선택하고 저장 이름을 입력해 주세요.";
+        Transform box = saveSlotPanel.transform.Find("Box");
+        for (int i = 0; i < FXOverdose.Core.SaveLoadManager.MaxStorySlots; i++)
+        {
+            TMP_Text label = box?.Find($"SaveSlot_{i + 1}")?.GetComponentInChildren<TMP_Text>();
+            if (label == null) continue;
+            string savedName = manager.GetSaveName(i);
+            label.text = manager.HasSave(i)
+                ? $"{i + 1:00}  {(!string.IsNullOrWhiteSpace(savedName) ? savedName : "저장 데이터")}"
+                : $"{i + 1:00}  EMPTY";
+        }
+    }
+
+    private void SelectSaveSlot(int slotIndex)
+    {
+        pendingSaveSlotIndex = slotIndex;
+        var manager = FXOverdose.Core.SaveLoadManager.Instance;
+        string existingName = manager?.GetSaveName(slotIndex) ?? string.Empty;
+        if (saveNameInput != null) saveNameInput.SetTextWithoutNotify(existingName);
+        if (saveSlotFeedback != null)
+            saveSlotFeedback.text = $"SLOT {slotIndex + 1:00} 선택됨" + (manager?.HasSave(slotIndex) == true ? " / 기존 데이터 있음" : string.Empty);
+        saveNameInput?.ActivateInputField();
+    }
+
+    private void RequestSaveSelectedSlot()
+    {
+        if (pendingSaveSlotIndex < 0)
+        {
+            if (saveSlotFeedback != null) saveSlotFeedback.text = "먼저 저장할 슬롯을 선택해 주세요.";
+            return;
+        }
+        if (saveNameInput == null || string.IsNullOrWhiteSpace(saveNameInput.text))
+        {
+            if (saveSlotFeedback != null) saveSlotFeedback.text = "저장 데이터 이름을 입력해 주세요.";
+            return;
+        }
+
+        if (FXOverdose.Core.SaveLoadManager.Instance?.HasSave(pendingSaveSlotIndex) == true)
+        {
+            overwriteConfirmPanel.SetActive(true);
+            overwriteConfirmPanel.transform.SetAsLastSibling();
+        }
+        else SaveGame();
     }
 
     private void CycleFPS()

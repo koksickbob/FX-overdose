@@ -37,6 +37,24 @@ namespace FXOverdose.DatingSim.WorldMap
         private RectTransform[] routeDots;
         private RectTransform[] markerRects;
         private MapLocation selectedLocation = MapLocation.Room;
+        private Image regionMapBackground;
+        private TMP_Text regionTitle;
+        private Button previousRegionButton;
+        private Button nextRegionButton;
+        private GameObject locationPinLayer;
+        private GameObject locationDetailPanel;
+        private int currentRegionIndex;
+
+        private static readonly string[] RegionNames = { "SEOUL", "INCHEON", "GAPYEONG", "DONGHAE", "BUSAN", "JEJU" };
+        private static readonly string[] RegionSpritePaths =
+        {
+            "DatingSim/WorldMap/UI/SeoulMapBackground",
+            "DatingSim/WorldMap/UI/IncheonMapBackground",
+            "DatingSim/WorldMap/UI/GapyeongMapBackground",
+            "DatingSim/WorldMap/UI/DonghaeMapBackground",
+            "DatingSim/WorldMap/UI/BusanMapBackground",
+            "DatingSim/WorldMap/UI/JejuMapBackground"
+        };
 
         private enum MapLocation { Room, Job, Date, Arcade, Cafe }
 
@@ -83,6 +101,18 @@ namespace FXOverdose.DatingSim.WorldMap
             markerRects = markerTransforms;
         }
 
+        public void ConfigureRegionNavigation(Image mapBackground,TMP_Text mapTitle,Button previousButton,
+            Button nextButton,GameObject pinLayer,GameObject detailPanel)
+        {
+            regionMapBackground=mapBackground;
+            regionTitle=mapTitle;
+            previousRegionButton=previousButton;
+            nextRegionButton=nextButton;
+            locationPinLayer=pinLayer;
+            locationDetailPanel=detailPanel;
+            currentRegionIndex=0;
+        }
+
         private void Start()
         {
             BindButtons();
@@ -111,6 +141,8 @@ namespace FXOverdose.DatingSim.WorldMap
             arcadeButton?.onClick.AddListener(() => SelectLocation(MapLocation.Arcade));
             cafeButton?.onClick.AddListener(() => SelectLocation(MapLocation.Cafe));
             primaryActionButton?.onClick.AddListener(ExecuteSelectedLocation);
+            previousRegionButton?.onClick.AddListener(()=>ChangeRegion(-1));
+            nextRegionButton?.onClick.AddListener(()=>ChangeRegion(1));
             if (filterButtons != null)
             {
                 for (int i = 0; i < filterButtons.Length; i++)
@@ -120,6 +152,33 @@ namespace FXOverdose.DatingSim.WorldMap
                 }
             }
             SelectLocation(MapLocation.Room);
+            ApplyRegion();
+        }
+
+        private void ChangeRegion(int direction)
+        {
+            int next=Mathf.Clamp(currentRegionIndex+direction,0,RegionNames.Length-1);
+            if(next==currentRegionIndex)return;
+            currentRegionIndex=next;
+            ApplyRegion();
+        }
+
+        private void ApplyRegion()
+        {
+            if(currentRegionIndex<0||currentRegionIndex>=RegionSpritePaths.Length)return;
+            Sprite sprite=Resources.Load<Sprite>(RegionSpritePaths[currentRegionIndex]);
+            if(sprite!=null&&regionMapBackground!=null)regionMapBackground.sprite=sprite;
+            else if(sprite==null)Debug.LogWarning($"[WorldMapUI] 지역 배경을 찾지 못했습니다: {RegionSpritePaths[currentRegionIndex]}");
+
+            if(regionTitle!=null)regionTitle.text=$"{RegionNames[currentRegionIndex]} CITY MAP";
+            if(previousRegionButton!=null)previousRegionButton.interactable=currentRegionIndex>0;
+            if(nextRegionButton!=null)nextRegionButton.interactable=currentRegionIndex<RegionNames.Length-1;
+
+            // 현재 장소 콘텐츠는 서울 데이터만 있으므로 다른 지역에서는 서울 핀과 상세 행동을 숨깁니다.
+            bool isSeoul=currentRegionIndex==0;
+            if(locationPinLayer!=null)locationPinLayer.SetActive(isSeoul);
+            if(locationDetailPanel!=null)locationDetailPanel.SetActive(isSeoul);
+            if(isSeoul)SelectLocation(selectedLocation);
         }
 
         private void SubscribeEvents()

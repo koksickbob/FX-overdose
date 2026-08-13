@@ -30,6 +30,9 @@ namespace FXOverdose.Core
         // 저장 시 SaveLoadManager에서 Application.version을 자동으로 주입합니다.
         public string Version;
 
+        // 플레이어가 슬롯을 구분하기 위해 직접 입력한 표시 이름입니다.
+        public string SaveName;
+
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
         public GameMode GameMode = GameMode.Story;
 

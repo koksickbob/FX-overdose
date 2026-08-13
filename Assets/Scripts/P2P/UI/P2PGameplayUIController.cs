@@ -238,7 +238,7 @@ namespace FXOverdose.P2P.UI
 
         private static ChoiceEventPopupUIController FindActiveEventPopup()
         {
-            foreach(var popup in FindObjectsByType<ChoiceEventPopupUIController>(FindObjectsInactive.Exclude,FindObjectsSortMode.None))
+            foreach(var popup in FindObjectsByType<ChoiceEventPopupUIController>(FindObjectsInactive.Exclude))
             {
                 if(popup!=null&&popup.isActiveAndEnabled)return popup;
             }
