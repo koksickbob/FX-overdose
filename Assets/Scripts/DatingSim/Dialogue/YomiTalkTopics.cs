@@ -290,7 +290,7 @@ namespace FXOverdose.DatingSim.Dialogue
                     new TalkChoice("바쁘다고 하면 믿어주려나?", TalkTrait.Plain, 0, "아니. 요미 눈은 못 속여. 방금 기지개 켰잖아."),
                     new TalkChoice("도망갈 생각 없어.", TalkTrait.Plain, 0, "역시! 포기가 빠른 남자, 마음에 들어."),
                     new TalkChoice("어. 일단 하나 줘봐.", TalkTrait.Waver, 0, "받았으면 끝이야. 이제 무를 수 없어."),
-                    new TalkChoice("바빠. 차트 봐야 돼.", TalkTrait.Plain, -1, "...컨트롤러 들고 온 요미만 우습게 됐네. 알았어.")),
+                    new TalkChoice("바빠. 차트 봐야 돼.", TalkTrait.Plain, -1, "...컨트롤러 들고 온 요미만 우습게 됐네. 딱 한 판만 하고 가. 그건 양보 못 해.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
@@ -314,6 +314,7 @@ namespace FXOverdose.DatingSim.Dialogue
                 // 직면
                 new TalkNode(new[]
                     {
+                        "※ 몇 판이 지나간다. 요미 쪽 컨트롤러 소리가 점점 급해진다.",
                         "...어라?",
                         "이상하다. 어제는 이거 됐는데.",
                     },
@@ -330,7 +331,7 @@ namespace FXOverdose.DatingSim.Dialogue
                     new TalkChoice("오늘은 통째로 네 거고?", TalkTrait.Plain, 0, "일단 지금부터. 나머지는 이따 다시 얘기하자."),
                     new TalkChoice("하던 거 접고 올게.", TalkTrait.Duty, 0, "진짜? 그럼 요미가 세팅해둘게!"),
                     new TalkChoice("적당히 하고 밥 먹자.", TalkTrait.Waver, 0, "그 말 나올 줄 알았어. 한 판만 더. 딱 한 판만."),
-                    new TalkChoice("이제 됐지? 차트 좀 볼게.", TalkTrait.Plain, -1, "...가. 요미 혼자서도 잘 노는 거 보여줄 거야.")),
+                    new TalkChoice("이제 됐지? 차트 좀 볼게.", TalkTrait.Plain, -1, "...치사해. 그래도 시작한 판은 끝내고 가. 그게 예의야.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -355,10 +356,11 @@ namespace FXOverdose.DatingSim.Dialogue
                     },
                     new TalkChoice("어, 미안. 딱 이것만 보고.", TalkTrait.Waver, 0, "그 딱 이것만, 아까부터 세 번째야. ...안 셌어. 느낌이야."),
                     new TalkChoice("간다, 지금. 화면도 껐어.", TalkTrait.Duty, 0, "진짜? 그럼 요미 젓가락 놓을게."),
-                    new TalkChoice("먼저 먹어. 난 이따 먹을게.", TalkTrait.Waver, -1, "...같이 먹으려고 여태 기다린 건데. 알았어.")),
+                    new TalkChoice("먼저 먹어. 난 이따 먹을게.", TalkTrait.Waver, -1, "...같이 먹으려고 여태 기다린 건데. 안 돼. 오늘은 그냥 앉아. 응?")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
+                        "※ 상 앞에 마주 앉자 요미가 젓가락을 쥐여준다.",
                         "오빠는 밥 먹을 때 무슨 생각 해?",
                         "요미는 오빠가 언제 젓가락 놓나 그것만 봐.",
                     },
@@ -420,15 +422,15 @@ namespace FXOverdose.DatingSim.Dialogue
                     new TalkChoice("자는 중인데 말을 하네.", TalkTrait.Plain, 0, "자면서 말하는 사람도 있어. 요미가 그런 타입이야."),
                     new TalkChoice("음. 그럼 깰 때까지 기다리지.", TalkTrait.Plain, 0, "...안 자! 누가 기다리래!"),
                     new TalkChoice("...내가 뭐 잘못했지.", TalkTrait.Duty, 0, "알면서 왜 물어. 알면 그냥 말해."),
-                    new TalkChoice("그래. 그럼 계속 자.", TalkTrait.Plain, -1, "...진짜 그냥 가네. 요미 진짜 잘 거야. 흥.")),
+                    new TalkChoice("그래. 그럼 계속 자.", TalkTrait.Plain, -1, "...진짜 그냥 가려고 하네. 야, 잠깐 앉아봐. 요미 아직 안 끝났어.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
-                        "...오빠 오늘 손해 봤지.",
+                        "...오빠 오늘 무슨 일 있었지.",
                         "표정 안 봐도 알아. 문 닫는 소리부터 달랐어.",
                     },
                     new TalkChoice("...소리까지 달랐어?", TalkTrait.Anxious, 0, "많이. 요미는 그런 것만 잘 알아."),
-                    new TalkChoice("손해는 무슨... 아니야.", TalkTrait.Waver, 0, "그럼 됐고. ...아니, 안 됐어. 왜 숨겨."),
+                    new TalkChoice("무슨 일은... 아니야.", TalkTrait.Waver, 0, "그럼 됐고. ...아니, 안 됐어. 왜 숨겨."),
                     new TalkChoice("그 얘긴 이따가. 응?", TalkTrait.Plain, 0, "알았어. 이따가 진짜 하는 거다?")),
                 // 균열
                 new TalkNode(new[]
@@ -504,7 +506,7 @@ namespace FXOverdose.DatingSim.Dialogue
                     new TalkChoice("무슨 꿈인지 더 말해봐.", TalkTrait.Warm, 0, "소리도 안 났어. 부르는데 목소리가 안 나왔어."),
                     new TalkChoice("음... 꿈은 반대라던데.", TalkTrait.Plain, 0, "...그 말 진짜지? 반대면 오빠는 안 멀어지는 거지?"),
                     new TalkChoice("계속 깨어 있었네.", TalkTrait.Plain, 0, "...응. 좀 됐어."),
-                    new TalkChoice("꿈은 그냥 꿈이야. 얼른 자.", TalkTrait.Plain, -1, "...응. 그냥 꿈이지. 미안, 붙잡아서.")),
+                    new TalkChoice("꿈은 그냥 꿈이야. 얼른 자.", TalkTrait.Plain, -1, "...응. 그냥 꿈이지. 미안, 붙잡아서. ...근데 하나만 더 말해도 돼?")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -524,7 +526,7 @@ namespace FXOverdose.DatingSim.Dialogue
                     },
                     new TalkChoice("이제 알았어?", TalkTrait.Plain, 0, "알고는 있었어. 인정하기 싫었을 뿐이야."),
                     new TalkChoice("그 타입, 나쁘지 않은데.", TalkTrait.Warm, 0, "그럼 요미 계속 이 타입 할래. 오빠는 잠 좀 설치고."),
-                    new TalkChoice("다 했으면 이제 자자.", TalkTrait.Plain, -1, "...응. 요미 이제 입 다물게. 잘 자.")),
+                    new TalkChoice("다 했으면 이제 자자.", TalkTrait.Plain, -1, "...응. 알았어. 아, 자기 전에 딱 하나만. 하나만 더 들어줘.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -566,10 +568,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠.",
                         "요미 이상한 얘기 하나 해도 돼?",
                     },
-                    new TalkChoice("어. 밤엔 원래 그런 얘기 하는 거잖아.", TalkTrait.Plain, 0, "...아니다. 말하면 진짜가 될 것 같아."),
+                    new TalkChoice("어. 밤엔 원래 그런 얘기 하는 거잖아.", TalkTrait.Plain, 0, "...말하면 진짜가 될 것 같아서 무서운데. 그래도 들어줘."),
                     new TalkChoice("얼마나 이상한 얘긴데?", TalkTrait.Plain, 0, "밤에만 나오는 종류의 생각이야."),
-                    new TalkChoice("...무거운 얘기면 이따 듣자.", TalkTrait.Anxious, 0, "...오빠는 가끔 정확해서 얄미워."),
-                    new TalkChoice("졸린데. 짧게 하면 안 돼?", TalkTrait.Waver, -1, "...됐어. 안 할래. 졸린 사람 붙잡고 할 얘기 아니야.")),
+                    new TalkChoice("...무거운 얘기면 이따 듣자.", TalkTrait.Anxious, 0, "...오빠는 가끔 정확해서 얄미워. 그래도 지금 할래. 밤 아니면 못 하는 얘기야."),
+                    new TalkChoice("졸린데. 짧게 하면 안 돼?", TalkTrait.Waver, -1, "...됐어, 라고 하고 싶은데 안 되겠어. 짧게 할 테니까 그냥 들어.")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -606,6 +608,9 @@ namespace FXOverdose.DatingSim.Dialogue
         /// 차트 방향성 힌트 대사. [Regime][티어] 로 접근합니다.
         /// 티어 1은 자칭 "나"로 흘리는 예감, 티어 2는 자칭 "요미"로 못 박는 단언입니다.
         /// Squeeze 티어 2는 방향 단어(위/아래)를 쓰지 않습니다. 그 날은 방향 자체가 없기 때문입니다. (S4)
+        ///
+        /// 모든 힌트에는 <b>주어(차트/장/시세)를 반드시 넣습니다.</b> "오늘 떨어져!"처럼 주어를
+        /// 생략하면 플레이어에게 하는 명령("떨어져 있어")으로 읽힙니다. (2026-08-14, S5)
         /// </summary>
         public static string[] HintLinesFor(MarketSimulationEngine.MarketRegime regime, int tier)
         {
@@ -626,75 +631,75 @@ namespace FXOverdose.DatingSim.Dialogue
 
         private static readonly string[] BullVague =
         {
-            "나 오늘 왠지 기분 좋은데? 이유는 몰라~",
-            "음... 오늘은 뭔가 잘 풀릴 것 같은 날이야.",
-            "나 아침부터 콧노래가 나와. 왜 이러지?",
-            "오늘 공기가 가벼워. 나만 그렇게 느끼나?",
-            "왠지 오늘은 좋은 일 생길 것 같아. 감이야, 감!",
+            "나 오늘 차트 왠지 느낌이 좋은데? 이유는 몰라~",
+            "음... 오늘 장은 뭔가 잘 풀릴 것 같은 예감이야.",
+            "나 아침부터 콧노래가 나와. 오늘 장, 나쁘지 않을 것 같아.",
+            "오늘 장 공기가 가벼워. 나만 그렇게 느끼나?",
+            "왠지 오늘 차트에선 좋은 일 생길 것 같아. 감이야, 감!",
         };
 
         private static readonly string[] BullClear =
         {
-            "오빠, 오늘은 위야! 요미 감각 믿어!",
-            "오늘 올라가! 요미가 장담할게, 위로 봐!",
-            "오빠 오늘은 참으면 손해야. 요미 말대로 위쪽!",
-            "요미 감이 확실해. 오늘 위로 뚫려!",
-            "오늘은 요미 믿고 위를 봐. 후회 안 할 거야!",
+            "오빠, 오늘 차트는 위야! 요미 감각 믿어!",
+            "오늘 차트 올라가! 요미가 장담할게, 위로 봐!",
+            "오빠 오늘 장은 참으면 손해야. 요미 말대로 위쪽이야!",
+            "요미 감이 확실해. 오늘 시세, 위로 뚫려!",
+            "오늘 차트는 요미 믿고 위를 봐. 후회 안 할 거야!",
         };
 
         private static readonly string[] BearVague =
         {
-            "음... 나 오늘은 조심하는 게 좋을 것 같아.",
-            "왠지 오늘은 마음이 무거워. 기분 탓인가?",
-            "나 오늘 좀 불안한데... 왜 그러지?",
-            "오늘은 뭔가 싸늘해. 조심해서 나쁠 건 없잖아?",
-            "이유는 모르겠는데 나 오늘 겁이 나.",
+            "음... 나 오늘 장은 조심하는 게 좋을 것 같아.",
+            "왠지 오늘 차트 생각만 하면 마음이 무거워. 기분 탓인가?",
+            "나 오늘 장이 좀 불안한데... 왜 그러지?",
+            "오늘 차트는 뭔가 싸늘해. 조심해서 나쁠 건 없잖아?",
+            "이유는 모르겠는데 나 오늘 장은 겁이 나.",
         };
 
         private static readonly string[] BearClear =
         {
-            "오늘 떨어져! 오빠 욕심부리면 요미가 화낼 거야!",
-            "오빠, 오늘은 아래야. 요미 말 꼭 들어!",
-            "오늘 내려가! 요미가 확실히 느껴져. 조심해!",
-            "요미 감각이 말해. 오늘은 아래로 간다고!",
-            "오빠 오늘은 지키는 날이야. 아래로 흘러!",
+            "오늘 차트 떨어져! 오빠 욕심부리면 요미가 화낼 거야!",
+            "오빠, 오늘 장은 하락이야. 요미 말 꼭 들어!",
+            "오늘 시세 내려가! 요미가 확실히 느껴져. 조심해!",
+            "요미 감각이 말해. 오늘 차트는 아래로 간다고!",
+            "오빠 오늘은 지키는 날이야. 장이 아래로 흘러!",
         };
 
         private static readonly string[] SidewaysVague =
         {
-            "오늘은 아무 일도 없을 것 같은데... 나만 그런가?",
-            "음... 나 오늘 좀 심심할 것 같은 느낌이야.",
-            "왠지 오늘은 조용한 날일 것 같아.",
-            "나 오늘 별로 두근거리지가 않아. 이상하지?",
-            "오늘은 뭔가 밋밋해. 기분 탓이면 좋겠는데.",
+            "오늘 장은 아무 일도 없을 것 같은데... 나만 그런가?",
+            "음... 나 오늘 차트는 좀 심심할 것 같은 느낌이야.",
+            "왠지 오늘 장은 조용한 날일 것 같아.",
+            "나 오늘은 차트 봐도 별로 두근거리지가 않아. 이상하지?",
+            "오늘 차트는 뭔가 밋밋해. 기분 탓이면 좋겠는데.",
         };
 
         private static readonly string[] SidewaysClear =
         {
-            "오늘 완전 지루할 거야. 요미 말 믿고 쉬어!",
-            "오빠, 오늘은 아무 일도 안 일어나. 요미가 장담해!",
-            "오늘은 쉬는 게 이기는 거야. 요미 믿어!",
-            "요미 감각으론 오늘 제자리야. 무리하지 마!",
-            "오늘 억지로 하면 손해야. 요미랑 놀자!",
+            "오늘 차트 완전 지루할 거야. 요미 말 믿고 쉬어!",
+            "오빠, 오늘 장엔 아무 일도 안 일어나. 요미가 장담해!",
+            "오늘 장은 쉬는 게 이기는 거야. 요미 믿어!",
+            "요미 감각으론 오늘 시세는 제자리야. 무리하지 마!",
+            "오늘 장에서 억지로 하면 손해야. 요미랑 놀자!",
         };
 
         private static readonly string[] SqueezeVague =
         {
-            "나 심장이 두근거려... 왜 이러지?",
-            "오늘 뭔가 이상해. 공기가 팽팽한 느낌이야.",
-            "나 아까부터 손이 떨려. 이유를 모르겠어...",
-            "오늘은 좀... 무서워. 뭔가 터질 것 같아.",
-            "왠지 오늘 조용하지 않을 것 같아. 나만 그래?",
+            "오늘 차트 생각만 하면 심장이 두근거려... 왜 이러지?",
+            "오늘 장 뭔가 이상해. 공기가 팽팽한 느낌이야.",
+            "나 차트 떠올리면 아까부터 손이 떨려. 이유를 모르겠어...",
+            "오늘 장은 좀... 무서워. 뭔가 터질 것 같아.",
+            "왠지 오늘 차트는 조용하지 않을 것 같아. 나만 그래?",
         };
 
         // Squeeze는 방향이 없는 날입니다. 방향 단어를 쓰면 반드시 거짓말이 됩니다. (S4)
         private static readonly string[] SqueezeClear =
         {
-            "오빠, 요미 무서워... 오늘 엄청 흔들릴 거야!",
-            "오늘 미친 듯이 요동칠 거야! 오빠 조심해!",
-            "요미 감각이 비명을 질러. 오늘 크게 터져!",
-            "오늘은 방향이 없어! 그냥 다 부서질 거야!",
-            "오빠 오늘은 물러나 있어. 요미가 무서워서 그래!",
+            "오빠, 요미 무서워... 오늘 차트 엄청 흔들릴 거야!",
+            "오늘 장은 미친 듯이 요동칠 거야! 오빠 조심해!",
+            "요미 감각이 비명을 질러. 오늘 시세가 크게 터져!",
+            "오늘 장엔 방향이 없어! 차트가 그냥 다 부서질 거야!",
+            "오빠 오늘 장에선 물러나 있어. 요미가 무서워서 그래!",
         };
     }
 }
