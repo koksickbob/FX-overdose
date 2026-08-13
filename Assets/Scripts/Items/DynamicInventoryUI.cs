@@ -181,7 +181,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         bool p2p=P2PNetworkSessionManager.Instance?.IsRunning==true;
         foreach (InventorySlot slot in inventory.Slots)
         {
-            if (slot?.Item == null || (p2p ? !IsP2PAllowed(slot.Item) : slot.Quantity <= 0)) continue;
+            if (slot?.Item == null || (p2p ? !IsP2PAllowed(slot.Item) || GetP2PQuantity(slot.Item.ItemId) <= 0 : slot.Quantity <= 0)) continue;
             generatedSlots.Add(CreateSlot(slot.Item));
         }
 

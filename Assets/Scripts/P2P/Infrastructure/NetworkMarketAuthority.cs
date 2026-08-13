@@ -53,6 +53,12 @@ namespace FXOverdose.P2P.Infrastructure
             Broadcast(hostEngine.Snapshot);
         }
 
+        public void OverrideMarketTrendByHost(double percent, int durationTicks)
+        {
+            if (networkManager == null || !networkManager.IsServer || hostEngine == null) return;
+            hostEngine.OverrideMarketTrend(percent,durationTicks);
+        }
+
         private void EnsureRegistered()
         {
             if (registered) return;

@@ -84,6 +84,14 @@ public class SettingsMenuController : MonoBehaviour
 
     private void UpdateModeButtonVisuals()
     {
+        // P2P는 USER 수동 매매로 고정되므로 AUTO/USER 전환 버튼 자체를 표시하지 않습니다.
+        // 포지션/PnL 갱신 이벤트가 버튼을 다시 켜서 깜빡이는 것도 여기서 차단합니다.
+        if (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true)
+        {
+            if (floatingModeButton != null) floatingModeButton.gameObject.SetActive(false);
+            return;
+        }
+
         var controller = FXOverdose.Trading.TradingController.Instance;
         var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
         bool isChallenge = saveManager != null && saveManager.CurrentGameMode == FXOverdose.Core.GameMode.Challenge;

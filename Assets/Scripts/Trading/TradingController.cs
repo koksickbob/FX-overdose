@@ -12,7 +12,13 @@ namespace FXOverdose.Trading
         public void ApplyP2PVisualState(FXOverdose.P2P.Core.P2PPlayerTradeSnapshot state,float currentPrice)
         {
             PositionType next=state.Side==FXOverdose.P2P.Core.P2PPositionSide.Long?PositionType.Long:state.Side==FXOverdose.P2P.Core.P2PPositionSide.Short?PositionType.Short:PositionType.None;
-            PositionType previous=currentPosition;float previousPnl=p2pUnrealizedPnL;currentPosition=next;currentOwner=OwnerType.Player;entryPrice=(float)state.EntryPrice;marginAmount=(float)state.Margin;currentLeverage=state.Leverage;p2pUnrealizedPnL=(float)state.UnrealizedPnL;
+            PositionType previous=currentPosition;float previousPnl=p2pUnrealizedPnL;currentPosition=next;currentOwner=OwnerType.Player;entryPrice=(float)state.EntryPrice;marginAmount=(float)state.Margin;currentLeverage=state.Leverage;
+            if(next!=PositionType.None&&state.EntryPrice>0&&currentPrice>0)
+            {
+                float direction=next==PositionType.Long?1f:-1f;
+                p2pUnrealizedPnL=marginAmount*currentLeverage*((currentPrice-entryPrice)/entryPrice)*direction;
+            }
+            else p2pUnrealizedPnL=(float)state.UnrealizedPnL;
             if(next!=PositionType.None&&state.EntryPrice>0){float distance=(float)state.EntryPrice/Mathf.Max(1,state.Leverage);liquidationPrice=next==PositionType.Long?(float)state.EntryPrice-distance:(float)state.EntryPrice+distance;}
             if(previous==PositionType.None&&next!=PositionType.None){OnPositionOpened?.Invoke(next,marginAmount,currentLeverage);OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionOpened,FXOverdose.AI.DialoguePriority.High);}
             else if(previous!=PositionType.None&&next==PositionType.None){playerTradeCooldownEndTime=Time.time+PlayerTradeCooldownSeconds;OnPositionClosed?.Invoke(Mathf.Max(0,marginAmount+previousPnl),previousPnl);OutputYomiDialogue(FXOverdose.AI.EventCategory.PositionClosed,FXOverdose.AI.DialoguePriority.High);}

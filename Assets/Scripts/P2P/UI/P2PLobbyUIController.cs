@@ -37,6 +37,7 @@ namespace FXOverdose.P2P.UI
         private readonly List<Button> ruleButtons = new();
         private readonly List<Button> searchButtons = new();
         private readonly List<RawImage> memberAvatars = new();
+        private readonly List<TMP_Text> memberLabels = new();
         private readonly Dictionary<ulong, Texture2D> avatarTextures = new();
         private Callback<AvatarImageLoaded_t> avatarLoadedCallback;
         private int leverageIndex = 4;
@@ -196,14 +197,15 @@ namespace FXOverdose.P2P.UI
             CreateText(roomHeader.transform, "RoomType", "● STEAM CONNECTED", 13, new Color32(74,201,112,255), new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.42f), TextAlignmentOptions.Left);
             Image membersPanel = CreatePanel(roomView.transform, "MembersPanel", new Vector2(0.052f, 0.20f), new Vector2(0.42f, 0.54f), Cyan);
             CreateText(membersPanel.transform, "MembersTitle", "참가자 목록", 24, TextColor, new Vector2(0.05f, 0.84f), new Vector2(0.95f, 0.96f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
-            membersText = CreateText(membersPanel.transform, "Members", "참가자 없음", 17, TextColor, new Vector2(0.17f, 0.06f), new Vector2(0.95f, 0.81f), TextAlignmentOptions.TopLeft);
-            membersText.richText = true; membersText.lineSpacing = 42f;
+            membersText = CreateText(membersPanel.transform, "Members", "참가자 없음", 16, Muted, new Vector2(0.055f, 0.76f), new Vector2(0.95f, 0.84f), TextAlignmentOptions.Left);
             for (int i = 0; i < 4; i++)
             {
                 RawImage avatar = CreateRawImage(membersPanel.transform, $"SteamAvatar{i}", new Color32(18,48,72,255),
                     new Vector2(0.055f, 0.61f - i * 0.185f), new Vector2(0.145f, 0.76f - i * 0.185f));
                 avatar.gameObject.AddComponent<Outline>().effectColor = new Color32(50,78,104,255);
                 avatar.gameObject.SetActive(false); memberAvatars.Add(avatar);
+                TMP_Text label=CreateText(membersPanel.transform,$"SteamMember{i}","",17,TextColor,new Vector2(.17f,.61f-i*.185f),new Vector2(.95f,.76f-i*.185f),TextAlignmentOptions.Left);
+                label.richText=true;label.gameObject.SetActive(false);memberLabels.Add(label);
             }
             Image settingsPanel = CreatePanel(roomView.transform, "SettingsPanel", new Vector2(0.45f, 0.20f), new Vector2(0.77f, 0.54f), Cyan);
             CreateText(settingsPanel.transform, "SettingsTitle", "경기 설정", 24, TextColor, new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.95f), TextAlignmentOptions.Left).fontStyle = FontStyles.Bold;
@@ -344,6 +346,7 @@ namespace FXOverdose.P2P.UI
                 settingsText.text = $"최대 레버리지  <color=#06B6D4>{leveragePresets[leverageIndex]}x</color>";
                 marginSettingsText.text = $"최대 마진  <color=#06B6D4>{marginPresets[marginIndex]:P0}</color>";
                 membersText.text = "참가자 없음";
+                foreach(var label in memberLabels)label.gameObject.SetActive(false);
                 RefreshMemberAvatars(null);
                 localReady = false;
             }
@@ -357,17 +360,17 @@ namespace FXOverdose.P2P.UI
                 if (roomTitle != null) roomTitle.text = $"'{ownerName}'의 방";
                 settingsText.text = $"최대 레버리지  <color=#06B6D4>{lobby.Settings.MaximumLeverage}x</color>";
                 marginSettingsText.text = $"최대 마진  <color=#06B6D4>{lobby.Settings.MaximumMarginRatio:P0}</color>";
-                var lines = new List<string> { $"<color=#7EA0B8>참가자 {lobby.Members.Count}/{lobby.Settings.MaximumPlayers}</color>" };
+                membersText.text=$"참가자 {lobby.Members.Count}/{lobby.Settings.MaximumPlayers}";
                 localReady = false;
                 for (int i = 0; i < lobby.Members.Count; i++)
                 {
                     SteamLobbyMember member = lobby.Members[i];
                     bool ready = SteamLobbyRules.IsEffectivelyReady(member, lobby.RulesRevision);
                     string badge = member.IsHost ? "<color=#EAB308>♛ HOST</color>" : ready ? "<color=#4AC970>● 준비</color>" : "<color=#FF4872>○ 미준비</color>";
-                    lines.Add($"<color=#7EA0B8>▣</color>  {member.PersonaName}     {badge}");
+                    if(i<memberLabels.Count){memberLabels[i].gameObject.SetActive(true);memberLabels[i].text=$"{member.PersonaName}     {badge}";}
                     if (member.SteamId == SteamRuntimeBootstrap.LocalSteamId) localReady = ready;
                 }
-                membersText.text = string.Join("\n", lines);
+                for(int i=lobby.Members.Count;i<memberLabels.Count;i++)memberLabels[i].gameObject.SetActive(false);
                 RefreshMemberAvatars(lobby);
                 bool isHost = lobby.OwnerSteamId == SteamRuntimeBootstrap.LocalSteamId;
                 foreach (Button button in ruleButtons) button.interactable = isHost && !lobby.MatchStarted;

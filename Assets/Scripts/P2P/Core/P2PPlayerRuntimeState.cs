@@ -55,8 +55,8 @@ namespace FXOverdose.P2P.Core
             CashBalance += amount;
         }
 
-        public void ChangeHealth(double amount) => Health = ClampNonNegative(Health + amount);
-        public void ChangeMental(double amount) => Mental = ClampNonNegative(Mental + amount);
+        public void ChangeHealth(double amount) => Health = ClampVital(Health + amount);
+        public void ChangeMental(double amount) => Mental = ClampVital(Mental + amount);
         public void SetConnected(bool connected) => IsConnected = connected;
 
         public void SetInventoryAmount(string itemId, int amount)
@@ -80,6 +80,12 @@ namespace FXOverdose.P2P.Core
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) throw new ArgumentOutOfRangeException(nameof(value));
             return Math.Max(0d, value);
+        }
+
+        private static double ClampVital(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) throw new ArgumentOutOfRangeException(nameof(value));
+            return Math.Max(0d, Math.Min(100d, value));
         }
     }
 }

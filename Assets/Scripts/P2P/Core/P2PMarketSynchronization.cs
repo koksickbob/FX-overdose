@@ -36,6 +36,8 @@ namespace FXOverdose.P2P.Market
         private uint randomState;
         private double minuteAccumulator;
         private double tickAccumulator;
+        private double forcedTrendPerTick;
+        private int forcedTrendTicks;
 
         public P2PMarketSimulationEngine(int seed, double initialPrice = 67842.1)
         {
@@ -51,6 +53,13 @@ namespace FXOverdose.P2P.Market
 
         public void SetPaused(bool paused) => Apply(Snapshot.Price, Snapshot.TotalMinutes, paused, 0);
 
+        /// <summary>원본 돌발 이벤트의 OverrideMarketTrend와 같이 지정한 등락률을 여러 틱에 나눠 반영합니다.</summary>
+        public void OverrideMarketTrend(double percent, int durationTicks)
+        {
+            forcedTrendTicks = Math.Max(1, durationTicks);
+            forcedTrendPerTick = percent / 100d / forcedTrendTicks;
+        }
+
         public void Advance(double realSeconds, double secondsPerGameMinute = 0.666)
         {
             if (realSeconds <= 0 || secondsPerGameMinute <= 0 || Snapshot.Paused || Snapshot.IsFinished) return;
@@ -64,6 +73,11 @@ namespace FXOverdose.P2P.Market
                 if (advanceMinute) minuteAccumulator -= secondsPerGameMinute;
                 // 기존 시장처럼 한 게임 분을 다섯 개의 작은 틱으로 구성합니다.
                 double noise = (NextUnit() - 0.5) * 0.00108;
+                if (forcedTrendTicks > 0)
+                {
+                    noise += forcedTrendPerTick;
+                    forcedTrendTicks--;
+                }
                 double meanReversion = (67842.1 - Snapshot.Price) / 67842.1 * 0.00012;
                 double next = Math.Max(10, Snapshot.Price * (1 + noise + meanReversion));
                 Apply(next, Snapshot.TotalMinutes + (advanceMinute ? 1 : 0), false, Math.Abs(noise) * 200);

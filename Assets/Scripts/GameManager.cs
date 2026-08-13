@@ -5,7 +5,15 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
     private bool p2pExternalMode;
-    public void EnableP2PExternalMode(){p2pExternalMode=true;currentState=GameState.Playing;}
+    public void EnableP2PExternalMode()
+    {
+        p2pExternalMode=true;
+        currentDay=1;currentHour=9;currentMinute=0;
+        // TopStatusBar가 Start에서 수익선 최초 점을 기록하기 전에 P2P 시작 자산을 확정합니다.
+        currentBalance=startingBalance;
+        StartOfDayEquity=startingBalance;
+        currentState=GameState.Playing;
+    }
     public void ApplyP2PState(int totalMinutes,float balance)
     {
         int nextHour=totalMinutes/60,nextMinute=totalMinutes%60;bool minuteChanged=nextHour!=currentHour||nextMinute!=currentMinute;
@@ -130,7 +138,7 @@ public class GameManager : MonoBehaviour
     // 게임 시작 시 한 번 실행
     private void Start()
     {
-        if(p2pExternalMode){currentDay=1;currentHour=9;currentMinute=0;currentState=GameState.Playing;EnsureDayTimeBackgroundController();return;}
+        if(p2pExternalMode){currentDay=1;currentHour=9;currentMinute=0;currentBalance=startingBalance;StartOfDayEquity=startingBalance;currentState=GameState.Playing;EnsureDayTimeBackgroundController();return;}
         var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
         if (saveManager != null && saveManager.IsPendingLoad)
         {

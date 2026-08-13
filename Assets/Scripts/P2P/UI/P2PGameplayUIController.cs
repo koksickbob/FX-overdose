@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections;
 using FXOverdose.P2P.Core;
 using FXOverdose.P2P.Infrastructure;
+using FXOverdose.Events;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -15,18 +16,29 @@ namespace FXOverdose.P2P.UI
     {
         private static readonly Color32 Panel=new(8,20,36,245), Cyan=new(6,182,212,255), Pink=new(255,72,114,255), Text=new(225,242,255,255);
         private TMP_Text day, time, balance, pnlPct, pnlAmount, health, mental, leverageLabel, marginLabel;
-        private TMP_Text leaderboard, spectatorLabel;
+        private TMP_Text leaderboard, spectatorLabel, eventTitle, eventTimer, resultPlayers;
         private RectTransform leaderboardPanel;
+        private RectTransform characterLevelHudRect;
+        private GameObject eventPanel, resultPanel, spectatorPanel;
         private Slider marginSlider;
         private readonly List<Button> tradingInputs=new();
         private readonly List<GameObject> dialogueBalloons=new();
         private FXOverdose.UI.Chart.ChartUIController originalChart;
+        private ChoiceEventPopupUIController originalEventPopup;
+        private ChoiceEventSO p2pEventView;
+        private int shownEventId=-1;
         private FXOverdose.Trading.MarketSimulationEngine originalMarket;
         private GameManager originalGameManager; private TraderStatus originalTraderStatus; private FXOverdose.Trading.TradingController originalTrading;
         private ulong lastChartSequence;
         private int lastChartMinute=-1; private double lastChartVolume;
         private float refresh; private int leverage=10, marginPercent=30;
         private string connectionError;
+        private bool resultShown;
+        private bool leaderboardHasRoom=true;
+        private bool localEliminated;
+        private ulong spectatedPlayerId;
+        private P2PPlayerTradeSnapshot? displayedTradeState;
+        private int lastEnergy=-1,lastDessert=-1,lastSedative=-1,lastSupplement=-1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Register(){SceneManager.sceneLoaded-=Loaded;SceneManager.sceneLoaded+=Loaded;}
@@ -54,10 +66,12 @@ namespace FXOverdose.P2P.UI
             balance=TextOf("BalanceValue");pnlPct=TextOf("PnLPct");pnlAmount=TextOf("PnLAmt");health=TextOf("HealthValue");mental=TextOf("MentalValue");
             leverageLabel=TextOf("LevDisplay");marginLabel=TextOf("MarDisplay");marginSlider=ComponentOf<Slider>("MarginPercentageSlider");
             originalChart=FindAnyObjectByType<FXOverdose.UI.Chart.ChartUIController>(FindObjectsInactive.Include);
+            originalEventPopup=FindAnyObjectByType<ChoiceEventPopupUIController>(FindObjectsInactive.Include);
             originalMarket=FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>(FindObjectsInactive.Include);originalMarket?.EnableP2PExternalMode();
             originalGameManager=FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);originalGameManager?.EnableP2PExternalMode();
             originalTraderStatus=TraderStatus.CanonicalInstance??FindAnyObjectByType<TraderStatus>(FindObjectsInactive.Include);originalTraderStatus?.EnableP2PExternalMode();
             originalTrading=FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);originalTrading?.EnableP2PExternalMode();
+            FindAnyObjectByType<FXOverdose.UI.Chart.TradingPanelUIController>(FindObjectsInactive.Include)?.EnableP2PExternalMode();
         }
 
         private void ConfigureExistingControls()
@@ -74,24 +88,68 @@ namespace FXOverdose.P2P.UI
         private void BuildMultiplayerOnlyPanels()
         {
             Canvas canvas=ObjectByName("TradingViewCanvas")?.GetComponent<Canvas>()??FindAnyObjectByType<Canvas>();if(canvas==null)return;
-            var rank=Image(canvas.transform,"P2PLeaderboard",Panel,new Vector2(.70f,.57f),new Vector2(.985f,.94f));
+            // 보스전 상태판과 동일한 우측 상단 고정 슬롯을 사용합니다.
+            var rank=Image(canvas.transform,"P2PLeaderboard",new Color32(7,17,31,255),Vector2.zero,Vector2.one);
             leaderboardPanel=rank.rectTransform;
+            leaderboardPanel.anchorMin=leaderboardPanel.anchorMax=new Vector2(1f,1f);
+            leaderboardPanel.pivot=new Vector2(1f,1f);
+            leaderboardPanel.sizeDelta=new Vector2(460f,195f);
+            leaderboardPanel.anchoredPosition=new Vector2(-16f,-120f);
             var outline=rank.gameObject.AddComponent<Outline>();outline.effectColor=Cyan;outline.effectDistance=new Vector2(2,-2);
-            Label(rank.transform,"Title","RANK",26,Cyan,new Vector2(.06f,.82f),new Vector2(.94f,.96f),TextAlignmentOptions.Left);
-            leaderboard=Label(rank.transform,"Players","연결 대기",19,Text,new Vector2(.06f,.06f),new Vector2(.94f,.80f),TextAlignmentOptions.TopLeft);
+            Label(rank.transform,"Title","RANK",21,Cyan,new Vector2(.05f,.72f),new Vector2(.95f,.94f),TextAlignmentOptions.Left);
+            leaderboard=Label(rank.transform,"Players","연결 대기",20,Text,new Vector2(.05f,.08f),new Vector2(.95f,.70f),TextAlignmentOptions.TopLeft);
             foreach(var t in FindObjectsByType<Transform>(FindObjectsInactive.Include))if(t.name=="DialogueBalloonPanel")dialogueBalloons.Add(t.gameObject);
-            var spectator=Image(canvas.transform,"P2PSpectatorPanel",new Color32(8,20,36,225),new Vector2(.35f,.88f),new Vector2(.65f,.96f));
-            spectatorLabel=Label(spectator.transform,"Label","관전 중",23,Pink,new Vector2(.03f,.05f),new Vector2(.97f,.95f),TextAlignmentOptions.Center);
-            spectator.gameObject.SetActive(false);
+            var spectator=Image(canvas.transform,"P2PSpectatorPanel",new Color32(8,20,36,225),new Vector2(.31f,.87f),new Vector2(.69f,.965f));
+            spectatorPanel=spectator.gameObject;
+            spectatorLabel=Label(spectator.transform,"Label","관전 중",23,Pink,new Vector2(.18f,.05f),new Vector2(.82f,.95f),TextAlignmentOptions.Center);
+            Button(spectator.transform,"PreviousPlayer","◀",new Vector2(.02f,.12f),new Vector2(.16f,.88f),Cyan).onClick.AddListener(()=>ChangeSpectatedPlayer(-1));
+            Button(spectator.transform,"NextPlayer","▶",new Vector2(.84f,.12f),new Vector2(.98f,.88f),Cyan).onClick.AddListener(()=>ChangeSpectatedPlayer(1));
+            spectatorPanel.SetActive(false);
+
+            // 이벤트 화면과 제한 시간 표시는 원본 FX WIRE 팝업 내부에서 처리합니다.
+
+            resultPanel=Image(canvas.transform,"MultiplayerResult",new Color32(2,8,18,252),new Vector2(.20f,.14f),new Vector2(.80f,.86f)).gameObject;
+            Label(resultPanel.transform,"Title","MATCH RESULT",34,Cyan,new Vector2(.08f,.82f),new Vector2(.92f,.95f),TextAlignmentOptions.Center);
+            resultPlayers=Label(resultPanel.transform,"Players","결과 집계 중",22,Text,new Vector2(.10f,.27f),new Vector2(.90f,.79f),TextAlignmentOptions.TopLeft);
+            Button(resultPanel.transform,"Exit","타이틀로 나가기",new Vector2(.30f,.08f),new Vector2(.70f,.19f),Pink).onClick.AddListener(ExitToTitle);
+            resultPanel.SetActive(false);
         }
 
         private void AdjustLeaderboardForDialogue()
         {
             if(leaderboardPanel==null)return;
-            bool balloonActive=false;
-            foreach(var balloon in dialogueBalloons)if(balloon!=null&&balloon.activeInHierarchy){balloonActive=true;break;}
-            // 말풍선 출력 중에는 우측 상단을 비우고 순위판을 우측 하단 안전 영역으로 이동합니다.
-            Rect(leaderboardPanel,balloonActive?new Vector2(.70f,.03f):new Vector2(.70f,.57f),balloonActive?new Vector2(.985f,.37f):new Vector2(.985f,.94f));
+            AlignLeaderboardLikeBossHud();
+            // 말풍선과 영역을 분리했으므로 동시에 표시해도 서로 가리지 않습니다.
+            leaderboardPanel.gameObject.SetActive(!resultShown&&leaderboardHasRoom);
+        }
+
+        private void AlignLeaderboardLikeBossHud()
+        {
+            if(leaderboardPanel==null)return;
+            if(characterLevelHudRect==null)characterLevelHudRect=ObjectByName("CharacterLevelExpHUD")?.GetComponent<RectTransform>();
+            RectTransform parent=leaderboardPanel.parent as RectTransform;
+            if(characterLevelHudRect==null||parent==null){leaderboardHasRoom=true;leaderboardPanel.sizeDelta=new Vector2(460f,195f);leaderboardPanel.anchoredPosition=new Vector2(-16f,-120f);return;}
+
+            // 상단 상태 HUD의 실제 하단보다 12px 아래에서 시작합니다.
+            Vector3[] corners=new Vector3[4];characterLevelHudRect.GetWorldCorners(corners);
+            float panelTop=parent.InverseTransformPoint(corners[0]).y-12f;
+
+            // 씬에 말풍선 프리셋이 둘 이상 있어도 가장 낮은 상단 경계를 사용해 모두 피합니다.
+            float balloonTop=float.PositiveInfinity;
+            foreach(GameObject balloon in dialogueBalloons)
+            {
+                RectTransform rect=balloon!=null?balloon.GetComponent<RectTransform>():null;if(rect==null)continue;
+                Vector3[] balloonCorners=new Vector3[4];rect.GetWorldCorners(balloonCorners);
+                float candidate=parent.InverseTransformPoint(balloonCorners[2]).y;
+                if(candidate<panelTop)balloonTop=Mathf.Min(balloonTop,candidate);
+            }
+
+            const float gap=12f;
+            float available=float.IsPositiveInfinity(balloonTop)?195f:panelTop-balloonTop-gap;
+            leaderboardHasRoom=available>=105f;
+            float panelHeight=Mathf.Clamp(available,105f,195f);
+            leaderboardPanel.sizeDelta=new Vector2(460f,panelHeight);
+            leaderboardPanel.anchoredPosition=new Vector2(-16f,panelTop-parent.rect.yMax);
         }
 
         private void RefreshMarket()
@@ -103,15 +161,65 @@ namespace FXOverdose.P2P.UI
         private void RefreshPlayer()
         {
             var a=P2PNetworkSessionManager.Instance?.TradingAuthority;if(a==null)return;P2PPlayerTradeSnapshot? mine=null;var lines=new List<string>();
-            foreach(var p in a.Players){lines.Add($"#{p.Rank}  {p.Name}   PnL {p.Equity-7000:+$0;-$0;$0}\n     {p.ReturnRate:+0.0%;-0.0%;0.0%} · {p.Side} x{p.Leverage}");if(p.PlayerId==SteamRuntimeBootstrap.LocalSteamId)mine=p;}
-            if(leaderboard!=null)leaderboard.text=string.Join("\n\n",lines);if(!mine.HasValue)return;var me=mine.Value;mineCash=(float)me.Cash;
-            originalTrading?.ApplyP2PVisualState(me,(float)(P2PNetworkSessionManager.Instance?.MarketAuthority?.AuthoritativePrice??0));
+            foreach(var p in a.Players){lines.Add($"#{p.Rank} {p.Name}  PnL {p.Equity-7000:+$0;-$0;$0}");if(p.PlayerId==SteamRuntimeBootstrap.LocalSteamId)mine=p;}
+            if(leaderboard!=null)leaderboard.text=string.Join("\n",lines);if(!mine.HasValue)return;
+            P2PPlayerTradeSnapshot shown=mine.Value;
+            if(localEliminated)
+            {
+                EnsureSpectatedPlayer(a.Players);
+                foreach(var p in a.Players)if(p.PlayerId==spectatedPlayerId){shown=p;break;}
+            }
+            mineCash=(float)shown.Cash;
+            displayedTradeState=shown;
+            originalTrading?.ApplyP2PVisualState(shown,(float)(P2PNetworkSessionManager.Instance?.MarketAuthority?.AuthoritativePrice??0));
+            UpdateSpectatorLabel(shown.Name);
         }
         private void RefreshCompetition()
         {
             var x=P2PNetworkSessionManager.Instance?.CompetitionAuthority?.Current;if(x==null)return;P2PCompetitionPlayerSnapshot? mine=null;foreach(var p in x.Players)if(p.PlayerId==SteamRuntimeBootstrap.LocalSteamId)mine=p;
-            if(mine.HasValue){var p=mine.Value;originalTraderStatus?.ApplyP2PVitals((float)p.Health,(float)p.Mental);if(health!=null)health.text=$"{p.Health:0}/100";if(mental!=null)mental.text=$"{p.Mental:0}/100";SetSpectating(p.IsEliminated,p.Reason);}
+            if(mine.HasValue){var p=mine.Value;localEliminated=p.IsEliminated;var shown=p;if(localEliminated&&spectatedPlayerId!=0)foreach(var candidate in x.Players)if(candidate.PlayerId==spectatedPlayerId&&!candidate.IsEliminated){shown=candidate;break;}originalTraderStatus?.ApplyP2PVitals((float)shown.Health,(float)shown.Mental);if(health!=null)health.text=$"{shown.Health:0}/100";if(mental!=null)mental.text=$"{shown.Mental:0}/100";SetSpectating(p.IsEliminated,p.Reason);PlayConsumedItemVisual(p);}
+            if(x.EventActive)originalEventPopup?.SetNetworkCountdown(x.EventSecondsLeft);
+            if(x.EventActive&&shownEventId!=x.EventId)ShowOriginalChoiceEvent(x);
+            else if(!x.EventActive&&shownEventId>=0){originalEventPopup?.Hide();shownEventId=-1;}
+            if(x.Finished&&!resultShown)ShowResult();
         }
+
+        private void ShowOriginalChoiceEvent(P2PCompetitionSnapshot snapshot)
+        {
+            if(originalEventPopup==null)originalEventPopup=FindAnyObjectByType<ChoiceEventPopupUIController>(FindObjectsInactive.Include);
+            if(originalEventPopup==null)return;
+            if(p2pEventView!=null)Destroy(p2pEventView);
+            p2pEventView=ScriptableObject.CreateInstance<ChoiceEventSO>();
+            p2pEventView.EventID=snapshot.EventKey;
+            p2pEventView.ScenarioTitle=snapshot.EventTitle;
+            p2pEventView.ScenarioDescription=snapshot.EventDescription;
+            p2pEventView.AIMonologue=snapshot.EventMonologue;
+            p2pEventView.Options=new[]
+            {
+                new ChoiceOptionData{OptionType=(ChoiceOptionType)snapshot.Choice1Type,OptionTitle=snapshot.Choice1Title,Description=snapshot.Choice1Description},
+                new ChoiceOptionData{OptionType=(ChoiceOptionType)snapshot.Choice2Type,OptionTitle=snapshot.Choice2Title,Description=snapshot.Choice2Description}
+            };
+            shownEventId=snapshot.EventId;
+            originalEventPopup.Show(p2pEventView,index=>
+            {
+                if(P2PChoiceRules.IsValid(index))Competition(P2PCompetitionAction.ChooseEvent,index.ToString());
+                originalEventPopup.Hide();
+            });
+        }
+
+        private void PlayConsumedItemVisual(P2PCompetitionPlayerSnapshot p)
+        {
+            if(lastEnergy>=0){string used=p.EnergyDrink<lastEnergy?"energy_drink":p.Dessert<lastDessert?"dessert":p.Sedative<lastSedative?"sedative":p.Supplement<lastSupplement?"supplement":null;if(used!=null){FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include)?.ShowItemUse(used,1f);FindAnyObjectByType<FXOverdose.AI.YomiSpriteController>(FindObjectsInactive.Include)?.ShowItemUse(used,1f);}}
+            lastEnergy=p.EnergyDrink;lastDessert=p.Dessert;lastSedative=p.Sedative;lastSupplement=p.Supplement;
+        }
+
+        private void ShowResult()
+        {
+            resultShown=true;if(eventPanel!=null)eventPanel.SetActive(false);if(resultPanel==null)return;resultPanel.SetActive(true);resultPanel.transform.SetAsLastSibling();
+            var players=P2PNetworkSessionManager.Instance?.TradingAuthority?.Players;var lines=new List<string>();if(players!=null)foreach(var p in players)lines.Add($"#{p.Rank}   {p.Name}\n      PnL {p.Equity-7000:+$0.00;-$0.00;$0.00}     수익률 {p.ReturnRate:+0.00%;-0.00%;0.00%}");resultPlayers.text=string.Join("\n\n",lines);
+        }
+
+        private void ExitToTitle(){P2PNetworkSessionManager.Instance?.ShutdownSession();SteamLobbyManager.Instance?.LeaveLobby();SceneManager.LoadScene("TitleScene");}
 
         private void Trade(P2PTradeAction a)
         {
@@ -119,13 +227,39 @@ namespace FXOverdose.P2P.UI
             P2PNetworkSessionManager.Instance?.TradingAuthority?.Submit(a,leverage,a==P2PTradeAction.ClosePosition?0:marginPercent/100d);
         }
         private float mineCash=7000;
-        private void RefreshOriginalChart(){var s=P2PNetworkSessionManager.Instance?.MarketAuthority?.CurrentSnapshot??default;if(s.Sequence==0||s.Sequence==lastChartSequence)return;lastChartSequence=s.Sequence;if(s.TotalMinutes!=lastChartMinute){originalGameManager?.ApplyP2PState(s.TotalMinutes,mineCash);lastChartMinute=s.TotalMinutes;lastChartVolume=0;}float volume=(float)Math.Max(0,s.Volume-lastChartVolume);lastChartVolume=s.Volume;originalMarket?.ApplyP2PExternalTick((float)s.Price,(float)s.Bid,(float)s.Ask,volume);}
+        private void RefreshOriginalChart(){var s=P2PNetworkSessionManager.Instance?.MarketAuthority?.CurrentSnapshot??default;if(s.Sequence==0||s.Sequence==lastChartSequence)return;lastChartSequence=s.Sequence;if(s.TotalMinutes!=lastChartMinute){originalGameManager?.ApplyP2PState(s.TotalMinutes,mineCash);lastChartMinute=s.TotalMinutes;lastChartVolume=0;}float volume=(float)Math.Max(0,s.Volume-lastChartVolume);lastChartVolume=s.Volume;originalMarket?.ApplyP2PExternalTick((float)s.Price,(float)s.Bid,(float)s.Ask,volume);if(displayedTradeState.HasValue)originalTrading?.ApplyP2PVisualState(displayedTradeState.Value,(float)s.Price);}
         private static void HideForbiddenUI()=>HideNames("Container_AIStyleMode","BtnTabAIStyleMode","ActiveSkillHUD","ActiveSkillButtonRow","ActiveSkillInfoOverlay","SkillInfoPanel","SkillUpgradePanel","SkillTimeTransitionOverlay","TimeFastForwardButton","FastForwardButton","Temp_TradingModeToggleBtn");
         private static void RestoreYomiSprite(){var yomi=ObjectByName("ProtagonistCharacterImage");if(yomi==null)return;for(Transform t=yomi.transform;t!=null;t=t.parent)t.gameObject.SetActive(true);var image=yomi.GetComponent<Image>();if(image!=null){image.enabled=true;image.raycastTarget=false;var c=image.color;c.a=1;image.color=c;}yomi.transform.SetAsLastSibling();}
         private void Competition(P2PCompetitionAction a,string value)=>P2PNetworkSessionManager.Instance?.CompetitionAuthority?.Submit(a,value);
         private void SetLeverage(int value){int max=SteamLobbyManager.Instance?.CurrentLobby?.Settings.MaximumLeverage??125;leverage=Mathf.Clamp(value,1,max);if(leverageLabel!=null)leverageLabel.text=$"{leverage}x";}
         private void SetMargin(int value){int max=Mathf.RoundToInt((float)(SteamLobbyManager.Instance?.CurrentLobby?.Settings.MaximumMarginRatio??1d)*100);marginPercent=Mathf.Clamp(value,10,max);if(marginLabel!=null)marginLabel.text=$"{marginPercent}%";if(marginSlider!=null)marginSlider.SetValueWithoutNotify(marginSlider.maxValue>1.01f?marginPercent:marginPercent/100f);}
-        private void SetSpectating(bool active,P2PEliminationReason reason){bool show=active||!string.IsNullOrEmpty(connectionError);if(spectatorLabel!=null){spectatorLabel.transform.parent.gameObject.SetActive(show);spectatorLabel.text=!string.IsNullOrEmpty(connectionError)?$"연결 끊김 · {connectionError}":$"관전 중 · {reason}";}foreach(var b in tradingInputs)if(b!=null)b.interactable=!show;if(marginSlider!=null)marginSlider.interactable=!show;}
+        private void SetSpectating(bool active,P2PEliminationReason reason){bool show=active||!string.IsNullOrEmpty(connectionError);if(spectatorPanel!=null)spectatorPanel.SetActive(show);if(spectatorLabel!=null&&!string.IsNullOrEmpty(connectionError))spectatorLabel.text=$"연결 끊김 · {connectionError}";foreach(var b in tradingInputs)if(b!=null)b.interactable=!show;if(marginSlider!=null)marginSlider.interactable=!show;if(!active)spectatedPlayerId=0;}
+        private void EnsureSpectatedPlayer(IReadOnlyList<P2PPlayerTradeSnapshot> players)
+        {
+            if(IsAliveSpectatorTarget(spectatedPlayerId))return;
+            spectatedPlayerId=0;
+            foreach(var p in players)if(p.PlayerId!=SteamRuntimeBootstrap.LocalSteamId&&IsAliveSpectatorTarget(p.PlayerId)){spectatedPlayerId=p.PlayerId;break;}
+        }
+        private bool IsAliveSpectatorTarget(ulong id)
+        {
+            if(id==0||id==SteamRuntimeBootstrap.LocalSteamId)return false;
+            var state=P2PNetworkSessionManager.Instance?.CompetitionAuthority?.Current;if(state==null)return false;
+            foreach(var p in state.Players)if(p.PlayerId==id)return !p.IsEliminated;
+            return false;
+        }
+        private void ChangeSpectatedPlayer(int direction)
+        {
+            if(!localEliminated)return;
+            var players=P2PNetworkSessionManager.Instance?.TradingAuthority?.Players;if(players==null)return;
+            var targets=new List<ulong>();foreach(var p in players)if(IsAliveSpectatorTarget(p.PlayerId))targets.Add(p.PlayerId);
+            if(targets.Count==0){spectatedPlayerId=0;return;}
+            int index=targets.IndexOf(spectatedPlayerId);if(index<0)index=0;else index=(index+direction+targets.Count)%targets.Count;spectatedPlayerId=targets[index];
+        }
+        private void UpdateSpectatorLabel(string observedName)
+        {
+            if(!localEliminated||spectatorLabel==null||!string.IsNullOrEmpty(connectionError))return;
+            spectatorLabel.text=spectatedPlayerId==0?"관전할 생존자가 없어용":$"관전 중 · {observedName}";
+        }
         private void OnConnectionFailed(string reason){connectionError=string.IsNullOrWhiteSpace(reason)?"호스트와 연결이 종료됐어용":reason;SetSpectating(false,P2PEliminationReason.None);Debug.LogError($"[P2P Gameplay] 연결 종료: {connectionError}");}
         private void Bind(string name,UnityEngine.Events.UnityAction action){var go=ObjectByName(name);var b=go!=null?(go.GetComponent<Button>()??go.GetComponentInChildren<Button>(true)):null;if(b==null)return;b.onClick.RemoveAllListeners();b.onClick.AddListener(action);b.interactable=true;if(!tradingInputs.Contains(b))tradingInputs.Add(b);}
         private static TMP_Text TextOf(string name)=>ObjectByName(name)?.GetComponent<TMP_Text>()??ObjectByName(name)?.GetComponentInChildren<TMP_Text>(true);

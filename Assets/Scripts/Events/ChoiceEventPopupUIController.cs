@@ -49,6 +49,7 @@ namespace FXOverdose.Events
         private LayoutElement aiQuoteLayout;
         private TMP_Text browserAddressText;
         private TMP_Text breakingMetaText;
+        private TMP_Text networkCountdownText;
         private TMP_Text articleMetaText;
         private GameObject toastContainer;
         private Image[] optionBackgrounds = new Image[OptionCount];
@@ -285,6 +286,23 @@ namespace FXOverdose.Events
                 popupPanel.SetActive(false);
             }
             if (minimizedDock != null) minimizedDock.SetActive(false);
+        }
+
+        /// <summary>P2P 공통 선택 제한 시간을 원본 BREAKING 티커 안에 표시합니다.</summary>
+        public void SetNetworkCountdown(float seconds)
+        {
+            EnsureUIBuilt();
+            if (popupPanel == null) return;
+            if (networkCountdownText == null)
+            {
+                Transform ticker = popupPanel.transform.Find("ModalBox/InternetNewsLayout/BreakingTicker");
+                if (ticker == null) return;
+                networkCountdownText = CreateText(ticker, "NetworkCountdown", 20f, RiskRed, TextAlignmentOptions.MidlineRight);
+                SetRect(networkCountdownText.rectTransform, new Vector2(1f, 0f), Vector2.one,
+                    new Vector2(-230f, 0f), new Vector2(-22f, 0f));
+                networkCountdownText.fontStyle = FontStyles.Bold;
+            }
+            networkCountdownText.text = $"CHOICE  {Mathf.Max(0f, seconds):0.0}s";
         }
 
         private IEnumerator ShowBreakingNewsThenArticle(string category)
@@ -1233,6 +1251,7 @@ namespace FXOverdose.Events
             toastText = null;
             browserAddressText = null;
             breakingMetaText = null;
+            networkCountdownText = null;
             articleMetaText = null;
             scrollRect = null;
             articleContentRect = null;

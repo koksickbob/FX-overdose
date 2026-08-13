@@ -12,6 +12,8 @@ namespace FXOverdose.UI.Chart
 {
     public class TradingPanelUIController : MonoBehaviour
     {
+        private bool p2pExternalMode;
+        public void EnableP2PExternalMode() => p2pExternalMode = true;
         public enum ControlMode
         {
             Leverage,
@@ -445,6 +447,8 @@ namespace FXOverdose.UI.Chart
 
         private void Update()
         {
+            // 멀티플레이에서는 마진/레버리지 선택값을 서버 권위 UI가 관리합니다.
+            if (p2pExternalMode) return;
             // 포지션 보유 중일 때 매 프레임 실시간 ROE 및 PnL 숫자 갱신
             if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
             {

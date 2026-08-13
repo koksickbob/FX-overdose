@@ -18,6 +18,7 @@ namespace FXOverdose.P2P.Infrastructure
         private bool registered;
         private uint nextRequestId = 1;
         private double lastMarketPrice;
+        private float stateBroadcastTimer;
 
         public IReadOnlyList<P2PPlayerTradeSnapshot> Players { get; private set; } = Array.Empty<P2PPlayerTradeSnapshot>();
         public P2PTradeResult LastResult { get; private set; }
@@ -42,7 +43,8 @@ namespace FXOverdose.P2P.Infrastructure
             {
                 lastMarketPrice = price;
                 hostMatch.UpdateMarketPrice(price, (long)(market.CurrentSnapshot.Sequence));
-                Broadcast(new P2PTradeResult(0, P2PTradeRejectReason.None, price));
+                stateBroadcastTimer += Time.unscaledDeltaTime;
+                if(stateBroadcastTimer>=.1f){stateBroadcastTimer=0;Broadcast(new P2PTradeResult(0,P2PTradeRejectReason.None,price),false);}
             }
         }
 
@@ -88,18 +90,18 @@ namespace FXOverdose.P2P.Infrastructure
             hostMatch.UpdateMarketPrice(market.AuthoritativePrice, (long)market.CurrentSnapshot.Sequence);
             P2PTradeResult result = hostMatch.SubmitTrade(actualSteamId, request);
             Debug.Log($"[P2P Trade] {actualSteamId} {request.Action} x{request.Leverage} margin {request.MarginRatio:P0} => {result.RejectReason} @ {result.FillPrice:F1}");
-            Broadcast(result);
+            Broadcast(result,true);
         }
 
-        public void BroadcastCurrentState() => Broadcast(new P2PTradeResult(0, P2PTradeRejectReason.None, lastMarketPrice));
+        public void BroadcastCurrentState() => Broadcast(new P2PTradeResult(0, P2PTradeRejectReason.None, lastMarketPrice),true);
 
-        private void Broadcast(P2PTradeResult result)
+        private void Broadcast(P2PTradeResult result,bool reliable=true)
         {
             if (hostMatch == null) return;
             byte[] bytes = P2PNetworkTradingCodec.EncodeState(result, hostMatch.GetLeaderboard());
             ApplyState(bytes);
             using var writer = Writer(bytes);
-            networkManager.CustomMessagingManager.SendNamedMessage(StateMessage, networkManager.ConnectedClientsIds, writer, NetworkDelivery.ReliableSequenced);
+            networkManager.CustomMessagingManager.SendNamedMessage(StateMessage,networkManager.ConnectedClientsIds,writer,reliable?NetworkDelivery.ReliableSequenced:NetworkDelivery.UnreliableSequenced);
         }
 
         private void ReceiveState(ulong sender, FastBufferReader reader)

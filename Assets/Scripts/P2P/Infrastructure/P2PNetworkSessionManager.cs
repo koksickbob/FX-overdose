@@ -6,6 +6,7 @@ using Netcode.Transports;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Steamworks;
 
 namespace FXOverdose.P2P.Infrastructure
 {
@@ -121,6 +122,16 @@ namespace FXOverdose.P2P.Infrastructure
         {
             if (networkManager != null) return;
             transport = gameObject.AddComponent<SteamNetworkingSocketsTransport>();
+            // 일시적인 Steam 릴레이 지연을 즉시 연결 종료로 판단하지 않도록 연결 유지 시간을 60초로 둡니다.
+            transport.options = new[]
+            {
+                new SteamNetworkingConfigValue_t
+                {
+                    m_eValue=ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_TimeoutConnected,
+                    m_eDataType=ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
+                    m_val=new SteamNetworkingConfigValue_t.OptionValue{m_int32=60000}
+                }
+            };
             networkManager = gameObject.AddComponent<NetworkManager>();
             marketAuthority = gameObject.AddComponent<NetworkMarketAuthority>();
             tradingAuthority = gameObject.AddComponent<NetworkTradingAuthority>();

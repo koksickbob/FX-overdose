@@ -39,6 +39,22 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
+        public void HealthAndMental_AreClampedBetweenZeroAndOneHundred()
+        {
+            var player = new P2PPlayerRuntimeState(1, "Player", 1000d, health: 90d, mental: 95d);
+
+            player.ChangeHealth(50d);
+            player.ChangeMental(50d);
+            Assert.That(player.Health, Is.EqualTo(100d));
+            Assert.That(player.Mental, Is.EqualTo(100d));
+
+            player.ChangeHealth(-200d);
+            player.ChangeMental(-200d);
+            Assert.That(player.Health, Is.EqualTo(0d));
+            Assert.That(player.Mental, Is.EqualTo(0d));
+        }
+
+        [Test]
         public void FourPlayers_AreRankedDeterministicallyIncludingSameTickEliminations()
         {
             var leader = new P2PPlayerRuntimeState(4, "Leader", 1500d);

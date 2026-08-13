@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using FXOverdose.Events;
 using FXOverdose.P2P.Core;
+using FXOverdose.Trading;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -13,21 +15,22 @@ namespace FXOverdose.P2P.Infrastructure
         private const string ActionMessage="FXO.P2P.CompetitionAction.v1", StateMessage="FXO.P2P.CompetitionState.v1";
         private NetworkManager net; private NetworkTradingAuthority trading; private NetworkMarketAuthority market;
         private bool registered, initialized, eventActive, finished; private float tick, broadcastTick, eventDeadline;
-        private int eventId; private readonly Dictionary<ulong,int> choices=new();
+        private int eventId,randomEventsTriggered,nextRandomEventMinute; private readonly Dictionary<ulong,int> choices=new();
+        private ChoiceEventSO currentEvent;
         public P2PCompetitionSnapshot Current { get; private set; } = new();
         public event Action StateChanged;
 
         public void ResetForSession()
         {
-            initialized=false;eventActive=false;finished=false;tick=broadcastTick=eventDeadline=0;eventId=0;
-            choices.Clear();Current=new P2PCompetitionSnapshot();
+            initialized=false;eventActive=false;finished=false;tick=broadcastTick=eventDeadline=0;eventId=randomEventsTriggered=0;nextRandomEventMinute=0;
+            choices.Clear();currentEvent=null;Current=new P2PCompetitionSnapshot();
         }
 
         private void Update()
         {
             net ??= NetworkManager.Singleton; if(net==null||!net.IsListening)return; EnsureRegistered();
             if(!net.IsServer)return; var match=trading.HostMatch;if(match==null)return;
-            if(!initialized){initialized=true;foreach(var p in match.Players){p.SetInventoryAmount("energy_drink",5);p.SetInventoryAmount("dessert",5);p.SetInventoryAmount("sedative",2);p.SetInventoryAmount("supplement",2);}Broadcast("경기가 시작됐어용");}
+            if(!initialized){initialized=true;nextRandomEventMinute=UnityEngine.Random.Range(10*60,16*60);foreach(var p in match.Players){p.SetInventoryAmount("energy_drink",5);p.SetInventoryAmount("dessert",5);p.SetInventoryAmount("sedative",2);p.SetInventoryAmount("supplement",2);}Broadcast("경기가 시작됐어용");}
             if(finished)return;
             tick+=Time.unscaledDeltaTime;broadcastTick+=Time.unscaledDeltaTime;
             if(tick>=1f)
@@ -55,11 +58,15 @@ namespace FXOverdose.P2P.Infrastructure
                 }
             }
             var snapshot=market.CurrentSnapshot;
-            if(!eventActive && snapshot.TotalMinutes>=720 && eventId==0) StartEvent();
-            if(!eventActive && snapshot.TotalMinutes>=1080 && eventId==1) StartEvent();
+            if(!eventActive&&randomEventsTriggered<2&&snapshot.TotalMinutes>=nextRandomEventMinute)
+            {
+                StartEvent(EventTriggerCondition.TimeOfDay);randomEventsTriggered++;
+                if(randomEventsTriggered<2)nextRandomEventMinute=UnityEngine.Random.Range(Math.Min(snapshot.TotalMinutes+60,23*60),Math.Min(snapshot.TotalMinutes+360,23*60+20));
+            }
             if(eventActive && Time.unscaledTime>=eventDeadline) ResolveEvent(match);
             int alive=0;foreach(var p in match.Players)if(!p.IsEliminated)alive++;
-            if(snapshot.IsFinished || (match.Players.Count>1&&alive<=1)) Finish(match);
+            // 마지막 생존자는 경기 종료 시각까지 플레이할 수 있고, 전원이 탈락했을 때만 즉시 결과를 확정합니다.
+            if(snapshot.IsFinished || alive==0) Finish(match);
             if(broadcastTick>=.25f){broadcastTick=0;Broadcast(string.Empty);}
         }
 
@@ -86,15 +93,70 @@ namespace FXOverdose.P2P.Infrastructure
         { cost=0;health=mental=0;switch(id){case "energy_drink":cost=500;health=30;return true;case "dessert":cost=600;mental=20;return true;case "sedative":cost=1000;mental=40;return true;case "supplement":cost=900;health=50;return true;default:return false;} }
         private static int Count(P2PPlayerRuntimeState p,string id)=>p.Inventory.TryGetValue(id,out int n)?n:0;
 
-        private void StartEvent(){eventActive=true;eventId++;choices.Clear();eventDeadline=Time.unscaledTime+15f;trading.HostMatch.IsChoiceEventActive=true;market.SetPausedByHost(true);Broadcast("돌발 이벤트: 15초 안에 선택해용");}
+        private void StartEvent(EventTriggerCondition preferredCondition)
+        {
+            ChoiceEventSO[] assets=Resources.LoadAll<ChoiceEventSO>("Events");
+            List<ChoiceEventSO> events=assets!=null&&assets.Length>0?new List<ChoiceEventSO>(assets):ChoiceEventRuntimeData.GetDefaultEvents();
+            if(events.Count==0)return;
+            List<ChoiceEventSO> candidates=events.FindAll(e=>e!=null&&(e.TriggerCondition==preferredCondition||e.TriggerCondition==EventTriggerCondition.Any));
+            if(candidates.Count==0)candidates=events;
+            currentEvent=candidates[UnityEngine.Random.Range(0,candidates.Count)];
+            if(currentEvent==null||currentEvent.Options==null||currentEvent.Options.Length<2)return;
+            eventActive=true;eventId++;choices.Clear();eventDeadline=Time.unscaledTime+15f;
+            trading.HostMatch.IsChoiceEventActive=true;market.SetPausedByHost(true);
+            Broadcast("돌발 이벤트: 15초 안에 선택해용");
+        }
         private void ResolveEvent(P2PLocalMatch match)
-        { foreach(var p in match.Players){if(p.IsEliminated)continue;if(!choices.TryGetValue(p.PlayerId,out int c))c=P2PChoiceRules.GetTimeoutChoice(p.PlayerId,eventId);if(c==0)p.ChangeHealth(15);else if(c==1){p.ChangeMental(20);p.ChangeHealth(-5);}Evaluate(p,match);}eventActive=false;match.IsChoiceEventActive=false;market.SetPausedByHost(false);Broadcast("이벤트 결과가 적용됐어용");trading.BroadcastCurrentState(); }
+        {
+            foreach(var p in match.Players)
+            {
+                if(p.IsEliminated)continue;
+                if(!choices.TryGetValue(p.PlayerId,out int c))c=UnityEngine.Random.Range(0,P2PChoiceRules.OptionCount);
+                ApplyOriginalOption(p,currentEvent.Options[c],match);
+                Evaluate(p,match);
+            }
+            eventActive=false;match.IsChoiceEventActive=false;market.SetPausedByHost(false);
+            Broadcast("이벤트 결과가 적용됐어용");trading.BroadcastCurrentState();currentEvent=null;
+        }
+
+        private void ApplyOriginalOption(P2PPlayerRuntimeState player,ChoiceOptionData option,P2PLocalMatch match)
+        {
+            if(option==null)return;
+            bool directional=option.OptionType==ChoiceOptionType.DirectionalLong||option.OptionType==ChoiceOptionType.DirectionalShort;
+            bool success=option.OverrideSignalProbTrue>=1f||(option.OverrideSignalProbTrue>0f&&UnityEngine.Random.value<=option.OverrideSignalProbTrue);
+            if(!directional||success){player.ChangeMental(option.MentalChangeAmount);player.ChangeHealth(option.HealthChangeAmount);}
+
+            if(option.ForcePosition==TradingController.PositionType.None&&option.OptionType==ChoiceOptionType.Safe)
+            {
+                if(player.Position.IsOpen)P2PTradeCalculator.ClosePosition(player,match.Rules,match.MarketPrice);
+            }
+            else if(option.ForceLeverage>0||option.ForcePosition!=TradingController.PositionType.None)
+            {
+                if(player.Position.IsOpen)P2PTradeCalculator.ClosePosition(player,match.Rules,match.MarketPrice);
+                P2PTradeAction action=option.ForcePosition==TradingController.PositionType.Short?P2PTradeAction.OpenShort:P2PTradeAction.OpenLong;
+                int leverage=Math.Max(1,Math.Min(option.ForceLeverage>0?option.ForceLeverage:10,match.Rules.MaximumLeverage));
+                P2PTradeCalculator.OpenPosition(player,new P2PTradeRequest(0,action,leverage,match.Rules.MaximumMarginRatio),match.Rules,match.MarketPrice);
+            }
+
+            if(Math.Abs(option.OverrideBeamPercent)<=.001f)return;
+            double beam=option.OverrideBeamPercent;
+            TradingController.PositionType position=directional
+                ?(option.OptionType==ChoiceOptionType.DirectionalShort?TradingController.PositionType.Short:TradingController.PositionType.Long)
+                :option.ForcePosition;
+            if(directional)beam=success?(position==TradingController.PositionType.Long?Math.Abs(beam):-Math.Abs(beam)):(position==TradingController.PositionType.Long?-Math.Abs(beam)*.7d:Math.Abs(beam)*.7d);
+            else if(!success&&position!=TradingController.PositionType.None)
+            {
+                bool opposite=position==TradingController.PositionType.Long&&beam<0||position==TradingController.PositionType.Short&&beam>0;
+                if(!opposite)beam=position==TradingController.PositionType.Long?-Math.Abs(beam)*.7d:Math.Abs(beam)*.7d;
+            }
+            market.OverrideMarketTrendByHost(beam,150);
+        }
         private static void Evaluate(P2PPlayerRuntimeState p,P2PLocalMatch match)
         { P2PEliminationReason reason=p.Mental<=0?P2PEliminationReason.MentalDepleted:p.TotalEquity<=0?P2PEliminationReason.Bankruptcy:P2PEliminationReason.None;if(reason==P2PEliminationReason.None)return;if(p.Position.IsOpen)P2PTradeCalculator.ClosePosition(p,match.Rules,match.MarketPrice);p.TryEliminate(reason,(long)Time.unscaledTime); }
         private void Finish(P2PLocalMatch match){finished=true;eventActive=false;market.SetPausedByHost(true);match.IsChoiceEventActive=false;match.Finish();trading.BroadcastCurrentState();Broadcast("경기 종료 · 최종 순위가 확정됐어용");}
 
         private void Broadcast(string message)
-        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"energy_drink"),Count(p,"dessert"),Count(p,"sedative"),Count(p,"supplement")));var x=new P2PCompetitionSnapshot{Players=list,EventActive=eventActive,EventId=eventId,EventTitle=eventActive?"긴급 시장 스트레스":"",EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,NetworkDelivery.ReliableSequenced); }
+        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"energy_drink"),Count(p,"dessert"),Count(p,"sedative"),Count(p,"supplement")));ChoiceOptionData a=eventActive&&currentEvent?.Options?.Length>0?currentEvent.Options[0]:null;ChoiceOptionData c=eventActive&&currentEvent?.Options?.Length>1?currentEvent.Options[1]:null;var x=new P2PCompetitionSnapshot{Players=list,EventActive=eventActive,EventId=eventId,EventKey=currentEvent?.EventID??"",EventTitle=currentEvent?.ScenarioTitle??"",EventDescription=currentEvent?.ScenarioDescription??"",EventMonologue=currentEvent?.AIMonologue??"",Choice1Title=a?.OptionTitle??"",Choice1Description=a?.Description??"",Choice1Type=(byte)(a?.OptionType??ChoiceOptionType.Safe),Choice2Title=c?.OptionTitle??"",Choice2Description=c?.Description??"",Choice2Type=(byte)(c?.OptionType??ChoiceOptionType.Aggressive),EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,finished||!string.IsNullOrEmpty(message)?NetworkDelivery.ReliableSequenced:NetworkDelivery.UnreliableSequenced); }
         private void ReceiveAction(ulong sender,FastBufferReader reader){if(!net.IsServer)return;reader.ReadValueSafe(out byte[] b);Process(sender,b);}
         private void ReceiveState(ulong sender,FastBufferReader reader){if(net.IsServer||sender!=NetworkManager.ServerClientId)return;reader.ReadValueSafe(out byte[] b);Apply(b);}
         private void Apply(byte[] b){if(!P2PCompetitionCodec.TryDecodeState(b,SteamRuntimeBootstrap.LocalSteamId,out var x))return;Current=x;StateChanged?.Invoke();}
