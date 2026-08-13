@@ -9,9 +9,10 @@ namespace FXOverdose.P2P.Core
         public static IReadOnlyList<P2PPlayerRuntimeState> Rank(IEnumerable<P2PPlayerRuntimeState> players)
         {
             return players
-                .OrderBy(player => player.IsEliminated)
-                .ThenByDescending(player => player.IsEliminated ? player.EliminationTick : long.MaxValue)
-                .ThenByDescending(player => player.TotalEquity)
+                // 전 플레이어를 실시간 PnL(동일 시작금 기준 TotalEquity) 순으로 표시합니다.
+                .OrderByDescending(player => player.TotalEquity)
+                .ThenBy(player => player.IsEliminated)
+                .ThenByDescending(player => player.EliminationTick)
                 .ThenBy(player => player.PlayerId)
                 .ToArray();
         }

@@ -36,10 +36,11 @@ namespace FXOverdose.P2P.Core
 
     public static class P2PCompetitionCodec
     {
+        private const int MaximumActionBytes=96;
         public static byte[] EncodeAction(ulong steamId, P2PCompetitionAction action, string value)
         { using var s=new MemoryStream(); using var w=new BinaryWriter(s,Encoding.UTF8); w.Write(steamId);w.Write((byte)action);w.Write(value??string.Empty);return s.ToArray(); }
         public static bool TryDecodeAction(byte[] b,out ulong id,out P2PCompetitionAction action,out string value)
-        { id=0;action=default;value="";try{using var s=new MemoryStream(b,false);using var r=new BinaryReader(s,Encoding.UTF8);id=r.ReadUInt64();action=(P2PCompetitionAction)r.ReadByte();value=r.ReadString();return s.Position==s.Length&&Enum.IsDefined(typeof(P2PCompetitionAction),action);}catch{return false;} }
+        { id=0;action=default;value="";if(b==null||b.Length==0||b.Length>MaximumActionBytes)return false;try{using var s=new MemoryStream(b,false);using var r=new BinaryReader(s,Encoding.UTF8);id=r.ReadUInt64();action=(P2PCompetitionAction)r.ReadByte();value=r.ReadString();return value.Length<=32&&s.Position==s.Length&&Enum.IsDefined(typeof(P2PCompetitionAction),action);}catch{return false;} }
         public static byte[] EncodeState(P2PCompetitionSnapshot x)
         { using var s=new MemoryStream();using var w=new BinaryWriter(s,Encoding.UTF8);w.Write(x.EventActive);w.Write(x.EventId);w.Write(x.EventTitle);w.Write(x.EventSecondsLeft);w.Write(x.Finished);w.Write(x.LastMessage);w.Write(x.Players.Count);foreach(var p in x.Players){w.Write(p.PlayerId);w.Write(p.Health);w.Write(p.Mental);w.Write(p.IsEliminated);w.Write((byte)p.Reason);w.Write(p.EnergyDrink);w.Write(p.Dessert);w.Write(p.Sedative);w.Write(p.Supplement);}return s.ToArray(); }
         public static bool TryDecodeState(byte[] b,ulong localId,out P2PCompetitionSnapshot x)

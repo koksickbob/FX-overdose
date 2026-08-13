@@ -466,6 +466,20 @@ public class TraderStatus : MonoBehaviour
     private void UpdateMentalState()
     {
         MentalState previousState = currentMentalState;
+
+        // P2P의 탈락과 매매 권위는 호스트가 판정합니다. 여기서 싱글용 오버도즈
+        // 강제매매/슬로모션/엔딩을 실행하면 클라이언트 상태가 서버와 달라집니다.
+        if (p2pExternalMode)
+        {
+            // 멘탈 0은 서버가 탈락으로 처리하므로 싱글 오버도즈 사운드/BGM 상태에는 진입하지 않습니다.
+            currentMentalState = currentMental <= 25f ? MentalState.Danger
+                : currentMental <= 50f ? MentalState.Anxious
+                : MentalState.Stable;
+            if (previousState != currentMentalState) OnMentalStateChanged?.Invoke(currentMentalState);
+            lastTrackedMentalState = currentMentalState;
+            return;
+        }
+
         if (tradingController == null)
         {
             tradingController = FindAnyObjectByType<FXOverdose.Trading.TradingController>();

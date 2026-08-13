@@ -91,6 +91,14 @@ namespace FXOverdose.P2P.Core
 
         public IReadOnlyList<P2PPlayerRuntimeState> GetLeaderboard() => MultiplayerLeaderboard.Rank(players.Values);
 
+        public bool ForfeitDisconnectedPlayer(ulong playerId, long serverTick)
+        {
+            if (!players.TryGetValue(playerId, out P2PPlayerRuntimeState player) || player.IsEliminated) return false;
+            if (player.Position.IsOpen) ClosePositionAndApplyVitals(player);
+            player.SetConnected(false);
+            return player.TryEliminate(P2PEliminationReason.DisconnectForfeit, serverTick);
+        }
+
         private void ClosePositionAndApplyVitals(P2PPlayerRuntimeState player)
         {
             if (player == null || !player.Position.IsOpen) return;

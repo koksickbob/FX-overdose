@@ -27,6 +27,7 @@ namespace FXOverdose.P2P.Infrastructure
         public bool IsRunning => networkManager != null && networkManager.IsListening;
         public event Action<ulong, ulong> ClientMapped;
         public event Action<ulong> ClientDisconnected;
+        public event Action<ulong> SteamClientDisconnected;
         public event Action<string> ConnectionFailed;
         public NetworkMarketAuthority MarketAuthority => marketAuthority;
         public NetworkTradingAuthority TradingAuthority => tradingAuthority;
@@ -169,10 +170,14 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void OnClientDisconnected(ulong clientId)
         {
+            ulong disconnectedSteamId=0;
             if (networkToSteam.TryGetValue(clientId, out ulong steamId))
             {
+                disconnectedSteamId=steamId;
                 networkToSteam.Remove(clientId); connectedSteamIds.Remove(steamId);
             }
+            Debug.LogWarning($"[P2P Network] 연결 종료 · NGO client={clientId} · Steam={disconnectedSteamId} · reason={networkManager?.DisconnectReason}");
+            if (disconnectedSteamId != 0) SteamClientDisconnected?.Invoke(disconnectedSteamId);
             if (networkManager != null && networkManager.IsClient && !networkManager.IsServer && clientId == networkManager.LocalClientId)
                 ConnectionFailed?.Invoke(networkManager.DisconnectReason);
             ClientDisconnected?.Invoke(clientId);

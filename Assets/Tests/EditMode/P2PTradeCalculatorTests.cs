@@ -33,6 +33,20 @@ namespace FXOverdose.P2P.Core.Tests
         }
 
         [Test]
+        public void OpenPosition_AppliesSelectedMarginAndLeverageExactly()
+        {
+            var rules = new P2PMatchRules(maximumLeverage: 50, maximumMarginRatio: 0.75d, tradingFeeRate: 0d);
+            var player = new P2PPlayerRuntimeState(1, "Player", 10000d);
+
+            P2PTradeCalculator.OpenPosition(player,
+                new P2PTradeRequest(1, P2PTradeAction.OpenLong, leverage: 25, marginRatio: 0.3d), rules, 100d);
+
+            Assert.That(player.Position.MarginAmount, Is.EqualTo(3000d).Within(0.0001d));
+            Assert.That(player.Position.Leverage, Is.EqualTo(25));
+            Assert.That(P2PTradeCalculator.CalculateUnrealizedPnL(player.Position, 101d), Is.EqualTo(750d).Within(0.0001d));
+        }
+
+        [Test]
         public void LiquidationPrice_MatchesExistingTradingFormula()
         {
             double longPrice = P2PTradeCalculator.CalculateLiquidationPrice(P2PPositionSide.Long, 100d, 10, 0.005d);
