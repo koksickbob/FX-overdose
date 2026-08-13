@@ -32,7 +32,7 @@ namespace FXOverdose.P2P.Infrastructure
         private void Update()
         {
             networkManager ??= NetworkManager.Singleton;
-            if (networkManager == null || !networkManager.IsListening) return;
+            if (!P2PNetworkSessionManager.CanSend(networkManager)) return;
             EnsureRegistered();
             if (!networkManager.IsServer) return;
             EnsureHostEngine();
@@ -81,7 +81,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void Broadcast(P2PMarketSnapshot snapshot)
         {
-            if (networkManager == null || !networkManager.IsServer || networkManager.ConnectedClientsIds.Count == 0) return;
+            if (!P2PNetworkSessionManager.CanSend(networkManager) || !networkManager.IsServer || networkManager.ConnectedClientsIds.Count == 0) return;
             byte[] bytes = P2PMarketSnapshotCodec.Encode(snapshot);
             P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length*networkManager.ConnectedClientsIds.Count);
             using var writer = new FastBufferWriter(sizeof(int) + bytes.Length, Allocator.Temp);

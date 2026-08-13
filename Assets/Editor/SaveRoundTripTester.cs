@@ -43,6 +43,10 @@ namespace FXOverdose.EditorTools
         /// <summary>
         /// SaveData의 모든 public 필드가 SaveLoadManager 또는 각 매니저의 Capture 경로에서
         /// 한 번이라도 이름으로 언급되는지 소스에서 확인합니다. 데드 필드 재발 방지용입니다. (SV-D1)
+        ///
+        /// ⚠️ <b>목록에서 빠진 파일은 그 파일이 소유한 필드를 통째로 데드로 오판하게 만듭니다.</b>
+        ///    실제로 YomiRoomManager(Talk* 15개)와 DailyMarketOutlook(Outlook* 2개)이 빠져 있었고,
+        ///    orphan이 경고로만 흘러가 6건이 조용히 방치됐습니다. 새 저장 경로를 만들면 여기에 추가하십시오. (S-3)
         /// </summary>
         private static int RunFieldCoverageAudit()
         {
@@ -53,11 +57,23 @@ namespace FXOverdose.EditorTools
                 "Assets/Scripts/TraderStatus.cs",
                 "Assets/Scripts/Trading/TradingController.cs",
                 "Assets/Scripts/Trading/MarketSimulationEngine.cs",
+                "Assets/Scripts/Trading/DailyMarketOutlook.cs",
                 "Assets/Scripts/Events/ChoiceEventController.cs",
                 "Assets/Scripts/GameManager.cs",
                 "Assets/Scripts/DatingSim/Core/DatingTimeManager.cs",
+                "Assets/Scripts/DatingSim/YomiRoom/YomiRoomManager.cs",
                 "Assets/Scripts/Items/ActiveItemEffectManager.cs",
             };
+
+            int failures = 0;
+            var missingSources = sources.Where(path => !System.IO.File.Exists(path)).ToList();
+            if (missingSources.Count > 0)
+            {
+                // 경로가 바뀐 것을 눈치채지 못하면 그 파일이 담당하던 필드가 전부 orphan으로 잡힙니다.
+                Debug.LogError($"[왕복검사] ❌ 검사 소스 {missingSources.Count}건을 찾지 못했습니다 " +
+                               $"(경로가 바뀌었습니다): {string.Join(", ", missingSources)}");
+                failures += missingSources.Count;
+            }
 
             string blob = string.Concat(sources
                 .Where(System.IO.File.Exists)
@@ -70,11 +86,13 @@ namespace FXOverdose.EditorTools
                     orphans.Add(field.Name);
             }
 
-            if (orphans.Count == 0) return 0;
+            if (orphans.Count == 0) return failures;
 
-            Debug.LogWarning($"[왕복검사] 수집/복원 경로에서 이름이 발견되지 않는 SaveData 필드 {orphans.Count}건 " +
-                             $"(데드 필드일 수 있습니다): {string.Join(", ", orphans)}");
-            return 0; // 경고일 뿐 실패로 세지 않습니다. 필드명이 간접 참조될 수 있습니다.
+            // 실패로 셉니다. 경고로 두면 "저장되지 않는 필드"가 스키마에 계속 쌓입니다.
+            // 의도적으로 아직 안 쓰는 필드라면 필드를 추가하지 말고, 쓸 때 함께 추가하십시오.
+            Debug.LogError($"[왕복검사] ❌ 수집/복원 경로에서 이름이 발견되지 않는 SaveData 필드 {orphans.Count}건 " +
+                           $"— 데드 필드이거나, 담당 소스가 위 sources 목록에서 빠졌습니다: {string.Join(", ", orphans)}");
+            return failures + orphans.Count;
         }
 
         /// <summary>

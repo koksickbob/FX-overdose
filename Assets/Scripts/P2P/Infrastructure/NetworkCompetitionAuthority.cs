@@ -32,7 +32,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void Update()
         {
-            net ??= NetworkManager.Singleton; if(net==null||!net.IsListening)return; EnsureRegistered();
+            net ??= NetworkManager.Singleton; if(!P2PNetworkSessionManager.CanSend(net))return; EnsureRegistered();
             if(!net.IsServer)return; var match=trading.HostMatch;if(match==null)return;
             if(!initialized){initialized=true;nextRandomEventMinute=UnityEngine.Random.Range(10*60,16*60);foreach(var p in match.Players){p.SetInventoryAmount("energy_drink",5);p.SetInventoryAmount("dessert",5);p.SetInventoryAmount("sedative",2);p.SetInventoryAmount("supplement",2);}Broadcast("경기가 시작됐어용");}
             if(finished)return;
@@ -86,7 +86,7 @@ namespace FXOverdose.P2P.Infrastructure
         public bool Submit(P2PCompetitionAction action,string value)
         {
             net??=NetworkManager.Singleton;
-            if(net==null||!net.IsListening)return false;
+            if(!P2PNetworkSessionManager.CanSend(net))return false;
             EnsureRegistered();
             byte[] b=P2PCompetitionCodec.EncodeAction(SteamRuntimeBootstrap.LocalSteamId,action,value);
             P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(b.Length);
@@ -211,7 +211,7 @@ namespace FXOverdose.P2P.Infrastructure
         private void Finish(P2PLocalMatch match){finished=true;eventActive=false;market.SetPausedByHost(true);match.IsChoiceEventActive=false;match.Finish();trading.BroadcastCurrentState();Broadcast("경기 종료 · 최종 순위가 확정됐어용");}
 
         private void Broadcast(string message)
-        { var match=trading.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"energy_drink"),Count(p,"dessert"),Count(p,"sedative"),Count(p,"supplement")));ChoiceOptionData a=eventActive&&currentEvent?.Options?.Length>0?currentEvent.Options[0]:null;ChoiceOptionData c=eventActive&&currentEvent?.Options?.Length>1?currentEvent.Options[1]:null;var x=new P2PCompetitionSnapshot{StateSequence=++stateSequence,Players=list,EventActive=eventActive,EventId=eventId,EventKey=currentEvent?.EventID??"",EventTitle=currentEvent?.ScenarioTitle??"",EventDescription=currentEvent?.ScenarioDescription??"",EventMonologue=currentEvent?.AIMonologue??"",Choice1Title=a?.OptionTitle??"",Choice1Description=a?.Description??"",Choice1Type=(byte)(a?.OptionType??ChoiceOptionType.Safe),Choice2Title=c?.OptionTitle??"",Choice2Description=c?.Description??"",Choice2Type=(byte)(c?.OptionType??ChoiceOptionType.Aggressive),EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(b.Length*net.ConnectedClientsIds.Count);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,finished||!string.IsNullOrEmpty(message)?NetworkDelivery.ReliableSequenced:NetworkDelivery.UnreliableSequenced); }
+        { if(!P2PNetworkSessionManager.CanSend(net))return;var match=trading?.HostMatch;if(match==null)return;var list=new List<P2PCompetitionPlayerSnapshot>();foreach(var p in match.Players)list.Add(new P2PCompetitionPlayerSnapshot(p.PlayerId,p.Health,p.Mental,p.IsEliminated,p.EliminationReason,Count(p,"energy_drink"),Count(p,"dessert"),Count(p,"sedative"),Count(p,"supplement")));ChoiceOptionData a=eventActive&&currentEvent?.Options?.Length>0?currentEvent.Options[0]:null;ChoiceOptionData c=eventActive&&currentEvent?.Options?.Length>1?currentEvent.Options[1]:null;var x=new P2PCompetitionSnapshot{StateSequence=++stateSequence,Players=list,EventActive=eventActive,EventId=eventId,EventKey=currentEvent?.EventID??"",EventTitle=currentEvent?.ScenarioTitle??"",EventDescription=currentEvent?.ScenarioDescription??"",EventMonologue=currentEvent?.AIMonologue??"",Choice1Title=a?.OptionTitle??"",Choice1Description=a?.Description??"",Choice1Type=(byte)(a?.OptionType??ChoiceOptionType.Safe),Choice2Title=c?.OptionTitle??"",Choice2Description=c?.Description??"",Choice2Type=(byte)(c?.OptionType??ChoiceOptionType.Aggressive),EventSecondsLeft=eventActive?Math.Max(0,eventDeadline-Time.unscaledTime):0,Finished=finished,LastMessage=string.IsNullOrEmpty(message)?Current.LastMessage:message};byte[] b=P2PCompetitionCodec.EncodeState(x);P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(b.Length*net.ConnectedClientsIds.Count);Apply(b);using var w=Writer(b);net.CustomMessagingManager.SendNamedMessage(StateMessage,net.ConnectedClientsIds,w,finished||!string.IsNullOrEmpty(message)?NetworkDelivery.ReliableSequenced:NetworkDelivery.UnreliableSequenced); }
         private void ReceiveAction(ulong sender,FastBufferReader reader){if(!net.IsServer)return;reader.ReadValueSafe(out byte[] b);P2PNetworkSessionManager.Instance?.Diagnostics?.RecordReceived(b?.Length??0);Process(sender,b);}
         private void ReceiveState(ulong sender,FastBufferReader reader){if(net.IsServer||sender!=NetworkManager.ServerClientId)return;reader.ReadValueSafe(out byte[] b);P2PNetworkSessionManager.Instance?.Diagnostics?.RecordReceived(b?.Length??0);Apply(b);}
         private void Apply(byte[] b){if(!P2PCompetitionCodec.TryDecodeState(b,SteamRuntimeBootstrap.LocalSteamId,out var x)||!IsSequenceNewer(x.StateSequence,lastAppliedSequence))return;lastAppliedSequence=x.StateSequence;Current=x;StateChanged?.Invoke();}
@@ -219,13 +219,13 @@ namespace FXOverdose.P2P.Infrastructure
         private void EnsureRegistered(){if(registered)return;registered=true;trading=GetComponent<NetworkTradingAuthority>();market=GetComponent<NetworkMarketAuthority>();net.CustomMessagingManager.RegisterNamedMessageHandler(ActionMessage,ReceiveAction);net.CustomMessagingManager.RegisterNamedMessageHandler(StateMessage,ReceiveState);var session=P2PNetworkSessionManager.Instance;if(session!=null){session.SteamClientDisconnected-=OnSteamClientDisconnected;session.SteamClientDisconnected+=OnSteamClientDisconnected;session.ClientMapped-=OnClientMapped;session.ClientMapped+=OnClientMapped;}}
         private void OnSteamClientDisconnected(ulong steamId)
         {
-            if(!net.IsServer||trading?.HostMatch==null||!trading.HostMatch.SetPlayerConnected(steamId,false))return;
+            if(!P2PNetworkSessionManager.CanSend(net)||!net.IsServer||trading?.HostMatch==null||!trading.HostMatch.SetPlayerConnected(steamId,false))return;
             reconnectDeadlines[steamId]=Time.unscaledTime+ReconnectGraceSeconds;
             Broadcast($"플레이어 연결 끊김 · {ReconnectGraceSeconds:0}초 재접속 대기");trading.BroadcastCurrentState();
         }
         private void OnClientMapped(ulong clientId,ulong steamId)
         {
-            if(!net.IsServer||trading?.HostMatch==null||!reconnectDeadlines.Remove(steamId))return;
+            if(!P2PNetworkSessionManager.CanSend(net)||!net.IsServer||trading?.HostMatch==null||!reconnectDeadlines.Remove(steamId))return;
             trading.HostMatch.SetPlayerConnected(steamId,true);
             Broadcast("플레이어가 재접속해 상태를 복구했어용");trading.BroadcastCurrentState();
             Debug.Log($"[P2P Reconnect][{P2PNetworkSessionManager.Instance?.MatchId}] Steam={steamId} client={clientId} 스냅샷 복구");

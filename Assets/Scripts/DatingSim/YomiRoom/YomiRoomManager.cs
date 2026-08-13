@@ -28,14 +28,16 @@ namespace FXOverdose.DatingSim.YomiRoom
         [SerializeField, Tooltip("휴식 시 소모되는 시간 슬롯")]
         private int restTimeSlotCost = 1;
 
-        [SerializeField, Tooltip("대화 1회에 소모되는 시간 슬롯")]
-        private int talkTimeSlotCost = 1;
+        // 자유 채팅은 시간 슬롯이 아니라 체력을 소모합니다. (2026-08-14 개편)
+        [SerializeField, Tooltip("대화 1회에 소모되는 미연시 체력")]
+        private int talkStaminaCost = 10;
 
+        // 임계는 총획득 상한(+3)에 맞춥니다. 옛 값(4/7)은 상한이 12이던 시절의 것이라 지금은 도달 불가입니다.
         [SerializeField, Tooltip("힌트가 나오기 시작하는 당일 호감도 획득량")]
-        private int hintThresholdTier1 = 4;
+        private int hintThresholdTier1 = 2;
 
         [SerializeField, Tooltip("방향을 명시하는 힌트가 나오는 당일 호감도 획득량")]
-        private int hintThresholdTier2 = 7;
+        private int hintThresholdTier2 = 3;
 
         // 상태 캡슐화 (외부 직접 수정 차단)
         private YomiRoomState currentState = YomiRoomState.Idle;
@@ -56,7 +58,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         public event Action<string> OnYomiReplied;              // 고른 선택지에 대한 요미의 즉답 (R-2)
         public event Action<string, string> OnTalkFinished;     // 마무리 대사, 힌트 대사(없으면 null)
         public event Action<string> OnYomiGreeted;              // 선제 발화
-        public event Action OnActionFailed; // 시간/체력 부족 등으로 행동 실패 시
+        public event Action<string> OnActionFailed; // 행동 실패 시 사유 문구를 전달합니다 (UI 표시용)
 
         private void Awake()
         {
@@ -82,7 +84,12 @@ namespace FXOverdose.DatingSim.YomiRoom
         private FXOverdose.Core.SaveData scratchData;
         private bool warnedScratch;
 
-        /// <summary>대화 진행이 기록될 데이터. 정상 플로우에서는 실제 세이브를, 단독 재생 시엔 임시본을 돌려줍니다.</summary>
+        /// <summary>
+        /// 대화 진행이 기록될 데이터. 정상 플로우에서는 실제 세이브를, 단독 재생 시엔 임시본을 돌려줍니다.
+        ///
+        /// 이 클래스의 하루 게이트는 전부 <b>data.CurrentDay</b>(트레이딩 일차)를 기준으로 합니다.
+        /// DatingDay와 항상 같다는 계약에 기대고 있습니다 — DatingTimeManager.SyncToNewDay 주석 참고. (F-9)
+        /// </summary>
         private FXOverdose.Core.SaveData ProgressData
         {
             get
@@ -112,36 +119,50 @@ namespace FXOverdose.DatingSim.YomiRoom
         // --- 외부(UI 버튼 등) 호출용 public 인터페이스 ---
 
         /// <summary>
-        /// 대화를 시작합니다. 슬롯을 소모하고 오늘 아직 안 쓴 토픽을 하나 뽑습니다.
+        /// 대화를 시작합니다. 하루 1회 한도를 확인하고, 체력을 소모하고, 오늘 아직 안 쓴 토픽을 하나 뽑습니다.
         ///
-        /// ⚠️ 슬롯 차감과 '사용됨' 기록을 <b>첫 노드 진입 전에</b> 끝냅니다.
+        /// ⚠️ 체력 차감과 '사용됨' 기록을 <b>첫 노드 진입 전에</b> 끝냅니다.
         ///    대화 도중 호감도가 오를 때마다 자동 저장이 일어나기 때문에, 종료 시점에 기록하면
         ///    중간에 나갔다 들어와 같은 토픽을 다시 열어 호감도를 재획득할 수 있습니다. (TS1)
+        ///    단 하루 1회 카운트만은 기획대로 <b>대화 종료 시점</b>에 소모합니다 — 대신 끝맺지 못한
+        ///    대화의 잔존 기록(TalkActiveTopicId)도 오늘 몫으로 쳐서 강제 종료 우회를 막습니다.
         /// </summary>
         public bool TryStartTalk()
         {
             if (currentState != YomiRoomState.Idle) return false;
 
             var time = DatingTimeManager.Instance;
-            if (time == null || time.CurrentTimeSlot < talkTimeSlotCost)
+            if (time == null)
             {
-                OnActionFailed?.Invoke();
+                OnActionFailed?.Invoke("지금은 대화를 시작할 수 없어요.");
                 return false;
             }
 
-            // ⚠️ 토픽 추첨을 슬롯 차감보다 먼저 합니다.
-            //    해금 조건 때문에 후보가 비는 경우가 실제로 생기는데, 순서가 반대면 슬롯만 날아갑니다. (TS11)
             var data = ProgressData;
+            int today = data.CurrentDay;
+            EnsureDailyTalkState(data, today);
+
+            // 자유 채팅은 하루 1회. (2026-08-14 개편)
+            if (data.TalkLastSessionEndDay == today || !string.IsNullOrEmpty(data.TalkActiveTopicId))
+            {
+                OnActionFailed?.Invoke("오늘은 이미 요미와 이야기를 나눴어요. 내일 다시 걸어보세요.");
+                return false;
+            }
+
+            // ⚠️ 토픽 추첨을 체력 차감보다 먼저 합니다.
+            //    해금 조건 때문에 후보가 비는 경우가 실제로 생기는데, 순서가 반대면 체력만 날아갑니다. (TS11)
             TalkTopic? picked = PickTopic(data);
             if (picked == null)
             {
-                OnActionFailed?.Invoke();
+                OnActionFailed?.Invoke("지금 시간대에 나눌 이야기가 없어요.");
                 return false;
             }
 
-            if (!time.TryConsumeTimeSlot(talkTimeSlotCost))
+            // 체력은 차감하기 전에 확인합니다. 아래에서 마커를 먼저 적기 때문에,
+            // 여기서 걸러내지 않으면 대화도 못 하고 토픽만 소진되는 상태를 되돌려야 합니다.
+            if (time.CurrentStamina < talkStaminaCost)
             {
-                OnActionFailed?.Invoke();
+                OnActionFailed?.Invoke($"체력이 부족해요. 대화에는 체력 {talkStaminaCost}이 필요해요.");
                 return false;
             }
 
@@ -149,17 +170,19 @@ namespace FXOverdose.DatingSim.YomiRoom
             activeNodeIndex = 0;
             hasActiveTopic = true;
 
-            if (data != null)
-            {
-                // 여는 즉시 소비 처리 (TS1/TS2)
-                if (!data.TalkTopicsUsedToday.Contains(activeTopic.Id))
-                    data.TalkTopicsUsedToday.Add(activeTopic.Id);
-                if (!data.TalkTopicsSeenTotal.Contains(activeTopic.Id))
-                    data.TalkTopicsSeenTotal.Add(activeTopic.Id);
+            // ⚠️ 진행 마커를 체력 차감보다 <b>먼저</b> 기록합니다. (F-4)
+            //    TryConsumeStamina가 그 자리에서 디스크에 저장하기 때문입니다. 순서가 반대면
+            //    "체력만 깎이고 대화 흔적은 없는" 스냅샷이 남아, 껐다 켜서 토픽을 다시 굴릴 수 있습니다.
+            //    TS1(여는 즉시 소비)이 메모리에서만 지켜지던 원인이 이 순서였습니다.
+            if (!data.TalkTopicsUsedToday.Contains(activeTopic.Id))
+                data.TalkTopicsUsedToday.Add(activeTopic.Id);
+            if (!data.TalkTopicsSeenTotal.Contains(activeTopic.Id))
+                data.TalkTopicsSeenTotal.Add(activeTopic.Id);
 
-                data.TalkActiveTopicId = activeTopic.Id;
-                data.TalkActiveNodeIndex = 0;
-            }
+            data.TalkActiveTopicId = activeTopic.Id;
+            data.TalkActiveNodeIndex = 0;
+
+            time.TryConsumeStamina(talkStaminaCost); // 위에서 확인했으므로 반드시 성공하며, 이 호출이 마커까지 함께 저장합니다.
 
             ChangeState(YomiRoomState.Chatting);
             OnTalkNodeAdvanced?.Invoke(activeTopic.Nodes[0]);
@@ -191,9 +214,10 @@ namespace FXOverdose.DatingSim.YomiRoom
                 data.TalkAffectionGainToday += choice.Affection;
             }
 
-            if (choice.Affection > 0)
+            if (choice.Affection != 0)
             {
                 // 이 호출이 자동 저장을 일으킵니다. 위에서 세이브 데이터를 먼저 갱신해 둔 이유입니다.
+                // 마이너스 선택지(요미의 아픈 곳을 외면)도 같은 경로로 내려갑니다. 0~100 클램프는 저쪽이 합니다.
                 DatingTimeManager.Instance?.ModifyAffection(choice.Affection);
             }
 
@@ -210,7 +234,10 @@ namespace FXOverdose.DatingSim.YomiRoom
             FinishTalk(data);
         }
 
-        /// <summary>대화를 중간에 닫습니다. 진행 중이던 토픽은 재개하지 않습니다. (TS1)</summary>
+        /// <summary>
+        /// 대화를 중간에 닫습니다. 진행 중이던 토픽은 재개하지 않습니다. (TS1)
+        /// 중도 종료도 '대화 종료'이므로 하루 1회 카운트를 여기서 소모합니다.
+        /// </summary>
         public void CloseTalk()
         {
             if (currentState != YomiRoomState.Chatting && currentState != YomiRoomState.Responding) return;
@@ -223,6 +250,10 @@ namespace FXOverdose.DatingSim.YomiRoom
             {
                 data.TalkActiveTopicId = "";
                 data.TalkActiveNodeIndex = -1;
+                data.TalkLastSessionEndDay = data.CurrentDay;
+                // 하루 1회 한도는 이 값 하나에 달려 있습니다. 저장하지 않으면 타이틀로 나갔다 오는 것만으로
+                // 그날 대화를 다시 할 수 있습니다. 종료는 저장까지가 한 동작입니다. (F-3)
+                FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
             }
 
             ChangeState(YomiRoomState.Idle);
@@ -256,6 +287,25 @@ namespace FXOverdose.DatingSim.YomiRoom
 
         // --- 내부 로직 ---
 
+        /// <summary>
+        /// 일차가 바뀌었으면 당일 한정 대화 상태를 비웁니다.
+        /// 문서 4.5절의 일차 전환 리셋이 계획만 있고 구현이 없었습니다 — 리셋이 없으면
+        /// 토픽이 영구 소진되고, 힌트 임계는 누적 획득량으로 매일 공짜 통과됩니다.
+        /// 매니저를 넘나드는 배선 대신, 읽는 쪽에서 대화 시작 때 스스로 맞춥니다.
+        /// </summary>
+        private static void EnsureDailyTalkState(FXOverdose.Core.SaveData data, int today)
+        {
+            if (data.TalkDailyStateDay == today) return;
+
+            data.TalkDailyStateDay = today;
+            data.TalkAffectionGainToday = 0;
+            data.TalkTopicsUsedToday.Clear();
+
+            // 어제 끝맺지 못한 대화의 잔존 기록은 어제 몫으로 소멸합니다. 오늘 한도를 막으면 안 됩니다.
+            data.TalkActiveTopicId = "";
+            data.TalkActiveNodeIndex = -1;
+        }
+
         private void FinishTalk(FXOverdose.Core.SaveData data)
         {
             hasActiveTopic = false;
@@ -265,11 +315,18 @@ namespace FXOverdose.DatingSim.YomiRoom
             {
                 data.TalkActiveTopicId = "";
                 data.TalkActiveNodeIndex = -1;
+                data.TalkLastSessionEndDay = data.CurrentDay; // 하루 1회 카운트는 종료 시점에 소모
                 if (!data.TalkCompletedFlags.Contains(activeTopic.Id))
                     data.TalkCompletedFlags.Add(activeTopic.Id);
             }
 
             string hint = TryIssueHint(data);
+
+            // 힌트를 발급하면 DailyMarketOutlook.MarkRevealed가 저장을 대신 일으켜 주지만,
+            // 그건 우연이지 계약이 아닙니다. 힌트 임계에 못 미친 대화(획득 0)는 저장 없이 끝나
+            // 하루 1회 한도가 디스크에 남지 않았습니다. 종료는 항상 저장합니다. (F-3)
+            if (data != null) FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
+
             ChangeState(YomiRoomState.Idle);
             OnTalkFinished?.Invoke(activeTopic.ClosingLine, hint);
         }
@@ -349,9 +406,13 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (overflow > 0) data.TalkChoiceHistory.RemoveRange(0, overflow);
         }
 
-        public void TryRest()
+        /// <summary>
+        /// 잠깐 휴식. <b>성공 여부를 반환합니다.</b>
+        /// 호출부가 반환값을 보지 않으면 실패했는데도 "체력이 회복됐다"고 표시하게 됩니다. (F-2)
+        /// </summary>
+        public bool TryRest()
         {
-            if (currentState != YomiRoomState.Idle) return;
+            if (currentState != YomiRoomState.Idle) return false;
 
             if (DatingTimeManager.Instance != null && DatingTimeManager.Instance.TryConsumeTimeSlot(restTimeSlotCost))
             {
@@ -359,11 +420,11 @@ namespace FXOverdose.DatingSim.YomiRoom
                 DatingTimeManager.Instance.RecoverStamina(restStaminaRecoverAmount);
                 // 임시 복귀 로직 (향후 연출 코루틴 등으로 대체 가능)
                 ChangeState(YomiRoomState.Idle);
+                return true;
             }
-            else
-            {
-                OnActionFailed?.Invoke();
-            }
+
+            OnActionFailed?.Invoke("시간 슬롯이 부족해서 쉴 수 없어요.");
+            return false;
         }
 
         /// <summary>
@@ -373,9 +434,9 @@ namespace FXOverdose.DatingSim.YomiRoom
         /// 기존 24:00 일일 정산 루틴을 그대로 태웁니다. 그래야 정산·페널티·보스·엔딩 판정이
         /// 통째로 누락되는 우회 경로가 생기지 않습니다.
         /// </summary>
-        public void TrySleep()
+        public bool TrySleep()
         {
-            if (currentState != YomiRoomState.Idle) return;
+            if (currentState != YomiRoomState.Idle) return false;
 
             ChangeState(YomiRoomState.Transitioning);
             GameManager.PendingSleepThroughToday = true;
@@ -389,20 +450,23 @@ namespace FXOverdose.DatingSim.YomiRoom
 
             LoadingScreenController.TargetSceneToLoad = "GameScene";
             SceneManager.LoadScene("LoadingScene");
+            return true;
         }
 
-        public void MoveToWorldMap()
+        public bool MoveToWorldMap()
         {
-            if (currentState != YomiRoomState.Idle) return;
+            if (currentState != YomiRoomState.Idle) return false;
             ChangeState(YomiRoomState.Transitioning);
             FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
             LoadingScreenController.TargetSceneToLoad = "WorldMapScene";
             SceneManager.LoadScene("LoadingScene");
+            return true;
         }
 
-        public void StartTrading()
+        /// <summary>거래 개시. 씬 전환에 들어가면 true. false면 방에 그대로 남습니다. (F-2)</summary>
+        public bool StartTrading()
         {
-            if (currentState != YomiRoomState.Idle) return;
+            if (currentState != YomiRoomState.Idle) return false;
             ChangeState(YomiRoomState.Transitioning);
 
             // 저장 → 복원 예약 순서로 진입해야 GameManager가 StartNewGame()으로 새 게임을 시작하지 않습니다. (SV-B10)
@@ -415,6 +479,7 @@ namespace FXOverdose.DatingSim.YomiRoom
 
             LoadingScreenController.TargetSceneToLoad = "GameScene";
             SceneManager.LoadScene("LoadingScene");
+            return true;
         }
 
         /// <summary>대화 UI 또는 방 내부 연출이 종료된 뒤 탐색 상태로 복귀합니다.</summary>

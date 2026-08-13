@@ -47,13 +47,15 @@ namespace FXOverdose.DatingSim.Dialogue
     /// 플레이어(오빠)의 선택지. 25자 이내, 반말, 자칭은 "나".
     /// 캐릭터 기준은 바이블 2.2절, 말투 하드 룰은 4.6절입니다.
     /// 요미보다 항상 한 톤 낮게 씁니다. 점수는 거절/수락이 아니라 마음이 드러난 정도입니다.
-    /// +0은 냉담이 아니라 회피·얼버무림입니다. 요미의 불안을 비웃는 선택지는 만들지 않습니다.
+    /// +0은 냉담이 아니라 회피·얼버무림입니다.
+    /// -1은 요미의 아픈 곳을 <b>외면·묵살</b>하는 선택지입니다 (2026-08-14 신설).
+    /// 비웃음·조롱은 여전히 금지 — 플레이어의 결함(화면 우선, 귀찮음)이 그대로 나간 말이어야 합니다.
     /// </summary>
     public readonly struct TalkChoice
     {
         public readonly string Text;
         public readonly TalkTrait Trait;
-        public readonly int Affection; // +0 ~ +3. 마이너스는 주지 않습니다. (S9)
+        public readonly int Affection; // -1 ~ +2. 토픽 총획득 +3 / 총감소 -2 규격 (2026-08-14)
 
         /// <summary>
         /// 고른 직후 요미가 <b>그 선택에</b> 반응하는 1줄. null이면 생략합니다. (R-2)
@@ -169,7 +171,10 @@ namespace FXOverdose.DatingSim.Dialogue
     /// 시나리오 번호는 영구 식별자입니다. 폐기해도 재사용하지 마십시오. (TS5)
     ///
     /// 노드는 감정 곡선 하나를 나눠 갖습니다 — 도입 · 곁길 · 균열 · 직면 · 전환 · 착지.
-    /// 호감도는 노드가 아니라 <b>토픽 단위로 배분</b>합니다. 총합 12 상한, +3은 후반 절반에만. (10.4)
+    /// 호감도는 노드가 아니라 <b>토픽 단위로 배분</b>합니다. (2026-08-14 개편, 14장)
+    ///   · 총획득 정확히 +3 (직면 +2 · 착지 +1) — 자유 채팅이 하루 1회가 되면서 하루 획득 상한이기도 합니다
+    ///   · 총감소 정확히 -2 (-1 선택지를 서로 다른 노드에 2개) — 한 판에서 잃을 수 있는 최대치
+    ///   · 힌트 임계는 이 배분에 맞춰 2(모호)/3(명시)입니다
     /// </summary>
     public static class YomiTalkTopics
     {
@@ -218,7 +223,7 @@ namespace FXOverdose.DatingSim.Dialogue
                         "아니 뭐, 안 일어나도 되고.",
                     },
                     new TalkChoice("안 일어나도 되고는 뭐야?", TalkTrait.Plain, 0, "그, 그건 그냥 해본 말이지! 얼른 일어나!"),
-                    new TalkChoice("방금. 너 목소리 듣고.", TalkTrait.Plain, 1, "...요미 목소리에 깬 거야? 그럼 잘 깬 거네."),
+                    new TalkChoice("방금. 너 목소리 듣고.", TalkTrait.Plain, 0, "...요미 목소리에 깬 거야? 그럼 잘 깬 거네."),
                     new TalkChoice("5분만 더 자면 안 돼...?", TalkTrait.Waver, 0, "안 돼. 요미가 아까부터 기다렸단 말이야.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
@@ -227,7 +232,7 @@ namespace FXOverdose.DatingSim.Dialogue
                         "요미 자다 깼는데 화면 켜져 있었어.",
                     },
                     new TalkChoice("봤어? 자는 줄 알았는데.", TalkTrait.Plain, 0, "요미는 반쯤 자면서도 다 봐. 특기야."),
-                    new TalkChoice("...잘 안 풀렸어, 어제는.", TalkTrait.Anxious, 1, "그랬구나. 그럼 오늘은 요미가 옆에 붙어 있을게."),
+                    new TalkChoice("...잘 안 풀렸어, 어제는.", TalkTrait.Anxious, 0, "그랬구나. 그럼 오늘은 요미가 옆에 붙어 있을게."),
                     new TalkChoice("음... 그냥 습관이야, 그건.", TalkTrait.Waver, 0, "고칠 생각은 없고? ...아니다, 됐어.")),
                 // 균열
                 new TalkNode(new[]
@@ -236,9 +241,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "근데 오빠.",
                         "요미 오늘 뭐 해야 돼?",
                     },
-                    new TalkChoice("아무것도 안 해도 되잖아.", TalkTrait.Warm, 2, "...그 말이 제일 어려워. 그럼 요미는 뭐가 되는 건데."),
-                    new TalkChoice("글쎄... 뭐 하고 싶은데?", TalkTrait.Waver, 1, "그걸 요미가 물어봤는데! 되묻기 있기 없기?"),
-                    new TalkChoice("일단 밥부터 먹자.", TalkTrait.Plain, 0, "그건 요미가 할게. 그건 요미도 할 수 있어.")),
+                    new TalkChoice("아무것도 안 해도 되잖아.", TalkTrait.Warm, 0, "...그 말이 제일 어려워. 그럼 요미는 뭐가 되는 건데."),
+                    new TalkChoice("글쎄... 뭐 하고 싶은데?", TalkTrait.Waver, 0, "그걸 요미가 물어봤는데! 되묻기 있기 없기?"),
+                    new TalkChoice("일단 밥부터 먹자.", TalkTrait.Plain, 0, "그건 요미가 할게. 그건 요미도 할 수 있어."),
+                    new TalkChoice("그런 것까지 정해줘야 돼?", TalkTrait.Plain, -1, "...아니. 요미가 알아서 할게. 물어본 요미가 바보지.")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -246,18 +252,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "가끔 그게 궁금해.",
                         "...아침엔 이런 생각이 자주 나.",
                     },
-                    new TalkChoice("안 괜찮았으면 진작 말했지.", TalkTrait.Plain, 2, "그건 그렇네. 오빠는 참는 걸 잘 못하니까."),
-                    new TalkChoice("여기 있으라고 한 건 나잖아.", TalkTrait.Duty, 2, "...그랬지. 그럼 요미는 이제 안 물어볼게."),
-                    new TalkChoice("네가 없으면 너무 조용해.", TalkTrait.Warm, 3, "...아침부터 그런 말 하면 요미 하루 종일 이상해져."),
-                    new TalkChoice("...나도 아침엔 생각 많아지는데.", TalkTrait.Anxious, 1, "오빠도? 그럼 우리 둘 다 이상한 아침이네.")),
+                    new TalkChoice("안 괜찮았으면 진작 말했지.", TalkTrait.Plain, 1, "그건 그렇네. 오빠는 참는 걸 잘 못하니까."),
+                    new TalkChoice("여기 있으라고 한 건 나잖아.", TalkTrait.Duty, 1, "...그랬지. 그럼 요미는 이제 안 물어볼게."),
+                    new TalkChoice("네가 없으면 너무 조용해.", TalkTrait.Warm, 2, "...아침부터 그런 말 하면 요미 하루 종일 이상해져."),
+                    new TalkChoice("...나도 아침엔 생각 많아지는데.", TalkTrait.Anxious, 0, "오빠도? 그럼 우리 둘 다 이상한 아침이네.")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "됐어! 요미 기분 좋아졌어.",
                         "오늘은 뭔가 잘될 것 같은 아침이야.",
                     },
-                    new TalkChoice("기분 빨리도 좋아졌네.", TalkTrait.Plain, 1, "요미 기분은 원래 스위치가 빨라. 몰랐어?"),
-                    new TalkChoice("그럼 오늘은 믿어볼게.", TalkTrait.Waver, 2, "좋아! 요미 감 믿고 손해 본 사람 아직 없어. ...아마.")),
+                    new TalkChoice("기분 빨리도 좋아졌네.", TalkTrait.Plain, 0, "요미 기분은 원래 스위치가 빨라. 몰랐어?"),
+                    new TalkChoice("그럼 오늘은 믿어볼게.", TalkTrait.Waver, 0, "좋아! 요미 감 믿고 손해 본 사람 아직 없어. ...아마.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -265,8 +271,9 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠, 오늘도 차트 오래 볼 거야?",
                         "미리 알면 요미가 하루를 어떻게 쓸지 정할 수 있어.",
                     },
-                    new TalkChoice("정해지면 바로 말할게.", TalkTrait.Duty, 2, "응. 그거면 돼. 기다리는 건 요미가 잘해."),
-                    new TalkChoice("오래는 안 봐. 일찍 접을게.", TalkTrait.Warm, 3, "...그럼 요미도 오늘 하루 열심히 살아볼게."))),
+                    new TalkChoice("정해지면 바로 말할게.", TalkTrait.Duty, 0, "응. 그거면 돼. 기다리는 건 요미가 잘해."),
+                    new TalkChoice("오래는 안 봐. 일찍 접을게.", TalkTrait.Warm, 1, "...그럼 요미도 오늘 하루 열심히 살아볼게."),
+                    new TalkChoice("어. 오늘은 말 걸지 마.", TalkTrait.Plain, -1, "...알았어. 조용히 있을게. 옆에는 있어도 되는 거지?"))),
 
             // ── 놀이 ─────────────────────────────────────────────────────
             // 장면: 오빠가 화면에서 잠깐 물러난 참에 요미가 컨트롤러를 들고 온다. 방이 좁아 도망갈 데가 없다.
@@ -280,9 +287,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠, 지금 안 바쁘지?",
                         "이 방에서 도망갈 데 없는 거 알지.",
                     },
-                    new TalkChoice("바쁘다고 하면 믿어주려나?", TalkTrait.Plain, 1, "아니. 요미 눈은 못 속여. 방금 기지개 켰잖아."),
-                    new TalkChoice("도망갈 생각 없어.", TalkTrait.Plain, 1, "역시! 포기가 빠른 남자, 마음에 들어."),
-                    new TalkChoice("어. 일단 하나 줘봐.", TalkTrait.Waver, 0, "받았으면 끝이야. 이제 무를 수 없어.")),
+                    new TalkChoice("바쁘다고 하면 믿어주려나?", TalkTrait.Plain, 0, "아니. 요미 눈은 못 속여. 방금 기지개 켰잖아."),
+                    new TalkChoice("도망갈 생각 없어.", TalkTrait.Plain, 0, "역시! 포기가 빠른 남자, 마음에 들어."),
+                    new TalkChoice("어. 일단 하나 줘봐.", TalkTrait.Waver, 0, "받았으면 끝이야. 이제 무를 수 없어."),
+                    new TalkChoice("바빠. 차트 봐야 돼.", TalkTrait.Plain, -1, "...컨트롤러 들고 온 요미만 우습게 됐네. 딱 한 판만 하고 가. 그건 양보 못 해.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
@@ -290,7 +298,7 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠는 어렸을 때 뭐 하고 놀았어?",
                     },
                     new TalkChoice("글쎄... 기억이 잘 안 나네.", TalkTrait.Plain, 0, "에이. 하나쯤은 있을 거 아니야."),
-                    new TalkChoice("...나도 게임. 혼자 하는 거.", TalkTrait.Anxious, 1, "...우리 둘 다 그랬네. 그럼 지금부터 같이 하면 되겠다."),
+                    new TalkChoice("...나도 게임. 혼자 하는 거.", TalkTrait.Anxious, 0, "...우리 둘 다 그랬네. 그럼 지금부터 같이 하면 되겠다."),
                     new TalkChoice("갑자기 왜, 부끄럽게.", TalkTrait.Waver, 0, "그냥. 오빠 얘기 듣고 싶어서.")),
                 // 균열
                 new TalkNode(new[]
@@ -299,29 +307,31 @@ namespace FXOverdose.DatingSim.Dialogue
                         "진 사람이 소원 하나 들어주기.",
                         "요미 진심이야.",
                     },
-                    new TalkChoice("소원이 뭔지부터 듣자.", TalkTrait.Plain, 1, "안 돼. 먼저 말하면 오빠가 일부러 져줄 거잖아."),
-                    new TalkChoice("진심이면 각오도 했겠네.", TalkTrait.Plain, 2, "당연하지! 요미 아침부터 손 풀어놨어."),
+                    new TalkChoice("소원이 뭔지부터 듣자.", TalkTrait.Plain, 0, "안 돼. 먼저 말하면 오빠가 일부러 져줄 거잖아."),
+                    new TalkChoice("진심이면 각오도 했겠네.", TalkTrait.Plain, 0, "당연하지! 요미 아침부터 손 풀어놨어."),
                     new TalkChoice("그래. 지면 뭐든 들어줄게.", TalkTrait.Warm, 0, "그렇게 쉽게 말하면 재미없잖아!"),
-                    new TalkChoice("좋아, 콜. 물리기 없기다?", TalkTrait.Waver, 1, "헤헤. 후회해도 늦었어.")),
+                    new TalkChoice("좋아, 콜. 물리기 없기다?", TalkTrait.Waver, 0, "헤헤. 후회해도 늦었어.")),
                 // 직면
                 new TalkNode(new[]
                     {
+                        "※ 몇 판이 지나간다. 요미 쪽 컨트롤러 소리가 점점 급해진다.",
                         "...어라?",
                         "이상하다. 어제는 이거 됐는데.",
                     },
-                    new TalkChoice("어제는 뭐가 됐는데?", TalkTrait.Plain, 1, "아, 그게... 연습 좀 했어. 오빠 이기려고."),
-                    new TalkChoice("다시 하자, 방금 건 빼고.", TalkTrait.Plain, 2, "당연하지! 방금 건 손이 미끄러진 거야."),
-                    new TalkChoice("나 이기려고 그런 거야?", TalkTrait.Warm, 3, "...웃지 마! 그렇게 정확하게 말하지도 말고!"),
-                    new TalkChoice("아, 내가 너무 세게 했나.", TalkTrait.Duty, 1, "그런 거 아니야! 요미가 약한 게 아니라고!")),
+                    new TalkChoice("어제는 뭐가 됐는데?", TalkTrait.Plain, 0, "아, 그게... 연습 좀 했어. 오빠 이기려고."),
+                    new TalkChoice("다시 하자, 방금 건 빼고.", TalkTrait.Plain, 1, "당연하지! 방금 건 손이 미끄러진 거야."),
+                    new TalkChoice("나 이기려고 그런 거야?", TalkTrait.Warm, 2, "...웃지 마! 그렇게 정확하게 말하지도 말고!"),
+                    new TalkChoice("아, 내가 너무 세게 했나.", TalkTrait.Duty, 0, "그런 거 아니야! 요미가 약한 게 아니라고!")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "요미가 이길 때까지 할 거야.",
                         "오빠 오늘은 요미 거야.",
                     },
-                    new TalkChoice("오늘은 통째로 네 거고?", TalkTrait.Plain, 1, "일단 지금부터. 나머지는 이따 다시 얘기하자."),
-                    new TalkChoice("하던 거 접고 올게.", TalkTrait.Duty, 2, "진짜? 그럼 요미가 세팅해둘게!"),
-                    new TalkChoice("적당히 하고 밥 먹자.", TalkTrait.Waver, 0, "그 말 나올 줄 알았어. 한 판만 더. 딱 한 판만.")),
+                    new TalkChoice("오늘은 통째로 네 거고?", TalkTrait.Plain, 0, "일단 지금부터. 나머지는 이따 다시 얘기하자."),
+                    new TalkChoice("하던 거 접고 올게.", TalkTrait.Duty, 0, "진짜? 그럼 요미가 세팅해둘게!"),
+                    new TalkChoice("적당히 하고 밥 먹자.", TalkTrait.Waver, 0, "그 말 나올 줄 알았어. 한 판만 더. 딱 한 판만."),
+                    new TalkChoice("이제 됐지? 차트 좀 볼게.", TalkTrait.Plain, -1, "...치사해. 그래도 시작한 판은 끝내고 가. 그게 예의야.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -329,8 +339,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "...아직 안 졸려.",
                         "한 판만 더 하면 이길 것 같은데.",
                     },
-                    new TalkChoice("그 한 판은 이따 하자.", TalkTrait.Warm, 3, "...이따 진짜 하는 거다. 요미 기억해둘 거야."),
-                    new TalkChoice("이미 지고 있잖아.", TalkTrait.Plain, 1, "지고 있는 게 아니라 마지막에 뒤집는 타입인 거야."))),
+                    new TalkChoice("그 한 판은 이따 하자.", TalkTrait.Warm, 1, "...이따 진짜 하는 거다. 요미 기억해둘 거야."),
+                    new TalkChoice("이미 지고 있잖아.", TalkTrait.Plain, 0, "지고 있는 게 아니라 마지막에 뒤집는 타입인 거야."))),
 
             // ── 식사 ─────────────────────────────────────────────────────
             // 장면: 저녁/밤. 요미가 상을 다 차렸는데 오빠가 화면에서 눈을 못 뗀다. 면이 불어간다.
@@ -345,16 +355,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "...아직 화면 보고 있네.",
                     },
                     new TalkChoice("어, 미안. 딱 이것만 보고.", TalkTrait.Waver, 0, "그 딱 이것만, 아까부터 세 번째야. ...안 셌어. 느낌이야."),
-                    new TalkChoice("간다, 지금. 화면도 껐어.", TalkTrait.Duty, 1, "진짜? 그럼 요미 젓가락 놓을게.")),
+                    new TalkChoice("간다, 지금. 화면도 껐어.", TalkTrait.Duty, 0, "진짜? 그럼 요미 젓가락 놓을게."),
+                    new TalkChoice("먼저 먹어. 난 이따 먹을게.", TalkTrait.Waver, -1, "...같이 먹으려고 여태 기다린 건데. 안 돼. 오늘은 그냥 앉아. 응?")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
+                        "※ 상 앞에 마주 앉자 요미가 젓가락을 쥐여준다.",
                         "오빠는 밥 먹을 때 무슨 생각 해?",
                         "요미는 오빠가 언제 젓가락 놓나 그것만 봐.",
                     },
                     new TalkChoice("글쎄... 생각까진 안 하는데.", TalkTrait.Plain, 0, "그게 제일 부러워. 요미는 머리가 안 꺼져."),
-                    new TalkChoice("...솔직히? 차트 생각.", TalkTrait.Anxious, 1, "...먹을 때만이라도 좀 꺼줘. 부탁이야."),
-                    new TalkChoice("젓가락 놓는 거까지 봤어?", TalkTrait.Plain, 1, "매번 봤어. 오빠만 몰랐던 거야.")),
+                    new TalkChoice("...솔직히? 차트 생각.", TalkTrait.Anxious, 0, "...먹을 때만이라도 좀 꺼줘. 부탁이야."),
+                    new TalkChoice("젓가락 놓는 거까지 봤어?", TalkTrait.Plain, 0, "매번 봤어. 오빠만 몰랐던 거야.")),
                 // 균열
                 new TalkNode(new[]
                     {
@@ -362,9 +374,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "...좀 불었어.",
                         "괜찮아. 요미는 불은 것도 좋아해.",
                     },
-                    new TalkChoice("안 좋아하잖아.", TalkTrait.Plain, 2, "안 좋아해. 근데 오빠랑 먹으면 좀 나아."),
-                    new TalkChoice("불은 건 내 몫. 새로 끓이자.", TalkTrait.Warm, 1, "됐어. 지금 끓이면 또 기다려야 되잖아."),
-                    new TalkChoice("미안. 오래 기다리게 했네.", TalkTrait.Duty, 1, "사과할 거면 먹으면서 해. 식으면 더 미안해질 거야.")),
+                    new TalkChoice("안 좋아하잖아.", TalkTrait.Plain, 0, "안 좋아해. 근데 오빠랑 먹으면 좀 나아."),
+                    new TalkChoice("불은 건 내 몫. 새로 끓이자.", TalkTrait.Warm, 0, "됐어. 지금 끓이면 또 기다려야 되잖아."),
+                    new TalkChoice("미안. 오래 기다리게 했네.", TalkTrait.Duty, 0, "사과할 거면 먹으면서 해. 식으면 더 미안해질 거야."),
+                    new TalkChoice("불었으면 그냥 버리자.", TalkTrait.Plain, -1, "...버리자는 말이 제일 아프네. 요미가 만든 건데.")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -372,18 +385,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "여기서 요미가 확실하게 할 수 있는 게 그거라서.",
                         "...이런 말 하려던 건 아닌데.",
                     },
-                    new TalkChoice("그것만 하는 거 아니잖아.", TalkTrait.Warm, 3, "...그럼 뭘 더 하는데. 말해봐. 다 들을 거야."),
+                    new TalkChoice("그것만 하는 거 아니잖아.", TalkTrait.Warm, 2, "...그럼 뭘 더 하는데. 말해봐. 다 들을 거야."),
                     new TalkChoice("...하려던 말은 뭐였는데.", TalkTrait.Waver, 0, "까먹었어. ...아니, 방금 한 말이 다야."),
-                    new TalkChoice("알아. 매일 잘 먹고 있고.", TalkTrait.Plain, 2, "그거면 됐어. 그거 들으려고 기다린 거야."),
-                    new TalkChoice("...나도 여기서 뭘 해야 될지.", TalkTrait.Anxious, 1, "...오빠도 몰라? 그럼 그냥 이러고 있으면 되는 건가.")),
+                    new TalkChoice("알아. 매일 잘 먹고 있고.", TalkTrait.Plain, 1, "그거면 됐어. 그거 들으려고 기다린 거야."),
+                    new TalkChoice("...나도 여기서 뭘 해야 될지.", TalkTrait.Anxious, 0, "...오빠도 몰라? 그럼 그냥 이러고 있으면 되는 건가.")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "됐어! 분위기 이상해졌어.",
                         "먹자. 더 불면 이건 라면도 아니야.",
                     },
-                    new TalkChoice("이미 라면은 아닌 것 같은데.", TalkTrait.Plain, 1, "말하지 마. 먹기 전까지는 라면이야."),
-                    new TalkChoice("잘 먹을게. 불어도 네 거니까.", TalkTrait.Warm, 2, "응. 많이 먹어. 요미 건 좀 남겨두고.")),
+                    new TalkChoice("이미 라면은 아닌 것 같은데.", TalkTrait.Plain, 0, "말하지 마. 먹기 전까지는 라면이야."),
+                    new TalkChoice("잘 먹을게. 불어도 네 거니까.", TalkTrait.Warm, 0, "응. 많이 먹어. 요미 건 좀 남겨두고.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -391,8 +404,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠. 다음엔 화면 끄고 와줘.",
                         "요미는 그거면 돼.",
                     },
-                    new TalkChoice("알았어. 끄고 올게.", TalkTrait.Duty, 3, "...그 말 믿을게. 요미는 잘 믿는 편이야."),
-                    new TalkChoice("노력은... 해볼게.", TalkTrait.Waver, 1, "노력이라는 말은 좀 미끄러워."))),
+                    new TalkChoice("알았어. 끄고 올게.", TalkTrait.Duty, 1, "...그 말 믿을게. 요미는 잘 믿는 편이야."),
+                    new TalkChoice("노력은... 해볼게.", TalkTrait.Waver, 0, "노력이라는 말은 좀 미끄러워."))),
 
             // ── 삐짐 ─────────────────────────────────────────────────────
             // 장면: 저녁/밤. 낮에 세 번 불렀는데 오빠는 화면만 봤다. 방이 좁아 피할 데가 없어 이불을 뒤집어썼다.
@@ -406,17 +419,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "......",
                         "안 들려. 요미 자는 중이야.",
                     },
-                    new TalkChoice("자는 중인데 말을 하네.", TalkTrait.Plain, 1, "자면서 말하는 사람도 있어. 요미가 그런 타입이야."),
+                    new TalkChoice("자는 중인데 말을 하네.", TalkTrait.Plain, 0, "자면서 말하는 사람도 있어. 요미가 그런 타입이야."),
                     new TalkChoice("음. 그럼 깰 때까지 기다리지.", TalkTrait.Plain, 0, "...안 자! 누가 기다리래!"),
-                    new TalkChoice("...내가 뭐 잘못했지.", TalkTrait.Duty, 1, "알면서 왜 물어. 알면 그냥 말해.")),
+                    new TalkChoice("...내가 뭐 잘못했지.", TalkTrait.Duty, 0, "알면서 왜 물어. 알면 그냥 말해."),
+                    new TalkChoice("그래. 그럼 계속 자.", TalkTrait.Plain, -1, "...진짜 그냥 가려고 하네. 야, 잠깐 앉아봐. 요미 아직 안 끝났어.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
-                        "...오빠 오늘 손해 봤지.",
+                        "...오빠 오늘 무슨 일 있었지.",
                         "표정 안 봐도 알아. 문 닫는 소리부터 달랐어.",
                     },
-                    new TalkChoice("...소리까지 달랐어?", TalkTrait.Anxious, 1, "많이. 요미는 그런 것만 잘 알아."),
-                    new TalkChoice("손해는 무슨... 아니야.", TalkTrait.Waver, 0, "그럼 됐고. ...아니, 안 됐어. 왜 숨겨."),
+                    new TalkChoice("...소리까지 달랐어?", TalkTrait.Anxious, 0, "많이. 요미는 그런 것만 잘 알아."),
+                    new TalkChoice("무슨 일은... 아니야.", TalkTrait.Waver, 0, "그럼 됐고. ...아니, 안 됐어. 왜 숨겨."),
                     new TalkChoice("그 얘긴 이따가. 응?", TalkTrait.Plain, 0, "알았어. 이따가 진짜 하는 거다?")),
                 // 균열
                 new TalkNode(new[]
@@ -426,9 +440,9 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠는 화면만 봤고.",
                     },
                     new TalkChoice("...못 들었어, 진짜로.", TalkTrait.Plain, 0, "그래. 못 들었겠지. 화면이 요미보다 시끄러웠나 봐."),
-                    new TalkChoice("미안. 변명이 없네, 이건.", TalkTrait.Duty, 2, "알아. 아는데 그게 더 서운해."),
-                    new TalkChoice("뭐라고 불렀는데?", TalkTrait.Plain, 2, "그냥 오빠, 라고. 세 번 다 그거였어."),
-                    new TalkChoice("...화면만 보고 있었네, 내가.", TalkTrait.Anxious, 1, "알아. 근데 요미는 그때 옆에 있었어.")),
+                    new TalkChoice("미안. 변명이 없네, 이건.", TalkTrait.Duty, 0, "알아. 아는데 그게 더 서운해."),
+                    new TalkChoice("뭐라고 불렀는데?", TalkTrait.Plain, 0, "그냥 오빠, 라고. 세 번 다 그거였어."),
+                    new TalkChoice("...화면만 보고 있었네, 내가.", TalkTrait.Anxious, 0, "알아. 근데 요미는 그때 옆에 있었어.")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -436,17 +450,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "언제 눈 뗄까 하고 계속 봤어.",
                         "그러다 하려던 말도 까먹었어.",
                     },
-                    new TalkChoice("까먹은 말, 뭐였는데?", TalkTrait.Plain, 2, "까먹었다니까. ...아마 별거 아니었을 거야."),
-                    new TalkChoice("이제 봤어. 말해줘.", TalkTrait.Warm, 3, "...치사해. 그렇게 말하면 화도 못 내잖아."),
-                    new TalkChoice("계속 보게 해서 미안해.", TalkTrait.Duty, 2, "사과는 한 번이면 됐어. 두 번 하면 가벼워져.")),
+                    new TalkChoice("까먹은 말, 뭐였는데?", TalkTrait.Plain, 1, "까먹었다니까. ...아마 별거 아니었을 거야."),
+                    new TalkChoice("이제 봤어. 말해줘.", TalkTrait.Warm, 2, "...치사해. 그렇게 말하면 화도 못 내잖아."),
+                    new TalkChoice("계속 보게 해서 미안해.", TalkTrait.Duty, 1, "사과는 한 번이면 됐어. 두 번 하면 가벼워져."),
+                    new TalkChoice("그게 그렇게 화낼 일이야?", TalkTrait.Plain, -1, "...그래. 요미만 이상한 걸로 하자. 됐지?")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "됐어. 이제 다 풀렸어.",
                         "근데 아직 이불에서 나갈 마음은 없어.",
                     },
-                    new TalkChoice("나갈 때까지 여기 있을게.", TalkTrait.Warm, 2, "...반칙이야. 그러면 금방 나가고 싶어지잖아."),
-                    new TalkChoice("풀렸는데 왜 안 나와?", TalkTrait.Plain, 1, "몰라. 오빠가 궁금해할 때까지."),
+                    new TalkChoice("나갈 때까지 여기 있을게.", TalkTrait.Warm, 0, "...반칙이야. 그러면 금방 나가고 싶어지잖아."),
+                    new TalkChoice("풀렸는데 왜 안 나와?", TalkTrait.Plain, 0, "몰라. 오빠가 궁금해할 때까지."),
                     new TalkChoice("음... 그럼 나도 누울까?", TalkTrait.Waver, 0, "이 좁은 데 둘이 어떻게 누워. ...못 눕는 건 아니지만.")),
                 // 착지
                 new TalkNode(new[]
@@ -455,8 +470,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "다음엔 대답만 해줘.",
                         "응, 이라고만 해도 돼. 그럼 요미는 기다릴 수 있어.",
                     },
-                    new TalkChoice("응.", TalkTrait.Warm, 3, "...지금 한 거야? 그렇게 바로 하면 어떡해."),
-                    new TalkChoice("...그럴게. 아마도.", TalkTrait.Waver, 1, "아마도는 빼. 응, 만 있으면 돼."))),
+                    new TalkChoice("응.", TalkTrait.Warm, 1, "...지금 한 거야? 그렇게 바로 하면 어떡해."),
+                    new TalkChoice("...그럴게. 아마도.", TalkTrait.Waver, 0, "아마도는 빼. 응, 만 있으면 돼."))),
 
             // ── 수면 ─────────────────────────────────────────────────────
             // 장면: 밤. 불을 끄고 누웠는데 요미가 잠들지 못한다. 방이 하나라 서로의 기척이 다 들린다.
@@ -470,7 +485,7 @@ namespace FXOverdose.DatingSim.Dialogue
                         "...오빠. 자?",
                         "자면 대답 안 해도 돼.",
                     },
-                    new TalkChoice("자면서 대답하는 중이야.", TalkTrait.Plain, 1, "...뭐야 그게. 잠꼬대치고 발음이 너무 좋은데."),
+                    new TalkChoice("자면서 대답하는 중이야.", TalkTrait.Plain, 0, "...뭐야 그게. 잠꼬대치고 발음이 너무 좋은데."),
                     new TalkChoice("...나도 잠이 안 오네.", TalkTrait.Anxious, 0, "그럼 둘 다 못 자는 거네. 좀 안심된다.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
@@ -479,8 +494,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "요미는 낮에 못 한 걱정을 밤에 몰아서 해.",
                     },
                     new TalkChoice("글쎄, 생각은 낮에 다 쓰는데.", TalkTrait.Plain, 0, "거짓말. 아까 한숨 쉬었잖아."),
-                    new TalkChoice("...돈 생각.", TalkTrait.Anxious, 1, "그건 요미도 좀 알 것 같아. 미안해."),
-                    new TalkChoice("걱정. 너랑 비슷한 걸로.", TalkTrait.Warm, 1, "그럼 우리 둘이 밤마다 같은 걸 하고 있었네.")),
+                    new TalkChoice("...돈 생각.", TalkTrait.Anxious, 0, "그건 요미도 좀 알 것 같아. 미안해."),
+                    new TalkChoice("걱정. 너랑 비슷한 걸로.", TalkTrait.Warm, 0, "그럼 우리 둘이 밤마다 같은 걸 하고 있었네.")),
                 // 균열
                 new TalkNode(new[]
                     {
@@ -488,9 +503,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "아까 꿈 꿨어.",
                         "오빠가 멀어지는데 요미는 발이 안 움직였어.",
                     },
-                    new TalkChoice("무슨 꿈인지 더 말해봐.", TalkTrait.Warm, 2, "소리도 안 났어. 부르는데 목소리가 안 나왔어."),
-                    new TalkChoice("음... 꿈은 반대라던데.", TalkTrait.Plain, 1, "...그 말 진짜지? 반대면 오빠는 안 멀어지는 거지?"),
-                    new TalkChoice("계속 깨어 있었네.", TalkTrait.Plain, 2, "...응. 좀 됐어.")),
+                    new TalkChoice("무슨 꿈인지 더 말해봐.", TalkTrait.Warm, 0, "소리도 안 났어. 부르는데 목소리가 안 나왔어."),
+                    new TalkChoice("음... 꿈은 반대라던데.", TalkTrait.Plain, 0, "...그 말 진짜지? 반대면 오빠는 안 멀어지는 거지?"),
+                    new TalkChoice("계속 깨어 있었네.", TalkTrait.Plain, 0, "...응. 좀 됐어."),
+                    new TalkChoice("꿈은 그냥 꿈이야. 얼른 자.", TalkTrait.Plain, -1, "...응. 그냥 꿈이지. 미안, 붙잡아서. ...근데 하나만 더 말해도 돼?")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -498,18 +514,19 @@ namespace FXOverdose.DatingSim.Dialogue
                         "얹혀사는 주제에 잠까지 깨우면 좀 그렇잖아.",
                         "...이렇게 말할 생각은 아니었는데.",
                     },
-                    new TalkChoice("그런 계산 하지 마.", TalkTrait.Warm, 3, "...계산 안 하면, 요미는 여기 그냥 있어도 되는 거야?"),
-                    new TalkChoice("앞으로는 그냥 깨워. 응?", TalkTrait.Duty, 2, "응... 다음엔 그럴게. 아마도."),
-                    new TalkChoice("얼마나 고민했는데.", TalkTrait.Plain, 1, "안 셌어. 세면 더 길어지니까."),
-                    new TalkChoice("얹혀사는 거 아니야.", TalkTrait.Warm, 2, "그렇게 말해주는 건 고마운데, 요미도 알아.")),
+                    new TalkChoice("그런 계산 하지 마.", TalkTrait.Warm, 2, "...계산 안 하면, 요미는 여기 그냥 있어도 되는 거야?"),
+                    new TalkChoice("앞으로는 그냥 깨워. 응?", TalkTrait.Duty, 1, "응... 다음엔 그럴게. 아마도."),
+                    new TalkChoice("얼마나 고민했는데.", TalkTrait.Plain, 0, "안 셌어. 세면 더 길어지니까."),
+                    new TalkChoice("얹혀사는 거 아니야.", TalkTrait.Warm, 1, "그렇게 말해주는 건 고마운데, 요미도 알아.")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "헤헤. 말하고 나니까 좀 낫다.",
                         "역시 요미는 입 다물고 있으면 안 되는 타입이야.",
                     },
-                    new TalkChoice("이제 알았어?", TalkTrait.Plain, 1, "알고는 있었어. 인정하기 싫었을 뿐이야."),
-                    new TalkChoice("그 타입, 나쁘지 않은데.", TalkTrait.Warm, 2, "그럼 요미 계속 이 타입 할래. 오빠는 잠 좀 설치고.")),
+                    new TalkChoice("이제 알았어?", TalkTrait.Plain, 0, "알고는 있었어. 인정하기 싫었을 뿐이야."),
+                    new TalkChoice("그 타입, 나쁘지 않은데.", TalkTrait.Warm, 0, "그럼 요미 계속 이 타입 할래. 오빠는 잠 좀 설치고."),
+                    new TalkChoice("다 했으면 이제 자자.", TalkTrait.Plain, -1, "...응. 알았어. 아, 자기 전에 딱 하나만. 하나만 더 들어줘.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -517,9 +534,9 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠.",
                         "요미 잠들 때까지만 깨어 있어줘.",
                     },
-                    new TalkChoice("잠들 때까지만? 더 있을게.", TalkTrait.Duty, 3, "...응. 그럼 이제 진짜 잘게."),
-                    new TalkChoice("얼마나?", TalkTrait.Plain, 1, "몰라. 그냥 조금. 조금이면 돼."),
-                    new TalkChoice("안 잘게.", TalkTrait.Waver, 2, "거짓말이어도 지금은 그게 좋아."))),
+                    new TalkChoice("잠들 때까지만? 더 있을게.", TalkTrait.Duty, 1, "...응. 그럼 이제 진짜 잘게."),
+                    new TalkChoice("얼마나?", TalkTrait.Plain, 0, "몰라. 그냥 조금. 조금이면 돼."),
+                    new TalkChoice("안 잘게.", TalkTrait.Waver, 0, "거짓말이어도 지금은 그게 좋아."))),
 
             // ── 애정 ─────────────────────────────────────────────────────
             // 장면: 밤. 불을 끄고 창가에 나란히 앉아 있다. 원룸이라 창은 하나뿐이다.
@@ -533,8 +550,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "불 끄니까 좋다.",
                         "요미 목소리가 더 잘 들려.",
                     },
-                    new TalkChoice("잘 들려. 숨소리까지 들리네.", TalkTrait.Plain, 1, "숨은 쉬어야 하잖아! ...조용히 쉬어볼게."),
-                    new TalkChoice("좋다, 이거. 매일 끌까?", TalkTrait.Warm, 1, "진짜지? 물리기 없기. 스위치는 요미 담당 할게.")),
+                    new TalkChoice("잘 들려. 숨소리까지 들리네.", TalkTrait.Plain, 0, "숨은 쉬어야 하잖아! ...조용히 쉬어볼게."),
+                    new TalkChoice("좋다, 이거. 매일 끌까?", TalkTrait.Warm, 0, "진짜지? 물리기 없기. 스위치는 요미 담당 할게.")),
                 // 곁길 — 요미가 묻는다
                 new TalkNode(new[]
                     {
@@ -542,8 +559,8 @@ namespace FXOverdose.DatingSim.Dialogue
                         "요미는 저 창문. 기다릴 때 볼 게 있어서.",
                     },
                     new TalkChoice("글쎄... 갑자기 물으면 어렵네.", TalkTrait.Waver, 0, "생각해봐. 하나쯤은 있을 거 아니야."),
-                    new TalkChoice("조용한 거. 특히 이 시간.", TalkTrait.Plain, 1, "...그럼 요미는 방해되는 쪽이네."),
-                    new TalkChoice("네가 앉아 있는 자리.", TalkTrait.Warm, 1, "...그건 반칙이야. 아직 밤도 안 깊었는데.")),
+                    new TalkChoice("조용한 거. 특히 이 시간.", TalkTrait.Plain, 0, "...그럼 요미는 방해되는 쪽이네."),
+                    new TalkChoice("네가 앉아 있는 자리.", TalkTrait.Warm, 0, "...그건 반칙이야. 아직 밤도 안 깊었는데.")),
                 // 균열
                 new TalkNode(new[]
                     {
@@ -551,9 +568,10 @@ namespace FXOverdose.DatingSim.Dialogue
                         "오빠.",
                         "요미 이상한 얘기 하나 해도 돼?",
                     },
-                    new TalkChoice("어. 밤엔 원래 그런 얘기 하는 거잖아.", TalkTrait.Plain, 2, "...아니다. 말하면 진짜가 될 것 같아."),
-                    new TalkChoice("얼마나 이상한 얘긴데?", TalkTrait.Plain, 1, "밤에만 나오는 종류의 생각이야."),
-                    new TalkChoice("...무거운 얘기면 이따 듣자.", TalkTrait.Anxious, 2, "...오빠는 가끔 정확해서 얄미워.")),
+                    new TalkChoice("어. 밤엔 원래 그런 얘기 하는 거잖아.", TalkTrait.Plain, 0, "...말하면 진짜가 될 것 같아서 무서운데. 그래도 들어줘."),
+                    new TalkChoice("얼마나 이상한 얘긴데?", TalkTrait.Plain, 0, "밤에만 나오는 종류의 생각이야."),
+                    new TalkChoice("...무거운 얘기면 이따 듣자.", TalkTrait.Anxious, 0, "...오빠는 가끔 정확해서 얄미워. 그래도 지금 할래. 밤 아니면 못 하는 얘기야."),
+                    new TalkChoice("졸린데. 짧게 하면 안 돼?", TalkTrait.Waver, -1, "...됐어, 라고 하고 싶은데 안 되겠어. 짧게 할 테니까 그냥 들어.")),
                 // 직면
                 new TalkNode(new[]
                     {
@@ -561,18 +579,18 @@ namespace FXOverdose.DatingSim.Dialogue
                         "딱 하루치만. 그 이상은 못 하겠더라.",
                         "거기서 멈췄어. 무서워서.",
                     },
-                    new TalkChoice("왜 그런 상상을 했는데.", TalkTrait.Plain, 1, "가끔 혼자 나와. 부르지도 않았는데."),
-                    new TalkChoice("나갈 일 없어.", TalkTrait.Duty, 3, "...그 말은 반칙이야. 지금 심장 소리 들리겠어."),
-                    new TalkChoice("상상은 거기서 멈춰도 돼.", TalkTrait.Warm, 2, "응. 근데 지금은 안 무서워. 옆에 있잖아."),
-                    new TalkChoice("...나도 해봤어, 그 상상.", TalkTrait.Anxious, 2, "...오빠도? 그럼 우리 둘 다 겁이 많네.")),
+                    new TalkChoice("왜 그런 상상을 했는데.", TalkTrait.Plain, 0, "가끔 혼자 나와. 부르지도 않았는데."),
+                    new TalkChoice("나갈 일 없어.", TalkTrait.Duty, 2, "...그 말은 반칙이야. 지금 심장 소리 들리겠어."),
+                    new TalkChoice("상상은 거기서 멈춰도 돼.", TalkTrait.Warm, 1, "응. 근데 지금은 안 무서워. 옆에 있잖아."),
+                    new TalkChoice("...나도 해봤어, 그 상상.", TalkTrait.Anxious, 1, "...오빠도? 그럼 우리 둘 다 겁이 많네.")),
                 // 전환
                 new TalkNode(new[]
                     {
                         "헤헤. 분위기 너무 무거워졌다.",
                         "요미가 이런 거 잘 못 해. 원래 시끄러운 애야.",
                     },
-                    new TalkChoice("알아. 많이 시끄럽지.", TalkTrait.Plain, 2, "뭐?! 지금 그거 욕이지! ...아니면 말고."),
-                    new TalkChoice("가끔은 이런 것도 좋잖아.", TalkTrait.Warm, 1, "...그럼 가끔만 할게. 자주 하면 오빠가 지쳐.")),
+                    new TalkChoice("알아. 많이 시끄럽지.", TalkTrait.Plain, 0, "뭐?! 지금 그거 욕이지! ...아니면 말고."),
+                    new TalkChoice("가끔은 이런 것도 좋잖아.", TalkTrait.Warm, 0, "...그럼 가끔만 할게. 자주 하면 오빠가 지쳐.")),
                 // 착지
                 new TalkNode(new[]
                     {
@@ -580,15 +598,19 @@ namespace FXOverdose.DatingSim.Dialogue
                         "내일도 오늘처럼만 있어줘.",
                         "더 안 바랄게.",
                     },
-                    new TalkChoice("더 바라도 돼.", TalkTrait.Warm, 3, "...그렇게 말하면 요미가 진짜 더 바랄 거야. 각오해."),
-                    new TalkChoice("내일도, 그다음도 이럴 건데.", TalkTrait.Duty, 2, "응. 아니까 이러고 있는 거야."),
-                    new TalkChoice("내일도 불 끄고 앉자.", TalkTrait.Warm, 1, "좋아. 그럼 그게 우리 약속인 걸로."))),
+                    new TalkChoice("더 바라도 돼.", TalkTrait.Warm, 1, "...그렇게 말하면 요미가 진짜 더 바랄 거야. 각오해."),
+                    new TalkChoice("내일도, 그다음도 이럴 건데.", TalkTrait.Duty, 0, "응. 아니까 이러고 있는 거야."),
+                    new TalkChoice("내일도 불 끄고 앉자.", TalkTrait.Warm, 0, "좋아. 그럼 그게 우리 약속인 걸로."),
+                    new TalkChoice("내일 일은 내일 생각하자.", TalkTrait.Plain, -1, "...그렇지. 괜히 약속 같은 거 바랐네."))),
         };
 
         /// <summary>
         /// 차트 방향성 힌트 대사. [Regime][티어] 로 접근합니다.
         /// 티어 1은 자칭 "나"로 흘리는 예감, 티어 2는 자칭 "요미"로 못 박는 단언입니다.
         /// Squeeze 티어 2는 방향 단어(위/아래)를 쓰지 않습니다. 그 날은 방향 자체가 없기 때문입니다. (S4)
+        ///
+        /// 모든 힌트에는 <b>주어(차트/장/시세)를 반드시 넣습니다.</b> "오늘 떨어져!"처럼 주어를
+        /// 생략하면 플레이어에게 하는 명령("떨어져 있어")으로 읽힙니다. (2026-08-14, S5)
         /// </summary>
         public static string[] HintLinesFor(MarketSimulationEngine.MarketRegime regime, int tier)
         {
@@ -609,75 +631,75 @@ namespace FXOverdose.DatingSim.Dialogue
 
         private static readonly string[] BullVague =
         {
-            "나 오늘 왠지 기분 좋은데? 이유는 몰라~",
-            "음... 오늘은 뭔가 잘 풀릴 것 같은 날이야.",
-            "나 아침부터 콧노래가 나와. 왜 이러지?",
-            "오늘 공기가 가벼워. 나만 그렇게 느끼나?",
-            "왠지 오늘은 좋은 일 생길 것 같아. 감이야, 감!",
+            "나 오늘 차트 왠지 느낌이 좋은데? 이유는 몰라~",
+            "음... 오늘 장은 뭔가 잘 풀릴 것 같은 예감이야.",
+            "나 아침부터 콧노래가 나와. 오늘 장, 나쁘지 않을 것 같아.",
+            "오늘 장 공기가 가벼워. 나만 그렇게 느끼나?",
+            "왠지 오늘 차트에선 좋은 일 생길 것 같아. 감이야, 감!",
         };
 
         private static readonly string[] BullClear =
         {
-            "오빠, 오늘은 위야! 요미 감각 믿어!",
-            "오늘 올라가! 요미가 장담할게, 위로 봐!",
-            "오빠 오늘은 참으면 손해야. 요미 말대로 위쪽!",
-            "요미 감이 확실해. 오늘 위로 뚫려!",
-            "오늘은 요미 믿고 위를 봐. 후회 안 할 거야!",
+            "오빠, 오늘 차트는 위야! 요미 감각 믿어!",
+            "오늘 차트 올라가! 요미가 장담할게, 위로 봐!",
+            "오빠 오늘 장은 참으면 손해야. 요미 말대로 위쪽이야!",
+            "요미 감이 확실해. 오늘 시세, 위로 뚫려!",
+            "오늘 차트는 요미 믿고 위를 봐. 후회 안 할 거야!",
         };
 
         private static readonly string[] BearVague =
         {
-            "음... 나 오늘은 조심하는 게 좋을 것 같아.",
-            "왠지 오늘은 마음이 무거워. 기분 탓인가?",
-            "나 오늘 좀 불안한데... 왜 그러지?",
-            "오늘은 뭔가 싸늘해. 조심해서 나쁠 건 없잖아?",
-            "이유는 모르겠는데 나 오늘 겁이 나.",
+            "음... 나 오늘 장은 조심하는 게 좋을 것 같아.",
+            "왠지 오늘 차트 생각만 하면 마음이 무거워. 기분 탓인가?",
+            "나 오늘 장이 좀 불안한데... 왜 그러지?",
+            "오늘 차트는 뭔가 싸늘해. 조심해서 나쁠 건 없잖아?",
+            "이유는 모르겠는데 나 오늘 장은 겁이 나.",
         };
 
         private static readonly string[] BearClear =
         {
-            "오늘 떨어져! 오빠 욕심부리면 요미가 화낼 거야!",
-            "오빠, 오늘은 아래야. 요미 말 꼭 들어!",
-            "오늘 내려가! 요미가 확실히 느껴져. 조심해!",
-            "요미 감각이 말해. 오늘은 아래로 간다고!",
-            "오빠 오늘은 지키는 날이야. 아래로 흘러!",
+            "오늘 차트 떨어져! 오빠 욕심부리면 요미가 화낼 거야!",
+            "오빠, 오늘 장은 하락이야. 요미 말 꼭 들어!",
+            "오늘 시세 내려가! 요미가 확실히 느껴져. 조심해!",
+            "요미 감각이 말해. 오늘 차트는 아래로 간다고!",
+            "오빠 오늘은 지키는 날이야. 장이 아래로 흘러!",
         };
 
         private static readonly string[] SidewaysVague =
         {
-            "오늘은 아무 일도 없을 것 같은데... 나만 그런가?",
-            "음... 나 오늘 좀 심심할 것 같은 느낌이야.",
-            "왠지 오늘은 조용한 날일 것 같아.",
-            "나 오늘 별로 두근거리지가 않아. 이상하지?",
-            "오늘은 뭔가 밋밋해. 기분 탓이면 좋겠는데.",
+            "오늘 장은 아무 일도 없을 것 같은데... 나만 그런가?",
+            "음... 나 오늘 차트는 좀 심심할 것 같은 느낌이야.",
+            "왠지 오늘 장은 조용한 날일 것 같아.",
+            "나 오늘은 차트 봐도 별로 두근거리지가 않아. 이상하지?",
+            "오늘 차트는 뭔가 밋밋해. 기분 탓이면 좋겠는데.",
         };
 
         private static readonly string[] SidewaysClear =
         {
-            "오늘 완전 지루할 거야. 요미 말 믿고 쉬어!",
-            "오빠, 오늘은 아무 일도 안 일어나. 요미가 장담해!",
-            "오늘은 쉬는 게 이기는 거야. 요미 믿어!",
-            "요미 감각으론 오늘 제자리야. 무리하지 마!",
-            "오늘 억지로 하면 손해야. 요미랑 놀자!",
+            "오늘 차트 완전 지루할 거야. 요미 말 믿고 쉬어!",
+            "오빠, 오늘 장엔 아무 일도 안 일어나. 요미가 장담해!",
+            "오늘 장은 쉬는 게 이기는 거야. 요미 믿어!",
+            "요미 감각으론 오늘 시세는 제자리야. 무리하지 마!",
+            "오늘 장에서 억지로 하면 손해야. 요미랑 놀자!",
         };
 
         private static readonly string[] SqueezeVague =
         {
-            "나 심장이 두근거려... 왜 이러지?",
-            "오늘 뭔가 이상해. 공기가 팽팽한 느낌이야.",
-            "나 아까부터 손이 떨려. 이유를 모르겠어...",
-            "오늘은 좀... 무서워. 뭔가 터질 것 같아.",
-            "왠지 오늘 조용하지 않을 것 같아. 나만 그래?",
+            "오늘 차트 생각만 하면 심장이 두근거려... 왜 이러지?",
+            "오늘 장 뭔가 이상해. 공기가 팽팽한 느낌이야.",
+            "나 차트 떠올리면 아까부터 손이 떨려. 이유를 모르겠어...",
+            "오늘 장은 좀... 무서워. 뭔가 터질 것 같아.",
+            "왠지 오늘 차트는 조용하지 않을 것 같아. 나만 그래?",
         };
 
         // Squeeze는 방향이 없는 날입니다. 방향 단어를 쓰면 반드시 거짓말이 됩니다. (S4)
         private static readonly string[] SqueezeClear =
         {
-            "오빠, 요미 무서워... 오늘 엄청 흔들릴 거야!",
-            "오늘 미친 듯이 요동칠 거야! 오빠 조심해!",
-            "요미 감각이 비명을 질러. 오늘 크게 터져!",
-            "오늘은 방향이 없어! 그냥 다 부서질 거야!",
-            "오빠 오늘은 물러나 있어. 요미가 무서워서 그래!",
+            "오빠, 요미 무서워... 오늘 차트 엄청 흔들릴 거야!",
+            "오늘 장은 미친 듯이 요동칠 거야! 오빠 조심해!",
+            "요미 감각이 비명을 질러. 오늘 시세가 크게 터져!",
+            "오늘 장엔 방향이 없어! 차트가 그냥 다 부서질 거야!",
+            "오빠 오늘 장에선 물러나 있어. 요미가 무서워서 그래!",
         };
     }
 }

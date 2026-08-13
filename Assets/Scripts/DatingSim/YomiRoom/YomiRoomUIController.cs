@@ -198,11 +198,11 @@ namespace FXOverdose.DatingSim.YomiRoom
                 obsessionText.text = $"OBSESSION  {obsession}";
         }
 
-        private void HandleActionFailed()
+        private void HandleActionFailed(string reason)
         {
             if (roomStateText != null)
-                roomStateText.text = "체력 또는 남은 시간 슬롯이 부족해요.";
-            Debug.LogWarning("[YomiRoomUI] Not enough time slots or stamina to perform action.");
+                roomStateText.text = reason;
+            Debug.LogWarning($"[YomiRoomUI] 행동 실패: {reason}");
         }
 
         private void AppendYomiLine(string line)
