@@ -69,87 +69,74 @@ namespace FXOverdose.Core
             var activeItems = ActiveItemEffectManager.Instance;
             var deliveryFood = DeliveryFoodManager.EnsureInstance();
             var inventory = FindAnyObjectByType<Inventory>(FindObjectsInactive.Include);
+            var dating = FXOverdose.DatingSim.Core.DatingTimeManager.Instance;
 
-            if (gm == null || status == null || levelSys == null || memory == null)
-            {
-                Debug.LogError("[SaveLoadManager] 저장에 실패했습니다. 필요한 시스템 중 일부를 찾을 수 없습니다.");
-                return false;
-            }
-
-            if (gm.CurrentState != GameManager.GameState.Playing &&
+            // 저장 금지 상태는 판정할 매니저가 실제로 있을 때만 검사합니다.
+            // (요미의 방/월드맵에는 GameManager도 TraderStatus도 없습니다)
+            if (gm != null &&
+                gm.CurrentState != GameManager.GameState.Playing &&
                 gm.CurrentState != GameManager.GameState.Paused)
             {
                 Debug.LogWarning($"[SaveLoadManager] 현재 상태({gm.CurrentState})에서는 저장할 수 없습니다.");
                 return false;
             }
 
-            if (status.CurrentMentalState == TraderStatus.MentalState.Overdose || (trading != null && trading.IsOverdoseTradeActive))
+            if ((status != null && status.CurrentMentalState == TraderStatus.MentalState.Overdose) ||
+                (trading != null && trading.IsOverdoseTradeActive))
             {
                 Debug.LogWarning("[SaveLoadManager] 오버도즈 상태 또는 기믹 발동 중에는 저장할 수 없습니다.");
                 return false;
             }
 
-            SaveData data = new SaveData
-            {
-                Version = Application.version,
-                GameMode = CurrentGameMode,
+            // 💡 [부분 저장] 직전 저장/로드본을 베이스로 삼습니다.
+            //    씬에 없는 매니저의 필드를 기본값으로 덮어써 날려버리는 것을 막습니다. (SV-A6)
+            //    베이스가 없으면 디스크의 기존 세이브를 읽어 옵니다. 그것도 없어야 새 데이터입니다.
+            SaveData data = CurrentData ?? ReadSaveFile(slotIndex) ?? new SaveData();
 
-                // GameManager
-                Balance = gm.CurrentBalance,
-                CurrentDay = gm.CurrentDay,
-                CurrentHour = gm.CurrentHour,
-                CurrentMinute = gm.CurrentMinute,
-                SecondsPerGameMinute = DynamicTimeRegulator.Instance != null
+            data.Version = Application.version;
+            data.GameMode = CurrentGameMode;
+            data.IsTutorialCompleted = this.IsTutorialCompleted;
+
+            if (gm != null)
+            {
+                data.Balance = gm.CurrentBalance;
+                data.CurrentDay = gm.CurrentDay;
+                data.CurrentHour = gm.CurrentHour;
+                data.CurrentMinute = gm.CurrentMinute;
+                data.SecondsPerGameMinute = DynamicTimeRegulator.Instance != null
                     ? DynamicTimeRegulator.Instance.BaseSecondsPerMinute
-                    : gm.SecondsPerGameMinute,
-                StartOfDayEquity = gm.StartOfDayEquity,
-                IsTutorialCompleted = this.IsTutorialCompleted,
-
-                // TraderStatus
-                PeakBalance = status.PeakBalance,
-                CurrentMental = status.CurrentMental,
-                CurrentMentalState = status.CurrentMentalState,
-                CurrentHealth = status.CurrentHealth,
-                MaxMental = status.MaxMental,
-                MaxMentalLimit = status.MaxMentalLimit,
-
-                // LevelSystem
-                ProtagonistLevel = levelSys.ProtagonistLevel,
-                ProtagonistEXP = levelSys.ProtagonistEXP,
-                ChartStudyLevel = levelSys.ChartStudyLevel,
-                CubePatienceLevel = levelSys.CubePatienceLevel,
-                BookJudgmentLevel = levelSys.BookJudgmentLevel,
-
-                // Costume
-                OwnedCostumeIds = costumes != null
-                    ? costumes.GetOwnedCostumeIds()
-                    : new List<string> { CostumeManager.StandardId },
-                EquippedCostumeId = costumes != null
-                    ? costumes.EquippedCostumeId
-                    : CostumeManager.StandardId,
-            };
-
-            if (trading != null)
-            {
-                data.ActiveTradingMode = trading.ActiveTradingMode;
-                data.AITradingStyle = trading.CurrentAITradingStyle;
-                if (trading.CurrentPosition != TradingController.PositionType.None)
-                {
-                    data.HasActivePosition = true;
-                    data.PositionType = trading.CurrentPosition;
-                    data.CurrentOwner = trading.CurrentOwner;
-                    data.EntryPrice = trading.EntryPrice;
-                    data.MarginAmount = trading.MarginAmount;
-                    data.CurrentLeverage = trading.CurrentLeverage;
-                    data.TargetPrice = trading.TargetPrice;
-                    data.StopLossPrice = trading.StopLossPrice;
-                }
+                    : gm.SecondsPerGameMinute;
+                data.StartOfDayEquity = gm.StartOfDayEquity;
             }
 
+            status?.CaptureSaveData(data);
+
+            if (levelSys != null)
+            {
+                data.ProtagonistLevel = levelSys.ProtagonistLevel;
+                data.ProtagonistEXP = levelSys.ProtagonistEXP;
+                data.ChartStudyLevel = levelSys.ChartStudyLevel;
+                data.CubePatienceLevel = levelSys.CubePatienceLevel;
+                data.BookJudgmentLevel = levelSys.BookJudgmentLevel;
+            }
+
+            if (costumes != null)
+            {
+                data.OwnedCostumeIds = costumes.GetOwnedCostumeIds();
+                data.EquippedCostumeId = costumes.EquippedCostumeId;
+            }
+
+            trading?.CaptureSaveData(data);
+            gm?.CaptureSettlementContext(data);
+            FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>(FindObjectsInactive.Include)?.CaptureSaveData(data);
             marketEngine?.CaptureSaveData(data);
             activeItems?.CaptureSaveData(data.ActiveItemIds, data.ActiveItemLevels);
+
             if (inventory != null)
             {
+                // 베이스를 재사용하므로 목록을 비우지 않으면 저장할 때마다 누적됩니다.
+                data.InventoryItemIds.Clear();
+                data.InventoryItemQuantities.Clear();
                 foreach (InventorySlot slot in inventory.Slots)
                 {
                     if (slot?.Item == null || slot.Quantity <= 0) continue;
@@ -157,8 +144,12 @@ namespace FXOverdose.Core
                     data.InventoryItemQuantities.Add(slot.Quantity);
                 }
             }
-            data.LastSteakPurchaseDay = deliveryFood.LastSteakPurchaseDay;
-            data.PastaBuffRemainingSeconds = deliveryFood.PastaRemainingSeconds;
+
+            if (deliveryFood != null)
+            {
+                data.LastSteakPurchaseDay = deliveryFood.LastSteakPurchaseDay;
+                data.PastaBuffRemainingSeconds = deliveryFood.PastaRemainingSeconds;
+            }
 
             var bossManager = FXOverdose.Core.BossManager.Instance;
             if (bossManager != null && bossManager.CurrentBoss != null)
@@ -167,19 +158,76 @@ namespace FXOverdose.Core
                 data.SavedBossCurrentAsset = bossManager.BossCurrentAsset;
             }
 
-            // DatingSim 상태 저장
-            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.SaveToData(data);
+            // DatingSim 상태 저장 (요미의 방/월드맵에서는 이쪽만 갱신됩니다)
+            dating?.SaveToData(data);
 
             // MemoryManager
-            // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만, 
+            // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만,
             // SaveLoadManager에서 직접 데이터를 얻거나 GameManager처럼 public Getter가 있으면 좋음.
             // 임시로 Reflection으로 추출. 추후 TraderMemoryManager에 GetData() 메서드를 추가하는 것이 좋음.
-            ExtractMemoryData(memory, data);
+            if (memory != null)
+            {
+                ExtractMemoryData(memory, data);
+            }
 
-            string json = JsonUtility.ToJson(data, true);
-            File.WriteAllText(GetSaveFilePath(slotIndex), json);
+            if (!WriteSaveFile(slotIndex, data))
+            {
+                return false;
+            }
+
+            // 다음 부분 저장의 베이스가 되도록 최신 스냅샷을 들고 있습니다. (SV-A7)
+            CurrentData = data;
             Debug.Log($"[SaveLoadManager] 슬롯 {slotIndex}에 게임 저장 완료:\n{GetSaveFilePath(slotIndex)}");
             return true;
+        }
+
+        /// <summary>세이브 파일을 읽어 역직렬화합니다. 없거나 깨졌으면 null.</summary>
+        private SaveData ReadSaveFile(int slotIndex)
+        {
+            string path = GetSaveFilePath(slotIndex);
+            if (!File.Exists(path)) return null;
+
+            try
+            {
+                return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[SaveLoadManager] 기존 세이브를 베이스로 읽지 못했습니다: {exception.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 임시 파일에 먼저 쓰고 교체하는 원자적 저장입니다.
+        /// 쓰는 도중 게임이 죽어도 기존 세이브 파일이 살아남습니다.
+        /// </summary>
+        private bool WriteSaveFile(int slotIndex, SaveData data)
+        {
+            string path = GetSaveFilePath(slotIndex);
+            string tempPath = path + ".tmp";
+
+            try
+            {
+                File.WriteAllText(tempPath, JsonUtility.ToJson(data, true));
+
+                if (File.Exists(path))
+                {
+                    // 교체 실패 시 원본이 남도록 백업본을 남깁니다.
+                    File.Replace(tempPath, path, path + ".bak", true);
+                }
+                else
+                {
+                    File.Move(tempPath, path);
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[SaveLoadManager] 슬롯 {slotIndex} 저장 실패: {exception.Message}");
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                return false;
+            }
         }
 
         /// <summary>스토리 시작/불러오기에서 선택한 슬롯에 저장합니다.</summary>
@@ -355,20 +403,8 @@ namespace FXOverdose.Core
                 }
             }
 
-            if (status != null)
-            {
-                // TraderStatus 필드 복구
-                var stType = typeof(TraderStatus);
-                stType.GetField("peakBalance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.PeakBalance);
-                stType.GetField("currentMental", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentMental);
-                stType.GetField("currentMentalState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentMentalState);
-                stType.GetField("currentHealth", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.CurrentHealth);
-                if (CurrentData.MaxMental > 0f)
-                {
-                    stType.GetField("maxMental", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.MaxMental);
-                    stType.GetField("maxMentalLimit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(status, CurrentData.MaxMentalLimit);
-                }
-            }
+            // 리플렉션 대신 TraderStatus 자신이 복원합니다. 중독·연패 카운터도 함께 되돌아옵니다. (SV-A1~A3)
+            status?.RestoreFromSaveData(CurrentData);
 
             if (levelSys != null)
             {
@@ -426,12 +462,12 @@ namespace FXOverdose.Core
             {
                 trading.SetTradingMode(CurrentData.ActiveTradingMode, forceRestore: true);
                 trading.SetAITradingStyle(CurrentData.AITradingStyle);
-                if (CurrentData.HasActivePosition)
-                {
-                    trading.RestorePosition(CurrentData);
-                }
+                // 포지션이 없어도 호출합니다. 이벤트 계약을 꺼진 상태로 확정해야 하기 때문입니다. (SV-A5)
+                trading.RestorePosition(CurrentData);
             }
 
+            gm?.RestoreSettlementContext(CurrentData);
+            FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>(FindObjectsInactive.Include)?.RestoreFromSaveData(CurrentData);
             marketEngine?.RestoreFromSaveData(CurrentData);
             deliveryFood.Restore(CurrentData.LastSteakPurchaseDay, CurrentData.PastaBuffRemainingSeconds);
 
@@ -446,7 +482,8 @@ namespace FXOverdose.Core
             FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
 
             IsPendingLoad = false;
-            CurrentData = null;
+            // CurrentData는 비우지 않습니다. 매니저가 없는 씬에서 부분 저장을 할 때
+            // 이 스냅샷이 베이스가 되어야 합니다. (SV-A6 / SV-A7)
             Debug.Log("[SaveLoadManager] 저장된 데이터를 인게임에 성공적으로 주입했습니다.");
         }
 

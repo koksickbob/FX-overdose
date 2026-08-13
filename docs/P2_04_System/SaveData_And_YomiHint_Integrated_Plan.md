@@ -54,15 +54,37 @@ ID 체계는 문서 전체에서 유일하다. `SV-` = 세이브 결함, `S` = �
 
 ## 2. 우선순위 지도
 
-| 단계 | 이름 | 포함 항목 | 착수 조건 |
+| 단계 | 이름 | 포함 항목 | 상태 |
 | --- | --- | --- | --- |
-| **P0** | **배관 수리** — 저장이 도달하지 않는 경로 | `SV-B1` `SV-B2` `SV-B10` **`SV-A6` `SV-A7` `SV-B14`** | 즉시 |
-| **P1** | **스키마 확정** — `SaveData` 최종 형태를 한 번에 | `SV-D1` `SV-D2` 제거 + P1~P3 신규 필드 전량 추가 | P0 완료 |
-| **P2** | **밸런스 붕괴 차단** — 치명 누락 배선 | `SV-A1`~`SV-A5` **`SV-B12`** | P1 완료 |
-| **P3** | **정합성 복구** — 중대 누락 배선 | `SV-B3`~`SV-B6` `SV-B9` | P1 완료 (P2와 병행 가능) |
-| **P3.5** | **데이팅 루프 성립** — P4의 하드 전제 | **`SV-A8`(슬롯 리필) `SV-B11`(진입 경로) `SV-B13`(포지션 중 이탈)** | P0 완료, `Q1`·`Q5` 승인 |
-| **P4** | **신규 기능** — 선택형 대화 + 차트 힌트 | `SV-B8` + 4절 전체 | **P0~P3.5 전부 완료** |
+| **P0** | **배관 수리** — 저장이 도달하지 않는 경로 | `SV-B1` `SV-B2` `SV-B10` `SV-A6` `SV-A7` `SV-B14` | ✅ **완료 (2026-08-13)** |
+| **P1** | **스키마 확정** — `SaveData` 최종 형태를 한 번에 | `SV-D1` `SV-D2` 제거 + P1~P4 신규 필드 전량 추가 | ✅ **완료** |
+| **P2** | **밸런스 붕괴 차단** — 치명 누락 배선 | `SV-A1`~`SV-A5` `SV-B12` | ✅ **완료** |
+| **P3** | **정합성 복구** — 중대 누락 배선 | `SV-B3`~`SV-B6` `SV-B9` | ✅ **완료** |
+| **P3.5** | **데이팅 루프 성립** — P4의 하드 전제 | `SV-A8`(슬롯 리필) `SV-B11`(진입 경로) `SV-B13`(포지션 중 이탈) + `Q1` 취침 | ✅ **완료 (2026-08-13)** |
+| **P4** | **신규 기능** — 선택형 대화 + 차트 힌트 | `SV-B8` + 4절 전체 | P3.5 완료 후 |
 | **P5** | **후속** — 승인 대기 / 여유 시 | `SV-B7`(`Q1`) `SV-C1`~`SV-C7` | 별도 승인 |
+
+### 2.1. P0~P3 구현 기록 (2026-08-13)
+
+| 항목 | 반영 위치 |
+| --- | --- |
+| `SV-B1` `SV-A6` | `SaveLoadManager.SaveGame()`을 **`CurrentData` 베이스 + 매니저별 개별 가드** 구조로 재작성. 일괄 `return false` 가드 해체. 인벤토리 목록은 누적 방지를 위해 `Clear()` 후 채움 |
+| `SV-A7` | 저장 성공 시 `CurrentData = data` 갱신. `ApplyLoadedDataToGame()`의 `CurrentData = null` 제거 |
+| `SV-B14` | `WriteSaveFile()` 신설 — 임시 파일 → `File.Replace`(백업 동반) 원자적 교체 + `try/catch`. 베이스 부재 시 디스크를 읽는 `ReadSaveFile()` 추가 |
+| `SV-B2` | `WorldMapManager`의 알바 보상·데이트 비용 폴백 직후 `SaveCurrentGame()` 호출 |
+| `SV-B10` | `YomiRoomManager.StartTrading()`에서 `SaveCurrentGame()` → `PrepareLoadGame()` 순서로 호출. `MoveToWorldMap()`도 저장 후 이동 |
+| `SV-D1` `SV-D2` | `SaveData.CurrentEmotion` / `CurrentSignalPhase` 제거 + 제거 사유 주석 |
+| P1 신규 필드 | `SaveData`에 22개 추가 (중독·이벤트 스케줄·이벤트 계약·엔진 시간축·정산 문맥·Outlook·요미 대화) |
+| 마이그레이션 | `SaveDataMigrator`에 1.6.0 게이트 추가. 백필은 불필요하나 **0으로 역직렬화되면 "1일차에 결정됨"으로 오해되는 일차 필드만** -1로 보정 |
+| `SV-A1`~`A3` | `TraderStatus.CaptureSaveData()` / `RestoreFromSaveData()` 신설. **기존 리플렉션 6줄을 걷어내고** 여기로 흡수. 부수 효과로 `wasLoaded` 플래그가 처음으로 실제 동작하게 되어, `Start()`의 `ResetStatus()`가 복원값을 덮어쓸 위험도 함께 닫힘 |
+| `SV-A4` | `ChoiceEventController.CaptureSaveData()` / `RestoreFromSaveData()` 신설 |
+| `SV-A5` | `TradingController.CaptureSaveData()` 신설 + `RestorePosition()`이 **포지션 유무와 무관하게** 이벤트 계약을 복원하도록 변경(포지션이 없으면 꺼진 상태로 확정). 복원 불가능한 `eventProtectionEndTime`은 명시적으로 해제 |
+| `SV-B3`~`B5` | 엔진의 `CaptureSaveData`/`RestoreFromSaveData`에 `lastUpdatedDay`·`minutesUntilNextRegimeChange`·`currentTotalMinutes` 추가 |
+| `SV-B6` `SV-B9` | `GameManager.CaptureSettlementContext()` / `RestoreSettlementContext()` 신설 |
+| `SV-B12` | `DatingTimeManager.ModifyAffection()`에 `Mathf.Clamp(0, 100)` 적용 |
+| 검증 도구 | `Assets/Editor/SaveRoundTripTester.cs` — 메뉴 `FXOverdose/Debug/세이브 왕복(Round-trip) 검사` |
+
+**미구현으로 남긴 것**: `S17`의 저장 디바운스. 원자적 쓰기를 넣었고 데이팅 대화 1회당 저장은 4회 수준이라 현재는 불필요하다. 저장 빈도가 체감될 때 추가한다.
 
 > **P3.5는 재검증에서 신설됐다.** 슬롯이 리필되지 않고 방으로 들어가는 문도 없는 상태에서는 P4를 만들어도 **플레이어가 기능에 접근할 수 없다.** 이전 판의 우선순위는 이 층을 통째로 빠뜨리고 있었다.
 
@@ -314,14 +336,30 @@ namespace FXOverdose.Trading
 
 `DailyMarketOutlook.Regime × 힌트 티어` 조합별로 대사 풀을 둔다.
 
-| Regime | 티어 1 (모호) | 티어 2 (명시) |
+| Regime | 티어 1 (모호 · 자칭 `나`) | 티어 2 (명시 · 자칭 `요미`) |
 | --- | --- | --- |
-| `Bull` | "오늘은 왠지 기분이 좋은 날이에요" | "오늘은... 위를 보세요, 마스터" |
-| `Bear` | "왠지 조심하는 게 좋을 것 같아요" | "오늘은 떨어질 거예요. 욕심내지 마세요" |
-| `Sideways` | "오늘은 아무 일도 없을 것 같아요" | "오늘은 지루할 거예요. 쉬는 것도 매매예요" |
-| `Squeeze` | "심장이 두근거려요. 왜인지는 모르겠어요" | **방향 대신 변동성 경고** — "오늘은... 무서워요. 크게 흔들릴 거예요" |
+| `Bull` | "나 오늘 왠지 기분 좋은데? 이유는 몰라~" | "오빠, 오늘은 위야! 요미 감각 믿어!" |
+| `Bear` | "음... 나 오늘은 조심하는 게 좋을 것 같아" | "오늘 떨어져! 오빠 욕심부리면 요미가 화낼 거야!" |
+| `Sideways` | "오늘은 아무 일도 없을 것 같은데... 나만 그런가?" | "오늘 완전 지루할 거야. 요미 말 믿고 쉬어!" |
+| `Squeeze` | "나 심장이 두근거려... 왜 이러지?" | **방향 대신 변동성 경고** — "오빠, 요미 무서워... 오늘 엄청 흔들릴 거야!" |
+
+위 8줄은 **각 칸의 견본**이다. 티어 1은 자기도 이유를 모르는 예감이라 `나`로 흘리고, 티어 2는 자기 감각을 내세우는 단언이라 `요미`로 못 박는다. 나머지 32줄도 이 대비를 지킨다.
 
 각 칸에 **최소 5줄**을 채워 8 × 5 = **40줄 이상**. 무작위 선택하되 직전 사용분 1개는 제외.
+
+**대사 규격** — [P2_02_Yomi_Character_Bible.md](../P2_02_Worldbuilding/P2_02_Yomi_Character_Bible.md)를 따른다.
+
+| 항목 | 값 |
+| --- | --- |
+| 호칭 / 말투 | **"오빠" / 반말** (바이블 4.1~4.3절) |
+| 자칭 | 티어 1(모호·혼잣말)은 `나`, 티어 2(단언·자기 감각 어필)는 `요미` (바이블 4.2절 감정 온도 규칙) |
+| 길이 | **60자 이내** — 데이팅 일상 말풍선 표면 |
+| 톤 | **차트 인격이 아니다.** 힌트는 요미가 방에서 흘리는 예감이지 매매 지시가 아니므로, "가즈아" 계열 도박꾼 어휘를 쓰지 않는다 |
+| 확신도 | 티어 1은 자기도 이유를 모르는 감각, 티어 2는 단언. **어느 쪽도 "확정"이라고 말하지 않는다** (`S5`) |
+
+> 초판에 쓰여 있던 "마스터 + 존댓말"은 게임에 이미 들어간 요미 대사 880줄과 정면으로 충돌해 폐기했다. 이 충돌은 코드 전반에서 **2026-08-13 일괄 정리 완료**됐다 (바이블 7.1절).
+
+**작성 후 반드시** `python yomi_dialogue_lint.py` 를 돌린다. `YomiTalkTopics.cs`를 만들면 린터의 `CS_SOURCES` 목록에 경로를 추가해야 검사 범위에 들어간다.
 
 ### 4.8. 대화 데이터 구조 — 요청사항 4번
 
@@ -350,6 +388,51 @@ namespace FXOverdose.DatingSim.Dialogue
 > **승급 경로**: 비개발자 작가가 직접 편집해야 할 시점이 오면 `ScenarioCSVImporter`와 같은 CSV+TXT 파이프라인으로 옮긴다. 그때는 **프리베이크 도구가 `.asset`/CSV도 스캔하도록 확장하는 작업이 동반 필수다** (`S11`).
 
 토픽 5~6개로 시작한다. 20일 플레이 × 하루 2회 = 40회 소비되므로 소진 시 재사용을 허용하되, **같은 날 같은 토픽 재출현은 금지**한다 (`S2`).
+
+#### 4.8.1. 요미 대사(`YomiLine`) 작성 규칙
+
+바이블을 그대로 따르되, 이 대화는 **데이팅 파트**이므로 축이 고정된다.
+
+- **차트 인격을 쓰지 않는다** (바이블 3.5절). 일상 대화에서 요미는 덤벙대고 응석부리고 질투한다
+- 감정 축은 `DailyDialogueCategory` 7종 중 하나로 잡는다 (바이블 5.2절)
+- 길이 **60자 이내**, 반말, 호칭 "오빠"
+- 집착 표현 수위는 현재 집착도에 맞춘다 (바이블 5.3절)
+
+#### 4.8.2. 플레이어 선택지(`TalkChoice.Text`) 작성 규칙 — **바이블이 다루지 않는 영역**
+
+바이블은 요미의 목소리만 규정한다. **선택지는 오빠(플레이어)의 대사이므로 별도 규칙이 필요하다.**
+
+| 항목 | 규칙 |
+| --- | --- |
+| 화자 | 오빠 |
+| 요미 호칭 | **"요미" 또는 "너" 둘 다 자연스럽다.** 친밀한 관계의 2인칭이므로 매번 이름을 부르면 오히려 어색하다 |
+| 말투 | 반말. 요미보다 **차분하고 짧게** — 느낌표를 남발하지 않는다 |
+| 길이 | **25자 이내.** 버튼에 들어가야 한다 |
+| 자칭 | **"나" 고정.** 오빠는 3인칭 자칭을 쓰지 않는다 — `요미가~` 식 3인칭 자칭은 **요미만의 특징**이므로 오빠가 따라 하면 캐릭터 구분이 무너진다 |
+
+**선택지 설계 원칙 — 정답 하나 + 오답 하나가 아니다.**
+
++3은 요미가 **가장 듣고 싶어 하는 말**, +0은 **틀린 말이 아니라 무심한 말**이다. 플레이어가 "요미가 뭘 원하는지"를 읽어내는 게 게임이지, 상식 퀴즈가 아니다. 그래서 +0 선택지도 상황상 합리적으로 들려야 한다.
+
+**예시 토픽** (`TOPIC_MEAL`, 노드 2개):
+
+```
+[노드 1] 요미: "오빠 밥은 먹고 다니는 거야? 요미가 굶지 말라고 했지!"
+  ├─ "너나 잘 챙겨 먹어."          +0   ← 틀린 말은 아니지만 무심하다
+  ├─ "너 주려고 참았지."            +2
+  └─ "요미가 챙겨주면 먹을게."      +3   ← 의존을 인정해주는 말
+
+[노드 2] 요미: "그럼 지금 만들어 줄게! 뭐 먹고 싶어?"
+  ├─ "아무거나."                    +0
+  ├─ "네가 좋아하는 걸로."          +2
+  └─ "요미가 만든 거면 다 좋아."    +3
+```
+
+노드 2개 × 최대 +3 = **+6**. 티어 1(4~6) 진입은 되지만 티어 2(≥7)는 안 된다. **4노드짜리 토픽을 뽑아야 티어 2가 나온다** — 4.6절 수치와 맞물리는 의도된 설계다.
+
+**대사 총량 견적**: 토픽 6개 × 노드 평균 3개 = 요미 대사 18줄 + 선택지 54줄. 여기에 힌트 대사 40줄, 마무리 대사 6줄. **합계 약 120줄.**
+
+> ⚠️ 본 문서의 예시 대사는 **`.md`라서 `yomi_dialogue_lint.py`의 검사 범위 밖**이다. `YomiTalkTopics.cs`로 옮긴 뒤 린터를 돌려 다시 확인한다.
 
 ### 4.9. `YomiRoomManager` API 교체 — 요청사항 2·3번
 
@@ -501,13 +584,46 @@ if (CompareVersions(dataVersion, "1.6.0") < 0)
 
 ### 5.4.5. P3.5 — 데이팅 루프 성립 (재검증 신설, P4의 하드 전제)
 
-| 항목 | 작업 | 승인 |
-| --- | --- | --- |
-| `SV-A8` **슬롯 리필** | 하루가 넘어갈 때 `DatingTimeManager.AdvanceDay()`가 실제로 불리도록 배선. 일차 증가는 `GameManager.FinalizeProceedToNextDay()` 한 곳에만 두고([GameManager.cs:653](../../Assets/Scripts/GameManager.cs#L653)), **거기서 `AdvanceDay()`를 호출해 슬롯만 리필**한다. `DatingTimeManager.currentDay`는 `GameManager.CurrentDay`의 미러가 된다 (`S12`) | `Q1` |
-| `SV-B11` **진입 경로** | `GameScene` → 요미의 방 전환 지점 신설. 최소 구현은 씬 전환 3줄(`SaveCurrentGame` → `TargetSceneToLoad` → `LoadScene`)이며, **어디에 버튼을 두느냐가 설계 결정**이다 | `Q5` |
-| `SV-B13` **포지션 중 이탈** | 포지션 보유 중에는 데이팅 씬 이동을 **차단**한다. `TradingController.IsActive`가 true면 전환 버튼을 비활성화하고 사유를 표시 (`S18`) | — |
+**하루의 루프 — `Q1`·`Q5` 승인 확정 (2026-08-13)**
+
+```
+[요미의 방] 아침 시작
+     │  슬롯 소모 행동: 월드맵(알바·데이트) / 요미와 대화 / 휴식
+     │
+     ├─ [PC] 거래 개시 ──► [GameScene] Day N ──► 24:00 일일 정산
+     │                                              │
+     │                                              ▼
+     │                                     Day N+1 진입 + 요미의 방 아침으로 복귀
+     │
+     └─ [침대] 취침 ─────────────────────────► Day N+1 + 요미의 방 아침
+        (거래하지 않고 하루를 마감)
+```
+
+- **`Q5` 확정**: 진입 지점은 버튼이 아니라 **일일 정산 직후 자동 복귀**다. 정산이 끝나면 다음 날 아침으로 넘어가면서 곧바로 요미의 방에서 시작한다.
+- **`Q1` 확정**: 거래 없이 하루를 넘기는 경로는 **요미의 방 침대의 취침**이다.
+
+| 항목 | 작업 |
+| --- | --- |
+| `SV-A8` **슬롯 리필** | 일차 증가는 `GameManager.FinalizeProceedToNextDay()` 한 곳에만 두고([GameManager.cs:653](../../Assets/Scripts/GameManager.cs#L653)) **거기서 `DatingTimeManager.AdvanceDay()`를 호출해 슬롯을 리필**한다. `DatingTimeManager.currentDay`는 `GameManager.CurrentDay`의 미러가 된다 (`S12`) |
+| `SV-B11` **진입 경로** | `FinalizeProceedToNextDay()` 말미에서 `YomiRoomScene`으로 전환. 취침 경로는 **같은 정산 루틴을 태워** 일차 증가 지점을 하나로 유지한다 |
+| `SV-B13` **포지션 중 이탈** | 포지션 보유 중에는 데이팅 씬 이동을 **차단**한다 (`S18`) |
+
+> ⚠️ **이중 일차 증가 / 정산 우회 위험.** 거래 도중 요미의 방으로 돌아갔다가 취침하면 24:00 정산을 건너뛰어 **페널티·보스·엔딩 판정이 통째로 누락**된다. 두 경로 모두 `FinalizeProceedToNextDay()`를 지나가게 만들거나, 거래를 시작한 날에는 조기 복귀를 막아야 한다. P3.5 구현 시 최우선 검증 항목이다.
 
 세 항목 모두 P4의 기능 코드가 아니라 **P4가 도달 가능해지기 위한 조건**이다. 이 층이 비면 힌트를 만들어도 플레이어가 볼 수 없다.
+
+**P3.5 구현 기록 (2026-08-13)**
+
+| 항목 | 반영 |
+| --- | --- |
+| `Q1` 취침 | 침대 모달을 **버튼 3개(주/보조/취소)** 구조로 확장. 보조 버튼 "오늘은 여기까지" → `YomiRoomManager.TrySleep()`. **일차를 직접 올리지 않고** `GameManager.PendingSleepThroughToday` 플래그를 세운 뒤 GameScene에서 `AdvanceGameMinutes(24:00까지 남은 분)`로 **기존 정산 루틴을 그대로 태운다** — 정산 우회 위험을 구조적으로 제거 |
+| `SV-A8` 슬롯 리필 | `FinalizeProceedToNextDay()`에서 `DatingTimeManager.SyncToNewDay(currentDay)` 호출. `AdvanceDay()`를 **폐기하고** 스스로 일차를 올리지 않는 미러 전용 메서드로 대체 (`S12`) |
+| `SV-B11` 진입 경로 | 정산 완료 후 `ReturnToYomiRoomForNewMorning()`으로 `YomiRoomScene` 전환. **아침 컷씬이 있는 날(스토리 6·16일차, 보스전)은 제외** — 그 연출이 트레이딩 파트의 도입이라 GameScene에 머무른다 (`ponytail:` 주석으로 후속 검토 표시) |
+| `SV-B13` 이탈 차단 | PC 상호작용에 `EnsureNoOpenPosition()` — 포지션이 열려 있으면 거부하고 사유 표시 (`S18`) |
+| UI 규격 | [P2_05_YomiRoom_Modal_UI_Spec.md](../P2_05_UI_and_Art/P2_05_YomiRoom_Modal_UI_Spec.md) 신설. 이미지를 `Resources/DatingSim/YomiRoom/UI/Modal/`에 넣기만 하면 반영되며, **없으면 단색 임시 UI로 그대로 동작**한다 |
+
+**착수 전 확인된 사실 — 요미의 방에 "취침" 액션은 아직 없었다 (현재는 추가됨).**
+현재 침대(`YomiRoomInteractionType.RestBed`)에 걸린 것은 **휴식**이다 — 슬롯 1을 쓰고 체력 +10을 회복하며 하루를 넘기지 않는다([YomiRoomTopDownPrototype.cs:179-183](../../Assets/Scripts/DatingSim/YomiRoom/YomiRoomTopDownPrototype.cs#L179-L183), [Builder:110](../../Assets/Scripts/DatingSim/UI/YomiRoomTopDownPrototypeBuilder.cs#L110)). 방의 상호작용은 침대와 PC **둘뿐**이다. 취침은 신설해야 하며, 확인 모달이 단일 확인 버튼 구조라 **휴식과 취침을 어떻게 갈라 보여줄지**가 남은 설계 결정이다 (`Q6`).
 
 ### 5.5. P4 — 신규 기능
 
@@ -516,7 +632,7 @@ if (CompareVersions(dataVersion, "1.6.0") < 0)
 | **4-a** | `DailyMarketOutlook` 신설 + 저장 배선 | `DailyMarketOutlook.cs`(신규), `SaveLoadManager.cs` | 7절 정합성 검사 |
 | **4-b** | 엔진 개조: `CurrentDailyRegime` 공개, 추첨 이관 | `MarketSimulationEngine.cs` | GameScene 재입장 시 방향성 불변 |
 | **4-c** | 자유 채팅 폐지 + 선택형 대화 매니저 API | `YomiRoomManager.cs`, `IYomiDialogueProvider.cs`(삭제), `PlaceholderDialogueProvider.cs`(삭제) | `dotnet build` 양쪽 |
-| **4-d** | 대화 DB + 힌트 대사 풀 + UI 선택지 버튼 | `YomiTalkTopics.cs`(신규), `YomiRoomTopDownPrototype.cs`, `YomiRoomTopDownPrototypeBuilder.cs` | 인게임 1회 완주 + **프리베이크 재실행** |
+| **4-d** | 대화 DB + 힌트 대사 풀 + UI 선택지 버튼 | `YomiTalkTopics.cs`(신규), `YomiRoomTopDownPrototype.cs`, `YomiRoomTopDownPrototypeBuilder.cs` | `python yomi_dialogue_lint.py` 통과 + 인게임 1회 완주 + **프리베이크 재실행** |
 
 ### 5.6. P5 — 후속 / 문서
 
@@ -574,6 +690,14 @@ if (CompareVersions(dataVersion, "1.6.0") < 0)
 - 4개 Regime × 2 티어 = 8칸 힌트 대사 풀이 **전부 비어 있지 않은지** (`S4`·`S11` 회귀 방지)
 - `Squeeze` + 티어 2 → 방향 단어(`위`/`아래`)를 포함하지 않는지 (`S4`)
 - 모든 `TalkTopic`의 노드 수가 2~4이고 각 노드 선택지가 2~4개인지 (요청사항 4번 계약)
+- 각 노드에 **+3 선택지가 정확히 하나** 있는지 (4.8.2절 설계 원칙)
+- 선택지 텍스트가 **25자 이내**인지 (버튼 잘림 방지)
+
+말투·호칭 검사는 별도 도구가 맡는다:
+
+```
+python yomi_dialogue_lint.py
+```
 
 ### 7.3. 수동
 

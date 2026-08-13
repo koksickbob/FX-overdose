@@ -187,7 +187,53 @@ public class TraderStatus : MonoBehaviour
     }
 
     private bool wasLoaded = false;
-    
+
+    /// <summary>
+    /// 세이브에 상태를 담습니다. 중독·연패 카운터가 빠져 있어
+    /// 불러오기 한 번으로 페널티가 해제되던 문제를 막습니다. (SV-A1~A3)
+    /// </summary>
+    public void CaptureSaveData(FXOverdose.Core.SaveData data)
+    {
+        if (data == null) return;
+
+        data.PeakBalance = peakBalance;
+        data.CurrentMental = currentMental;
+        data.CurrentMentalState = currentMentalState;
+        data.CurrentHealth = currentHealth;
+        data.MaxMental = maxMental;
+        data.MaxMentalLimit = maxMentalLimit;
+
+        data.IsLeverageAddicted = isLeverageAddicted;
+        data.ConsecutiveHighLevWins = consecutiveHighLevWins;
+        data.ConsecutiveLowLevTrades = consecutiveLowLevTrades;
+        data.CurrentLosingStreak = currentLosingStreak;
+        data.CanRegenMental = canRegenMental;
+    }
+
+    /// <summary>세이브에서 상태를 되돌립니다.</summary>
+    public void RestoreFromSaveData(FXOverdose.Core.SaveData data)
+    {
+        if (data == null) return;
+
+        wasLoaded = true;
+
+        peakBalance = data.PeakBalance;
+        currentMental = data.CurrentMental;
+        currentMentalState = data.CurrentMentalState;
+        currentHealth = data.CurrentHealth;
+        if (data.MaxMental > 0f)
+        {
+            maxMental = data.MaxMental;
+            maxMentalLimit = data.MaxMentalLimit;
+        }
+
+        isLeverageAddicted = data.IsLeverageAddicted;
+        consecutiveHighLevWins = data.ConsecutiveHighLevWins;
+        consecutiveLowLevTrades = data.ConsecutiveLowLevTrades;
+        currentLosingStreak = data.CurrentLosingStreak;
+        canRegenMental = data.CanRegenMental;
+    }
+
     private void Start()
     {
         if (this == CanonicalInstance)

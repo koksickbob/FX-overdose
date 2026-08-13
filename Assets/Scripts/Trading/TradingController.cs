@@ -265,10 +265,57 @@ namespace FXOverdose.Trading
             }
         }
 
+        /// <summary>
+        /// 거래 모드와 이벤트 강제 포지션 계약을 세이브에 담습니다.
+        /// 이 계약이 빠져 있어 이벤트 포지션이 로드 후 일반 포지션으로 둔갑하던 문제를 막습니다. (SV-A5)
+        /// </summary>
+        public void CaptureSaveData(FXOverdose.Core.SaveData data)
+        {
+            if (data == null) return;
+
+            data.ActiveTradingMode = activeTradingMode;
+            data.AITradingStyle = currentAITradingStyle;
+
+            data.IsEventTradeActive = isEventTradeActive;
+            data.EventHandlingMode = currentEventHandlingMode;
+            data.EventTargetROELimit = eventTargetROELimit;
+            data.EventStopLossROELimit = eventStopLossROELimit;
+            data.IsEventPlayerChoice = isEventPlayerChoice;
+            data.IsEventTrueSignal = isEventTrueSignal;
+
+            // 포지션이 없으면 베이스에 남아 있던 옛 포지션을 반드시 지웁니다.
+            data.HasActivePosition = currentPosition != PositionType.None;
+            if (data.HasActivePosition)
+            {
+                data.PositionType = currentPosition;
+                data.CurrentOwner = currentOwner;
+                data.EntryPrice = entryPrice;
+                data.MarginAmount = marginAmount;
+                data.CurrentLeverage = currentLeverage;
+                data.TargetPrice = targetPrice;
+                data.StopLossPrice = stopLossPrice;
+            }
+        }
+
         public void RestorePosition(FXOverdose.Core.SaveData data)
         {
-            if (data == null || !data.HasActivePosition) return;
-            
+            if (data == null) return;
+
+            // 이벤트 계약은 포지션 유무와 무관하게 되돌립니다. 포지션이 없으면 계약도 꺼진 상태로 복원됩니다. (SV-A5)
+            isEventTradeActive = data.HasActivePosition && data.IsEventTradeActive;
+            currentEventHandlingMode = data.EventHandlingMode;
+            eventTargetROELimit = data.EventTargetROELimit;
+            eventStopLossROELimit = data.EventStopLossROELimit;
+            isEventPlayerChoice = data.IsEventPlayerChoice;
+            isEventTrueSignal = data.IsEventTrueSignal;
+
+            if (!data.HasActivePosition) return;
+
+            // 이벤트 보호 시간은 Time.time 기준이라 복원할 수 없습니다.
+            // 보호를 잃은 채로 특수 익절/손절 계약만 유지하는 것이 안전한 쪽입니다.
+            eventProtectionEndTime = -1f;
+            eventPositionOpenedTime = Time.time;
+
             currentPosition = data.PositionType;
             entryPrice = data.EntryPrice;
             marginAmount = data.MarginAmount;

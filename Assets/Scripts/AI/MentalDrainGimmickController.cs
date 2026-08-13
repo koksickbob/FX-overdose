@@ -344,7 +344,7 @@ namespace FXOverdose.AI
                 {
                     penalty *= 1.5f; // 페널티 1.5배 증폭
                     
-                    string blameDialogue = $"거봐! 요미 말 안 듣고 마스터가 맘대로 쳐서 돈 날렸잖아!!"; // Fallback
+                    string blameDialogue = $"거봐! 요미 말 안 듣고 오빠가 맘대로 쳐서 돈 날렸잖아!!"; // Fallback
                     var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
                     if (matcher != null)
                     {

@@ -81,9 +81,11 @@ namespace FXOverdose.DatingSim.WorldMap
             }
             else if (SaveLoadManager.Instance?.CurrentData != null)
             {
+                // GameManager가 없는 씬이므로 세이브 스냅샷에 직접 반영한 뒤 즉시 기록합니다.
                 SaveLoadManager.Instance.CurrentData.Balance += job.rewardAmount;
+                SaveLoadManager.Instance.SaveCurrentGame();
             }
-            
+
             OnJobFinished?.Invoke(job.jobName, job.rewardAmount);
         }
 
@@ -113,6 +115,7 @@ namespace FXOverdose.DatingSim.WorldMap
                      SaveLoadManager.Instance.CurrentData.Balance >= course.moneyCost)
             {
                 SaveLoadManager.Instance.CurrentData.Balance -= course.moneyCost;
+                SaveLoadManager.Instance.SaveCurrentGame();
                 paid = true;
             }
             else

@@ -173,7 +173,12 @@ namespace FXOverdose.Trading
             data.Current24hVolume = current24hVolume;
             data.CurrentRegime = currentRegime;
             data.CurrentDailyRegime = currentDailyRegime;
-            data.CurrentSignalPhase = currentSignalPhase;
+
+            // 로드 후 일일 국면이 재추첨되어 덮어써지는 것을 막습니다. (SV-B3)
+            data.MarketLastUpdatedDay = lastUpdatedDay;
+            // 이벤트 빔이 잡아 둔 국면 유지 시간과 캔들 시간축 기준점. (SV-B4 / SV-B5)
+            data.MinutesUntilNextRegimeChange = minutesUntilNextRegimeChange;
+            data.MarketTotalMinutes = currentTotalMinutes;
 
             data.ChartHistories.Clear();
             foreach (var kvp in candleHistories)
@@ -201,7 +206,12 @@ namespace FXOverdose.Trading
             current24hVolume = data.Current24hVolume;
             currentRegime = data.CurrentRegime;
             currentDailyRegime = data.CurrentDailyRegime;
-            
+
+            // 복원한 일일 국면이 첫 Update에서 재추첨되지 않도록 갱신 일차를 함께 되돌립니다. (SV-B3)
+            lastUpdatedDay = data.MarketLastUpdatedDay > 0 ? data.MarketLastUpdatedDay : data.CurrentDay;
+            minutesUntilNextRegimeChange = data.MinutesUntilNextRegimeChange > 0 ? data.MinutesUntilNextRegimeChange : 60;
+            currentTotalMinutes = data.MarketTotalMinutes;
+
             // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
             currentSignalPhase = SignalPhase.None;
             signalPhaseTimerMinutes = 0;

@@ -35,8 +35,22 @@ namespace FXOverdose.Core
                 // Debug.Log("[SaveDataMigrator] 1.5.0 마이그레이션 로직 적용...");
             }
             
+            if (CompareVersions(dataVersion, "1.6.0") < 0)
+            {
+                // 1.6.0에서 SaveData에 필드를 대거 추가하고 데드 필드 2개를 제거했습니다.
+                // JsonUtility는 인스턴스를 먼저 만든 뒤(= 필드 초기화자 실행) JSON에 있는 키만 덮어쓰므로,
+                // 구버전 JSON에 없는 신규 필드는 초기화자 기본값을 그대로 유지합니다. 별도 백필이 필요 없습니다.
+                // 제거된 필드(CurrentEmotion / CurrentSignalPhase)의 잔존 키도 조용히 무시됩니다.
+                // 다만 0으로 역직렬화되면 "1일차에 이미 결정됨"으로 오해되는 값만 손봅니다.
+                if (data.OutlookDay <= 0) data.OutlookDay = -1;
+                if (data.MarketLastUpdatedDay <= 0) data.MarketLastUpdatedDay = -1;
+                if (data.TalkHintIssuedDay <= 0) data.TalkHintIssuedDay = -1;
+                if (data.EventLastTriggerDay <= 0) data.EventLastTriggerDay = -1;
+                if (data.MinutesUntilNextRegimeChange <= 0) data.MinutesUntilNextRegimeChange = 60;
+                if (data.TalkTopicsUsedToday == null) data.TalkTopicsUsedToday = new System.Collections.Generic.List<string>();
+            }
+
             // 더 높은 버전의 마이그레이션이 필요하다면 계속 추가
-            // if (CompareVersions(dataVersion, "1.6.0") < 0) { ... hasMigrated = true; }
 
             // 마이그레이션 파이프라인을 통과한 뒤 최종 버전을 기록
             data.Version = currentAppVersion;

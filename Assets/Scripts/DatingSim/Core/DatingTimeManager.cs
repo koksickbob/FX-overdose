@@ -134,10 +134,10 @@ namespace FXOverdose.DatingSim.Core
             SaveLoadManager.Instance?.SaveCurrentGame();
         }
 
-        /// <summary>호감도를 증감시킵니다.</summary>
+        /// <summary>호감도를 증감시킵니다. 집착도와 동일하게 0~100으로 제한됩니다. (SV-B12)</summary>
         public void ModifyAffection(int amount)
         {
-            currentAffection += amount;
+            currentAffection = Mathf.Clamp(currentAffection + amount, 0, 100);
             OnAffectionChanged?.Invoke(currentAffection);
             SaveLoadManager.Instance?.SaveCurrentGame();
         }
@@ -159,15 +159,21 @@ namespace FXOverdose.DatingSim.Core
             SaveLoadManager.Instance?.SaveCurrentGame();
         }
 
-        /// <summary>하루를 넘깁니다. 타임 슬롯을 리셋하고 날짜를 증가시킵니다.</summary>
-        public void AdvanceDay(int defaultTimeSlots = 5)
+        /// <summary>
+        /// 트레이딩 파트가 다음 날로 넘어갈 때 호출됩니다. 일차를 받아 미러링하고 시간 슬롯을 리필합니다. (SV-A8 / S12)
+        ///
+        /// 일차를 여기서 스스로 올리지 않는 것이 핵심입니다. 일차의 주인은 GameManager 하나뿐이며,
+        /// 이 매니저의 currentDay는 그 값을 따라가는 읽기 전용 사본입니다.
+        /// </summary>
+        public void SyncToNewDay(int newDay, int defaultTimeSlots = 5)
         {
-            currentDay++;
+            bool dayChanged = currentDay != newDay;
+            currentDay = newDay;
             currentTimeSlot = defaultTimeSlots;
-            
-            OnDayChanged?.Invoke(currentDay);
+
+            if (dayChanged) OnDayChanged?.Invoke(currentDay);
             OnTimeSlotChanged?.Invoke(currentTimeSlot);
-            
+
             SaveLoadManager.Instance?.SaveCurrentGame();
         }
     }

@@ -123,10 +123,36 @@ namespace FXOverdose.DatingSim.YomiRoom
             }
         }
 
+        /// <summary>
+        /// 취침 — 거래하지 않고 하루를 마감합니다. (Q1)
+        ///
+        /// 일차를 여기서 직접 올리지 않습니다. GameScene으로 넘어가 남은 시간을 건너뛰게 해서
+        /// 기존 24:00 일일 정산 루틴을 그대로 태웁니다. 그래야 정산·페널티·보스·엔딩 판정이
+        /// 통째로 누락되는 우회 경로가 생기지 않습니다.
+        /// </summary>
+        public void TrySleep()
+        {
+            if (currentState != YomiRoomState.Idle) return;
+
+            ChangeState(YomiRoomState.Transitioning);
+            GameManager.PendingSleepThroughToday = true;
+
+            var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+            if (saveManager != null)
+            {
+                saveManager.SaveCurrentGame();
+                saveManager.PrepareLoadGame(saveManager.ActiveStorySlotIndex);
+            }
+
+            LoadingScreenController.TargetSceneToLoad = "GameScene";
+            SceneManager.LoadScene("LoadingScene");
+        }
+
         public void MoveToWorldMap()
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
+            FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
             LoadingScreenController.TargetSceneToLoad = "WorldMapScene";
             SceneManager.LoadScene("LoadingScene");
         }
@@ -135,6 +161,15 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (currentState != YomiRoomState.Idle) return;
             ChangeState(YomiRoomState.Transitioning);
+
+            // 저장 → 복원 예약 순서로 진입해야 GameManager가 StartNewGame()으로 새 게임을 시작하지 않습니다. (SV-B10)
+            var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+            if (saveManager != null)
+            {
+                saveManager.SaveCurrentGame();
+                saveManager.PrepareLoadGame(saveManager.ActiveStorySlotIndex);
+            }
+
             LoadingScreenController.TargetSceneToLoad = "GameScene";
             SceneManager.LoadScene("LoadingScene");
         }

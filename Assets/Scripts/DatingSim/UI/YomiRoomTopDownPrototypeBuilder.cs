@@ -107,7 +107,8 @@ namespace FXOverdose.DatingSim.UI
 
         private static void BuildInteractables(Transform parent)
         {
-            CreateInteractable(parent, YomiRoomInteractionType.RestBed, "침대", "잠시 휴식할까요?", "체력 +10  /  시간 슬롯 -1", new Vector2(1f, 0.8f));
+            CreateInteractable(parent, YomiRoomInteractionType.RestBed, "침대", "잠깐 눈만 붙일까, 오늘은 여기까지 할까?",
+                "눈 붙이기: 체력 +10 / 슬롯 -1      취침: 하루 마감", new Vector2(1f, 0.8f));
             CreateInteractable(parent, YomiRoomInteractionType.TradingPC, "PC", "PC를 켜고 트레이딩을 시작할까요?", "시간 슬롯 소모 없음", new Vector2(0.05f, 0.55f));
         }
 
@@ -140,11 +141,12 @@ namespace FXOverdose.DatingSim.UI
                 new Vector2(0.05f, 0.17f), new Vector2(0.42f, 0.23f), Pink);
 
             GameObject modal = CreateModal(canvas.transform, out TextMeshProUGUI modalTitle, out TextMeshProUGUI modalBody,
-                out Button confirm, out Button cancel);
+                out Button confirm, out Button secondary, out Button cancel);
 
             YomiRoomTopDownController controller = root.gameObject.AddComponent<YomiRoomTopDownController>();
-            controller.Configure(player, prompt, feedback, modal, modalTitle, modalBody, confirm);
+            controller.Configure(player, prompt, feedback, modal, modalTitle, modalBody, confirm, secondary);
             confirm.onClick.AddListener(controller.ConfirmInteraction);
+            secondary.onClick.AddListener(controller.SecondaryInteraction);
             cancel.onClick.AddListener(controller.CloseModal);
             modal.SetActive(false);
 
@@ -303,19 +305,66 @@ namespace FXOverdose.DatingSim.UI
             rect.gameObject.SetActive(true);
         }
 
+        /// <summary>
+        /// 상호작용 확인 모달. 버튼 3개(주 행동 / 보조 행동 / 취소) 구조입니다.
+        /// 보조 버튼은 침대처럼 두 갈래 행동이 있는 상호작용에서만 켜집니다.
+        ///
+        /// 스프라이트는 Resources/DatingSim/YomiRoom/UI/Modal/ 아래를 참조합니다.
+        /// 이미지가 없으면 단색 임시 UI로 그대로 동작하며, PNG를 넣는 즉시 교체됩니다.
+        /// 자세한 규격은 docs/P2_05_UI_and_Art/P2_05_YomiRoom_Modal_UI_Spec.md 참고.
+        /// </summary>
         private static GameObject CreateModal(Transform parent, out TextMeshProUGUI title, out TextMeshProUGUI body,
-            out Button confirm, out Button cancel)
+            out Button confirm, out Button secondary, out Button cancel)
         {
+            Sprite dimSprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/Dim");
+            Sprite panelSprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/PanelFrame", new Vector4(32f, 32f, 32f, 32f));
+            Sprite primarySprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/ButtonPrimary", new Vector4(24f, 24f, 24f, 24f));
+            Sprite secondarySprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/ButtonSecondary", new Vector4(24f, 24f, 24f, 24f));
+            Sprite cancelSprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/ButtonCancel", new Vector4(24f, 24f, 24f, 24f));
+
             GameObject blocker = new("InteractionModal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             blocker.transform.SetParent(parent, false);
             Stretch(blocker.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
-            blocker.GetComponent<Image>().color = new Color32(0, 0, 0, 150);
-            RectTransform panel = CreatePanel(blocker.transform, "Panel", new Vector2(0.31f, 0.31f), new Vector2(0.69f, 0.69f), new Color32(8, 19, 34, 252));
+            Image dim = blocker.GetComponent<Image>();
+            dim.color = dimSprite != null ? Color.white : new Color32(0, 0, 0, 150);
+            dim.sprite = dimSprite;
+
+            RectTransform panel = CreatePanel(blocker.transform, "Panel", new Vector2(0.29f, 0.29f), new Vector2(0.71f, 0.71f), new Color32(8, 19, 34, 252));
+            ApplyFrameSprite(panel, panelSprite);
+
             title = CreateText(panel, "Title", "상호작용", 30f, new Vector2(0.08f, 0.7f), new Vector2(0.92f, 0.9f), Cyan);
-            body = CreateText(panel, "Body", string.Empty, 21f, new Vector2(0.08f, 0.36f), new Vector2(0.92f, 0.7f), Text);
-            confirm = CreateButton(panel, "Confirm", "확인", new Vector2(0.1f, 0.09f), new Vector2(0.47f, 0.28f), Cyan);
-            cancel = CreateButton(panel, "Cancel", "취소", new Vector2(0.53f, 0.09f), new Vector2(0.9f, 0.28f), Pink);
+            body = CreateText(panel, "Body", string.Empty, 21f, new Vector2(0.08f, 0.38f), new Vector2(0.92f, 0.7f), Text);
+
+            // 버튼 3개를 가로로 균등 배치합니다. 보조 버튼이 꺼져도 나머지 위치는 그대로입니다.
+            confirm = CreateButton(panel, "Confirm", "확인", new Vector2(0.07f, 0.09f), new Vector2(0.35f, 0.29f), Cyan);
+            secondary = CreateButton(panel, "Secondary", "보조", new Vector2(0.37f, 0.09f), new Vector2(0.65f, 0.29f), new Color32(255, 196, 94, 255));
+            cancel = CreateButton(panel, "Cancel", "취소", new Vector2(0.67f, 0.09f), new Vector2(0.95f, 0.29f), Pink);
+
+            ApplyFrameSprite((RectTransform)confirm.transform, primarySprite);
+            ApplyFrameSprite((RectTransform)secondary.transform, secondarySprite);
+            ApplyFrameSprite((RectTransform)cancel.transform, cancelSprite);
+
+            secondary.gameObject.SetActive(false);
             return blocker;
+        }
+
+        /// <summary>
+        /// 9-슬라이스 프레임 스프라이트를 씌웁니다. 스프라이트가 없으면 기존 단색 임시 UI를 유지합니다.
+        /// UI 제작자는 이미지를 지정된 Resources 경로에 넣기만 하면 됩니다.
+        /// </summary>
+        private static void ApplyFrameSprite(RectTransform target, Sprite sprite)
+        {
+            if (target == null || sprite == null) return;
+
+            Image image = target.GetComponent<Image>();
+            if (image == null) return;
+
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.color = Color.white;
+
+            Outline outline = target.GetComponent<Outline>();
+            if (outline != null) outline.enabled = false;
         }
 
         private static GameObject CreateCollisionRegion(Transform parent, string label, Vector2 position, Vector2 size)

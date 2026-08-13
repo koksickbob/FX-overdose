@@ -50,6 +50,9 @@ namespace FXOverdose.DatingSim.YomiRoom
         private TMP_Text modalBody;
         private GameObject modal;
         private Button confirmButton;
+        private Button secondaryButton;
+        private TMP_Text confirmLabel;
+        private TMP_Text secondaryLabel;
         private bool inputLocked;
 
         // 방 안 상호작용 오브젝트는 개수가 고정적이므로 캐싱합니다. 매 프레임 씬 전체를 스캔하지 않기 위함입니다.
@@ -58,7 +61,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         public Vector2 MoveInput => input;
 
         public void Configure(Rigidbody2D playerBody, TMP_Text prompt, TMP_Text feedback,
-            GameObject modalObject, TMP_Text title, TMP_Text bodyText, Button confirm)
+            GameObject modalObject, TMP_Text title, TMP_Text bodyText, Button confirm, Button secondary = null)
         {
             body = playerBody;
             animator = body != null ? body.GetComponent<Animator>() : null;
@@ -68,6 +71,9 @@ namespace FXOverdose.DatingSim.YomiRoom
             modalTitle = title;
             modalBody = bodyText;
             confirmButton = confirm;
+            secondaryButton = secondary;
+            confirmLabel = confirm != null ? confirm.GetComponentInChildren<TMP_Text>() : null;
+            secondaryLabel = secondary != null ? secondary.GetComponentInChildren<TMP_Text>() : null;
             RefreshInteractables();
         }
 
@@ -152,19 +158,47 @@ namespace FXOverdose.DatingSim.YomiRoom
             input = Vector2.zero;
             modalTitle.text = target.DisplayName;
             modalBody.text = $"{target.Description}\n\n{target.CostText}";
-            confirmButton.interactable = CanExecute(target.Type);
+
+            if (confirmLabel != null) confirmLabel.text = PrimaryLabelFor(target.Type);
+            confirmButton.interactable = CanExecutePrimary(target.Type);
+
+            if (secondaryButton != null)
+            {
+                bool hasSecondary = HasSecondaryAction(target.Type);
+                secondaryButton.gameObject.SetActive(hasSecondary);
+                if (hasSecondary && secondaryLabel != null) secondaryLabel.text = SecondaryLabelFor(target.Type);
+            }
+
             modal.SetActive(true);
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(confirmButton.gameObject);
         }
 
-        private static bool CanExecute(YomiRoomInteractionType type)
+        /// <summary>주 행동(왼쪽 버튼)을 실행할 수 있는지.</summary>
+        private static bool CanExecutePrimary(YomiRoomInteractionType type)
         {
             DatingTimeManager time = DatingTimeManager.Instance;
             if (type == YomiRoomInteractionType.RestBed)
-                return time != null && time.CurrentTimeSlot >= 1;
+                return time != null && time.CurrentTimeSlot >= 1; // 휴식은 슬롯 1 소모
             return true;
         }
 
+        /// <summary>보조 행동(가운데 버튼)이 있는 상호작용인지. 없으면 버튼을 숨깁니다.</summary>
+        private static bool HasSecondaryAction(YomiRoomInteractionType type)
+        {
+            return type == YomiRoomInteractionType.RestBed; // 침대: 휴식 / 취침
+        }
+
+        private static string PrimaryLabelFor(YomiRoomInteractionType type)
+        {
+            return type == YomiRoomInteractionType.RestBed ? "잠깐 눈 붙이기" : "확인";
+        }
+
+        private static string SecondaryLabelFor(YomiRoomInteractionType type)
+        {
+            return type == YomiRoomInteractionType.RestBed ? "오늘은 여기까지" : string.Empty;
+        }
+
+        /// <summary>주 행동. 침대는 휴식, PC는 거래 개시.</summary>
         public void ConfirmInteraction()
         {
             if (pending == null || YomiRoomManager.Instance == null) return;
@@ -174,6 +208,7 @@ namespace FXOverdose.DatingSim.YomiRoom
             switch (type)
             {
                 case YomiRoomInteractionType.TradingPC:
+                    if (!EnsureNoOpenPosition()) return;
                     YomiRoomManager.Instance.StartTrading();
                     break;
                 case YomiRoomInteractionType.RestBed:
@@ -182,6 +217,37 @@ namespace FXOverdose.DatingSim.YomiRoom
                     inputLocked = false;
                     break;
             }
+        }
+
+        /// <summary>보조 행동. 침대의 취침 — 하루를 마감하고 다음 날로 넘어갑니다. (Q1)</summary>
+        public void SecondaryInteraction()
+        {
+            if (pending == null || YomiRoomManager.Instance == null) return;
+            YomiRoomInteractionType type = pending.Type;
+            CloseModal(false);
+
+            if (type != YomiRoomInteractionType.RestBed)
+            {
+                inputLocked = false;
+                return;
+            }
+
+            ShowFeedback("오늘은 여기까지. 잠들었습니다...");
+            YomiRoomManager.Instance.TrySleep();
+        }
+
+        /// <summary>
+        /// 포지션을 들고 데이팅 씬으로 도망쳐 무기한 청산을 회피하는 것을 막습니다. (SV-B13 / S18)
+        /// 요미의 방에서는 시세가 멈추므로, 열린 포지션이 있으면 씬을 넘나들 수 없어야 합니다.
+        /// </summary>
+        private bool EnsureNoOpenPosition()
+        {
+            var trading = FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);
+            if (trading == null || !trading.IsActive) return true;
+
+            ShowFeedback("포지션이 열려 있어요. 정리하고 나서 움직여요!");
+            inputLocked = false;
+            return false;
         }
 
         public void CloseModal() => CloseModal(true);
@@ -438,7 +504,7 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (sendButton != null) sendButton.onClick.AddListener(SendCurrentMessage);
             if (inputField != null) inputField.onSubmit.AddListener(_ => SendCurrentMessage());
-            AppendLine("요미", "마스터, 오늘도 어서 오세요.\n기다리고 있었어요.", "#F472B6");
+            AppendLine("요미", "오빠, 왔다!\n요미가 얼마나 기다렸는지 알아?", "#F472B6");
         }
 
         private void OnDestroy()
@@ -464,7 +530,7 @@ namespace FXOverdose.DatingSim.YomiRoom
             sendButton.interactable = false;
             inputField.interactable = false;
             inputField.text = string.Empty;
-            AppendLine("마스터", message, "#22D3EE");
+            AppendLine("오빠", message, "#22D3EE");
             AppendLine("요미", "...", "#F472B6");
 
             string response = dialogueProvider.GetResponse(message);

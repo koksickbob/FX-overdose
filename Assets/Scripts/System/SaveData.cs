@@ -64,7 +64,18 @@ namespace FXOverdose.Core
         public float Current24hVolume;
         public MarketSimulationEngine.MarketRegime CurrentRegime;
         public MarketSimulationEngine.MarketRegime CurrentDailyRegime;
-        public SignalPhase CurrentSignalPhase;
+        // CurrentSignalPhase 제거(SV-D2): activeSignal 객체가 직렬화되지 않아 복원이 불가능했고,
+        // 로드 시 항상 None으로 덮어쓰고 있었습니다.
+
+        // --- 차트 엔진 시간축 / 국면 유지 (SV-B3~B5) ---
+        public int MarketLastUpdatedDay = -1;
+        public int MinutesUntilNextRegimeChange = 60;
+        public long MarketTotalMinutes = 0;
+
+        // --- 그날의 거시 방향성 (SV-B8) ---
+        public int OutlookDay = -1;
+        public MarketSimulationEngine.MarketRegime OutlookRegime;
+        public bool OutlookRevealed = false;
 
         // --- TraderLevelSystem 데이터 ---
         public int ProtagonistLevel;
@@ -80,8 +91,8 @@ namespace FXOverdose.Core
         public List<int> DailySummaryKeys = new List<int>();
         public List<string> DailySummaryValues = new List<string>();
 
-        // --- 추가 징후 ---
-        public TraderEmotion CurrentEmotion;
+        // CurrentEmotion 제거(SV-D1): 수집부에도 주입부에도 쓰이지 않는 데드 필드였습니다.
+        // 감정은 매 순간 상황에서 재계산되므로 복원할 이유가 없습니다.
 
         // --- 현재 활성 포지션 및 거래 모드 데이터 ---
         public TradingController.TradingMode ActiveTradingMode;
@@ -119,5 +130,37 @@ namespace FXOverdose.Core
         public int StoryProgressStage = 0;
         public int DatingTimeSlot = 5;
         public int DatingDay = 1;
+
+        // --- TraderStatus 중독 / 연패 상태 (SV-A1~A3) ---
+        public bool IsLeverageAddicted = false;
+        public int ConsecutiveHighLevWins = 0;
+        public int ConsecutiveLowLevTrades = 0;
+        public int CurrentLosingStreak = 0;
+        public bool CanRegenMental = true;
+
+        // --- 돌발 선택 이벤트 일일 스케줄 (SV-A4) ---
+        public int EventLastTriggerDay = -1;
+        public int EventsTriggeredToday = 0;
+        public int LowMentalEventsTriggeredToday = 0;
+        public int EventNextRandomTriggerMinuteOfDay = -1;
+        public long EventLastTriggerGameMinutes = -999999L;
+
+        // --- 이벤트 강제 포지션 계약 (SV-A5) ---
+        public bool IsEventTradeActive = false;
+        public TradingController.EventPositionHandlingMode EventHandlingMode = TradingController.EventPositionHandlingMode.StandardAuto;
+        public float EventTargetROELimit = 0f;
+        public float EventStopLossROELimit = 0f;
+        public bool IsEventPlayerChoice = false;
+        public bool IsEventTrueSignal = true;
+
+        // --- 일일 정산 문맥 (SV-B6, SV-B9) ---
+        public float TodayRegularDeduction = 0f;
+        public string TodayRegularDeductionReason = "";
+        public bool IsSettlementProcessing = false;
+
+        // --- 요미 선택형 대화 (P4) ---
+        public int TalkAffectionGainToday = 0;
+        public int TalkHintIssuedDay = -1;
+        public List<string> TalkTopicsUsedToday = new List<string>();
     }
 }

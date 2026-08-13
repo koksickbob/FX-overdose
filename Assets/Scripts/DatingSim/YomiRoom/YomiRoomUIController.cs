@@ -213,7 +213,7 @@ namespace FXOverdose.DatingSim.YomiRoom
                 log = log.Replace("\n<color=yellow>[System] 요미가 타이핑 중...</color>", "");
                 
                 // 새 메시지 추가
-                log += $"\n\n<b><color=#55AAFF>마스터:</color></b> {userMessage}\n<b><color=#FFAA55>요미:</color></b> {yomiResponse}";
+                log += $"\n\n<b><color=#55AAFF>오빠:</color></b> {userMessage}\n<b><color=#FFAA55>요미:</color></b> {yomiResponse}";
                 chatLogText.text = log;
             }
         }

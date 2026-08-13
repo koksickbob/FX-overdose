@@ -104,6 +104,24 @@ public class GameManager : MonoBehaviour
         IsDailyPnlPartial = isPartial;
     }
 
+    /// <summary>일일 정산 문맥을 세이브에 담습니다. (SV-B6 / SV-B9)</summary>
+    internal void CaptureSettlementContext(FXOverdose.Core.SaveData data)
+    {
+        if (data == null) return;
+        data.TodayRegularDeduction = TodayRegularDeduction;
+        data.TodayRegularDeductionReason = TodayRegularDeductionReason ?? "";
+        data.IsSettlementProcessing = isSettlementProcessing;
+    }
+
+    /// <summary>세이브에서 일일 정산 문맥을 되돌립니다. 정산 창의 지출 사유가 유지됩니다.</summary>
+    internal void RestoreSettlementContext(FXOverdose.Core.SaveData data)
+    {
+        if (data == null) return;
+        TodayRegularDeduction = data.TodayRegularDeduction;
+        TodayRegularDeductionReason = data.TodayRegularDeductionReason ?? "";
+        isSettlementProcessing = data.IsSettlementProcessing;
+    }
+
     public void SetSecondsPerGameMinute(float newValue)
     {
         secondsPerGameMinute = Mathf.Max(0.001f, newValue);
@@ -378,6 +396,11 @@ public class GameManager : MonoBehaviour
             if (IsGameLoaded && currentHour >= 24)
             {
                 ProcessDailySettlementWithStory();
+            }
+            else
+            {
+                // 요미의 방에서 취침을 선택했다면 남은 하루를 건너뛰어 정산까지 보냅니다. (Q1)
+                ConsumePendingSleepRequest();
             }
         }
     }
@@ -669,6 +692,10 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"{currentDay}일차 시작 (09:00)");
 
+        // 💡 [데이팅 파트 하루 리셋] 일차를 올리는 곳은 여기 하나뿐이므로 시간 슬롯 리필도 여기서 합니다. (SV-A8)
+        //    DatingTimeManager.currentDay는 이 값의 미러가 됩니다. (S12)
+        FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.SyncToNewDay(currentDay);
+
         // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행
         FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(currentDay);
 
@@ -769,6 +796,24 @@ public class GameManager : MonoBehaviour
             remainingFastForwardMinutes = 0;
             AdvanceGameMinutes(resumeMinutes);
         }
+
+        // 정산이 끝나면 다음 날 아침을 요미의 방에서 시작합니다. (SV-B11 / Q5)
+        // 아침 컷씬(스토리 6·16일차, 보스전)이 있는 날은 그 연출이 트레이딩 파트의 도입이므로
+        // GameScene에 머무릅니다.
+        // ponytail: 컷씬 종료 콜백에 방 복귀를 얹으면 모든 날이 방에서 시작하게 됩니다.
+        //           연출 순서 검토가 끝난 뒤에 옮기십시오.
+        if (!hasStoryMorningEvent && !hasBossMorningEvent)
+        {
+            ReturnToYomiRoomForNewMorning();
+        }
+    }
+
+    /// <summary>다음 날 아침을 요미의 방에서 시작하도록 씬을 전환합니다. (SV-B11)</summary>
+    private void ReturnToYomiRoomForNewMorning()
+    {
+        Debug.Log($"[GameManager] 🌅 {currentDay}일차 아침 — 요미의 방에서 하루를 시작합니다.");
+        FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "YomiRoomScene";
+        UnityEngine.SceneManagement.SceneManager.LoadScene("LoadingScene");
     }
 
     private void PlayBossMorningSequence(FXOverdose.Core.BossData boss, FXOverdose.Core.BossManager bossManager)
@@ -798,6 +843,25 @@ public class GameManager : MonoBehaviour
     {
         yield return new UnityEngine.WaitForSecondsRealtime(2.1f);
         ResumeGame(); // ResumeGame을 호출하여 혹시 남아있는 FastForward(고속 진행)도 처리
+    }
+
+    /// <summary>
+    /// 요미의 방에서 취침을 선택하고 GameScene에 진입했음을 알리는 요청 플래그입니다. (Q1 / SV-A8)
+    /// GameScene이 개장하면 소비되어 남은 하루를 건너뛰고 기존 일일 정산 루틴을 태웁니다.
+    /// </summary>
+    public static bool PendingSleepThroughToday = false;
+
+    /// <summary>취침 요청이 있으면 남은 하루를 고속으로 흘려보내 24:00 정산에 도달시킵니다.</summary>
+    private void ConsumePendingSleepRequest()
+    {
+        if (!PendingSleepThroughToday) return;
+        PendingSleepThroughToday = false;
+
+        int remainingMinutes = (24 * 60) - (currentHour * 60 + currentMinute);
+        if (remainingMinutes <= 0) return;
+
+        Debug.Log($"[GameManager] 🛏️ 취침 요청 소비: 남은 {remainingMinutes}분을 건너뛰고 일일 정산으로 진행합니다.");
+        AdvanceGameMinutes(remainingMinutes);
     }
 
     // 스킬 공부 기믹 등으로 여러 분(시간)이 한 번에 경과할 때 호출

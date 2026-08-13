@@ -125,6 +125,33 @@ namespace FXOverdose.Events
         }
 
         /// <summary>
+        /// 일일 이벤트 스케줄을 세이브에 담습니다. 이 값들이 빠져 있어
+        /// 불러오기만 하면 하루 2회 상한이 리셋되던 문제를 막습니다. (SV-A4)
+        /// </summary>
+        public void CaptureSaveData(FXOverdose.Core.SaveData data)
+        {
+            if (data == null) return;
+
+            data.EventLastTriggerDay = lastTriggerDay;
+            data.EventsTriggeredToday = eventsTriggeredToday;
+            data.LowMentalEventsTriggeredToday = lowMentalEventsTriggeredToday;
+            data.EventNextRandomTriggerMinuteOfDay = nextRandomTriggerMinuteOfDay;
+            data.EventLastTriggerGameMinutes = lastEventTriggerGameMinutes;
+        }
+
+        /// <summary>세이브에서 일일 이벤트 스케줄을 되돌립니다.</summary>
+        public void RestoreFromSaveData(FXOverdose.Core.SaveData data)
+        {
+            if (data == null) return;
+
+            lastTriggerDay = data.EventLastTriggerDay;
+            eventsTriggeredToday = data.EventsTriggeredToday;
+            lowMentalEventsTriggeredToday = data.LowMentalEventsTriggeredToday;
+            nextRandomTriggerMinuteOfDay = data.EventNextRandomTriggerMinuteOfDay;
+            lastEventTriggerGameMinutes = data.EventLastTriggerGameMinutes;
+        }
+
+        /// <summary>
         /// 진행 중인 사전 생성을 취소하고 세대를 올립니다. 세대가 올라가면 이미 진행 중이던
         /// 작업이 나중에 끝나더라도 자신이 구세대임을 알고 결과를 폐기합니다. (R1)
         /// </summary>
@@ -687,7 +714,7 @@ namespace FXOverdose.Events
             }
 
             // 4순위: 기본 문구
-            return "마스터...! 이거 지금 어떻게 할지 빨리 정해줘!";
+            return "오빠...! 이거 지금 어떻게 할지 빨리 정해줘!";
         }
 
         /// <summary>
