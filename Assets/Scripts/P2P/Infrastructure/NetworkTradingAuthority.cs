@@ -36,7 +36,7 @@ namespace FXOverdose.P2P.Infrastructure
         private void Update()
         {
             networkManager ??= NetworkManager.Singleton;
-            if (networkManager == null || !networkManager.IsListening) return;
+            if (!P2PNetworkSessionManager.CanSend(networkManager)) return;
             EnsureRegistered();
             if (!networkManager.IsServer) return;
             EnsureHostMatch();
@@ -52,7 +52,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         public void Submit(P2PTradeAction action, int leverage, double marginRatio)
         {
-            if (networkManager == null || !networkManager.IsListening) return;
+            if (!P2PNetworkSessionManager.CanSend(networkManager)) return;
             uint requestId=nextRequestId++;if(nextRequestId==0)nextRequestId=1;
             var request = new P2PTradeRequest(requestId, action, leverage, marginRatio);
             byte[] bytes = P2PNetworkTradingCodec.EncodeRequest(SteamRuntimeBootstrap.LocalSteamId, request);
@@ -116,7 +116,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void Broadcast(P2PTradeResult result,bool reliable=true)
         {
-            if (hostMatch == null) return;
+            if (hostMatch == null || !P2PNetworkSessionManager.CanSend(networkManager)) return;
             byte[] bytes = P2PNetworkTradingCodec.EncodeState(++stateSequence,result, hostMatch.GetLeaderboard());
             P2PNetworkSessionManager.Instance?.Diagnostics?.RecordSent(bytes.Length*networkManager.ConnectedClientsIds.Count);
             ApplyState(bytes);

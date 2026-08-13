@@ -19,7 +19,7 @@ namespace FXOverdose.P2P.UI
         private TMP_Text leaderboard, spectatorLabel, eventTitle, eventTimer, resultPlayers;
         private RectTransform leaderboardPanel;
         private RectTransform characterLevelHudRect;
-        private GameObject eventPanel, resultPanel, spectatorPanel;
+        private GameObject resultPanel, spectatorPanel;
         private Slider marginSlider;
         private readonly List<Button> tradingInputs=new();
         private readonly List<GameObject> dialogueBalloons=new();
@@ -238,7 +238,7 @@ namespace FXOverdose.P2P.UI
 
         private static ChoiceEventPopupUIController FindActiveEventPopup()
         {
-            foreach(var popup in FindObjectsByType<ChoiceEventPopupUIController>(FindObjectsInactive.Exclude,FindObjectsSortMode.None))
+            foreach(var popup in FindObjectsByType<ChoiceEventPopupUIController>(FindObjectsInactive.Exclude))
             {
                 if(popup!=null&&popup.isActiveAndEnabled)return popup;
             }
@@ -271,7 +271,9 @@ namespace FXOverdose.P2P.UI
 
         private void ShowResult()
         {
-            resultShown=true;if(eventPanel!=null)eventPanel.SetActive(false);if(resultPanel==null)return;resultPanel.SetActive(true);resultPanel.transform.SetAsLastSibling();
+            // 이벤트 팝업은 eventPanel(대입된 적 없는 필드)이 아니라 이 파일의 표준 경로로 닫습니다.
+            // 이전에는 항상 null이라 결과 화면 위에 이벤트 팝업이 남을 수 있었습니다.
+            resultShown=true;originalEventPopup?.Hide();if(resultPanel==null)return;resultPanel.SetActive(true);resultPanel.transform.SetAsLastSibling();
             var players=P2PNetworkSessionManager.Instance?.TradingAuthority?.Players;var lines=new List<string>();if(players!=null)foreach(var p in players)lines.Add($"#{p.Rank}   {p.Name}\n      PnL {p.Equity-7000:+$0.00;-$0.00;$0.00}     수익률 {p.ReturnRate:+0.00%;-0.00%;0.00%}");resultPlayers.text=string.Join("\n\n",lines);
         }
 

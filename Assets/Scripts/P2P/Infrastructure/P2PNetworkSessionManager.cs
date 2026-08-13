@@ -30,6 +30,9 @@ namespace FXOverdose.P2P.Infrastructure
 
         public static P2PNetworkSessionManager Instance { get; private set; }
         public bool IsRunning => networkManager != null && networkManager.IsListening;
+        /// <summary>세션 종료·앱 종료 중에는 NGO가 CustomMessagingManager를 이미 해제하므로 모든 송신을 막습니다.</summary>
+        public static bool CanSend(NetworkManager manager) =>
+            manager != null && manager.IsListening && !manager.ShutdownInProgress && manager.CustomMessagingManager != null;
         public event Action<ulong, ulong> ClientMapped;
         public event Action<ulong> ClientDisconnected;
         public event Action<ulong> SteamClientDisconnected;
@@ -201,6 +204,8 @@ namespace FXOverdose.P2P.Infrastructure
                 disconnectedSteamId=steamId;
                 networkToSteam.Remove(clientId); connectedSteamIds.Remove(steamId);
             }
+            // 의도적 종료(타이틀 복귀·앱 종료) 중에는 NGO 내부가 이미 해체된 상태라 재접속·기권 처리를 하지 않습니다.
+            if (intentionalShutdown) return;
             Debug.LogWarning($"[P2P Network][{MatchId}] 연결 종료 · NGO client={clientId} · Steam={disconnectedSteamId} · reason={networkManager?.DisconnectReason}");
             if (disconnectedSteamId != 0) SteamClientDisconnected?.Invoke(disconnectedSteamId);
             if (networkManager != null && networkManager.IsClient && !networkManager.IsServer && clientId == networkManager.LocalClientId)
@@ -251,6 +256,9 @@ namespace FXOverdose.P2P.Infrastructure
             networkManager.OnClientConnectedCallback -= OnClientConnected;
             networkManager.OnTransportFailure -= OnTransportFailure;
         }
+
+        // NetworkManager와 같은 오브젝트에 있고 실행 순서가 -8000이라 NGO 자체 종료보다 먼저 정리됩니다.
+        private void OnApplicationQuit() => ShutdownSession();
 
         private void OnDestroy()
         {
