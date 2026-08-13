@@ -113,12 +113,35 @@ public class ShopManager : MonoBehaviour
         if (item == null) return 0;
         
         float basePrice = item.Price;
+        StoryDifficultyTable difficulty = GetStoryDifficultyTable();
         if (gameManager != null)
         {
-            float inflationMultiplier = Mathf.Pow(1.2f, (gameManager.CurrentDay - 1) / 2f);
-            return Mathf.RoundToInt(basePrice * inflationMultiplier);
+            float rawInflation = Mathf.Pow(1.2f, (gameManager.CurrentDay - 1) / 2f);
+            float inflationMultiplier = 1f + (rawInflation - 1f) * difficulty.InflationScale;
+            return Mathf.RoundToInt(basePrice * difficulty.ShopPriceMultiplier * inflationMultiplier);
         }
-        return Mathf.RoundToInt(basePrice);
+        return Mathf.RoundToInt(basePrice * difficulty.ShopPriceMultiplier);
+    }
+
+    private static StoryDifficultyTable GetStoryDifficultyTable()
+    {
+        SaveLoadManager manager = SaveLoadManager.Instance;
+        if (manager == null || manager.CurrentGameMode != GameMode.Story)
+            return StoryDifficultyTables.Get(StoryDifficulty.Hard);
+        return StoryDifficultyTables.Get(manager.CurrentStoryDifficulty);
+    }
+
+    private static int ApplyDifficultyToUpgradePrice(int price)
+    {
+        return Mathf.RoundToInt(price * GetStoryDifficultyTable().ShopPriceMultiplier);
+    }
+
+    public int GetPurchasePrice(ItemData item)
+    {
+        if (item == null) return 0;
+        if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
+            return ApplyDifficultyToUpgradePrice(ActiveItemEffectManager.Instance.GetNextUpgradePrice(item));
+        return GetInflatedPrice(item);
     }
 
     /// <summary>
@@ -143,7 +166,7 @@ public class ShopManager : MonoBehaviour
             return false;
         }
 
-        int priceToSpend = GetInflatedPrice(item);
+        int priceToSpend = GetPurchasePrice(item);
         DeliveryFoodManager foodManager = DeliveryFoodManager.EnsureInstance();
         if (item.ItemId == "steak" &&
             !foodManager.CanPurchaseSteak(gameManager.CurrentDay, out string steakReason))
@@ -158,7 +181,7 @@ public class ShopManager : MonoBehaviour
                 Debug.Log($"[ShopManager] {item.ItemName}은(는) 이미 최대 구매 제한에 도달했습니다.");
                 return false;
             }
-            priceToSpend = ActiveItemEffectManager.Instance.GetNextUpgradePrice(item);
+            priceToSpend = GetPurchasePrice(item);
         }
 
         if (priceToSpend <= 0)

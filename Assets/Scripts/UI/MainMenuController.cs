@@ -20,11 +20,13 @@ namespace FXOverdose.UI
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
         [SerializeField] private GameObject tutorialPromptPanel;
+        [SerializeField] private GameObject difficultyPanel;
         [SerializeField] private GameObject overwritePromptPanel;
         [SerializeField] private AchievementUIController achievementUI;
 
         private bool allowCreatingStorySlot;
         private int pendingSlotIndex = -1;
+        private StoryDifficulty pendingDifficulty = StoryDifficulty.Hard;
 
         /// <summary>런타임 타이틀 빌더가 생성한 UI를 컨트롤러에 연결합니다.</summary>
         public void Configure(
@@ -174,6 +176,7 @@ namespace FXOverdose.UI
             BindLoadPanelControls();
             BindSettingsPanelControls();
             BindTutorialPromptControls();
+            BindDifficultyPanelControls();
             BindOverwritePromptControls();
         }
 
@@ -190,6 +193,11 @@ namespace FXOverdose.UI
             if (tutorialPromptPanel == null)
             {
                 tutorialPromptPanel = TitleScreenBuilder.EnsureTutorialPromptPanel(canvas.transform);
+            }
+
+            if (difficultyPanel == null)
+            {
+                difficultyPanel = TitleScreenBuilder.EnsureDifficultyPanel(canvas.transform);
             }
 
             if (overwritePromptPanel == null)
@@ -269,10 +277,22 @@ namespace FXOverdose.UI
                     }
                     else
                     {
-                        state.text = hasSave ? "CONTINUE" : "EMPTY SLOT";
+                        state.text = hasSave
+                            ? $"CONTINUE  ·  {GetDifficultyLabel(SaveLoadManager.Instance.GetSaveDifficulty(i))}"
+                            : "EMPTY SLOT";
                     }
                 }
             }
+        }
+
+        private static string GetDifficultyLabel(StoryDifficulty difficulty)
+        {
+            return difficulty switch
+            {
+                StoryDifficulty.Easy => "쉬움",
+                StoryDifficulty.Normal => "보통",
+                _ => "어려움"
+            };
         }
 
         /// <summary>기존 3개 슬롯을 보존하면서 20개짜리 스크롤 목록으로 확장합니다.</summary>
@@ -520,6 +540,32 @@ namespace FXOverdose.UI
             }
         }
 
+        private void BindDifficultyPanelControls()
+        {
+            if (difficultyPanel == null) return;
+            BindButton(difficultyPanel.transform, "ModalWindow/Btn_Easy", () => SelectDifficulty(StoryDifficulty.Easy));
+            BindButton(difficultyPanel.transform, "ModalWindow/Btn_Normal", () => SelectDifficulty(StoryDifficulty.Normal));
+            BindButton(difficultyPanel.transform, "ModalWindow/Btn_Hard", () => SelectDifficulty(StoryDifficulty.Hard));
+            BindButton(difficultyPanel.transform, "ModalWindow/Btn_Close", CloseDifficultyPanel);
+        }
+
+        private void SelectDifficulty(StoryDifficulty difficulty)
+        {
+            pendingDifficulty = difficulty;
+            if (difficultyPanel != null) difficultyPanel.SetActive(false);
+            ProceedToTutorialPrompt();
+        }
+
+        private void CloseDifficultyPanel()
+        {
+            if (difficultyPanel != null) difficultyPanel.SetActive(false);
+            if (loadGamePanel != null)
+            {
+                loadGamePanel.SetActive(true);
+                loadGamePanel.transform.SetAsLastSibling();
+            }
+        }
+
         private void BindOverwritePromptControls()
         {
             if (overwritePromptPanel == null) return;
@@ -568,7 +614,7 @@ namespace FXOverdose.UI
                 }
                 else
                 {
-                    ProceedToTutorialPrompt();
+                    ProceedToDifficultySelection();
                 }
             }
             else
@@ -591,7 +637,7 @@ namespace FXOverdose.UI
         private void OnClickOverwriteYes()
         {
             if (overwritePromptPanel != null) overwritePromptPanel.SetActive(false);
-            ProceedToTutorialPrompt();
+            ProceedToDifficultySelection();
         }
 
         private void OnClickOverwriteNo()
@@ -617,10 +663,24 @@ namespace FXOverdose.UI
             }
         }
 
+        private void ProceedToDifficultySelection()
+        {
+            if (difficultyPanel != null)
+            {
+                difficultyPanel.SetActive(true);
+                difficultyPanel.transform.SetAsLastSibling();
+            }
+            else
+            {
+                pendingDifficulty = StoryDifficulty.Hard;
+                ProceedToTutorialPrompt();
+            }
+        }
+
         private void OnClickTutorialYes()
         {
             if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
-            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex);
+            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex, pendingDifficulty);
             
             if (Application.CanStreamedLevelBeLoaded("LoadingScene") && Application.CanStreamedLevelBeLoaded("tutorial"))
             {
@@ -641,7 +701,7 @@ namespace FXOverdose.UI
         private void OnClickTutorialNo()
         {
             if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
-            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex);
+            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex, pendingDifficulty);
             LoadGameFlow();
         }
 

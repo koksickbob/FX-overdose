@@ -16,6 +16,7 @@ namespace FXOverdose.Core
 
         /// <summary>현재 타이틀에서 선택해 실행 중인 게임 모드입니다.</summary>
         public GameMode CurrentGameMode { get; private set; } = GameMode.Story;
+        public StoryDifficulty CurrentStoryDifficulty { get; private set; } = StoryDifficulty.Hard;
         public bool IsTutorialCompleted { get; set; } = false;
 
         /// <summary>스토리 모드에서 현재 사용 중인 저장 슬롯입니다.</summary>
@@ -103,6 +104,7 @@ namespace FXOverdose.Core
 
             data.Version = Application.version;
             data.GameMode = CurrentGameMode;
+            data.StoryDifficulty = CurrentStoryDifficulty;
             data.IsTutorialCompleted = this.IsTutorialCompleted;
 
             if (gm != null)
@@ -252,6 +254,12 @@ namespace FXOverdose.Core
             return data == null ? string.Empty : data.SaveName?.Trim() ?? string.Empty;
         }
 
+        public StoryDifficulty GetSaveDifficulty(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= MaxStorySlots) return StoryDifficulty.Hard;
+            return ReadSaveFile(slotIndex)?.StoryDifficulty ?? StoryDifficulty.Hard;
+        }
+
         private void ExtractMemoryData(TraderMemoryManager memory, SaveData data)
         {
             try
@@ -348,6 +356,7 @@ namespace FXOverdose.Core
             // 현재 저장 슬롯은 스토리 전용입니다. GameMode 필드가 없던 기존 세이브도 Story(0)입니다.
             CurrentData.GameMode = GameMode.Story;
             CurrentGameMode = GameMode.Story;
+            CurrentStoryDifficulty = CurrentData.StoryDifficulty;
             ActiveStorySlotIndex = slotIndex;
             IsPendingLoad = true;
             Debug.Log($"[SaveLoadManager] 스토리 슬롯 {slotIndex + 1} 데이터 로드 대기 중 (GameScene 진입 시 복원 예정)");
@@ -359,12 +368,13 @@ namespace FXOverdose.Core
             PrepareNewGame(GameMode.Story, 0);
         }
 
-        public void PrepareNewGame(GameMode mode, int storySlotIndex = 0)
+        public void PrepareNewGame(GameMode mode, int storySlotIndex = 0, StoryDifficulty difficulty = StoryDifficulty.Hard)
         {
             if (!Enum.IsDefined(typeof(GameMode), mode))
                 mode = GameMode.Story;
 
             CurrentGameMode = mode;
+            CurrentStoryDifficulty = mode == GameMode.Story ? difficulty : StoryDifficulty.Hard;
             ActiveStorySlotIndex = mode == GameMode.Story
                 ? Mathf.Clamp(storySlotIndex, 0, MaxStorySlots - 1)
                 : 0;

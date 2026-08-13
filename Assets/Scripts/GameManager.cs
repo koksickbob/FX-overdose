@@ -203,6 +203,10 @@ public class GameManager : MonoBehaviour
     // 새 게임의 초기 상태 설정
     public void StartNewGame()
     {
+        var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+        if (saveManager != null && saveManager.CurrentGameMode == FXOverdose.Core.GameMode.Story)
+            startingBalance = FXOverdose.Core.StoryDifficultyTables.Get(saveManager.CurrentStoryDifficulty).StartingBalance;
+
         // 자산 초기화
         currentBalance = startingBalance;
 

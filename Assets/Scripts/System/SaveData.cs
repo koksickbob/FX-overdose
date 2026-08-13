@@ -35,6 +35,8 @@ namespace FXOverdose.Core
 
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
         public GameMode GameMode = GameMode.Story;
+        // 기존 세이브에는 값이 없어 enum 기본값 Hard(현행 난이도)로 호환됩니다.
+        public StoryDifficulty StoryDifficulty = StoryDifficulty.Hard;
 
         // --- GameManager 상태 ---
         public float Balance = 1000f;

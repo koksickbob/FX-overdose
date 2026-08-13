@@ -158,7 +158,9 @@ public class ShopItemButton : MonoBehaviour
             }
             else if (isActive && ActiveItemEffectManager.Instance != null)
             {
-                int nextPrice = ActiveItemEffectManager.Instance.GetNextUpgradePrice(item);
+                int nextPrice = shopManager != null
+                    ? shopManager.GetPurchasePrice(item)
+                    : ActiveItemEffectManager.Instance.GetNextUpgradePrice(item);
                 priceText.text = $"${nextPrice:N0}";
             }
             else

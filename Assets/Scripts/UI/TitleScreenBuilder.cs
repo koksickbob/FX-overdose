@@ -334,6 +334,51 @@ namespace FXOverdose.UI
             return overlay;
         }
 
+        public static GameObject EnsureDifficultyPanel(Transform parent)
+        {
+            if (parent == null) return null;
+            Transform existing = parent.Find("DifficultyPanel");
+            if (existing != null) return existing.gameObject;
+
+            GameObject overlay = CreateModalOverlay(parent, "DifficultyPanel");
+            Image window = CreateWindow(overlay.transform, "ModalWindow", new Vector2(0.18f, 0.18f), new Vector2(0.82f, 0.82f));
+            CreateModalTitle(window.transform, "SELECT DIFFICULTY", "난이도는 트레이딩 파트에만 적용됩니다");
+
+            CreateDifficultyCard(window.transform, "Btn_Easy", "EASY / 쉬움",
+                "초기 자산  $40,000\n상점 가격  60% 인하\n가격 인플레이션 없음",
+                new Vector2(0.055f, 0.29f), new Vector2(0.315f, 0.69f), new Color32(34, 197, 94, 255));
+            CreateDifficultyCard(window.transform, "Btn_Normal", "NORMAL / 보통",
+                "초기 자산  $20,000\n상점 가격  30% 인하\n가격 인플레이션 50%",
+                new Vector2(0.37f, 0.29f), new Vector2(0.63f, 0.69f), Cyan);
+            CreateDifficultyCard(window.transform, "Btn_Hard", "HARD / 어려움",
+                "현행 초기 자산\n현행 상점 가격\n현행 가격 인플레이션",
+                new Vector2(0.685f, 0.29f), new Vector2(0.945f, 0.69f), Pink);
+
+            CreateText(window.transform, "Notice", "선택한 난이도는 해당 저장 슬롯에 영구 저장되며 연애·스토리 진행에는 영향을 주지 않습니다.",
+                15f, Muted, new Vector2(0.07f, 0.19f), new Vector2(0.93f, 0.25f), TextAlignmentOptions.Center);
+            CreateSmallButton(window.transform, "Btn_Close", "BACK", new Vector2(0.39f, 0.07f), new Vector2(0.61f, 0.16f));
+            overlay.SetActive(false);
+            return overlay;
+        }
+
+        private static void CreateDifficultyCard(Transform parent, string name, string title, string description,
+            Vector2 min, Vector2 max, Color accent)
+        {
+            Image card = CreateImage(parent, name, new Color32(15, 35, 58, 255), min, max);
+            Button button = card.gameObject.AddComponent<Button>();
+            button.targetGraphic = card;
+            button.colors = CreateButtonColors();
+            Outline outline = card.gameObject.AddComponent<Outline>();
+            outline.effectColor = accent;
+            outline.effectDistance = new Vector2(2f, -2f);
+            TMP_Text heading = CreateText(card.transform, "Title", title, 24f, accent,
+                new Vector2(0.06f, 0.67f), new Vector2(0.94f, 0.9f), TextAlignmentOptions.Center);
+            heading.fontStyle = FontStyles.Bold;
+            TMP_Text body = CreateText(card.transform, "Description", description, 16f, Text,
+                new Vector2(0.07f, 0.14f), new Vector2(0.93f, 0.64f), TextAlignmentOptions.Center);
+            body.textWrappingMode = TextWrappingModes.Normal;
+        }
+
         public static GameObject EnsureOverwritePromptPanel(Transform parent)
         {
             if (parent == null) return null;
