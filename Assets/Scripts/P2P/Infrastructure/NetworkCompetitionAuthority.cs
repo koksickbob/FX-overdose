@@ -30,7 +30,30 @@ namespace FXOverdose.P2P.Infrastructure
             if(!initialized){initialized=true;foreach(var p in match.Players){p.SetInventoryAmount("energy_drink",5);p.SetInventoryAmount("dessert",5);p.SetInventoryAmount("sedative",2);p.SetInventoryAmount("supplement",2);}Broadcast("경기가 시작됐어용");}
             if(finished)return;
             tick+=Time.unscaledDeltaTime;broadcastTick+=Time.unscaledDeltaTime;
-            if(tick>=1f){float seconds=tick;tick=0;foreach(var p in match.Players){if(p.IsEliminated)continue;p.ChangeHealth(-.035*seconds);double loss=Math.Max(0,-p.Position.UnrealizedPnL);p.ChangeMental((-.02-loss/50000d)*seconds);Evaluate(p,match);}}
+            if(tick>=1f)
+            {
+                float seconds=tick;tick=0;
+                // TraderStatus.DecreaseStatusOverTime의 1일차·기본 아이템 상태 공식을 호스트에서 동일하게 계산합니다.
+                const double secondsPerGameMinute=.666d;
+                double speedScale=5d/secondsPerGameMinute;
+                double healthDrainPerSecond=(.05d+.005d)*1.5d*speedScale;
+                double baseMentalDrainPerSecond=.04d*speedScale;
+                foreach(var p in match.Players)
+                {
+                    if(p.IsEliminated)continue;
+                    double previousHealth=p.Health;
+                    p.ChangeHealth(-healthDrainPerSecond*seconds);
+                    double appliedHealthLoss=Math.Max(0d,previousHealth-p.Health);
+                    double mentalDrain=0d;
+                    // 원본처럼 HP 50 이하 구간에서 실제로 감소한 HP만큼 멘탈도 함께 감소합니다.
+                    if(previousHealth<=50d)mentalDrain+=appliedHealthLoss;
+                    else if(p.Health<50d)mentalDrain+=50d-p.Health;
+                    if(p.Health<=0d)mentalDrain+=baseMentalDrainPerSecond*4d*seconds;
+                    else if(p.Health<=50d)mentalDrain+=baseMentalDrainPerSecond*seconds;
+                    if(mentalDrain>0d)p.ChangeMental(-mentalDrain);
+                    Evaluate(p,match);
+                }
+            }
             var snapshot=market.CurrentSnapshot;
             if(!eventActive && snapshot.TotalMinutes>=720 && eventId==0) StartEvent();
             if(!eventActive && snapshot.TotalMinutes>=1080 && eventId==1) StartEvent();
@@ -49,7 +72,7 @@ namespace FXOverdose.P2P.Infrastructure
             ulong actual=SteamRuntimeBootstrap.LocalSteamId;if(sender!=net.LocalClientId&&(!P2PNetworkSessionManager.Instance.TryGetSteamId(sender,out actual)||actual!=claimed))return;
             var match=trading.HostMatch;if(match==null||!match.TryGetPlayer(actual,out var p)||p.IsEliminated)return;
             string message=string.Empty;
-            if(action==P2PCompetitionAction.ChooseEvent){if(eventActive&&int.TryParse(value,out int c)&&c>=0&&c<3&&!choices.ContainsKey(actual)){choices[actual]=c;message=$"{p.DisplayName} 선택 완료";}}
+            if(action==P2PCompetitionAction.ChooseEvent){if(eventActive&&int.TryParse(value,out int c)&&P2PChoiceRules.IsValid(c)&&!choices.ContainsKey(actual)){choices[actual]=c;message=$"{p.DisplayName} 선택 완료";}}
             else if(action==P2PCompetitionAction.BuyItem) message=Buy(p,value);
             else if(action==P2PCompetitionAction.UseItem) message=Use(p,value);
             Broadcast(message);trading.BroadcastCurrentState();
@@ -65,7 +88,7 @@ namespace FXOverdose.P2P.Infrastructure
 
         private void StartEvent(){eventActive=true;eventId++;choices.Clear();eventDeadline=Time.unscaledTime+15f;trading.HostMatch.IsChoiceEventActive=true;market.SetPausedByHost(true);Broadcast("돌발 이벤트: 15초 안에 선택해용");}
         private void ResolveEvent(P2PLocalMatch match)
-        { foreach(var p in match.Players){if(p.IsEliminated)continue;if(!choices.TryGetValue(p.PlayerId,out int c))c=(int)((p.PlayerId+(ulong)eventId)%3);if(c==0)p.ChangeHealth(15);else if(c==1){p.ChangeMental(20);p.ChangeHealth(-5);}else{p.ChangeMental(-15);p.ChangeCash(500);}Evaluate(p,match);}eventActive=false;match.IsChoiceEventActive=false;market.SetPausedByHost(false);Broadcast("이벤트 결과가 적용됐어용");trading.BroadcastCurrentState(); }
+        { foreach(var p in match.Players){if(p.IsEliminated)continue;if(!choices.TryGetValue(p.PlayerId,out int c))c=P2PChoiceRules.GetTimeoutChoice(p.PlayerId,eventId);if(c==0)p.ChangeHealth(15);else if(c==1){p.ChangeMental(20);p.ChangeHealth(-5);}Evaluate(p,match);}eventActive=false;match.IsChoiceEventActive=false;market.SetPausedByHost(false);Broadcast("이벤트 결과가 적용됐어용");trading.BroadcastCurrentState(); }
         private static void Evaluate(P2PPlayerRuntimeState p,P2PLocalMatch match)
         { P2PEliminationReason reason=p.Mental<=0?P2PEliminationReason.MentalDepleted:p.TotalEquity<=0?P2PEliminationReason.Bankruptcy:P2PEliminationReason.None;if(reason==P2PEliminationReason.None)return;if(p.Position.IsOpen)P2PTradeCalculator.ClosePosition(p,match.Rules,match.MarketPrice);p.TryEliminate(reason,(long)Time.unscaledTime); }
         private void Finish(P2PLocalMatch match){finished=true;eventActive=false;market.SetPausedByHost(true);match.IsChoiceEventActive=false;match.Finish();trading.BroadcastCurrentState();Broadcast("경기 종료 · 최종 순위가 확정됐어용");}

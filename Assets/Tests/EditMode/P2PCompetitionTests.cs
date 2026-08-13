@@ -29,5 +29,14 @@ namespace FXOverdose.P2P.Tests
             Assert.That(p.Position.IsOpen,Is.False);Assert.That(match.Phase,Is.EqualTo(P2PMatchPhase.Finished));
             Assert.That(match.SubmitTrade(1,new P2PTradeRequest(2,P2PTradeAction.OpenLong,2,.5)).RejectReason,Is.EqualTo(P2PTradeRejectReason.MatchNotPlaying));
         }
+
+        [Test]
+        public void ChoiceRules_RejectItemOptionAndTimeoutUsesOnlyOptionsOneOrTwo()
+        {
+            Assert.That(P2PChoiceRules.IsValid(0),Is.True);
+            Assert.That(P2PChoiceRules.IsValid(1),Is.True);
+            Assert.That(P2PChoiceRules.IsValid(2),Is.False);
+            for(ulong player=1;player<=8;player++)Assert.That(P2PChoiceRules.GetTimeoutChoice(player,3),Is.InRange(0,1));
+        }
     }
 }

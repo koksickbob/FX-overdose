@@ -538,7 +538,7 @@ public struct PlayerChoiceState : INetworkSerializable
 Hash(MatchSeed, EventSequence, PlayerSteamId)
 ```
 
-요구 아이템이 없거나 실제 보유한 선택지만 무작위 후보에 포함합니다.
+P2P 돌발 이벤트에서는 아이템을 소모하는 3안을 제거하고 일반 1안·2안만 표시합니다. 미선택 자동 배정도 1안·2안만 후보로 사용합니다.
 
 ### 14.4. 결과 적용
 

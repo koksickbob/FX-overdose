@@ -7,6 +7,14 @@ namespace FXOverdose.P2P.Core
 {
     public enum P2PCompetitionAction : byte { BuyItem, UseItem, ChooseEvent }
 
+    /// <summary>P2P 돌발 이벤트는 원본의 일반 1·2안만 사용하고 아이템 소모 3안은 제외합니다.</summary>
+    public static class P2PChoiceRules
+    {
+        public const int OptionCount=2;
+        public static bool IsValid(int option)=>option>=0&&option<OptionCount;
+        public static int GetTimeoutChoice(ulong playerId,int eventId)=>(int)((playerId+(ulong)eventId)%OptionCount);
+    }
+
     public readonly struct P2PCompetitionPlayerSnapshot
     {
         public P2PCompetitionPlayerSnapshot(ulong id, double health, double mental, bool eliminated,
