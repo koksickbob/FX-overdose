@@ -41,7 +41,9 @@ namespace FXOverdose.Editor
                 return;
             }
 
-            bool proceed = EditorUtility.DisplayDialog(
+            // 배치모드에는 대화상자가 없습니다(호출하면 예외 후 false 반환 → 조용히 취소됨).
+            // -executeMethod로 부른 것 자체가 실행 의사이므로 확정으로 봅니다.
+            bool proceed = Application.isBatchMode || EditorUtility.DisplayDialog(
                 "템플릿 마이그레이션",
                 $"로직 템플릿 {templates.Length}개와 하드코딩 이벤트 30개를 수정합니다.\n\n" +
                 "· 베팅 선택지의 음수 멘탈을 실패 페널티로 이동하고 성공 보상을 채웁니다 (C4)\n" +
@@ -162,8 +164,9 @@ namespace FXOverdose.Editor
             log.AppendLine("git diff로 변경 내용을 확인한 뒤 별도 커밋으로 분리하십시오.");
             Debug.Log(log.ToString());
 
-            EditorUtility.DisplayDialog("마이그레이션 완료",
-                $"템플릿 {changedAssets}개 / 하드코딩 이벤트 {changedEvents}개를 수정했습니다.\n자세한 내용은 콘솔을 확인하십시오.", "확인");
+            if (!Application.isBatchMode)
+                EditorUtility.DisplayDialog("마이그레이션 완료",
+                    $"템플릿 {changedAssets}개 / 하드코딩 이벤트 {changedEvents}개를 수정했습니다.\n자세한 내용은 콘솔을 확인하십시오.", "확인");
         }
 
         /// <summary>실패 페널티 크기에서 성공 보상을 유도합니다. 난수를 쓰지 않아 재실행해도 결과가 같습니다.</summary>

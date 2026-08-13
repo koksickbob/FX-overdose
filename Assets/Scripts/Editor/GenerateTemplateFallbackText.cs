@@ -122,6 +122,114 @@ namespace FXOverdose.Editor
             },
         };
 
+        // ── 선택지 문구 ───────────────────────────────────────────────────
+        // 생성기는 242개 템플릿 전부에 같은 선택지 문구를 박아 넣었습니다.
+        // 기사만 바뀌고 버튼은 늘 "안전하게 관망 / 롱 베팅 / 아이템 사용"이라 몇 번만 겪으면
+        // 기사를 안 읽게 됩니다. 카테고리·흐름에 묶어 5종 → 60종으로 늘립니다.
+        //
+        // 문구 길이는 기존 최장값(25자, "하락에 모든 것을 걸고 숏(Short) 베팅!")을 넘지 않게 유지합니다.
+        // 버튼 폭이 그 길이로 검증돼 있어, 넘기면 잘리거나 줄바꿈이 깨집니다.
+
+        private static readonly Dictionary<string, string> CategorySafeTitle = new()
+        {
+            ["Macro"] = "지표 해석이 끝날 때까지 비운다",
+            ["Exchange"] = "거래소에서 자금을 빼고 관망한다",
+            ["Whale"] = "물량이 소화될 때까지 손을 뗀다",
+            ["Influencer"] = "말에 휘둘리지 않고 포지션을 접는다",
+            ["Technical"] = "추세가 다시 잡힐 때까지 쉬어간다",
+            ["Cyber"] = "진위 확인까지 지갑으로 대피한다",
+            ["Regulatory"] = "법안 윤곽이 잡힐 때까지 현금 보유",
+            ["Altcoin"] = "알트를 정리하고 사태를 지켜본다",
+            ["OnChain"] = "과열된 약정이 식을 때까지 기다린다",
+            ["Community"] = "선동에 말려들지 않고 정리한다",
+        };
+
+        private static readonly Dictionary<string, string> CategorySafeDesc = new()
+        {
+            ["Macro"] = "지표 해석이 엇갈리는 구간을",
+            ["Exchange"] = "출금이 막힐 수 있는 위험을",
+            ["Whale"] = "고래 물량이 쏟아질 위험을",
+            ["Influencer"] = "말 한마디에 휩쓸릴 위험을",
+            ["Technical"] = "추세가 뒤집히는 혼전을",
+            ["Cyber"] = "해킹 진위가 불투명한 구간을",
+            ["Regulatory"] = "규제 윤곽이 안 잡힌 구간을",
+            ["Altcoin"] = "체인이 멈춘 알트의 위험을",
+            ["OnChain"] = "청산이 연쇄될 과열 구간을",
+            ["Community"] = "조직적 선동에 물릴 위험을",
+        };
+
+        /// <summary>베팅 선택지의 근거. 흐름별 행동과 이어 붙입니다.</summary>
+        private static readonly Dictionary<string, string> CategoryBetSetup = new()
+        {
+            ["Macro"] = "지표를 믿고",
+            ["Exchange"] = "출금 대란에 걸고",
+            ["Whale"] = "고래를 따라",
+            ["Influencer"] = "그 한마디에 걸고",
+            ["Technical"] = "무너진 추세에 걸고",
+            ["Cyber"] = "해킹 공포에 걸고",
+            ["Regulatory"] = "규제 방향에 걸고",
+            ["Altcoin"] = "체인 마비에 걸고",
+            ["OnChain"] = "약정 폭증에 걸고",
+            ["Community"] = "군중 심리에 걸고",
+        };
+
+        private static readonly Dictionary<string, string> FlowBetAction = new()
+        {
+            ["Pump"] = "롱(Long)에 전부 건다!",
+            ["Crash"] = "숏(Short)에 전부 건다!",
+            ["Sideways"] = "먼저 롱(Long)을 잡는다!",
+            ["Whipsaw"] = "변동성에 몸을 던진다!",
+        };
+
+        private static readonly Dictionary<string, string> FlowBetDesc = new()
+        {
+            ["Pump"] = "매수세가 그대로 이어진다는 쪽",
+            ["Crash"] = "하락이 더 깊어진다는 쪽",
+            ["Sideways"] = "응축된 변동성이 위로 터진다는 쪽",
+            ["Whipsaw"] = "양방향 급변이 계속된다는 쪽",
+        };
+
+        private static readonly Dictionary<string, string> CategoryItemTitle = new()
+        {
+            ["Macro"] = "[아이템 사용] 거시 지표 역산기",
+            ["Exchange"] = "[아이템 사용] 거래소 유동성 스캐너",
+            ["Whale"] = "[아이템 사용] 고래 지갑 추적기",
+            ["Influencer"] = "[아이템 사용] 소셜 여론 역이용 봇",
+            ["Technical"] = "[아이템 사용] 추세 복원 알고리즘",
+            ["Cyber"] = "[아이템 사용] 딥웹 정보 선점 채널",
+            ["Regulatory"] = "[아이템 사용] 규제 우회 라우팅",
+            ["Altcoin"] = "[아이템 사용] 체인 장애 차익 봇",
+            ["OnChain"] = "[아이템 사용] 청산 맵 분석기",
+            ["Community"] = "[아이템 사용] 여론 조작 감지기",
+        };
+
+        private static readonly Dictionary<string, string> CategoryItemDesc = new()
+        {
+            ["Macro"] = "지표 발표 직후의 왜곡을 역산해",
+            ["Exchange"] = "거래소별 호가 괴리를 훑어",
+            ["Whale"] = "고래 지갑의 다음 행선지를 앞질러",
+            ["Influencer"] = "여론이 뒤집히는 시점을 선점해",
+            ["Technical"] = "무너진 지지선의 복원 지점을 짚어",
+            ["Cyber"] = "딥웹 정보를 시장보다 먼저 받아",
+            ["Regulatory"] = "규제 사각지대로 주문을 우회해",
+            ["Altcoin"] = "멈춘 체인의 가격 괴리를 노려",
+            ["OnChain"] = "청산 맵의 빈 구간을 계산해",
+            ["Community"] = "조작된 물량의 실체를 걸러내",
+        };
+
+        /// <summary>
+        /// 생성기가 박아 넣은 기본 문구. 이 목록과 일치할 때만 덮어씁니다.
+        /// 작가가 손본 문구를 초안이 되돌리는 사고를 막기 위한 가드입니다.
+        /// </summary>
+        private static readonly HashSet<string> GenericOptionTitles = new()
+        {
+            "안전하게 포지션을 종료하고 관망한다.",
+            "상승에 모든 것을 걸고 롱(Long) 베팅!",
+            "하락에 모든 것을 걸고 숏(Short) 베팅!",
+            "시장의 변동성에 공격적으로 몸을 맡긴다!",
+            "[아이템 사용] 특수 대응 알고리즘 가동",
+        };
+
         [MenuItem("Tools/FX OVERDOSE/Generate Template Fallback Text")]
         public static void Generate()
         {
@@ -136,18 +244,29 @@ namespace FXOverdose.Editor
                 "사전 작성 텍스트 초안 생성",
                 $"{templates.Length}개 템플릿에 사전 작성 텍스트 초안을 채웁니다.\n\n" +
                 "· 빈 항목만 채우기: 이미 손본 문구는 건드리지 않습니다 (권장)\n" +
-                "· 전체 덮어쓰기: 손으로 다듬은 문구도 초안으로 되돌립니다",
+                "· 전체 덮어쓰기: 손으로 다듬은 문구도 초안으로 되돌립니다\n\n" +
+                "어느 쪽이든 선택지 문구는 기본 문구인 것만 카테고리별로 교체합니다.",
                 "빈 항목만 채우기", "취소", "전체 덮어쓰기");
 
             if (choice == 1) return; // 취소
             bool overwriteAll = (choice == 2);
 
-            int filled = 0, skipped = 0, unparsable = 0;
+            int filled = 0, skipped = 0, unparsable = 0, optionRewritten = 0;
             var report = new StringBuilder();
 
             foreach (var t in templates)
             {
                 if (t == null) continue;
+
+                bool parsed = TryParseTemplateId(t.TemplateID, out string cat, out string flow, out string risk, out string time);
+
+                // 선택지 문구는 사전 텍스트 유무와 별개로 적용합니다. 기사만 손보고 버튼은 기본 문구로
+                // 남아 있는 템플릿이 대부분이라, HasFallbackText로 건너뛰면 정작 병목이 안 고쳐집니다.
+                if (parsed && ApplyOptionTexts(t, cat, flow))
+                {
+                    optionRewritten++;
+                    EditorUtility.SetDirty(t);
+                }
 
                 if (!overwriteAll && t.HasFallbackText)
                 {
@@ -155,7 +274,7 @@ namespace FXOverdose.Editor
                     continue;
                 }
 
-                if (!TryParseTemplateId(t.TemplateID, out string cat, out string flow, out string risk, out string time))
+                if (!parsed)
                 {
                     // 생성기 범위 밖의 수제 템플릿(Template_MarketCrash 등)은 ThemeTag 서술로 최소 문구를 만듭니다.
                     BuildFromThemeOnly(t);
@@ -180,13 +299,62 @@ namespace FXOverdose.Editor
             report.AppendLine($"  채운 템플릿            : {filled}개");
             report.AppendLine($"  건너뛴 템플릿(기존 유지): {skipped}개");
             report.AppendLine($"  ID 파싱 불가(테마 기반) : {unparsable}개");
+            report.AppendLine($"  선택지 문구 교체        : {optionRewritten}개 템플릿 (기본 문구였던 것만)");
             report.AppendLine();
             report.AppendLine("⚠️ 새 한국어 문구가 자산에 추가되었습니다.");
             report.AppendLine("   글자가 □로 보이면 Tools/Prebake All Scripts Text into Font 를 재실행하십시오.");
             Debug.Log(report.ToString());
 
             EditorUtility.DisplayDialog("완료",
-                $"{filled}개 템플릿에 사전 텍스트를 채웠습니다.\n({skipped}개는 기존 문구 유지)", "확인");
+                $"{filled}개 템플릿에 사전 텍스트를 채웠습니다.\n" +
+                $"선택지 문구는 {optionRewritten}개 템플릿에서 교체했습니다.\n({skipped}개는 기존 기사 문구 유지)", "확인");
+        }
+
+        /// <summary>
+        /// 선택지 문구를 카테고리·흐름에 묶어 교체합니다. 5종 → 60종(Safe 10 / 베팅 40 / 아이템 10).
+        ///
+        /// 선택지 <b>로직</b>(확률·빔·레버리지·멘탈)은 건드리지 않습니다. 보이는 문구만 바꿉니다.
+        /// 기본 문구와 정확히 일치할 때만 덮어써서, 작가가 손본 문구는 보존합니다.
+        /// </summary>
+        /// <returns>한 항목이라도 교체했으면 true</returns>
+        private static bool ApplyOptionTexts(EventLogicTemplateSO t, string cat, string flow)
+        {
+            if (t.LogicOptions == null) return false;
+
+            bool changed = false;
+
+            foreach (var o in t.LogicOptions)
+            {
+                if (o == null) continue;
+
+                // 기본 문구가 아니면 손대지 않습니다.
+                if (!GenericOptionTitles.Contains(o.OptionTitle)) continue;
+
+                switch (o.OptionType)
+                {
+                    case ChoiceOptionType.Safe:
+                        o.OptionTitle = CategorySafeTitle[cat];
+                        o.OptionDescription = $"{CategorySafeDesc[cat]} 피해 물러섭니다. 멘탈과 체력을 회복합니다.";
+                        changed = true;
+                        break;
+
+                    case ChoiceOptionType.Aggressive:
+                    case ChoiceOptionType.DirectionalLong:
+                    case ChoiceOptionType.DirectionalShort:
+                        o.OptionTitle = $"{CategoryBetSetup[cat]} {FlowBetAction[flow]}";
+                        o.OptionDescription = $"{FlowBetDesc[flow]}에 베팅합니다. 성공하면 큰 수익, 실패하면 큰 손실을 감수합니다.";
+                        changed = true;
+                        break;
+
+                    case ChoiceOptionType.SpecialItem:
+                        o.OptionTitle = CategoryItemTitle[cat];
+                        o.OptionDescription = $"보유한 아이템으로 {CategoryItemDesc[cat]} 확정적인 수익을 창출합니다.";
+                        changed = true;
+                        break;
+                }
+            }
+
+            return changed;
         }
 
         private static bool TryParseTemplateId(string id, out string cat, out string flow, out string risk, out string time)
