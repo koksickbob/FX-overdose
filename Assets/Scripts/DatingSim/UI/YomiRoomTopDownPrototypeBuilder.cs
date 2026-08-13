@@ -9,6 +9,9 @@ namespace FXOverdose.DatingSim.UI
     /// <summary>외부 아트 없이 P2_03의 이동과 상호작용 동선을 확인하기 위한 런타임 조립기입니다.</summary>
     public static class YomiRoomTopDownPrototype
     {
+        /// <summary>노드 하나에 붙을 수 있는 선택지 최대 개수. 계획서 요청사항 4번의 상한과 같습니다.</summary>
+        private const int MaxTalkChoices = 4;
+
         private static Sprite pixelSprite;
         private static readonly Color32 Navy = new(7, 16, 31, 255);
         private static readonly Color32 Floor = new(29, 43, 59, 255);
@@ -278,8 +281,42 @@ namespace FXOverdose.DatingSim.UI
             sendImage.type = Image.Type.Sliced;
             sendImage.color = Color.white;
             send.GetComponent<Outline>().enabled = false;
+
+            // 입력행을 대체하는 선택지 버튼 4개. 노드마다 필요한 개수만 켜집니다. (2~4개)
+            // 스프라이트가 없으면 단색 임시 UI로 그대로 동작합니다.
+            Sprite choiceFrame = LoadUISprite("DatingSim/YomiRoom/UI/Chat/ChoiceButton", new Vector4(24f, 24f, 24f, 24f));
+            Button[] choices = new Button[MaxTalkChoices];
+            for (int i = 0; i < MaxTalkChoices; i++)
+            {
+                float top = 0.185f - i * 0.042f;
+                choices[i] = CreateButton(panel, $"Choice{i}", string.Empty,
+                    new Vector2(0.055f, top - 0.038f), new Vector2(0.945f, top), Cyan);
+
+                Image choiceImage = (Image)choices[i].targetGraphic;
+                if (choiceFrame != null)
+                {
+                    choiceImage.sprite = choiceFrame;
+                    choiceImage.type = Image.Type.Sliced;
+                    choiceImage.color = Color.white;
+                    choices[i].GetComponent<Outline>().enabled = false;
+                }
+
+                TextMeshProUGUI label = choices[i].GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null)
+                {
+                    label.fontSize = 17f;
+                    label.alignment = TextAlignmentOptions.Left;
+                    label.margin = new Vector4(18f, 0f, 8f, 0f);
+                }
+            }
+
             YomiRoomDialogueUI dialogue = panel.gameObject.AddComponent<YomiRoomDialogueUI>();
-            dialogue.Configure(history, input, send, scroll, yomiBubble, masterBubble, avatarFrame, portrait);
+            dialogue.Configure(history, input, send, scroll, yomiBubble, masterBubble, avatarFrame, portrait, choices);
+
+            // 대화 개시 버튼. 슬롯을 소모하고 오늘 안 쓴 토픽을 하나 엽니다.
+            Button startTalk = CreateButton(panel, "StartTalkButton", "자유대화",
+                new Vector2(0.055f, 0.02f), new Vector2(0.945f, 0.058f), Pink);
+            startTalk.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartTalk());
         }
 
         private static void BuildRoomSettingsButton(Transform parent)

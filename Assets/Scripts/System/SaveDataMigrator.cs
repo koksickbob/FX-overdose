@@ -48,6 +48,17 @@ namespace FXOverdose.Core
                 if (data.EventLastTriggerDay <= 0) data.EventLastTriggerDay = -1;
                 if (data.MinutesUntilNextRegimeChange <= 0) data.MinutesUntilNextRegimeChange = 60;
                 if (data.TalkTopicsUsedToday == null) data.TalkTopicsUsedToday = new System.Collections.Generic.List<string>();
+                if (data.TalkChoiceHistory == null) data.TalkChoiceHistory = new System.Collections.Generic.List<string>();
+                if (data.TalkTopicsSeenTotal == null) data.TalkTopicsSeenTotal = new System.Collections.Generic.List<string>();
+                if (data.TalkCompletedFlags == null) data.TalkCompletedFlags = new System.Collections.Generic.List<string>();
+                if (data.TalkActiveTopicId == null) data.TalkActiveTopicId = "";
+                if (data.TalkHintLineId == null) data.TalkHintLineId = "";
+                if (data.TalkLastGreetingDay <= 0) data.TalkLastGreetingDay = -1;
+
+                // ⚠️ 이 필드만은 기본값 0으로 두면 안 됩니다.
+                //    호감도 70인 기존 세이브가 로드 즉시 1단계로 강등되어 열려 있던 화제가 사라집니다. (TS9)
+                if (data.TalkPeakAffection < data.DatingAffection)
+                    data.TalkPeakAffection = data.DatingAffection;
             }
 
             // 더 높은 버전의 마이그레이션이 필요하다면 계속 추가

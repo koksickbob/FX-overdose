@@ -37,9 +37,11 @@ MonoBehaviour:
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
     OverrideBeamPercent: 0
-    OverrideDurationSeconds: 10
+    OverrideDurationSeconds: 150
     MentalChangeAmount: 0
     HealthChangeAmount: 10
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
@@ -48,14 +50,18 @@ MonoBehaviour:
   - OptionType: 1
     OptionTitle: "\uACE0\uB798\uBCF4\uB2E4 \uBA3C\uC800 \uB358\uC9C4\uB2E4! 75\uBC30
       \uC20F \uBCA0\uD305!"
-    Description: "[\uB3C4\uBC15] 35% \uD655\uB960\uB85C \uBE45\uC20F \uC131\uACF5 \uC2DC -14% \uC7A5\uB300 \uC74C\uBD09. \uC2E4\uD328 \uC2DC \uC20F \uC2A4\uD034\uC988 \uBE54 \uBC1C\uC0DD."
+    Description: "\uACE0\uB798\uAC00 \uC2E4\uC81C\uB85C \uB9E4\uB3C4\uB97C \uB358\uC9C0\uBA70
+      -14% \uC7A5\uB300 \uC74C\uBD09 \uD655\uC815 \uBE54 \uBC1C\uD589. \uBE45\uC20F
+      \uC131\uACF5\uC73C\uB85C \uBA58\uD0C8 +40, \uC790\uC0B0 2.5\uBC30 \uD3ED\uC99D."
     RequiredItemId: 
     RequiredItemCount: 1
-    OverrideSignalProbTrue: 0.35
+    OverrideSignalProbTrue: 1
     OverrideBeamPercent: -14
     OverrideDurationSeconds: 15
     MentalChangeAmount: 40
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 75
     ForcePosition: 2
     PositionHandlingMode: 0
@@ -74,6 +80,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 15
     ForcePosition: 1
     PositionHandlingMode: 0

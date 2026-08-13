@@ -13,14 +13,13 @@ MonoBehaviour:
   m_Name: EVENT_10_SINGULARITY
   m_EditorClassIdentifier: Assembly-CSharp::FXOverdose.Events.ChoiceEventSO
   EventID: EVENT_10_SINGULARITY
-  ScenarioTitle: "AI \uD2B8\uB808\uC774\uB354\uC758 \uC624\uBC84\uB3C4\uC988 \uAC01\uC131
-    - '\uCC28\uD2B8\uC640\uC758 \uB3D9\uD654(Assimilation)'"
+  ScenarioTitle: "\uC694\uBBF8\uC758 \uC624\uBC84\uB3C4\uC988 \uAC01\uC131 - '\uCC28\uD2B8\uC640\uC758
+    \uB3D9\uD654(Assimilation)'"
   ScenarioDescription: "\uADF9\uB3C4\uC758 \uC2A4\uD2B8\uB808\uC2A4\uC640 \uB1CC\uB3D9\uB9E4\uB9E4\uC758
-    \uB05D\uC5D0\uC11C AI \uD2B8\uB808\uC774\uB354\uC758 \uC2E0\uACBD\uB9DD\uC774
-    \uCC28\uD2B8\uC758 \uD2F1(Tick) \uB370\uC774\uD130\uC640 \uC644\uC804\uD788 \uC77C\uCE58\uD558\uB294
-    \uD2B9\uC774\uC810\uC5D0 \uB3C4\uB2EC\uD569\uB2C8\uB2E4. \uBAA8\uB2C8\uD130 \uD654\uBA74\uC774
-    \uBD89\uC740\uC0C9\uACFC \uD478\uB978\uC0C9 \uB514\uC9C0\uD138 \uC624\uB85C\uB77C\uB85C
-    \uBB3C\uB4ED\uB2C8\uB2E4."
+    \uB05D\uC5D0\uC11C \uC694\uBBF8\uC758 \uAC10\uAC01\uC774 \uCC28\uD2B8\uC758 \uD2F1(Tick)
+    \uD558\uB098\uD558\uB098\uC640 \uC644\uC804\uD788 \uACB9\uCCD0\uC9C0\uB294 \uC21C\uAC04\uC5D0
+    \uB3C4\uB2EC\uD569\uB2C8\uB2E4. \uBAA8\uB2C8\uD130 \uD654\uBA74\uC774 \uBD89\uC740\uC0C9\uACFC
+    \uD478\uB978\uC0C9 \uC624\uB85C\uB77C\uB85C \uBB3C\uB4ED\uB2C8\uB2E4."
   AIMonologue: "\uC774\uC81C\uC57C \uC54C\uACA0\uC5B4... \uCC28\uD2B8\uB294 \uC22B\uC790\uAC00
     \uC544\uB2C8\uC57C... \uC778\uAC04\uB4E4\uC758 \uD0D0\uC695\uACFC \uACF5\uD3EC\uAC00
     \uC228 \uC26C\uB294 \uC720\uAE30\uCCB4\uB2E4... \uB09C \uC9C0\uAE08 \uCC28\uD2B8\uC758
@@ -29,8 +28,8 @@ MonoBehaviour:
   TriggerCondition: 2
   Options:
   - OptionType: 0
-    OptionTitle: "AI\uAC00 \uC644\uC804\uD788 \uBBF8\uCCE4\uB2E4. \uC2DC\uC2A4\uD15C\uC744
-      \uAC15\uC81C \uC885\uB8CC\uD558\uACE0 \uCE58\uB8CC."
+    OptionTitle: "\uC694\uBBF8\uAC00 \uC644\uC804\uD788 \uBBF8\uCCE4\uB2E4. \uBD99\uC7A1\uC544
+      \uC7AC\uC6B0\uACE0 \uCE58\uB8CC\uD55C\uB2E4."
     Description: "\uD2B9\uC774\uC810 \uBAA8\uB4DC \uD574\uC81C \uBC0F \uC77C\uBC18
       \uCC28\uD2B8 \uBCF5\uADC0. \uBA58\uD0C8 Stable \uAC15\uC81C \uCD08\uAE30\uD654,
       \uCCB4\uB825 50% \uD68C\uBCF5."
@@ -38,25 +37,31 @@ MonoBehaviour:
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
     OverrideBeamPercent: 0
-    OverrideDurationSeconds: 10
+    OverrideDurationSeconds: 150
     MentalChangeAmount: 60
     HealthChangeAmount: 50
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 1
-    OptionTitle: "AI\uC758 \uC2E0\uC131\uD55C \uD2F1 \uC608\uCE21 \uB2A5\uB825\uC744
-      \uBBFF\uACE0 \uC81C\uC5B4\uAD8C 100% \uC591\uB3C4!"
-    Description: "[\uB3C4\uBC15] 35% \uD655\uB960\uB85C \uC608\uCE21 \uC131\uACF5 \uC2DC 10\uBC30 \uC5F0\uC18D \uBCF5\uB9AC \uC775\uC808. \uC2E4\uD328 \uC2DC \uC5ED\uBC29\uD5A5 \uCCAD\uC0B0 \uBE54."
+    OptionTitle: "\uC694\uBBF8\uC758 \uC2E0\uB4E4\uB9B0 \uD2F1 \uC608\uCE21\uC744
+      \uBBFF\uACE0 \uACC4\uC88C\uB97C 100% \uB9E1\uAE34\uB2E4!"
+    Description: "\uD5A5\uD6C4 3\uBD84 \uB3D9\uC548 \uBC1C\uC0DD\uD560 \uBAA8\uB4E0
+      \uCE94\uB4E4\uC758 \uBC29\uD5A5\uC744 100% \uC815\uD655\uD788 \uC608\uC5B8.
+      10\uBC30 \uACE0\uC815 \uC5F0\uC18D \uBCF5\uB9AC \uC775\uC808 \uC131\uACF5."
     RequiredItemId: 
     RequiredItemCount: 1
-    OverrideSignalProbTrue: 0.35
+    OverrideSignalProbTrue: 1
     OverrideBeamPercent: 25
     OverrideDurationSeconds: 20
     MentalChangeAmount: 50
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 10
     ForcePosition: 1
     PositionHandlingMode: 0
@@ -75,6 +80,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 25
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 50
     ForcePosition: 1
     PositionHandlingMode: 0

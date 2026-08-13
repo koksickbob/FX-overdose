@@ -128,6 +128,7 @@ namespace FXOverdose.Core
 
             trading?.CaptureSaveData(data);
             gm?.CaptureSettlementContext(data);
+            DailyMarketOutlook.Capture(data);
             FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>(FindObjectsInactive.Include)?.CaptureSaveData(data);
             marketEngine?.CaptureSaveData(data);
             activeItems?.CaptureSaveData(data.ActiveItemIds, data.ActiveItemLevels);
@@ -355,6 +356,8 @@ namespace FXOverdose.Core
             CurrentData = null;
             IsPendingLoad = false;
             DeliveryFoodManager.ResetStateForNewGame();
+            // static이라 이전 판의 방향성이 남습니다. 새 게임에서 반드시 비웁니다. (S8)
+            DailyMarketOutlook.Reset();
             Debug.Log($"[SaveLoadManager] 새 게임 준비: {CurrentGameMode}" +
                       (CurrentGameMode == GameMode.Story ? $" / Slot {ActiveStorySlotIndex + 1}" : string.Empty));
         }
@@ -467,6 +470,7 @@ namespace FXOverdose.Core
             }
 
             gm?.RestoreSettlementContext(CurrentData);
+            DailyMarketOutlook.Load(CurrentData);
             FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>(FindObjectsInactive.Include)?.RestoreFromSaveData(CurrentData);
             marketEngine?.RestoreFromSaveData(CurrentData);
             deliveryFood.Restore(CurrentData.LastSteakPurchaseDay, CurrentData.PastaBuffRemainingSeconds);

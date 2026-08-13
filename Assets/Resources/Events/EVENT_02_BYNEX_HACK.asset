@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -36,17 +36,19 @@ MonoBehaviour:
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
     OverrideBeamPercent: 0
-    OverrideDurationSeconds: 10
+    OverrideDurationSeconds: 150
     MentalChangeAmount: 25
     HealthChangeAmount: 15
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 1
-    OptionTitle: "AI\uC758 \uACF5\uD3EC\uC5D0 \uB3D9\uC870\uD558\uC5EC 75\uBC30 \uC20F
-      \uBCA0\uD305 \uAC15\uD589!"
+    OptionTitle: "\uC694\uBBF8\uC758 \uACF5\uD3EC\uC5D0 \uB3D9\uC870\uD558\uC5EC
+      75\uBC30 \uC20F \uBCA0\uD305 \uAC15\uD589!"
     Description: "\uC9C1\uD6C4 -10% \uAE09\uB77D \uD6C4 +18% \uC20F \uC2A4\uD034\uC988
       \uBE45\uB871 \uBE54 \uBC1C\uC0DD! \uC218\uB3D9 \uCCAD\uC0B0 \uBABB\uD558\uBA74
       100% \uCCAD\uC0B0 \uBC0F \uBA58\uD0C8 0."
@@ -57,6 +59,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 10
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 75
     ForcePosition: 2
     PositionHandlingMode: 0
@@ -75,6 +79,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 30
     ForcePosition: 1
     PositionHandlingMode: 0

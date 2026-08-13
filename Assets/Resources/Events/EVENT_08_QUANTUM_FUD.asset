@@ -29,8 +29,8 @@ MonoBehaviour:
   TriggerCondition: 2
   Options:
   - OptionType: 0
-    OptionTitle: "\uC804\uD615\uC801\uC778 FUD\uB2E4. AI\uC758 \uC190\uAC00\uB77D\uC744
-      \uBB36\uACE0 \uCC28\uD2B8 \uBD09\uC1C4."
+    OptionTitle: "\uC804\uD615\uC801\uC778 FUD\uB2E4. \uC694\uBBF8\uC758 \uC190\uC744
+      \uBD99\uC7A1\uACE0 \uCC28\uD2B8 \uBD09\uC1C4."
     Description: "10\uBD84 \uD6C4 \uAC00\uC9DC \uB274\uC2A4\uB85C \uD310\uBA85\uB418\uBA70
       \uB099\uD3ED \uC804\uB7C9 V\uC790 \uBC18\uB4F1. \uC548\uB3C4\uAC10\uC73C\uB85C
       \uBA58\uD0C8 Stable \uBCF5\uADC0."
@@ -38,9 +38,11 @@ MonoBehaviour:
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
     OverrideBeamPercent: 0
-    OverrideDurationSeconds: 10
+    OverrideDurationSeconds: 150
     MentalChangeAmount: 30
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
@@ -49,14 +51,17 @@ MonoBehaviour:
   - OptionType: 1
     OptionTitle: "\uBE44\uD2B8\uCF54\uC778 0\uC6D0 \uC218\uB834 125\uBC30 \uC20F
       \uB3D9\uC758!"
-    Description: "[\uB3C4\uBC15] 35% \uD655\uB960\uB85C \uAE09\uB77D \uC131\uACF5. \uC2E4\uD328 \uC2DC \uBC18\uB4F1 \uBE54 \uB9DE\uACE0 100% \uAC15\uC81C \uCCAD\uC0B0 \uBC0F Overdose \uD655\uC815 \uC9C4\uC785."
+    Description: "\uBC18\uB4F1 \uBE54 \uB9DE\uACE0 100% \uAC15\uC81C \uCCAD\uC0B0.
+      \uBA58\uD0C8 -60 (Overdose \uD655\uC815 \uC9C4\uC785)."
     RequiredItemId: 
     RequiredItemCount: 1
-    OverrideSignalProbTrue: 0.35
+    OverrideSignalProbTrue: 1
     OverrideBeamPercent: 15
     OverrideDurationSeconds: 10
     MentalChangeAmount: -60
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 125
     ForcePosition: 2
     PositionHandlingMode: 0
@@ -65,8 +70,9 @@ MonoBehaviour:
   - OptionType: 2
     OptionTitle: "[\uB514\uC800\uD2B8 \uD30C\uD2F0 \uCF00\uC5B4] (\uB514\uC800\uD2B8
       1\uAC1C \uC18C\uBAA8)"
-    Description: "\uB2F9\uBD84 \uC8FC\uC785\uC73C\uB85C AI \uC815\uC2E0\uC744 \uD604\uC2E4\uB85C
-      \uBCF5\uADC0. V\uC790 \uBC18\uB4F1 \uB871 \uD0D1\uC2B9\uC73C\uB85C +45% \uC775\uC808."
+    Description: "\uB2F9\uBD84\uC744 \uCC44\uC6CC \uC694\uBBF8\uC758 \uC815\uC2E0\uC744
+      \uD604\uC2E4\uB85C \uBCF5\uADC0. V\uC790 \uBC18\uB4F1 \uB871 \uD0D1\uC2B9\uC73C\uB85C
+      +45% \uC775\uC808."
     RequiredItemId: dessert
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
@@ -74,6 +80,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 30
     ForcePosition: 1
     PositionHandlingMode: 0

@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -18,12 +18,28 @@ MonoBehaviour:
     \uCC28\uD2B8 \uAE30\uC220\uC801 \uC9C0\uC9C0/\uC800\uD56D\uC120 \uBD95\uAD34
     \uBC0F \uB3CC\uD30C\uB85C \uC778\uD55C \uAC15\uB825\uD55C \uC0C1\uC2B9(\uD3EC\uBAA8/\uBE45\uB871)
     \uBE54 \uD3ED\uBC1C \uC0C1\uD669"
+  FallbackTitle: "[\uAE34\uAE09] \uD575\uC2EC \uC9C0\uC9C0\uC120\xB7\uC800\uD56D\uC120
+    \uC774\uD0C8, \uB9E4\uC218\uC138 \uD3ED\uBC1C"
+  FallbackDescription: "\uBBF8\uAD6D\uC7A5 \uAC1C\uC7A5\uACFC \uB3D9\uC2DC\uC5D0
+    \uC218\uAC1C\uC6D4\uAC04 \uC9C0\uCF1C\uC9C0\uB358 \uAE30\uC220\uC801 \uBD84\uAE30\uC810\uC774
+    \uB300\uB7C9 \uAC70\uB798\uB97C \uB3D9\uBC18\uD558\uBA70 \uBB34\uB108\uC84C\uB2E4.
+    \uB9E4\uC218 \uC8FC\uBB38\uC774 \uD638\uAC00\uCC3D\uC744 \uC4F8\uC5B4\uC62C\uB9AC\uBA70
+    \uD3EC\uBAA8 \uC2EC\uB9AC\uAC00 \uBE60\uB974\uAC8C \uBC88\uC9C0\uB294 \uC911\uC774\uB2E4.
+    \uC9C0\uAE08\uC758 \uD55C \uBC88\uC758 \uC120\uD0DD\uC774 \uACC4\uC88C\uB97C
+    \uD1B5\uC9F8\uB85C \uB0A0\uB9B4 \uC218\uB3C4, \uC0B4\uB9B4 \uC218\uB3C4 \uC788\uB2E4."
+  FallbackMonologues:
+  - "\uC2EC\uC7A5\uC774 \uD130\uC9C8 \uAC83 \uAC19\uC544! \uC9C0\uAE08 \uB4E4\uC5B4\uAC00\uBA74
+    \uBA39\uB294 \uAC70 \uB9DE\uC9C0? \uB9DE\uB2E4\uACE0 \uD574\uC918 \uC624\uBE60!"
+  - "\uAC70\uB798\uB7C9\uC774 \uBBF8\uCCE4\uC5B4... \uC774\uB7F0 \uAC74 \uCC98\uC74C
+    \uBD10. \uC624\uBE60, \uC694\uBBF8 \uBB34\uC11C\uC6CC. \uC5B4\uB5A1\uD560 \uAC70\uC57C?"
+  - "\uC624\uBE60...! \uC9C0\uAE08 \uC548 \uD0C0\uBA74 \uC774\uAC70 \uB193\uCE58\uB294
+    \uAC70\uC57C! \uC5B4\uB5A1\uD574, \uBE68\uB9AC \uC815\uD574\uC918!"
   LogicOptions:
   - OptionType: 0
-    OptionTitle: "\uC548\uC804\uD558\uAC8C \uD3EC\uC9C0\uC158\uC744 \uC885\uB8CC\uD558\uACE0
-      \uAD00\uB9DD\uD55C\uB2E4."
-    OptionDescription: "\uC2DC\uC7A5\uC758 \uBD88\uD655\uC2E4\uC131\uC744 \uD53C\uD558\uC5EC
-      \uC7A0\uC2DC \uD734\uC2DD\uD558\uBA70 \uBA58\uD0C8\uACFC \uCCB4\uB825\uC744
+    OptionTitle: "\uCD94\uC138\uAC00 \uB2E4\uC2DC \uC7A1\uD790 \uB54C\uAE4C\uC9C0
+      \uC26C\uC5B4\uAC04\uB2E4"
+    OptionDescription: "\uCD94\uC138\uAC00 \uB4A4\uC9D1\uD788\uB294 \uD63C\uC804\uC744
+      \uD53C\uD574 \uBB3C\uB7EC\uC12D\uB2C8\uB2E4. \uBA58\uD0C8\uACFC \uCCB4\uB825\uC744
       \uD68C\uBCF5\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
@@ -32,17 +48,19 @@ MonoBehaviour:
     OverrideDurationSeconds: 10
     MentalChangeAmount: 15
     HealthChangeAmount: 14
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 3
-    OptionTitle: "\uC0C1\uC2B9\uC5D0 \uBAA8\uB4E0 \uAC83\uC744 \uAC78\uACE0 \uB871(Long)
-      \uBCA0\uD305!"
-    OptionDescription: "\uC2DC\uC7A5\uC758 \uBC29\uD5A5\uC131\uC5D0 \uACF5\uACA9\uC801\uC73C\uB85C
-      \uBCA0\uD305\uD558\uC5EC \uD070 \uC218\uC775\uC744 \uB178\uB9AC\uAC70\uB098
-      \uD070 \uC190\uC2E4\uC744 \uAC10\uC218\uD569\uB2C8\uB2E4."
+    OptionTitle: "\uBB34\uB108\uC9C4 \uCD94\uC138\uC5D0 \uAC78\uACE0 \uB871(Long)\uC5D0
+      \uC804\uBD80 \uAC74\uB2E4!"
+    OptionDescription: "\uB9E4\uC218\uC138\uAC00 \uADF8\uB300\uB85C \uC774\uC5B4\uC9C4\uB2E4\uB294
+      \uCABD\uC5D0 \uBCA0\uD305\uD569\uB2C8\uB2E4. \uC131\uACF5\uD558\uBA74 \uD070
+      \uC218\uC775, \uC2E4\uD328\uD558\uBA74 \uD070 \uC190\uC2E4\uC744 \uAC10\uC218\uD569\uB2C8\uB2E4."
     RequiredItemId: 
     RequiredItemCount: 0
     OverrideSignalProbTrue: 0.0161
@@ -50,16 +68,17 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: -93
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 125
     ForcePosition: 1
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
   - OptionType: 2
-    OptionTitle: "[\uC544\uC774\uD15C \uC0AC\uC6A9] \uD2B9\uC218 \uB300\uC751 \uC54C\uACE0\uB9AC\uC998
-      \uAC00\uB3D9"
-    OptionDescription: "\uBCF4\uC720\uD55C \uC544\uC774\uD15C\uC744 \uC0AC\uC6A9\uD558\uC5EC
-      \uC704\uAE30\uB97C \uAE30\uD68C\uB85C \uBC14\uAFB8\uACE0 \uD655\uC815\uC801\uC778
+    OptionTitle: "[\uC544\uC774\uD15C \uC0AC\uC6A9] \uCD94\uC138 \uBCF5\uC6D0 \uC54C\uACE0\uB9AC\uC998"
+    OptionDescription: "\uBCF4\uC720\uD55C \uC544\uC774\uD15C\uC73C\uB85C \uBB34\uB108\uC9C4
+      \uC9C0\uC9C0\uC120\uC758 \uBCF5\uC6D0 \uC9C0\uC810\uC744 \uC9DA\uC5B4 \uD655\uC815\uC801\uC778
       \uC218\uC775\uC744 \uCC3D\uCD9C\uD569\uB2C8\uB2E4."
     RequiredItemId: supplement
     RequiredItemCount: 2
@@ -68,9 +87,10 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 39
     HealthChangeAmount: 15
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 29
     ForcePosition: 1
     PositionHandlingMode: 0
     CustomTargetROELimit: 0
     CustomStopLossROELimit: 0
-

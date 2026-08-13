@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -35,9 +35,11 @@ MonoBehaviour:
     RequiredItemCount: 1
     OverrideSignalProbTrue: 1
     OverrideBeamPercent: 0
-    OverrideDurationSeconds: 10
+    OverrideDurationSeconds: 150
     MentalChangeAmount: 0
     HealthChangeAmount: 15
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 0
     ForcePosition: 0
     PositionHandlingMode: 0
@@ -55,6 +57,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 50
     ForcePosition: 1
     PositionHandlingMode: 0
@@ -73,6 +77,8 @@ MonoBehaviour:
     OverrideDurationSeconds: 15
     MentalChangeAmount: 0
     HealthChangeAmount: 0
+    MentalPenaltyOnFail: 0
+    HealthPenaltyOnFail: 0
     ForceLeverage: 25
     ForcePosition: 1
     PositionHandlingMode: 0

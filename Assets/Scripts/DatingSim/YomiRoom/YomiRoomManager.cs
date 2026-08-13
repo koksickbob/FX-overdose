@@ -28,19 +28,34 @@ namespace FXOverdose.DatingSim.YomiRoom
         [SerializeField, Tooltip("휴식 시 소모되는 시간 슬롯")]
         private int restTimeSlotCost = 1;
 
-        // 자리 표시자 응답이 즉시 반환되어 '생각 중' 연출이 보이지 않는 것을 막는 최소 지연입니다.
-        private const int ResponseDelayMilliseconds = 600;
+        [SerializeField, Tooltip("대화 1회에 소모되는 시간 슬롯")]
+        private int talkTimeSlotCost = 1;
 
-        // 대화 응답 공급자. 대체 대화 시스템이 확정되면 이 참조만 교체하면 됩니다.
-        private IYomiDialogueProvider dialogueProvider = PlaceholderDialogueProvider.Default;
+        [SerializeField, Tooltip("힌트가 나오기 시작하는 당일 호감도 획득량")]
+        private int hintThresholdTier1 = 4;
+
+        [SerializeField, Tooltip("방향을 명시하는 힌트가 나오는 당일 호감도 획득량")]
+        private int hintThresholdTier2 = 7;
 
         // 상태 캡슐화 (외부 직접 수정 차단)
         private YomiRoomState currentState = YomiRoomState.Idle;
         public YomiRoomState CurrentState => currentState;
 
+        // 진행 중인 대화
+        private TalkTopic activeTopic;
+        private int activeNodeIndex = -1;
+        private bool hasActiveTopic;
+
+        public bool HasActiveTopic => hasActiveTopic;
+        public TalkNode CurrentNode => activeTopic.Nodes[activeNodeIndex];
+
         // UI 갱신용 이벤트
         public event Action<YomiRoomState> OnStateChanged;
-        public event Action<string, string> OnChatUpdated; // 유저 메시지, 요미 응답
+        public event Action<TalkNode> OnTalkNodeAdvanced;       // 요미 대사 + 선택지 표시
+        public event Action<string> OnPlayerChoiceSpoken;       // 플레이어가 고른 대사를 로그에 남길 때
+        public event Action<string> OnYomiReplied;              // 고른 선택지에 대한 요미의 즉답 (R-2)
+        public event Action<string, string> OnTalkFinished;     // 마무리 대사, 힌트 대사(없으면 null)
+        public event Action<string> OnYomiGreeted;              // 선제 발화
         public event Action OnActionFailed; // 시간/체력 부족 등으로 행동 실패 시
 
         private void Awake()
@@ -60,50 +75,278 @@ namespace FXOverdose.DatingSim.YomiRoom
             ChangeState(YomiRoomState.Idle);
         }
 
-        /// <summary>대체 대화 시스템을 주입합니다. 미주입 시 자리 표시자가 사용됩니다.</summary>
-        public void SetDialogueProvider(IYomiDialogueProvider provider)
+        // 요미의 방 씬을 에디터에서 단독 재생할 때 쓰는 임시 진행 데이터입니다.
+        // SaveLoadManager는 TitleScene에만 있어서, 방 씬만 열면 Instance가 null입니다. (SV-C6)
+        // 이게 없으면 대화는 되는데 힌트가 영영 안 나와 기능을 테스트할 수 없습니다.
+        // 디스크에 기록되지 않으므로 실제 세이브를 건드릴 위험은 없습니다.
+        private FXOverdose.Core.SaveData scratchData;
+        private bool warnedScratch;
+
+        /// <summary>대화 진행이 기록될 데이터. 정상 플로우에서는 실제 세이브를, 단독 재생 시엔 임시본을 돌려줍니다.</summary>
+        private FXOverdose.Core.SaveData ProgressData
         {
-            dialogueProvider = provider ?? PlaceholderDialogueProvider.Default;
+            get
+            {
+                var live = FXOverdose.Core.SaveLoadManager.Instance?.CurrentData;
+                if (live != null) return live;
+
+                if (scratchData == null)
+                {
+                    scratchData = new FXOverdose.Core.SaveData();
+                    // 방 씬 단독 재생에서도 일차가 있어야 힌트 판정이 돕니다.
+                    scratchData.CurrentDay = DatingTimeManager.Instance != null
+                        ? DatingTimeManager.Instance.CurrentDay
+                        : 1;
+                }
+
+                if (!warnedScratch)
+                {
+                    warnedScratch = true;
+                    Debug.LogWarning("[YomiRoomManager] 세이브 데이터가 없어 임시 진행 데이터로 동작합니다. " +
+                                     "대화·힌트는 확인할 수 있지만 저장되지 않습니다. (씬 단독 재생 중으로 보입니다)");
+                }
+                return scratchData;
+            }
         }
 
         // --- 외부(UI 버튼 등) 호출용 public 인터페이스 ---
 
-        public void TryStartChat()
+        /// <summary>
+        /// 대화를 시작합니다. 슬롯을 소모하고 오늘 아직 안 쓴 토픽을 하나 뽑습니다.
+        ///
+        /// ⚠️ 슬롯 차감과 '사용됨' 기록을 <b>첫 노드 진입 전에</b> 끝냅니다.
+        ///    대화 도중 호감도가 오를 때마다 자동 저장이 일어나기 때문에, 종료 시점에 기록하면
+        ///    중간에 나갔다 들어와 같은 토픽을 다시 열어 호감도를 재획득할 수 있습니다. (TS1)
+        /// </summary>
+        public bool TryStartTalk()
         {
-            if (currentState != YomiRoomState.Idle) return;
+            if (currentState != YomiRoomState.Idle) return false;
 
-            // TODO(P2): 대체 대화 시스템 확정 시 시간 슬롯 소모 비용을 다시 붙입니다.
-            //           자리 표시자 응답만 나오는 현재는 자원을 소모시키지 않습니다.
+            var time = DatingTimeManager.Instance;
+            if (time == null || time.CurrentTimeSlot < talkTimeSlotCost)
+            {
+                OnActionFailed?.Invoke();
+                return false;
+            }
+
+            // ⚠️ 토픽 추첨을 슬롯 차감보다 먼저 합니다.
+            //    해금 조건 때문에 후보가 비는 경우가 실제로 생기는데, 순서가 반대면 슬롯만 날아갑니다. (TS11)
+            var data = ProgressData;
+            TalkTopic? picked = PickTopic(data);
+            if (picked == null)
+            {
+                OnActionFailed?.Invoke();
+                return false;
+            }
+
+            if (!time.TryConsumeTimeSlot(talkTimeSlotCost))
+            {
+                OnActionFailed?.Invoke();
+                return false;
+            }
+
+            activeTopic = picked.Value;
+            activeNodeIndex = 0;
+            hasActiveTopic = true;
+
+            if (data != null)
+            {
+                // 여는 즉시 소비 처리 (TS1/TS2)
+                if (!data.TalkTopicsUsedToday.Contains(activeTopic.Id))
+                    data.TalkTopicsUsedToday.Add(activeTopic.Id);
+                if (!data.TalkTopicsSeenTotal.Contains(activeTopic.Id))
+                    data.TalkTopicsSeenTotal.Add(activeTopic.Id);
+
+                data.TalkActiveTopicId = activeTopic.Id;
+                data.TalkActiveNodeIndex = 0;
+            }
+
             ChangeState(YomiRoomState.Chatting);
+            OnTalkNodeAdvanced?.Invoke(activeTopic.Nodes[0]);
+            return true;
         }
 
-        public async void ProcessUserChatInput(string userMessage)
+        /// <summary>선택지를 고릅니다. 호감도를 더하고 다음 노드로 진행하거나 대화를 마칩니다.</summary>
+        public void SelectChoice(int choiceIndex)
         {
-            if (currentState != YomiRoomState.Chatting) return;
+            if (!hasActiveTopic || currentState != YomiRoomState.Chatting) return;
+
+            TalkNode node = activeTopic.Nodes[activeNodeIndex];
+            if (choiceIndex < 0 || choiceIndex >= node.Choices.Length) return;
 
             ChangeState(YomiRoomState.Responding);
 
-            string response = dialogueProvider.GetResponse(userMessage);
-            await Task.Delay(ResponseDelayMilliseconds);
+            TalkChoice choice = node.Choices[choiceIndex];
+            OnPlayerChoiceSpoken?.Invoke(choice.Text);
 
-            // 씬 전환 등으로 매니저가 파괴된 뒤 응답이 도착하는 경우를 방어합니다.
-            if (this == null) return;
+            // 고른 선택지에 요미가 바로 반응합니다. 이게 없으면 무엇을 고르든 다음 대사가 같아
+            // 대화가 아니라 점수가 숨겨진 메뉴판으로 읽힙니다. (C-2)
+            if (!string.IsNullOrEmpty(choice.Reply)) OnYomiReplied?.Invoke(choice.Reply);
 
-            OnChatUpdated?.Invoke(userMessage, response);
+            var data = ProgressData;
+            if (data != null)
+            {
+                data.TalkChoiceHistory.Add($"{activeTopic.Id}:{activeNodeIndex}:{choiceIndex}");
+                TrimChoiceHistory(data);
+                data.TalkAffectionGainToday += choice.Affection;
+            }
 
-            // TODO(P2): 실제 대화가 성립할 때만 호감도를 지급합니다.
-            //           자리 표시자 응답으로 호감도를 올리면 밸런스가 왜곡되므로 보류합니다.
+            if (choice.Affection > 0)
+            {
+                // 이 호출이 자동 저장을 일으킵니다. 위에서 세이브 데이터를 먼저 갱신해 둔 이유입니다.
+                DatingTimeManager.Instance?.ModifyAffection(choice.Affection);
+            }
 
-            // 응답 완료 후 다시 대화 대기 상태로 복귀
-            ChangeState(YomiRoomState.Chatting);
+            activeNodeIndex++;
+            if (data != null) data.TalkActiveNodeIndex = activeNodeIndex;
+
+            if (activeNodeIndex < activeTopic.Nodes.Length)
+            {
+                ChangeState(YomiRoomState.Chatting);
+                OnTalkNodeAdvanced?.Invoke(activeTopic.Nodes[activeNodeIndex]);
+                return;
+            }
+
+            FinishTalk(data);
         }
 
-        public void CloseChat()
+        /// <summary>대화를 중간에 닫습니다. 진행 중이던 토픽은 재개하지 않습니다. (TS1)</summary>
+        public void CloseTalk()
         {
-            if (currentState == YomiRoomState.Chatting)
+            if (currentState != YomiRoomState.Chatting && currentState != YomiRoomState.Responding) return;
+
+            hasActiveTopic = false;
+            activeNodeIndex = -1;
+
+            var data = ProgressData;
+            if (data != null)
             {
-                ChangeState(YomiRoomState.Idle);
+                data.TalkActiveTopicId = "";
+                data.TalkActiveNodeIndex = -1;
             }
+
+            ChangeState(YomiRoomState.Idle);
+        }
+
+        /// <summary>
+        /// 방에 들어왔을 때 요미가 먼저 건네는 인사. 하루 1회만 나옵니다. (TS3)
+        /// 자원도 호감도도 소모/지급하지 않습니다 — 방을 드나들며 파밍할 수 없어야 하기 때문입니다.
+        /// </summary>
+        public void TryGreetOnEnter()
+        {
+            var data = ProgressData;
+            int today = data.CurrentDay;
+            if (today < 0 || data.TalkLastGreetingDay == today) return;
+
+            data.TalkLastGreetingDay = today;
+            OnYomiGreeted?.Invoke(YomiTalkTopics.GreetingFor(CurrentTalkTime));
+        }
+
+        /// <summary>남은 시간 슬롯에서 지금이 언제인지 정합니다. 슬롯이 없으면 밤으로 봅니다.</summary>
+        private TalkTime CurrentTalkTime
+        {
+            get
+            {
+                int slots = DatingTimeManager.Instance != null
+                    ? DatingTimeManager.Instance.CurrentTimeSlot
+                    : 5;
+                return YomiTalkTopics.TimeOfSlot(slots);
+            }
+        }
+
+        // --- 내부 로직 ---
+
+        private void FinishTalk(FXOverdose.Core.SaveData data)
+        {
+            hasActiveTopic = false;
+            activeNodeIndex = -1;
+
+            if (data != null)
+            {
+                data.TalkActiveTopicId = "";
+                data.TalkActiveNodeIndex = -1;
+                if (!data.TalkCompletedFlags.Contains(activeTopic.Id))
+                    data.TalkCompletedFlags.Add(activeTopic.Id);
+            }
+
+            string hint = TryIssueHint(data);
+            ChangeState(YomiRoomState.Idle);
+            OnTalkFinished?.Invoke(activeTopic.ClosingLine, hint);
+        }
+
+        /// <summary>
+        /// 일상 대화 끝에 그날의 차트 방향성 힌트를 이어 붙입니다.
+        /// 별도 UI를 띄우지 않고 같은 말풍선 로그에 한 줄 더 얹는 형태입니다.
+        /// </summary>
+        private string TryIssueHint(FXOverdose.Core.SaveData data)
+        {
+            if (data == null) return null;
+
+            int today = data.CurrentDay;
+            if (data.TalkHintIssuedDay == today) return null;              // 하루 1회 (S3)
+            if (data.TalkAffectionGainToday < hintThresholdTier1) return null;
+
+            int tier = data.TalkAffectionGainToday >= hintThresholdTier2 ? 2 : 1;
+            var regime = FXOverdose.Trading.DailyMarketOutlook.GetOrRoll(today);
+            string[] pool = YomiTalkTopics.HintLinesFor(regime, tier);
+            if (pool == null || pool.Length == 0) return null;
+
+            int index = UnityEngine.Random.Range(0, pool.Length);
+            data.TalkHintIssuedDay = today;
+            data.TalkHintTier = tier;
+            data.TalkHintLineId = $"HINT_{regime}_T{tier}_{index:00}";
+
+            FXOverdose.Trading.DailyMarketOutlook.MarkRevealed(today);
+            return pool[index];
+        }
+
+        /// <summary>
+        /// 호감도로 해금되고 오늘 아직 쓰지 않은 토픽 중 하나를 뽑습니다.
+        ///
+        /// 해금 판정은 현재 호감도가 아니라 <b>역대 최고 호감도</b>로 합니다.
+        /// 호감도가 깎였다고 이미 열린 화제가 다시 잠기면 진행하던 대화가 증발합니다. (TS8)
+        /// </summary>
+        private TalkTopic? PickTopic(FXOverdose.Core.SaveData data)
+        {
+            var all = YomiTalkTopics.All;
+            if (all == null || all.Length == 0) return null;
+
+            int peak = DatingTimeManager.Instance != null ? DatingTimeManager.Instance.PeakAffection : 0;
+
+            // 장면은 시간을 갖습니다. 야식 장면이 대낮에 열리면 플레이어는 "왜 지금?"부터 묻게 됩니다.
+            TalkTime now = CurrentTalkTime;
+
+            var candidates = new System.Collections.Generic.List<TalkTopic>();
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (!all[i].IsUnlocked(peak)) continue;
+                if (!all[i].FitsTime(now)) continue;
+                if (data != null && data.TalkTopicsUsedToday.Contains(all[i].Id)) continue;
+                candidates.Add(all[i]);
+            }
+
+            if (candidates.Count == 0) return null; // 오늘 쓸 수 있는 토픽 소진
+
+            // 아직 한 번도 안 본 토픽을 우선합니다. 해금 초반에는 후보가 적어 반복이 눈에 띄기 때문입니다.
+            if (data != null)
+            {
+                var unseen = new System.Collections.Generic.List<TalkTopic>();
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    if (!data.TalkTopicsSeenTotal.Contains(candidates[i].Id)) unseen.Add(candidates[i]);
+                }
+                if (unseen.Count > 0) candidates = unseen;
+            }
+
+            return candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        }
+
+        private const int MaxChoiceHistory = 300; // 무한 누적 방지 (TS4)
+
+        private static void TrimChoiceHistory(FXOverdose.Core.SaveData data)
+        {
+            int overflow = data.TalkChoiceHistory.Count - MaxChoiceHistory;
+            if (overflow > 0) data.TalkChoiceHistory.RemoveRange(0, overflow);
         }
 
         public void TryRest()

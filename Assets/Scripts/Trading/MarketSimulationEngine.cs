@@ -132,6 +132,9 @@ namespace FXOverdose.Trading
         public float Current24hVolume => current24hVolume;
         public MarketRegime CurrentRegime => currentRegime;
 
+        /// <summary>오늘의 거시 방향성. 요미의 힌트가 참조하는 값입니다.</summary>
+        public MarketRegime CurrentDailyRegime => currentDailyRegime;
+
         // 가격이나 캔들이 갱신될 때 UI 및 트레이딩 컨트롤러에 알리는 이벤트
         public event Action<float> OnPriceUpdated;
         public event Action<Timeframe, CandleData> OnCandleClosed;
@@ -383,7 +386,7 @@ namespace FXOverdose.Trading
             if (lastUpdatedDay != currentDay)
             {
                 lastUpdatedDay = currentDay;
-                DetermineDailyRegime();
+                DetermineDailyRegime(currentDay);
             }
 
             float effectiveDay = Mathf.Min(currentDay, 25f); // 25일차에서 캡
@@ -418,15 +421,15 @@ namespace FXOverdose.Trading
             }
         }
 
-        private void DetermineDailyRegime()
+        /// <summary>
+        /// 엔진은 더 이상 일일 국면을 추첨하지 않습니다. DailyMarketOutlook이 결정한 값을 소비할 뿐입니다.
+        /// 요미의 방에서 힌트로 먼저 결정됐다면 그 값이 그대로 내려옵니다. (SV-B8)
+        /// </summary>
+        private void DetermineDailyRegime(int currentDay)
         {
-            float rand = UnityEngine.Random.value;
-            if (rand < 0.35f) currentDailyRegime = MarketRegime.Sideways;
-            else if (rand < 0.60f) currentDailyRegime = MarketRegime.Bull;
-            else if (rand < 0.85f) currentDailyRegime = MarketRegime.Bear;
-            else currentDailyRegime = MarketRegime.Squeeze;
-
-            Debug.Log($"[MarketEngine] 📅 일일 마켓 분위기(Daily Regime) 갱신: {currentDailyRegime}");
+            currentDailyRegime = DailyMarketOutlook.GetOrRoll(currentDay);
+            Debug.Log($"[MarketEngine] 📅 일일 마켓 분위기(Daily Regime) 적용: {currentDailyRegime}" +
+                      (DailyMarketOutlook.Revealed ? " (요미가 예고한 방향)" : string.Empty));
         }
 
         // 프레임 단위 실시간 주가 움직임 시뮬레이션
@@ -886,18 +889,21 @@ namespace FXOverdose.Trading
         {
             float rand = UnityEngine.Random.value;
             
+            // 요미가 방향을 예고한 날은 역방향 구간을 없앱니다. 힌트를 듣고도 반대로 가면 힌트가 무의미해집니다. (Q2 / S5)
+            bool hinted = DailyMarketOutlook.Revealed && DailyMarketOutlook.Day == (gameManager != null ? gameManager.CurrentDay : -1);
+
             if (currentDailyRegime == MarketRegime.Bull)
             {
                 if (rand < 0.60f) currentRegime = MarketRegime.Bull;
                 else if (rand < 0.80f) currentRegime = MarketRegime.Sideways;
-                else if (rand < 0.90f) currentRegime = MarketRegime.Bear;
+                else if (rand < 0.90f) currentRegime = hinted ? MarketRegime.Sideways : MarketRegime.Bear;
                 else currentRegime = MarketRegime.Squeeze;
             }
             else if (currentDailyRegime == MarketRegime.Bear)
             {
                 if (rand < 0.60f) currentRegime = MarketRegime.Bear;
                 else if (rand < 0.80f) currentRegime = MarketRegime.Sideways;
-                else if (rand < 0.90f) currentRegime = MarketRegime.Bull;
+                else if (rand < 0.90f) currentRegime = hinted ? MarketRegime.Sideways : MarketRegime.Bull;
                 else currentRegime = MarketRegime.Squeeze;
             }
             else if (currentDailyRegime == MarketRegime.Squeeze)

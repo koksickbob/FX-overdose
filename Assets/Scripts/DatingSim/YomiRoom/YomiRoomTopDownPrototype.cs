@@ -478,17 +478,33 @@ namespace FXOverdose.DatingSim.YomiRoom
         private Sprite portrait;
         private GameObject thinkingRow;
         private float contentHeight;
-        private bool sending;
-        private bool sessionStarted;
 
-        // 자리 표시자 응답이 즉시 반환되어 '생각 중' 연출이 보이지 않는 것을 막는 최소 지연입니다.
-        private const int ResponseDelayMilliseconds = 600;
+        // 선택지 버튼. 입력형 채팅을 대체합니다. (2026-08-13)
+        private Button[] choiceButtons;
+        private TMP_Text[] choiceLabels;
 
-        // 대화 응답 공급자. 대체 대화 시스템이 확정되면 이 참조만 교체하면 됩니다.
-        private IYomiDialogueProvider dialogueProvider = PlaceholderDialogueProvider.Default;
+        // 버스트 출력 대기열. 요미의 말풍선을 한 번에 쏟지 않고 한 줄씩 흘립니다. (R-1)
+        // 즉답과 다음 노드가 같은 프레임에 들어오므로, 코루틴 하나가 큐를 비우는 형태여야 순서가 지켜집니다.
+        private readonly List<string> lineQueue = new List<string>();
+        private Coroutine drainRoutine;
+        private TalkChoice[] pendingChoices;
+        private bool skipRequested;
+
+        // ── 출력 연출 튜닝 노브 (11장 D-7) ──────────────────────────────
+        // 실기로 봐야 정해지는 값들입니다. 흩어 두면 못 고치므로 한 블록에 모읍니다.
+        private const float CharInterval = 0.045f;      // 글자 하나 (한글 초당 약 22자)
+        private const float PauseComma = 0.08f;         // , 뒤
+        private const float PausePeriod = 0.15f;        // . ! ? 뒤
+        private const float PauseEllipsis = 0.35f;      // ... 뒤 — 요미의 머뭇거림이 여기서 나옵니다
+        private const float LineTailBase = 0.25f;       // 줄 사이 여운 = Base + 글자수 * PerChar
+        private const float LineTailPerChar = 0.012f;
+        private const float LineTailMax = 0.8f;
+        private const float NarrationTail = 0.55f;      // 지문은 타자기 없이 즉시 표시 후 이 텀 (D-4)
+        private const float ChoiceDelay = 0.3f;         // 마지막 글자와 동시에 버튼이 튀어나오지 않게 (D-5)
 
         public void Configure(RectTransform content, TMP_InputField input, Button send, ScrollRect scroll,
-            Sprite yomiFrame, Sprite masterFrame, Sprite portraitFrame, Sprite yomiPortrait)
+            Sprite yomiFrame, Sprite masterFrame, Sprite portraitFrame, Sprite yomiPortrait,
+            Button[] choices = null)
         {
             messageContent = content;
             inputField = input;
@@ -498,60 +514,231 @@ namespace FXOverdose.DatingSim.YomiRoom
             masterBubble = masterFrame;
             avatarFrame = portraitFrame;
             portrait = yomiPortrait;
+
+            choiceButtons = choices ?? new Button[0];
+            choiceLabels = new TMP_Text[choiceButtons.Length];
+            for (int i = 0; i < choiceButtons.Length; i++)
+            {
+                if (choiceButtons[i] == null) continue;
+                choiceLabels[i] = choiceButtons[i].GetComponentInChildren<TMP_Text>();
+                int index = i; // 클로저 캡처 주의
+                choiceButtons[i].onClick.AddListener(() => YomiRoomManager.Instance?.SelectChoice(index));
+                choiceButtons[i].gameObject.SetActive(false);
+            }
         }
 
         private void Start()
         {
-            if (sendButton != null) sendButton.onClick.AddListener(SendCurrentMessage);
-            if (inputField != null) inputField.onSubmit.AddListener(_ => SendCurrentMessage());
-            AppendLine("요미", "오빠, 왔다!\n요미가 얼마나 기다렸는지 알아?", "#F472B6");
+            // 입력형 채팅 폐지. 남아 있던 입력창과 전송 버튼은 숨깁니다.
+            if (inputField != null) inputField.gameObject.SetActive(false);
+            if (sendButton != null) sendButton.gameObject.SetActive(false);
+
+            var manager = YomiRoomManager.Instance;
+            if (manager != null)
+            {
+                manager.OnTalkNodeAdvanced += HandleTalkNode;
+                manager.OnPlayerChoiceSpoken += HandlePlayerChoice;
+                manager.OnYomiReplied += HandleYomiReply;
+                manager.OnTalkFinished += HandleTalkFinished;
+                manager.OnYomiGreeted += HandleGreeting;
+                manager.TryGreetOnEnter();
+            }
         }
 
         private void OnDestroy()
         {
-            if (sendButton != null) sendButton.onClick.RemoveListener(SendCurrentMessage);
-            if (inputField != null) inputField.onSubmit.RemoveAllListeners();
-        }
-
-        private async void SendCurrentMessage()
-        {
-            if (sending || inputField == null) return;
-            string message = inputField.text.Trim();
-            if (string.IsNullOrEmpty(message)) return;
-
-            if (!sessionStarted)
+            var manager = YomiRoomManager.Instance;
+            if (manager != null)
             {
-                // TODO(P2): 대체 대화 시스템이 확정되면 시간 슬롯 소모 조건을 다시 붙입니다.
-                YomiRoomManager.Instance?.TryStartChat();
-                sessionStarted = true;
+                manager.OnTalkNodeAdvanced -= HandleTalkNode;
+                manager.OnPlayerChoiceSpoken -= HandlePlayerChoice;
+                manager.OnYomiReplied -= HandleYomiReply;
+                manager.OnTalkFinished -= HandleTalkFinished;
+                manager.OnYomiGreeted -= HandleGreeting;
             }
 
-            sending = true;
-            sendButton.interactable = false;
-            inputField.interactable = false;
-            inputField.text = string.Empty;
-            AppendLine("오빠", message, "#22D3EE");
-            AppendLine("요미", "...", "#F472B6");
-
-            string response = dialogueProvider.GetResponse(message);
-            // 응답이 즉시 반환되므로 '생각 중' 연출이 보이도록 최소 지연을 줍니다.
-            await Task.Delay(ResponseDelayMilliseconds);
-
-            // 씬 전환 등으로 패널이 파괴된 뒤 응답이 도착하는 경우를 방어합니다.
-            if (this == null || messageContent == null) return;
-
-            RemoveThinkingLine();
-            AppendLine("요미", response, "#F472B6");
-            YomiRoomManager.Instance?.CompleteRoomInteraction();
-            sending = false;
-            sendButton.interactable = true;
-            inputField.interactable = true;
-            inputField.ActivateInputField();
+            // 파괴된 UI에 코루틴이 계속 append하지 않도록 끊습니다. (TS12)
+            StopAllCoroutines();
+            lineQueue.Clear();
         }
 
-        private void AppendLine(string speaker, string message, string color)
+        // 인사도 요미의 말이므로 같은 대기열을 탑니다. 타자기 연출이 공짜로 붙습니다.
+        private void HandleGreeting(string line)
         {
-            if (messageContent == null) return;
+            Enqueue(new[] { line });
+        }
+
+        private void HandleTalkNode(TalkNode node)
+        {
+            // 선택지는 말풍선을 다 흘린 뒤에 켭니다. 출력 중에 노출되면 이전 노드의 선택을 다시 누릅니다. (TS17)
+            HideChoices();
+            pendingChoices = node.Choices;
+            Enqueue(node.YomiLines);
+        }
+
+        private void HandlePlayerChoice(string line)
+        {
+            AppendLine("오빠", line, "#22D3EE");
+            HideChoices();
+        }
+
+        /// <summary>고른 선택지에 대한 요미의 즉답. 다음 노드보다 먼저 큐에 들어갑니다. (R-2)</summary>
+        private void HandleYomiReply(string line)
+        {
+            Enqueue(new[] { line });
+        }
+
+        private void HandleTalkFinished(string closingLine, string hintLine)
+        {
+            HideChoices();
+            pendingChoices = null;
+
+            // 힌트는 별도 팝업 없이 같은 로그에 한 줄 더 이어 붙입니다.
+            // 플레이어에게는 일상 대화 끝에 요미가 무심코 흘리는 예감으로 읽힙니다.
+            Enqueue(string.IsNullOrEmpty(hintLine)
+                ? new[] { closingLine }
+                : new[] { closingLine, hintLine });
+        }
+
+        private void Enqueue(string[] lines)
+        {
+            if (lines == null || lines.Length == 0) return;
+            lineQueue.AddRange(lines);
+            if (drainRoutine == null) drainRoutine = StartCoroutine(DrainQueue());
+        }
+
+        /// <summary>
+        /// 대기열을 한 줄씩 흘립니다. 즉답 → 다음 노드 대사가 같은 프레임에 쌓여도 순서가 지켜집니다.
+        ///
+        /// 줄은 통째로 뜨지 않고 <b>한 글자씩 찍힙니다</b>. 이전에는 0.4초 고정 간격으로 통째 출력이라
+        /// 첫 줄을 읽기도 전에 셋째 줄이 도착했습니다. (11.1절)
+        ///
+        /// 스킵은 2단입니다 — 한 번 누르면 현재 줄이 즉시 완성되고, 한 번 더 누르면 다음 줄로 넘어갑니다. (D-6)
+        /// </summary>
+        private System.Collections.IEnumerator DrainQueue()
+        {
+            while (lineQueue.Count > 0)
+            {
+                string line = lineQueue[0];
+                lineQueue.RemoveAt(0);
+
+                if (messageContent == null) break; // 패널이 이미 파괴됨 (TS12)
+
+                float tail;
+                if (TalkNode.IsNarration(line))
+                {
+                    // 지문은 타자기를 쓰지 않습니다. 서술은 대사와 리듬이 달라야 하고,
+                    // 타이핑까지 하면 늘어집니다. (D-4)
+                    AppendNarration(TalkNode.StripMark(line));
+                    tail = NarrationTail;
+                }
+                else
+                {
+                    TMP_Text body = AppendLine("요미", line, "#F472B6");
+                    if (body != null) yield return TypeLine(body, line);
+                    tail = Mathf.Min(LineTailMax, LineTailBase + line.Length * LineTailPerChar);
+                }
+
+                if (lineQueue.Count == 0) break;
+
+                // 방금 줄을 완성시킨 클릭이 여운까지 삼키지 않도록 한 프레임 띄웁니다.
+                yield return null;
+
+                float waited = 0f;
+                while (waited < tail)
+                {
+                    if (ClickedThisFrame()) break;
+                    waited += Time.deltaTime;
+                    yield return null;
+                }
+            }
+
+            if (pendingChoices != null)
+            {
+                yield return new WaitForSeconds(ChoiceDelay);
+                ShowChoices(pendingChoices);
+                pendingChoices = null;
+            }
+
+            // 선택지가 뜨기 전에는 새 줄이 들어올 수 없으므로(선택 자체가 불가능) 여기서 비웁니다.
+            drainRoutine = null;
+        }
+
+        /// <summary>한 글자씩 찍습니다. 구두점에서는 손이 멈춥니다. (D-1 / D-2)</summary>
+        private System.Collections.IEnumerator TypeLine(TMP_Text body, string text)
+        {
+            skipRequested = false;
+            body.maxVisibleCharacters = 0;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                body.maxVisibleCharacters = i + 1;
+
+                float wait = CharInterval + PauseAfter(text, i);
+                float waited = 0f;
+                while (waited < wait)
+                {
+                    if (ClickedThisFrame()) { skipRequested = true; break; }
+                    waited += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (skipRequested) break;
+            }
+
+            body.maxVisibleCharacters = int.MaxValue; // 남은 글자 즉시 표시
+        }
+
+        /// <summary>
+        /// 이 글자 뒤에 얼마나 쉴지. 요미 대사는 말줄임이 압도적으로 많아서,
+        /// "..." 뒤의 정지가 머뭇거림을 그대로 연출로 만들어 줍니다. 대사는 한 줄도 안 고칩니다.
+        /// </summary>
+        private static float PauseAfter(string text, int index)
+        {
+            char c = text[index];
+
+            if (c == '…') return PauseEllipsis;
+            if (c == '.')
+            {
+                // 점이 이어지는 중간에서는 쉬지 않습니다. 점마다 멈추면 1초를 넘깁니다.
+                if (index + 1 < text.Length && text[index + 1] == '.') return 0f;
+                bool ellipsis = index >= 2 && text[index - 1] == '.' && text[index - 2] == '.';
+                return ellipsis ? PauseEllipsis : PausePeriod;
+            }
+            if (c == '!' || c == '?') return PausePeriod;
+            if (c == ',') return PauseComma;
+            return 0f;
+        }
+
+        private static bool ClickedThisFrame()
+        {
+            return Pointer.current != null && Pointer.current.press.wasPressedThisFrame;
+        }
+
+        private void ShowChoices(TalkChoice[] choices)
+        {
+            for (int i = 0; i < choiceButtons.Length; i++)
+            {
+                if (choiceButtons[i] == null) continue;
+
+                bool used = choices != null && i < choices.Length;
+                choiceButtons[i].gameObject.SetActive(used);
+                if (used && choiceLabels[i] != null) choiceLabels[i].text = choices[i].Text;
+            }
+        }
+
+        private void HideChoices()
+        {
+            for (int i = 0; i < choiceButtons.Length; i++)
+            {
+                if (choiceButtons[i] != null) choiceButtons[i].gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>말풍선 한 줄을 붙이고 <b>본문 TMP를 돌려줍니다</b>. 타자기 연출에 이 참조가 필요합니다. (D-a)</summary>
+        private TextMeshProUGUI AppendLine(string speaker, string message, string color)
+        {
+            if (messageContent == null) return null;
             bool isYomi = speaker == "요미";
             bool isSystem = speaker == "SYSTEM";
             // 한글 장문도 말풍선 내부에서 줄바꿈될 공간을 충분히 확보합니다.
@@ -591,9 +778,40 @@ namespace FXOverdose.DatingSim.YomiRoom
             body.alignment = TextAlignmentOptions.MidlineLeft;
             body.overflowMode = TextOverflowModes.Ellipsis;
 
+            // 행 높이는 전체 문자열로 이미 확정됩니다. 타자기가 글자를 늘려도 레이아웃이 안 흔들립니다. (TS25)
             contentHeight += rowHeight + 10f;
             messageContent.sizeDelta = new Vector2(messageContent.sizeDelta.x, contentHeight);
             if (message == "...") thinkingRow = row;
+            Canvas.ForceUpdateCanvases();
+            if (historyScroll != null) historyScroll.verticalNormalizedPosition = 0f;
+            return body;
+        }
+
+        /// <summary>
+        /// 지문 줄. 말풍선도 화자도 없는 회색 서술입니다. (10.3절)
+        /// 라이트 노벨의 대화가 자연스러운 이유의 절반은 대사 사이의 서술이고, 채팅 로그에는 그 채널이 없었습니다.
+        /// </summary>
+        private void AppendNarration(string message)
+        {
+            if (messageContent == null) return;
+
+            float rowHeight = Mathf.Clamp(46f + (message.Length / 24) * 22f, 46f, 96f);
+            GameObject row = new("Message_Narration", typeof(RectTransform));
+            row.transform.SetParent(messageContent, false);
+            RectTransform rowRect = row.GetComponent<RectTransform>();
+            rowRect.anchorMin = new Vector2(0f, 1f);
+            rowRect.anchorMax = new Vector2(1f, 1f);
+            rowRect.pivot = new Vector2(0.5f, 1f);
+            rowRect.anchoredPosition = new Vector2(0f, -contentHeight);
+            rowRect.sizeDelta = new Vector2(0f, rowHeight);
+
+            TextMeshProUGUI body = AddText(row.transform, "Body", message, 15f,
+                new Vector2(0.12f, 0.05f), new Vector2(0.88f, 0.95f), new Color32(139, 139, 154, 255));
+            body.alignment = TextAlignmentOptions.Center;
+            body.fontStyle = FontStyles.Italic;
+
+            contentHeight += rowHeight + 10f;
+            messageContent.sizeDelta = new Vector2(messageContent.sizeDelta.x, contentHeight);
             Canvas.ForceUpdateCanvases();
             if (historyScroll != null) historyScroll.verticalNormalizedPosition = 0f;
         }

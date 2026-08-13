@@ -24,6 +24,7 @@ LEN_LLM = 60              # LLM 단발 생성 대사
 # 요미 대사를 문자열 리터럴로 들고 있는 스크립트. 새로 생기면 여기에 추가한다.
 # .cs는 대사와 UI 라벨·뉴스 본문이 섞여 있어 호칭/자기지칭만 검사한다.
 CS_SOURCES = [
+    "Assets/Scripts/DatingSim/Dialogue/YomiTalkTopics.cs",
     "Assets/Scripts/Editor/GenerateTemplateFallbackText.cs",
     "Assets/Editor/ChoiceEventAssetGenerator.cs",
     "Assets/Scripts/Events/ChoiceEventController.cs",
@@ -134,6 +135,219 @@ def collect():
     return rows
 
 
+TALK_TABLE = "Assets/Scripts/DatingSim/Dialogue/YomiTalkTopics.cs"
+MAX_CHOICE_LEN = 25    # 선택지 버튼 1줄 · 17pt
+MAX_BURST_LEN = 60     # 말풍선 1개 (일상 대사 상한)
+MAX_NARRATION_LEN = 40 # 지문 1줄
+MAX_TOPIC_AFFECTION = 12  # 토픽 1편의 최대 획득. 힌트 임계(4/7)가 무의미해지지 않게 하는 상한 (TS19)
+NARRATION_MARK = "※"
+RICH_TAG = re.compile(r"<[^>]+>")   # 타자기 연출이 글자 수를 그대로 센다 (TS28)
+
+# ⚠️ 선택지는 3인자(즉답 포함)가 될 수 있다. 닫는 괄호를 바로 요구하면 즉답이 붙은 선택지를
+#    통째로 못 보고 "선택지 0개"로 세면서 조용히 통과한다 — 실패가 성공처럼 보인다. (TS14)
+CHOICE_RE = re.compile(
+    r'new TalkChoice\("((?:[^"\\]|\\.)*)"\s*,\s*TalkTrait\.(\w+)\s*,\s*(\d+)'
+    r'\s*(?:,\s*"((?:[^"\\]|\\.)*)")?\s*\)', re.S
+)
+
+# 플레이어 성격 5축 (바이블 2.2절). 태그가 없던 시절 무던함이 75%, 감춘 불안이 0건이었다.
+TRAITS = ["Plain", "Warm", "Duty", "Anxious", "Waver"]
+TRAIT_DOMINANCE = 0.6   # 한 축이 토픽의 이 비율을 넘으면 경고
+
+# 플레이어가 관계의 우위를 들이대는 표현. 좁게만 잡는다 — "얹혀사는 거 아니야" 같은 부정문은 정당하다.
+SUPERIORITY = re.compile(r"돈은 내가|내가 벌|누구 덕에|나가라|나가 살")
+EMOJI = re.compile(r"[\U0001F000-\U0001FAFF☀-➿]")
+
+
+def check_talk_table():
+    """선택형 대화 테이블의 구조 계약을 검사한다 (계획서 7.2절)."""
+    if not os.path.exists(TALK_TABLE):
+        return 0
+
+    src = open(TALK_TABLE, encoding="utf-8").read()
+    body = src.split("public static readonly TalkTopic[] All", 1)
+    if len(body) < 2:
+        return 0
+    body = body[1].split("public static string[] HintLinesFor", 1)[0]
+
+    failures = 0
+    topics = re.split(r'new TalkTopic\("', body)[1:]
+    print(f"[대화 테이블] 토픽 {len(topics)}개 검사")
+
+    # 호감도 0(게임 시작 시점)에 열리는 토픽 수. 해금 조건을 잘못 걸면 첫날부터 대화가 막힌다. (TS10)
+    # 시간대까지 걸리므로 구간별로 센다 — 밤은 슬롯이 두 칸이라 최소 2편이 필요하다. (TS23)
+    slots_per_time = {"Morning": 1, "Noon": 1, "Evening": 1, "Night": 2}
+    starting = {k: 0 for k in slots_per_time}
+    for chunk in topics:
+        gate = re.search(r'",\s*TalkCategory\.\w+,\s*([\w\s|.]+?),\s*(\d+),\s*(\d+),', chunk)
+        if not gate:
+            print(f"  ❌ {chunk.split(chr(34), 1)[0]}: 카테고리/시간대/호감도 인자를 못 읽었다")
+            failures += 1
+            continue
+        if int(gate.group(2)) != 0:
+            continue
+        flags = re.findall(r"TalkTime\.(\w+)", gate.group(1))
+        if "Any" in flags:
+            flags = list(slots_per_time)
+        for f in flags:
+            if f in starting:
+                starting[f] += 1
+
+    for name, need in slots_per_time.items():
+        if starting[name] < need:
+            print(f"  ❌ {name} 시간대에 호감도 0 토픽이 {starting[name]}편 "
+                  f"(슬롯 {need}칸이라 최소 {need}편) — 그 시간대에 대화가 막힌다")
+            failures += 1
+    print(f"  · 시작 시점 해금 토픽 (아침/낮/저녁/밤): "
+          f"{starting['Morning']}/{starting['Noon']}/{starting['Evening']}/{starting['Night']}")
+
+    for chunk in topics:
+        topic_id = chunk.split('"', 1)[0]
+        nodes = re.split(r"new TalkNode\(", chunk)[1:]
+
+        # 토픽 = 화제가 아니라 장면. 3노드로는 감정 곡선(도입-곁길-균열-직면-전환-착지)이 안 그려진다. (10.2절)
+        if not 4 <= len(nodes) <= 8:
+            print(f"  ❌ {topic_id}: 노드 {len(nodes)}개 (4~8 이어야 함)")
+            failures += 1
+
+        topic_max = 0          # 토픽 최대 획득 호감도
+        best_nodes = []        # +3 선택지가 있는 노드 인덱스
+        choice_counts = []
+        narration = 0
+        seen_lines = {}        # 같은 장면 안에서의 문장 중복 검사
+        trait_count = {t: 0 for t in TRAITS}
+        traits_in_node = {}    # 노드 인덱스 → 그 노드에 쓰인 축들
+
+        def once(kind, text, where):
+            """토픽 안에서 같은 문장을 두 번 쓰면 실패시킨다. (TS20)"""
+            n = 0
+            # 타자기 연출이 글자 수를 그대로 세므로 리치텍스트 태그가 들어가면 출력이 깨진다. (TS28)
+            if RICH_TAG.search(text):
+                print(f"  ❌ {topic_id}: {kind}에 리치텍스트 태그 — {where} — {text}")
+                n += 1
+            key = text.strip()
+            if key in seen_lines:
+                print(f"  ❌ {topic_id}: {kind} 중복 — {where} / {seen_lines[key]} — {key}")
+                return n + 1
+            seen_lines[key] = where
+            return n
+
+        for n, node in enumerate(nodes):
+            head, sep, _ = node.partition("new TalkChoice(")
+            lines = [m for m in re.findall(r'"((?:[^"\\]|\\.)*)"', head) if m.strip()]
+            choices = CHOICE_RE.findall(node)
+
+            # --- 버스트 (R-1) ---
+            if not sep:
+                print(f"  ❌ {topic_id}[{n}]: 선택지가 없다")
+                failures += 1
+            if not 1 <= len(lines) <= 3:
+                print(f"  ❌ {topic_id}[{n}]: 말풍선 {len(lines)}개 (1~3 이어야 함)")
+                failures += 1
+            for line in lines:
+                is_narr = line.startswith(NARRATION_MARK)
+                limit = MAX_NARRATION_LEN if is_narr else MAX_BURST_LEN
+                if is_narr:
+                    narration += 1
+                if len(line) > limit:
+                    print(f"  ❌ {topic_id}[{n}]: {'지문' if is_narr else '말풍선'} {len(line)}자 초과 — {line}")
+                    failures += 1
+                failures += once("대사", line, f"[{n}]")
+
+            # --- 선택지 (R-3) ---
+            if not 2 <= len(choices) <= 4:
+                print(f"  ❌ {topic_id}[{n}]: 선택지 {len(choices)}개 (2~4 이어야 함)")
+                failures += 1
+            choice_counts.append(len(choices))
+
+            node_max = 0
+            traits_in_node[n] = set()
+            for text, trait, aff, reply in choices:
+                aff = int(aff)
+                node_max = max(node_max, aff)
+                if aff == 3 and n not in best_nodes:
+                    best_nodes.append(n)
+
+                # --- 플레이어 대사 검사 (12장 P-7) ---
+                if trait in trait_count:
+                    trait_count[trait] += 1
+                    traits_in_node[n].add(trait)
+                else:
+                    print(f"  ❌ {topic_id}[{n}]: 모르는 축 TalkTrait.{trait}")
+                    failures += 1
+                if SUPERIORITY.search(text):
+                    print(f"  ❌ {topic_id}[{n}]: 관계 우위를 들이대는 선택지 — {text}")
+                    failures += 1
+                if EMOJI.search(text):
+                    print(f"  ❌ {topic_id}[{n}]: 선택지에 이모지 — {text}")
+                    failures += 1
+                if "오빠" in text:
+                    print(f"  ❌ {topic_id}[{n}]: 플레이어가 자기를 '오빠'라고 부른다 — {text}")
+                    failures += 1
+
+                if len(text) > MAX_CHOICE_LEN:
+                    print(f"  ❌ {topic_id}[{n}]: 선택지 {len(text)}자 초과 — {text}")
+                    failures += 1
+                if reply:
+                    if len(reply) > MAX_BURST_LEN:
+                        print(f"  ❌ {topic_id}[{n}]: 즉답 {len(reply)}자 초과 — {reply}")
+                        failures += 1
+                    failures += once("즉답", reply, f"[{n}]")
+            topic_max += node_max
+
+        # --- 토픽 단위 계약 (10.4절) ---
+        if topic_max > MAX_TOPIC_AFFECTION:
+            print(f"  ❌ {topic_id}: 최대 획득 +{topic_max} (상한 +{MAX_TOPIC_AFFECTION}) — 힌트 임계가 무의미해진다")
+            failures += 1
+        if not 1 <= len(best_nodes) <= 2:
+            print(f"  ❌ {topic_id}: +3 노드 {len(best_nodes)}개 (토픽당 1~2개여야 함)")
+            failures += 1
+        half = len(nodes) // 2
+        early = [n for n in best_nodes if n < half]
+        if early:
+            print(f"  ❌ {topic_id}: +3이 전반부 노드 {early}에 있다 (후반 절반에만 둔다)")
+            failures += 1
+        if nodes and not 3 <= narration <= 5:
+            print(f"  ❌ {topic_id}: 지문 {narration}줄 (3~5줄이어야 함)")
+            failures += 1
+        if len(set(choice_counts)) == 1 and len(choice_counts) > 2:
+            print(f"  ⚠️  {topic_id}: 모든 노드의 선택지가 {choice_counts[0]}개 — 리듬이 고정됐다 (경고)")
+
+        # --- 플레이어 5축 커버리지 (12장 P-2) ---
+        missing = [t for t in TRAITS if trait_count[t] == 0]
+        if missing:
+            print(f"  ❌ {topic_id}: 안 쓰인 플레이어 축 {missing} — 5축 전부 최소 1회")
+            failures += 1
+        total_choices = sum(trait_count.values())
+        if total_choices:
+            top = max(TRAITS, key=lambda t: trait_count[t])
+            if trait_count[top] > total_choices * TRAIT_DOMINANCE:
+                print(f"  ⚠️  {topic_id}: {top} 축이 {trait_count[top]}/{total_choices} — 한 축으로 쏠렸다 (경고)")
+
+        # 요미가 가장 무방비한 노드(+3이 있는 곳)에서 플레이어도 자기를 열어야 한다.
+        # 전부 요미를 향한 위로·질문이면 대화가 아니라 상담이 된다. (12.2절)
+        if best_nodes and not any(traits_in_node.get(n, set()) & {"Anxious", "Duty"} for n in best_nodes):
+            print(f"  ❌ {topic_id}: +3 노드 {best_nodes}에 Anxious/Duty가 없다 — 플레이어가 자기를 여는 자리가 없다")
+            failures += 1
+
+    # 힌트 풀: 4 Regime × 2 티어 = 8칸이 전부 차 있어야 하고, Squeeze 명시 티어엔 방향 단어가 없어야 한다.
+    for pool in ("BullVague", "BullClear", "BearVague", "BearClear",
+                 "SidewaysVague", "SidewaysClear", "SqueezeVague", "SqueezeClear"):
+        m = re.search(rf"{pool} =\s*\{{(.*?)\}};", src, re.S)
+        lines = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1)) if m else []
+        if len(lines) < 5:
+            print(f"  ❌ 힌트 풀 {pool}: {len(lines)}줄 (최소 5줄)")
+            failures += 1
+        if pool == "SqueezeClear":
+            for line in lines:
+                if "위" in line or "아래" in line:
+                    print(f"  ❌ SqueezeClear에 방향 단어 — {line}")
+                    failures += 1
+
+    print(f"[대화 테이블] 위반 {failures}건\n")
+    return failures
+
+
 def main():
     rows = collect()
     bad = [
@@ -159,7 +373,9 @@ def main():
         shown.add(key)
         print(f'[{",".join(v)}] {src}\n    {line}')
 
-    return 1 if bad else 0
+    print()
+    structural = check_talk_table()
+    return 1 if (bad or structural) else 0
 
 
 if __name__ == "__main__":

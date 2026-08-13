@@ -59,8 +59,8 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void BindButtons()
         {
             if (freeChatButton != null)
-                freeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartChat());
-            
+                freeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryStartTalk());
+
             if (restButton != null)
                 restButton.onClick.AddListener(() => YomiRoomManager.Instance?.TryRest());
             
@@ -70,20 +70,15 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (tradingButton != null)
                 tradingButton.onClick.AddListener(() => YomiRoomManager.Instance?.StartTrading());
 
+            // 입력형 채팅 폐지(2026-08-13). 전송 버튼과 입력창은 선택형 대화에서 쓰이지 않습니다.
             if (chatSendButton != null)
-                chatSendButton.onClick.AddListener(OnChatSendClicked);
-            
-            if (closeChatButton != null)
-                closeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.CloseChat());
-        }
+                chatSendButton.gameObject.SetActive(false);
 
-        private void OnChatSendClicked()
-        {
-            if (chatInputField != null && !string.IsNullOrWhiteSpace(chatInputField.text))
-            {
-                YomiRoomManager.Instance?.ProcessUserChatInput(chatInputField.text);
-                chatInputField.text = "";
-            }
+            if (chatInputField != null)
+                chatInputField.gameObject.SetActive(false);
+
+            if (closeChatButton != null)
+                closeChatButton.onClick.AddListener(() => YomiRoomManager.Instance?.CloseTalk());
         }
 
         private void SubscribeEvents()
@@ -91,7 +86,10 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (YomiRoomManager.Instance != null)
             {
                 YomiRoomManager.Instance.OnStateChanged += UpdateStateUI;
-                YomiRoomManager.Instance.OnChatUpdated += HandleChatUpdated;
+                YomiRoomManager.Instance.OnTalkNodeAdvanced += HandleTalkNode;
+                YomiRoomManager.Instance.OnPlayerChoiceSpoken += AppendPlayerLine;
+                YomiRoomManager.Instance.OnTalkFinished += HandleTalkFinished;
+                YomiRoomManager.Instance.OnYomiGreeted += AppendYomiLine;
                 YomiRoomManager.Instance.OnActionFailed += HandleActionFailed;
             }
 
@@ -109,7 +107,10 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (YomiRoomManager.Instance != null)
             {
                 YomiRoomManager.Instance.OnStateChanged -= UpdateStateUI;
-                YomiRoomManager.Instance.OnChatUpdated -= HandleChatUpdated;
+                YomiRoomManager.Instance.OnTalkNodeAdvanced -= HandleTalkNode;
+                YomiRoomManager.Instance.OnPlayerChoiceSpoken -= AppendPlayerLine;
+                YomiRoomManager.Instance.OnTalkFinished -= HandleTalkFinished;
+                YomiRoomManager.Instance.OnYomiGreeted -= AppendYomiLine;
                 YomiRoomManager.Instance.OnActionFailed -= HandleActionFailed;
             }
 
@@ -204,18 +205,31 @@ namespace FXOverdose.DatingSim.YomiRoom
             Debug.LogWarning("[YomiRoomUI] Not enough time slots or stamina to perform action.");
         }
 
-        private void HandleChatUpdated(string userMessage, string yomiResponse)
+        private void AppendYomiLine(string line)
         {
-            if (chatLogText != null)
-            {
-                // '타이핑 중...' 메시지 제거
-                string log = chatLogText.text;
-                log = log.Replace("\n<color=yellow>[System] 요미가 타이핑 중...</color>", "");
-                
-                // 새 메시지 추가
-                log += $"\n\n<b><color=#55AAFF>오빠:</color></b> {userMessage}\n<b><color=#FFAA55>요미:</color></b> {yomiResponse}";
-                chatLogText.text = log;
-            }
+            if (chatLogText == null || string.IsNullOrEmpty(line)) return;
+            chatLogText.text += $"\n<b><color=#FFAA55>요미:</color></b> {line}";
+        }
+
+        private void AppendPlayerLine(string line)
+        {
+            if (chatLogText == null || string.IsNullOrEmpty(line)) return;
+            chatLogText.text += $"\n<b><color=#55AAFF>오빠:</color></b> {line}";
+        }
+
+        // 구형 UI라 지문 전용 표시가 없습니다. 접두사만 떼어 같은 로그에 흘립니다.
+        private void HandleTalkNode(Dialogue.TalkNode node)
+        {
+            if (node.YomiLines == null) return;
+            for (int i = 0; i < node.YomiLines.Length; i++)
+                AppendYomiLine(Dialogue.TalkNode.StripMark(node.YomiLines[i]));
+        }
+
+        private void HandleTalkFinished(string closingLine, string hintLine)
+        {
+            AppendYomiLine(closingLine);
+            // 힌트는 별도 UI 없이 같은 로그에 한 줄 더 이어 붙입니다.
+            AppendYomiLine(hintLine);
         }
     }
 }

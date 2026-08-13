@@ -162,5 +162,28 @@ namespace FXOverdose.Core
         public int TalkAffectionGainToday = 0;
         public int TalkHintIssuedDay = -1;
         public List<string> TalkTopicsUsedToday = new List<string>();
+
+        // 진행 중인 시나리오 (T1/T2). 중단된 대화는 재개하지 않지만, 어떤 토픽에서 끊겼는지는 남깁니다.
+        public string TalkActiveTopicId = "";
+        public int TalkActiveNodeIndex = -1;
+
+        // 선택 이력 (T3). "<토픽ID>:<노드>:<선택인덱스>" 한 줄 = 선택 1회.
+        // JsonUtility가 중첩 구조를 직렬화하지 못하므로 문자열로 인코딩합니다.
+        public List<string> TalkChoiceHistory = new List<string>();
+
+        // 발급된 힌트 내역 (T4). 로드 후 재발급을 막습니다.
+        public int TalkHintTier = 0;      // 0=미발급 / 1=모호 / 2=명시
+        public string TalkHintLineId = "";
+
+        // 누적 이력 (T5/T6/T7)
+        public List<string> TalkTopicsSeenTotal = new List<string>();
+        public List<string> TalkCompletedFlags = new List<string>();
+        public int TalkLastGreetingDay = -1;
+
+        // --- 호감도 기반 토픽 해금 ---
+        // 해금은 '현재 호감도'가 아니라 '역대 최고'로 판정합니다.
+        // 호감도가 깎였다고 이미 열린 화제가 다시 잠기면 진행하던 대화가 증발합니다. (TS8)
+        public int TalkPeakAffection = 0;
+        public int TalkAffectionTierSeen = 0; // 플레이어가 인지한 해금 단계. 승급 연출용
     }
 }

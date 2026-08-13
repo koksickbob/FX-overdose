@@ -13,6 +13,8 @@ namespace FXOverdose.DatingSim.Core
         [SerializeField] private int currentStamina = 100;
         [SerializeField] private int maxStamina = 100;
         private int currentAffection;
+        // 역대 최고 호감도. 토픽 해금 판정의 기준입니다. 호감도가 깎여도 내려가지 않습니다. (TS8)
+        private int peakAffection;
         private int currentObsession;
         private int storyProgressStage;
         [SerializeField] private int currentTimeSlot = 5;
@@ -22,6 +24,9 @@ namespace FXOverdose.DatingSim.Core
         public int CurrentStamina => currentStamina;
         public int MaxStamina => maxStamina;
         public int CurrentAffection => currentAffection;
+
+        /// <summary>역대 최고 호감도. 대화 토픽 해금은 이 값으로 판정합니다.</summary>
+        public int PeakAffection => peakAffection;
         public int CurrentObsession => currentObsession;
         public int StoryProgressStage => storyProgressStage;
         public int CurrentTimeSlot => currentTimeSlot;
@@ -73,6 +78,8 @@ namespace FXOverdose.DatingSim.Core
             currentStamina = data.DatingStamina;
             maxStamina = data.DatingMaxStamina;
             currentAffection = data.DatingAffection;
+            // 구버전 세이브 대비: 마이그레이터가 채우지 못한 경우에도 현재 호감도 아래로 내려가지 않게 합니다.
+            peakAffection = Mathf.Max(data.TalkPeakAffection, data.DatingAffection);
             currentObsession = data.DatingObsession;
             storyProgressStage = data.StoryProgressStage;
             currentTimeSlot = data.DatingTimeSlot;
@@ -92,6 +99,7 @@ namespace FXOverdose.DatingSim.Core
             data.DatingStamina = currentStamina;
             data.DatingMaxStamina = maxStamina;
             data.DatingAffection = currentAffection;
+            data.TalkPeakAffection = peakAffection;
             data.DatingObsession = currentObsession;
             data.StoryProgressStage = storyProgressStage;
             data.DatingTimeSlot = currentTimeSlot;
@@ -138,6 +146,11 @@ namespace FXOverdose.DatingSim.Core
         public void ModifyAffection(int amount)
         {
             currentAffection = Mathf.Clamp(currentAffection + amount, 0, 100);
+
+            // 최고치 갱신은 호감도의 주인인 여기서 합니다.
+            // 대화 외의 경로(이벤트·데이트 등)로 올라도 해금 판정이 누락되지 않아야 합니다. (U-3)
+            if (currentAffection > peakAffection) peakAffection = currentAffection;
+
             OnAffectionChanged?.Invoke(currentAffection);
             SaveLoadManager.Instance?.SaveCurrentGame();
         }
