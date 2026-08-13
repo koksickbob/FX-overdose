@@ -139,12 +139,12 @@ public class DynamicShopUI : MonoBehaviour
         int visibleCount = 0;
         foreach (ItemData item in shopManager.CatalogItems)
         {
-            if (item == null || !ShouldShowItem(item)) continue;
+            if (item == null || !ShouldShowItem(item) || (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning==true && !IsP2PAllowed(item))) continue;
             cards.Add(CreateProductCard(item));
             visibleCount++;
         }
 
-        if (CostumeManager.Instance != null &&
+        if (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning!=true && CostumeManager.Instance != null &&
             (activeFilter == CategoryFilter.All || activeFilter == CategoryFilter.Apparel))
         {
             foreach (CostumeManager.CostumeDefinition costume in CostumeManager.Instance.Catalog)
@@ -165,6 +165,8 @@ public class DynamicShopUI : MonoBehaviour
             emptyStateText.gameObject.SetActive(visibleCount == 0);
         }
     }
+
+    private static bool IsP2PAllowed(ItemData item)=>item!=null&&(item.ItemId=="energy_drink"||item.ItemId=="dessert"||item.ItemId=="sedative"||item.ItemId=="supplement");
 
     private void BuildStructure()
     {

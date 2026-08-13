@@ -4,6 +4,25 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    private bool p2pExternalMode;
+    public void EnableP2PExternalMode()
+    {
+        p2pExternalMode=true;
+        currentDay=1;currentHour=9;currentMinute=0;
+        // TopStatusBar가 Start에서 수익선 최초 점을 기록하기 전에 P2P 시작 자산을 확정합니다.
+        currentBalance=startingBalance;
+        StartOfDayEquity=startingBalance;
+        currentState=GameState.Playing;
+    }
+    public void ApplyP2PState(int totalMinutes,float balance)
+    {
+        int previousTotalMinutes=currentHour*60+currentMinute;
+        int nextHour=totalMinutes/60,nextMinute=totalMinutes%60;
+        int advancedMinutes=Mathf.Max(0,totalMinutes-previousTotalMinutes);
+        currentDay=1;currentHour=nextHour;currentMinute=nextMinute;currentBalance=balance;currentState=GameState.Playing;
+        // 패킷 지연으로 두 분 이상 건너뛰어도 원본 캔들 엔진이 분봉을 빠뜨리지 않게 합니다.
+        for(int i=0;i<advancedMinutes;i++)OnGameMinuteAdvanced?.Invoke();
+    }
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
     // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
@@ -140,6 +159,7 @@ public class GameManager : MonoBehaviour
     // 게임 시작 시 한 번 실행
     private void Start()
     {
+        if(p2pExternalMode){currentDay=1;currentHour=9;currentMinute=0;currentBalance=startingBalance;StartOfDayEquity=startingBalance;currentState=GameState.Playing;EnsureDayTimeBackgroundController();return;}
         var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
         if (saveManager != null && saveManager.IsPendingLoad)
         {
@@ -170,6 +190,7 @@ public class GameManager : MonoBehaviour
     // 게임 실행 중 매 프레임 호출
     private void Update()
     {
+        if(p2pExternalMode)return;
         // 게임 진행 상태가 아니면 시간을 흐르게 하지 않음
         if (currentState != GameState.Playing)
         {

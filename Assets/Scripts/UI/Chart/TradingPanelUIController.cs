@@ -12,6 +12,17 @@ namespace FXOverdose.UI.Chart
 {
     public class TradingPanelUIController : MonoBehaviour
     {
+        private bool p2pExternalMode;
+        private bool p2pSpectating;
+        public void EnableP2PExternalMode() => p2pExternalMode = true;
+        /// <summary>관전 중에는 버튼을 숨기지 않고 비활성 상태로 고정해 상태 갱신 깜빡임을 막습니다.</summary>
+        public void SetP2PSpectating(bool spectating)
+        {
+            p2pSpectating=spectating;
+            if(longButton!=null)longButton.interactable=!spectating;
+            if(shortButton!=null)shortButton.interactable=!spectating;
+            if(closePositionButton!=null)closePositionButton.interactable=!spectating&&tradingController!=null&&tradingController.CurrentPosition!=TradingController.PositionType.None;
+        }
         public enum ControlMode
         {
             Leverage,
@@ -445,6 +456,8 @@ namespace FXOverdose.UI.Chart
 
         private void Update()
         {
+            // 멀티플레이에서는 마진/레버리지 선택값을 서버 권위 UI가 관리합니다.
+            if (p2pExternalMode) return;
             // 포지션 보유 중일 때 매 프레임 실시간 ROE 및 PnL 숫자 갱신
             if (tradingController != null && tradingController.CurrentPosition != TradingController.PositionType.None)
             {
@@ -1053,12 +1066,12 @@ namespace FXOverdose.UI.Chart
             bool isTradeCooldown = isManualMode && !hasPosition && tradingController.IsPlayerTradeOnCooldown;
 
             // 진입 버튼은 포지션이 없을 때만 동작하고, 보유 중에는 전용 매도 버튼이 위를 덮습니다.
-            if (longButton != null) longButton.interactable = isManualMode && !hasPosition && !isTradeCooldown;
-            if (shortButton != null) shortButton.interactable = isManualMode && !hasPosition && !isTradeCooldown;
+            if (longButton != null) longButton.interactable = !p2pSpectating && isManualMode && !hasPosition && !isTradeCooldown;
+            if (shortButton != null) shortButton.interactable = !p2pSpectating && isManualMode && !hasPosition && !isTradeCooldown;
             if (closePositionButton != null)
             {
                 closePositionButton.gameObject.SetActive(showPlayerSellButton);
-                closePositionButton.interactable = showPlayerSellButton;
+                closePositionButton.interactable = !p2pSpectating && showPlayerSellButton;
                 if (showPlayerSellButton) closePositionButton.transform.SetAsLastSibling();
             }
 
@@ -1391,7 +1404,11 @@ namespace FXOverdose.UI.Chart
 
                 if (profit)
                 {
+                    // 수익 실현은 초록색으로 한 번 점멸해 손실의 빨간 점멸과 동일하게 결과를 즉시 전달합니다.
+                    positionFxDim.color = new Color(resultColor.r, resultColor.g, resultColor.b, 0.20f);
                     SpawnPixelParticles(resultColor, isLong ? 1 : -1);
+                    yield return new WaitForSecondsRealtime(0.18f);
+                    positionFxDim.color = Color.clear;
                 }
                 else
                 {

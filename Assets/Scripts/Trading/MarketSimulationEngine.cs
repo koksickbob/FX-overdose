@@ -6,6 +6,86 @@ namespace FXOverdose.Trading
 {
     public class MarketSimulationEngine : MonoBehaviour
     {
+        private bool p2pExternalMode;
+        public void EnableP2PExternalMode()=>p2pExternalMode=true;
+        public void PrepareP2PChartHistory(int seed,float authoritativePrice,int minutesCount=150)
+        {
+            EnsureCandleHistoriesInitialized();
+            foreach(List<CandleData> history in candleHistories.Values)history.Clear();
+            liveAggregatedCandles.Clear();
+
+            // 모든 참가자가 동일한 시드로 같은 과거 차트를 만들되 마지막 종가는 호스트 시작가와 맞닿게 합니다.
+            uint state=unchecked((uint)seed)|1u;
+            float Next(float min,float max)
+            {
+                state^=state<<13;state^=state>>17;state^=state<<5;
+                return min+(max-min)*(state/(float)uint.MaxValue);
+            }
+
+            var reversed=new List<CandleData>(minutesCount);
+            float close=authoritativePrice;
+            for(int i=0;i<minutesCount;i++)
+            {
+                float change=Next(-0.004f,0.004f);
+                float open=close/Mathf.Max(0.01f,1f+change);
+                float high=Mathf.Max(open,close)*(1f+Next(0f,0.0032f));
+                float low=Mathf.Min(open,close)*(1f-Next(0f,0.0032f));
+                float body=Mathf.Abs(close-open),range=Mathf.Max(0.01f,high-low);
+                float volume=Mathf.Max(40f,range*Next(4.5f,7.5f)+body*Next(6f,11f));
+                reversed.Add(new CandleData(-1-i,open,high,low,close,volume));
+                close=open;
+            }
+            reversed.Reverse();
+            candleHistories[Timeframe.M1].AddRange(reversed);
+
+            foreach(Timeframe tf in Enum.GetValues(typeof(Timeframe)))
+            {
+                if(tf==Timeframe.M1)continue;
+                int size=(int)tf;
+                var bucket=new List<CandleData>();
+                long bucketStart=long.MinValue;
+                foreach(CandleData candle in reversed)
+                {
+                    long start=Mathf.FloorToInt(candle.timestampMinutes/(float)size)*size;
+                    if(bucket.Count>0&&start!=bucketStart)
+                    {
+                        candleHistories[tf].Add(CandleData.Aggregate(bucket,bucketStart));
+                        bucket.Clear();
+                    }
+                    bucketStart=start;bucket.Add(candle);
+                }
+                if(bucket.Count>0)candleHistories[tf].Add(CandleData.Aggregate(bucket,bucketStart));
+            }
+
+            currentTotalMinutes=0;
+            currentPrice=authoritativePrice;
+            ouCenterPrice=authoritativePrice;
+            current24hHigh=authoritativePrice;
+            current24hLow=authoritativePrice;
+            current24hVolume=0f;
+            StartNewLiveCandle(authoritativePrice);
+            IsDataPrepared=true;
+            OnEngineReset?.Invoke();
+        }
+        public void ApplyP2PExternalTick(float price,float bid,float ask,float volume,float snapshotHigh,float snapshotLow)
+        {
+            if(!IsDataPrepared)return;currentPrice=price;currentBidPrice=bid;currentAskPrice=ask;currentSpread=Mathf.Max(0,ask-bid);
+            UpdateLiveCandlesWithTick(price,Mathf.Max(0,volume));
+
+            // 패킷 사이에 발생한 틱을 모두 받지 못해도 호스트가 집계한 1분봉 고가/저가는 보존합니다.
+            // 마지막 가격만 넣으면 캔들 꼬리가 사라지고 클라이언트마다 차트 모양이 달라집니다.
+            if(liveM1Candle!=null)
+            {
+                liveM1Candle.high=Mathf.Max(liveM1Candle.high,snapshotHigh);
+                liveM1Candle.low=Mathf.Min(liveM1Candle.low,snapshotLow);
+            }
+            foreach(CandleData candle in liveAggregatedCandles.Values)
+            {
+                candle.high=Mathf.Max(candle.high,snapshotHigh);
+                candle.low=Mathf.Min(candle.low,snapshotLow);
+            }
+            OnPriceUpdated?.Invoke(price);
+        }
         // 시장 거시 국면 (Regime)
         public enum MarketRegime
         {
@@ -330,6 +410,7 @@ namespace FXOverdose.Trading
 
         private void Update()
         {
+            if(p2pExternalMode)return;
             if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || !IsMarketOpen)
             {
                 return;
@@ -807,7 +888,9 @@ namespace FXOverdose.Trading
             }
 
             // 1. 유동성 사냥(Liquidity Sweep) 위꼬리/아래꼬리 스파이크 체크
-            CheckLiquidationSweep();
+            // P2P에서는 호스트 스냅샷이 유일한 시장 데이터입니다. 각 클라이언트의 로컬 난수로
+            // 꼬리를 추가하면 같은 가격인데 캔들만 달라지므로 로컬 sweep을 적용하지 않습니다.
+            if(!p2pExternalMode)CheckLiquidationSweep();
 
             // 2. 1분봉 확정 및 저장
             FinalizeCandle(Timeframe.M1, liveM1Candle);

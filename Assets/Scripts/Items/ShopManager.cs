@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using FXOverdose.Core;
+using FXOverdose.P2P.Core;
+using FXOverdose.P2P.Infrastructure;
 
 /// <summary>
 /// 상점 열기와 닫기, 자산 차감, 구매 아이템 지급을 처리합니다.
@@ -124,6 +126,12 @@ public class ShopManager : MonoBehaviour
     /// </summary>
     public bool BuyItem(ItemData item)
     {
+        if(P2PNetworkSessionManager.Instance?.IsRunning==true)
+        {
+            if(item==null||!(item.ItemId=="energy_drink"||item.ItemId=="dessert"||item.ItemId=="sedative"||item.ItemId=="supplement"))return false;
+            var authority=P2PNetworkSessionManager.Instance.CompetitionAuthority;
+            return authority!=null&&authority.Submit(P2PCompetitionAction.BuyItem,item.ItemId);
+        }
         if (!IsOpen)
         {
             return false;

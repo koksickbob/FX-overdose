@@ -1,0 +1,14 @@
+{
+  "name": "FXOverdose.P2P.Core",
+  "rootNamespace": "FXOverdose.P2P.Core",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

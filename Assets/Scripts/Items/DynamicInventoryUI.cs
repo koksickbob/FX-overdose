@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using FXOverdose.P2P.Core;
+using FXOverdose.P2P.Infrastructure;
 
 /// <summary>인벤토리를 네 칸 단위의 가로 페이지로 표시합니다.</summary>
 [RequireComponent(typeof(RectTransform))]
@@ -49,6 +51,7 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
     private int highlightedDropIndex = -1;
     private float nextEdgePageTime;
     private bool inventoryScaleApplied;
+    private float nextP2PRefresh;
 
     // 바깥 배경은 투명도 5%, 겹치는 내부 카드와 헤더 면은 불투명하게 유지합니다.
     private static readonly Color PanelBackground = new(0.025f, 0.045f, 0.085f, 0.95f);
@@ -136,6 +139,13 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         if (isActiveAndEnabled && generatedSlots.Count > 0) LayoutSlots();
     }
 
+    private void Update()
+    {
+        if (P2PNetworkSessionManager.Instance?.IsRunning != true || Time.unscaledTime < nextP2PRefresh) return;
+        nextP2PRefresh = Time.unscaledTime + 0.5f;
+        Rebuild();
+    }
+
     private void OnInventoryChanged(ItemData item, int quantity)
     {
         if (inventory != null && (inventory.Slots.Count != lastSlotCount || quantity <= 0))
@@ -168,9 +178,10 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         ClearGeneratedSlots();
         if (inventory == null) return;
 
+        bool p2p=P2PNetworkSessionManager.Instance?.IsRunning==true;
         foreach (InventorySlot slot in inventory.Slots)
         {
-            if (slot?.Item == null || slot.Quantity <= 0) continue;
+            if (slot?.Item == null || (p2p ? !IsP2PAllowed(slot.Item) || GetP2PQuantity(slot.Item.ItemId) <= 0 : slot.Quantity <= 0)) continue;
             generatedSlots.Add(CreateSlot(slot.Item));
         }
 
@@ -233,12 +244,25 @@ public class DynamicInventoryUI : MonoBehaviour, IBeginDragHandler, IEndDragHand
         quantity.fontStyle = FontStyles.Bold;
 
         InventoryItemButton itemButton = slot.GetComponent<InventoryItemButton>();
-        itemButton.Configure(inventory, item, button, icon, null, quantity);
+        if(P2PNetworkSessionManager.Instance?.IsRunning==true)
+        {
+            itemButton.enabled=false;button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(()=>P2PNetworkSessionManager.Instance?.CompetitionAuthority?.Submit(P2PCompetitionAction.UseItem,item.ItemId));
+            icon.sprite=item.Icon;icon.enabled=item.Icon!=null;int count=GetP2PQuantity(item.ItemId);quantity.text=$"×{count}";button.interactable=count>0;
+        }
+        else itemButton.Configure(inventory, item, button, icon, null, quantity);
         ItemTooltipTrigger tooltip = slot.AddComponent<ItemTooltipTrigger>();
         tooltip.Configure(item);
         InventorySlotDragHandle dragHandle = slot.AddComponent<InventorySlotDragHandle>();
         dragHandle.Configure(this, generatedSlots.Count);
         return slot;
+    }
+
+    private static bool IsP2PAllowed(ItemData item)=>item!=null&&(item.ItemId=="energy_drink"||item.ItemId=="dessert"||item.ItemId=="sedative"||item.ItemId=="supplement");
+    private static int GetP2PQuantity(string id)
+    {
+        var state=P2PNetworkSessionManager.Instance?.CompetitionAuthority?.Current;if(state==null)return 0;
+        foreach(var p in state.Players)if(p.PlayerId==SteamRuntimeBootstrap.LocalSteamId)return id switch{"energy_drink"=>p.EnergyDrink,"dessert"=>p.Dessert,"sedative"=>p.Sedative,"supplement"=>p.Supplement,_=>0};return 0;
     }
 
     public bool BeginSlotInteraction(int slotIndex, PointerEventData eventData, bool reorder)
