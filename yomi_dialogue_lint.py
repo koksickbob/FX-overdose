@@ -158,6 +158,24 @@ TRAIT_DOMINANCE = 0.6   # 한 축이 토픽의 이 비율을 넘으면 경고
 SUPERIORITY = re.compile(r"돈은 내가|내가 벌|누구 덕에|나가라|나가 살")
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF☀-➿]")
 
+# ── 말맛 쿼터 (13장 V-1~V-3). 문장 질은 사람이 보므로 전부 경고다. ──
+PLAIN_END_MAX = 0.40      # 평서 "." 종결 비율 상한 (V-1)
+ECHO_MIN = 4              # 토픽당 에코(요미 단어 받아치기) 최소 (V-2)
+FILLER_MIN = 2            # 토픽당 추임새 개시 최소 (V-3)
+FILLER = re.compile(r"^(어|아니|음|글쎄|야|와|아)[\s,.]")
+# V-1이 잡으려는 건 "밋밋한 단문 평서 + 마침표" 연발이다.
+# 부드러운 어미로 끝나거나(~잖아/~는데/~봐/~마/~돼/~줘 등),
+# 문장 안에 이미 리듬 장치(두 마디 · 도치 쉼표 · 말줄임)가 있으면 평서로 세지 않는다.
+SOFT_END = re.compile(r"(잖아|는데|은데|건데|던데|라니까|다니까|니까|네|지|게|자|고|며|든|봐|마|돼|줘|래)\.$")
+TEXTURE = re.compile(r"\.\.\.|,|.\. ")  # 말줄임 · 쉼표 · 문장 중간의 마침표(두 마디)
+
+
+def is_plain_end(line):
+    st = line.rstrip()
+    if not st.endswith(".") or st.endswith("..."):
+        return False
+    return not SOFT_END.search(st) and not TEXTURE.search(st)
+
 
 def check_talk_table():
     """선택형 대화 테이블의 구조 계약을 검사한다 (계획서 7.2절)."""
@@ -217,6 +235,9 @@ def check_talk_table():
         seen_lines = {}        # 같은 장면 안에서의 문장 중복 검사
         trait_count = {t: 0 for t in TRAITS}
         traits_in_node = {}    # 노드 인덱스 → 그 노드에 쓰인 축들
+        plain_end = 0          # 평서 "." 종결 (V-1)
+        echo = 0               # 요미 단어 받아치기 (V-2)
+        filler = 0             # 추임새 개시 (V-3)
 
         def once(kind, text, where):
             """토픽 안에서 같은 문장을 두 번 쓰면 실패시킨다. (TS20)"""
@@ -260,9 +281,18 @@ def check_talk_table():
                 failures += 1
             choice_counts.append(len(choices))
 
+            # 이 노드의 요미 대사에 나온 단어들. 선택지가 하나라도 재사용하면 에코로 센다. (V-2)
+            yomi_words = set(re.findall(r"[가-힣]{2,}", " ".join(lines))) - {"오빠", "요미"}
+
             node_max = 0
             traits_in_node[n] = set()
             for text, trait, aff, reply in choices:
+                if is_plain_end(text):
+                    plain_end += 1
+                if any(w in text for w in yomi_words):
+                    echo += 1
+                if FILLER.match(text):
+                    filler += 1
                 aff = int(aff)
                 node_max = max(node_max, aff)
                 if aff == 3 and n not in best_nodes:
@@ -323,6 +353,15 @@ def check_talk_table():
             top = max(TRAITS, key=lambda t: trait_count[t])
             if trait_count[top] > total_choices * TRAIT_DOMINANCE:
                 print(f"  ⚠️  {topic_id}: {top} 축이 {trait_count[top]}/{total_choices} — 한 축으로 쏠렸다 (경고)")
+
+        # --- 말맛 쿼터 (13장). 전부 경고 — 문장 질은 사람이 본다. ---
+        if total_choices:
+            if plain_end > total_choices * PLAIN_END_MAX:
+                print(f"  ⚠️  {topic_id}: 평서 '.' 종결 {plain_end}/{total_choices} — 40% 초과, 통보처럼 읽힌다 (V-1)")
+            if echo < ECHO_MIN:
+                print(f"  ⚠️  {topic_id}: 에코 {echo}개 — 요미 단어를 받아치는 선택지가 {ECHO_MIN}개는 있어야 흐름이 이어진다 (V-2)")
+            if filler < FILLER_MIN:
+                print(f"  ⚠️  {topic_id}: 추임새 개시 {filler}개 — 최소 {FILLER_MIN}개 (V-3)")
 
         # 요미가 가장 무방비한 노드(+3이 있는 곳)에서 플레이어도 자기를 열어야 한다.
         # 전부 요미를 향한 위로·질문이면 대화가 아니라 상담이 된다. (12.2절)
