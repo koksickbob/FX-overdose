@@ -114,7 +114,9 @@ namespace FXOverdose.Core
                 if (aiVisualController != null) aiVisualController.SuppressNormalDialogues = false;
 
                 var gmSkip = FindAnyObjectByType<GameManager>();
-                if (gmSkip != null) gmSkip.FinishLoadingAndStartPlaying(true);
+                // 종전에는 1일차 오프닝 컷씬을 건너뛰라고 true를 넘겼습니다.
+                // 그 컷씬이 제거되어 인자가 사라졌습니다 — 새 인트로를 붙이면 억제 수단을 다시 만들어야 합니다.
+                if (gmSkip != null) gmSkip.FinishLoadingAndStartPlaying();
                 
                 if (marketEngine != null) marketEngine.OpenMarketAfterLoading();
 
