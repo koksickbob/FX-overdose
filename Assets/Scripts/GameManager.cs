@@ -161,6 +161,9 @@ public class GameManager : MonoBehaviour
     {
         if(p2pExternalMode){currentDay=1;currentHour=9;currentMinute=0;currentBalance=startingBalance;StartOfDayEquity=startingBalance;currentState=GameState.Playing;EnsureDayTimeBackgroundController();return;}
         var saveManager = FXOverdose.Core.SaveLoadManager.Instance;
+        // 스토리 모드는 요미의 방에서 시작하고, 방이 거래 개시 전에 저장 → 복원 예약을 겁니다.
+        // 새 게임 초기화는 이미 PrepareNewGame()이 데이터에 심어두므로 이 경로로 들어와도 안전합니다.
+        // 아래 StartNewGame()은 세이브를 쓰지 않는 무한·챌린지 모드 전용 경로로 남습니다.
         if (saveManager != null && saveManager.IsPendingLoad)
         {
             // 불러오기 모드 진입
@@ -711,7 +714,7 @@ public class GameManager : MonoBehaviour
         if (status != null)
         {
             status.ChangeHealth(9999f);
-            status.ChangeMental(9999f, true, "NewDayReset");
+            status.ChangeMental(9999f, "NewDayReset");
             Debug.Log("[GameManager] 일일 정산 후 다음 날 진입: 체력과 멘탈이 최대로 회복되었습니다.");
         }
 

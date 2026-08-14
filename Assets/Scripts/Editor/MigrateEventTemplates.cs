@@ -17,16 +17,24 @@ namespace FXOverdose.Editor
     /// 수행 내용
     ///  · C4 : 베팅 선택지(Aggressive/DirectionalLong/DirectionalShort)의 음수 MentalChangeAmount를
     ///         MentalPenaltyOnFail로 옮기고, MentalChangeAmount에는 성공 보상(양수)을 채웁니다.
+    ///  · C5 : 이관한 멘탈 페널티를 리밸런싱 범위(-30 ~ -5)로 압축합니다.
+    ///         기존 값은 최대 -120이라 베팅 한 번의 결과로 만멘탈이 통째로 지워졌습니다.
+    ///         성공 보상은 원래 위험도(이관 전 수치) 기준으로 뽑아 위험/보상이 1:1에 수렴합니다.
     ///  · C3 : OverrideDurationSeconds를 이벤트 쉴드 기본값(150초)으로 맞춥니다.
     ///         기존 값 10/15는 지금까지 코드가 무시하던 값이라 그대로 살리면
     ///         쉴드가 150초 → 30초로 줄어드는 미검증 밸런스 변경이 됩니다. 현행 동작을 보존합니다.
     /// </summary>
     public static class MigrateEventTemplates
     {
-        /// <summary>성공 보상 = |실패 페널티| × 이 비율. 위험이 클수록 보상도 커지되 페널티보다는 작습니다.</summary>
+        /// <summary>성공 보상 = |이관 전 페널티| × 이 비율.</summary>
         private const float SuccessRewardRatio = 0.25f;
         private const int MinSuccessReward = 5;
         private const int MaxSuccessReward = 30;
+
+        /// <summary>멘탈 실패 페널티 압축 비율과 허용 범위(절댓값). ChoiceEventController의 상한(35)보다 보수적입니다.</summary>
+        private const float MentalPenaltyRescale = 0.25f;
+        private const int MinMentalPenalty = 5;
+        private const int MaxMentalPenalty = 30;
 
         /// <summary>이벤트 쉴드 기본 지속 시간(실시간 초). ChoiceEventController와 같은 값이어야 합니다.</summary>
         private const int DefaultEventShieldSeconds = 150;
@@ -55,7 +63,7 @@ namespace FXOverdose.Editor
 
             if (!proceed) return;
 
-            int changedAssets = 0, movedMental = 0, movedHealth = 0, fixedDuration = 0;
+            int changedAssets = 0, movedMental = 0, movedHealth = 0, fixedDuration = 0, rescaledMental = 0;
             var log = new StringBuilder();
 
             foreach (var t in templates)
@@ -72,14 +80,24 @@ namespace FXOverdose.Editor
                               || o.OptionType == ChoiceOptionType.DirectionalLong
                               || o.OptionType == ChoiceOptionType.DirectionalShort;
 
-                    // ── C4 ──────────────────────────────────────────────
+                    // ── C4 + C5 ─────────────────────────────────────────
                     if (isBet)
                     {
                         if (o.MentalChangeAmount < 0)
                         {
-                            o.MentalPenaltyOnFail = o.MentalChangeAmount;
-                            o.MentalChangeAmount = DeriveReward(o.MentalPenaltyOnFail);
+                            int originalPenalty = o.MentalChangeAmount;
+                            o.MentalPenaltyOnFail = RescalePenalty(originalPenalty);
+                            // 보상은 이관 전 위험도 기준으로 뽑습니다. 압축된 페널티와 1:1에 수렴합니다.
+                            o.MentalChangeAmount = DeriveReward(originalPenalty);
                             movedMental++;
+                            rescaledMental++;
+                            dirty = true;
+                        }
+                        else if (o.MentalPenaltyOnFail < -MaxMentalPenalty)
+                        {
+                            // 이미 이관됐지만 압축되지 않은 자산도 범위 안으로 끌어옵니다. (재실행 안전)
+                            o.MentalPenaltyOnFail = -MaxMentalPenalty;
+                            rescaledMental++;
                             dirty = true;
                         }
 
@@ -128,8 +146,15 @@ namespace FXOverdose.Editor
 
                     if (isBet && o.MentalChangeAmount < 0)
                     {
-                        o.MentalPenaltyOnFail = o.MentalChangeAmount;
-                        o.MentalChangeAmount = DeriveReward(o.MentalPenaltyOnFail);
+                        int originalPenalty = o.MentalChangeAmount;
+                        o.MentalPenaltyOnFail = RescalePenalty(originalPenalty);
+                        o.MentalChangeAmount = DeriveReward(originalPenalty);
+                        movedEventMental++;
+                        dirty = true;
+                    }
+                    else if (isBet && o.MentalPenaltyOnFail < -MaxMentalPenalty)
+                    {
+                        o.MentalPenaltyOnFail = -MaxMentalPenalty;
                         movedEventMental++;
                         dirty = true;
                     }
@@ -155,6 +180,7 @@ namespace FXOverdose.Editor
             log.AppendLine("===== 마이그레이션 완료 =====");
             log.AppendLine($"[로직 템플릿] 검사 {templates.Length}개 / 수정 {changedAssets}개");
             log.AppendLine($"  멘탈 페널티 이동   : {movedMental}개 선택지");
+            log.AppendLine($"  멘탈 페널티 압축   : {rescaledMental}개 선택지 (-{MinMentalPenalty} ~ -{MaxMentalPenalty} 범위)");
             log.AppendLine($"  체력 페널티 이동   : {movedHealth}개 선택지");
             log.AppendLine($"  지속시간 정정      : {fixedDuration}개 선택지");
             log.AppendLine($"[하드코딩 이벤트] 검사 {events.Length}개 / 수정 {changedEvents}개");
@@ -175,6 +201,17 @@ namespace FXOverdose.Editor
             int magnitude = Mathf.Abs(penalty);
             int reward = Mathf.RoundToInt(magnitude * SuccessRewardRatio);
             return Mathf.Clamp(reward, MinSuccessReward, MaxSuccessReward);
+        }
+
+        /// <summary>
+        /// 멘탈 실패 페널티를 리밸런싱 범위로 압축합니다.
+        /// 만멘탈에서 최악의 실패를 맞아도 오버도즈(0)에 닿지 않는 것이 기준입니다.
+        /// </summary>
+        private static int RescalePenalty(int penalty)
+        {
+            if (penalty >= 0) return penalty;
+            int magnitude = Mathf.RoundToInt(Mathf.Abs(penalty) * MentalPenaltyRescale);
+            return -Mathf.Clamp(magnitude, MinMentalPenalty, MaxMentalPenalty);
         }
     }
 }

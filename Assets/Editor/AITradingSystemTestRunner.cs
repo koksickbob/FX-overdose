@@ -93,15 +93,6 @@ namespace FXOverdose.Editor
 
             var env = SetupTestEnvironment(initialHealth: 1.0f, initialMental: 80f, balance: 10000f);
 
-            // 이벤트 구독 확인
-            bool decisionFired = false;
-            string aiLog = "";
-            env.Brain.OnAIDecisionMade += (dialogue, delta) =>
-            {
-                decisionFired = true;
-                aiLog = dialogue;
-            };
-
             // 강한 확실 신호(True Signal) 수동 발행
             MarketSignal trueSignal = new MarketSignal
             {
@@ -117,9 +108,9 @@ namespace FXOverdose.Editor
             env.MarketEngine.TriggerSignalForTest(trueSignal);
 
             bool passed = false;
-            if (decisionFired && env.TradingController.IsActive)
+            if (env.TradingController.IsActive)
             {
-                Log($"✔️ [진입 성공] AI 판단: \"{aiLog}\"");
+                Log($"✔️ [진입 성공] 신호 평가 후 포지션 개시 확인");
                 Log($"✔️ [포지션 검증] 진입 방향: {env.TradingController.CurrentPosition}, 배율: {env.TradingController.CurrentLeverage}배, 증거금: ${env.TradingController.MarginAmount:F2}");
                 Log($"🎯 [AI 결정 목표가(Target Price)] ${(env.TradingController.TargetPrice > 0 ? env.TradingController.TargetPrice.ToString("N1") : "없음 (무제한)")} | 손절가: ${env.TradingController.StopLossPrice:N1}");
                 

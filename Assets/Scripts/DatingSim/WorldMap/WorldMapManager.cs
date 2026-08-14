@@ -43,6 +43,13 @@ namespace FXOverdose.DatingSim.WorldMap
             else Destroy(gameObject);
         }
 
+        private void Start()
+        {
+            // 요미의 방과 같은 이유로 도착 즉시 한 번 저장합니다. SaveGame이 현재 씬을 찍으므로
+            // 이것이 곧 복귀 지점 갱신입니다. (F-11)
+            SaveLoadManager.Instance?.SaveCurrentGame();
+        }
+
         public void TryStartPartTimeJob(int jobIndex)
         {
             if (jobIndex < 0 || jobIndex >= availableJobs.Count) return;

@@ -281,6 +281,22 @@ namespace FXOverdose.Trading
 
         public void RestoreFromSaveData(FXOverdose.Core.SaveData data)
         {
+            // 거래를 한 번도 시작하지 않은 세이브는 차트가 비어 있습니다.
+            // 스토리 새 게임은 요미의 방에서 시작하는데 그 씬엔 이 엔진이 없어
+            // CaptureSaveData가 건너뛰어지고 CurrentChartPrice = 0이 그대로 디스크에 남습니다.
+            //
+            // 그 0을 복원하면 OU 평균 회귀 항이 (0-0)/0 = NaN이 되고, 최저가 방어는
+            // NaN 비교가 항상 false라 이를 잡지 못해 가격이 NaN으로 고착됩니다.
+            // 결과는 캔들 0개 + 손익/잔고 전부 NaN입니다.
+            //
+            // wasLoaded를 세우지 않고 빠져나가면 Start()가 정상 ResetEngine을 수행합니다.
+            // 이미 Start()가 지나갔다면 초기화된 정상 가격이 그대로 유지되므로 호출 순서와 무관하게 안전합니다.
+            if (!(data.CurrentChartPrice > 0f))
+            {
+                Debug.LogWarning("[MarketSimulationEngine] 세이브에 차트 데이터가 없어(가격 0) 복원을 건너뛰고 정상 초기화로 진행합니다.");
+                return;
+            }
+
             wasLoaded = true;
             currentPrice = data.CurrentChartPrice;
             ouCenterPrice = data.CurrentChartPrice;
@@ -440,7 +456,8 @@ namespace FXOverdose.Trading
                     isServerLagging = false;
                     Debug.Log("[MarketEngine] ⚡ 서버 렉 복구 완료! 밀린 차트가 한 번에 갱신됩니다.");
                     currentPrice += accumulatedLagPriceDelta;
-                    if (currentPrice < 10f) currentPrice = 10f;
+                    // 긍정 조건을 부정하는 형태여야 NaN도 걸립니다. (currentPrice < 10f 는 NaN에서 false)
+                    if (!(currentPrice >= 10f)) currentPrice = 10f;
                     UpdateLiveCandlesWithTick(currentPrice, accumulatedLagVolume);
                     OnPriceUpdated?.Invoke(currentPrice);
                     accumulatedLagPriceDelta = 0f;
@@ -793,7 +810,9 @@ namespace FXOverdose.Trading
             // 6. 가격 변동 적용
             float priceDelta = currentPrice * totalReturn;
             currentPrice += priceDelta;
-            if (currentPrice < 10f) currentPrice = 10f; // 최저가 방어
+            // 최저가 방어. 긍정 조건을 부정하는 형태여야 NaN도 걸립니다.
+            // (currentPrice < 10f 는 NaN에서 false라 NaN 가격을 그대로 통과시켰습니다)
+            if (!(currentPrice >= 10f)) currentPrice = 10f;
 
             // 6. 실시간 1분봉 및 상위 타임프레임 Live 캔들 갱신
             float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);

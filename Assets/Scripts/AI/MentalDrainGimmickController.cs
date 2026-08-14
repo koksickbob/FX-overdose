@@ -5,11 +5,17 @@ using FXOverdose.Trading;
 namespace FXOverdose.AI
 {
     /// <summary>
-    /// 상시 멘탈 소모 6대 기믹(미실현 손익 침식, 연속 손절 콤보, 수면 부족 연쇄, 고배율 중독, 횡보 지루함, 드로다운 트라우마)을 
+    /// 상시 멘탈 소모 기믹(미실현 손실 압박, 연속 손절 콤보, 고배율 중독, 포지션 진입, FOMO 후회)을
     /// 실시간(Update) 및 인게임 시간(OnGameMinuteAdvanced) 주기로 병행 제어하는 중앙 컨트롤러입니다.
     /// </summary>
     public class MentalDrainGimmickController : MonoBehaviour
     {
+        // 진입 포기한 신호를 "놓친 기회"로 인정하는 주가 변동률 임계치입니다.
+        private const float MissedOpportunityThresholdPct = 5.0f;
+
+        // 포지션 진입/물타기 1회당 고정 멘탈 소모.
+        private const float PositionOpenMentalCost = 5.0f;
+
         [Header("연결된 핵심 시스템")]
         [SerializeField] private TraderStatus traderStatus;
         [SerializeField] private TradingController tradingController;
@@ -214,7 +220,7 @@ namespace FXOverdose.AI
             // 1초 단위로 누적하여 한 번에 차감 (UI 스팸 방지 및 가독성 향상)
             if (roeDrainAccumulator >= 1.0f)
             {
-                traderStatus.ChangeMental(-drainRate, false, "미실현 손실 압박");
+                traderStatus.ChangeMental(-drainRate, "미실현 손실 압박");
                 roeDrainAccumulator -= 1.0f;
             }
 
@@ -316,17 +322,19 @@ namespace FXOverdose.AI
                 int streak = traderStatus.CurrentLosingStreak;
                 float penalty = 0f;
 
+                // 4연속 손절 뇌동매매 기믹이 발동하려면 3연속 손절 후에도 멘탈이 남아 있어야 합니다.
+                // 합산 피해 예산(진입 + 손실 청산 + 연속 손절)에서 역산한 값입니다.
                 switch (streak)
                 {
                     case 1:
-                        penalty = 5.0f;
+                        penalty = 4.0f;
                         break;
                     case 2:
-                        penalty = 12.0f;
+                        penalty = 9.0f;
                         TriggerGimmickDialogue("2연속 손절 휩소 자책 기믹 발동 (손실 스트레스)", "아씨, 꼬리만 털고 왜 반대로 가는데?!");
                         break;
                     case 3:
-                        penalty = 25.0f;
+                        penalty = 16.0f;
                         TriggerGimmickDialogue("3연속 손절 피해망상 기믹 발동 (세력 조롱 피해의식 심화)", "차트가 날 감시하고 조롱하는 게 분명해...!");
                         Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x3] 3연속 손절! 극도의 자격지심 발생");
                         break;
@@ -359,7 +367,7 @@ namespace FXOverdose.AI
 
                 string reason = streak == 1 ? "손실 청산 스트레스" : $"{streak}연속 손절 스트레스";
                 if (isManualTradeLoss) reason += " (수동 매매 원망)";
-                traderStatus.ChangeMental(-penalty, false, reason);
+                traderStatus.ChangeMental(-penalty, reason);
             }
         }
 
@@ -370,8 +378,8 @@ namespace FXOverdose.AI
 
             if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
             if (traderStatus == null) return;
-            traderStatus.ChangeMental(-10.0f, false, "포지션 진입/물타기");
-            Debug.Log($"[MentalDrainGimmickController] 💸 매매 실행({type}, {leverage}배)으로 고정 멘탈 -10 감소 (현재 멘탈: {traderStatus.CurrentMental:F1})");
+            traderStatus.ChangeMental(-PositionOpenMentalCost, "포지션 진입/물타기");
+            Debug.Log($"[MentalDrainGimmickController] 💸 매매 실행({type}, {leverage}배)으로 고정 멘탈 -{PositionOpenMentalCost} 감소 (현재 멘탈: {traderStatus.CurrentMental:F1})");
         }
 
         // --- [신규 기믹: 휩소 의심 등으로 진입을 포기한 신호 감지 및 주가 추적 시작] ---
@@ -425,8 +433,10 @@ namespace FXOverdose.AI
                 float priceDeltaPct = Math.Abs(currentPrice - missedSignalStartPrice) / Mathf.Max(1f, missedSignalStartPrice) * 100f;
 
                 // 1) 신호가 사실 진짜 수익 신호(IsTrueSignal)였거나,
-                // 2) 실제 주가가 2% 이상 시원하게 움직여서(수익을 낼 수 있던 타점) 휩소 판단이 틀렸음을 깨달았을 때
-                if (trackedMissedSignal.IsTrueSignal || priceDeltaPct >= 2.0f || Math.Abs(trackedMissedSignal.TargetPercentageDelta) >= 2.0f)
+                // 2) 실제 주가가 임계치 이상 시원하게 움직여서(수익을 낼 수 있던 타점) 휩소 판단이 틀렸음을 깨달았을 때
+                if (trackedMissedSignal.IsTrueSignal
+                    || priceDeltaPct >= MissedOpportunityThresholdPct
+                    || Math.Abs(trackedMissedSignal.TargetPercentageDelta) >= MissedOpportunityThresholdPct)
                 {
                     isTrackingMissedSignal = false; // 중복 후회 방지
 
@@ -436,7 +446,7 @@ namespace FXOverdose.AI
                         fomoPenalty *= 0.5f;
                     }
 
-                    traderStatus.ChangeMental(fomoPenalty, false, "수익 타점 놓침(FOMO)");
+                    traderStatus.ChangeMental(fomoPenalty, "수익 타점 놓침(FOMO)");
                     TriggerGimmickDialogue($"FOMO 놓친 기회 후회 기믹 발동 (놓친 상승 {priceDeltaPct:0.0}%, 멘탈 {fomoPenalty} 감소)", "아씨!! 휩소인 줄 알고 쫄아서 안 들어갔는데 진짜 수익 자리였잖아!! 저거 다 내 돈이었는데...!!");
 
                     Debug.LogWarning($"[MentalDrainGimmickController] 😭 [FOMO/후회 기믹 발동] 휩소에 속아 수익 타점을 놓친 것에 대한 후회로 멘탈 {fomoPenalty} 감소 (놓친 주가 변동: {priceDeltaPct:F2}%)");

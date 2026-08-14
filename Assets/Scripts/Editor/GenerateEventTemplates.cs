@@ -116,6 +116,11 @@ namespace FXOverdose.Editor
             int riskMultiplier = risk == "High" ? 3 : (risk == "Medium" ? 2 : 1);
             float baseBeam = Random.Range(5f, 15f) * riskMultiplier;
 
+            // 멘탈 증감에는 riskMultiplier(1/2/3)를 그대로 쓰지 않습니다.
+            // 선형 3배를 곱하면 High 실패가 -120까지 나와 단발로 오버도즈가 확정됩니다.
+            // 만멘탈에서 최악의 실패를 맞아도 오버도즈에 닿지 않도록 압축한 계수입니다.
+            float mentalScale = risk == "High" ? 2.5f : (risk == "Medium" ? 1.6f : 1.0f);
+
             // [Option 0: Safe]
             options[0] = new EventLogicOptionData
             {
@@ -149,8 +154,8 @@ namespace FXOverdose.Editor
                 ForceLeverage = risk == "High" ? Random.Range(75, 126) : Random.Range(30, 76),
                 // C4: 베팅 선택지는 성공하면 보상, 실패하면 페널티를 받습니다.
                 //     과거에는 음수 한 개만 있어서 "성공하면 멘탈 폭락, 실패하면 무사"가 됐습니다.
-                MentalChangeAmount = Random.Range(5, 13) * riskMultiplier,
-                MentalPenaltyOnFail = Random.Range(-40, -10) * riskMultiplier,
+                MentalChangeAmount = Mathf.RoundToInt(Random.Range(5, 13) * mentalScale),
+                MentalPenaltyOnFail = Mathf.RoundToInt(Random.Range(-12, -5) * mentalScale),
                 OverrideSignalProbTrue = Random.Range(0.4f, 0.7f),
                 OverrideBeamPercent = aggressiveBeam,
                 OverrideDurationSeconds = EventShieldSeconds

@@ -894,6 +894,9 @@ namespace FXOverdose.Events
 
         private static bool warnedLegacyDuration;
 
+        /// <summary>돌발 이벤트 한 건이 깎을 수 있는 멘탈의 절대 상한입니다.</summary>
+        private const int MaxSingleEventMentalPenalty = 35;
+
         /// <summary>
         /// AI 트레이더 멘탈/체력 변화를 적용합니다. (C4)
         ///
@@ -907,6 +910,11 @@ namespace FXOverdose.Events
 
             int mental = (!isBet || isSuccess) ? option.MentalChangeAmount : option.MentalPenaltyOnFail;
             int health = (!isBet || isSuccess) ? option.HealthChangeAmount : option.HealthPenaltyOnFail;
+
+            // 단일 이벤트는 "죽었다/살았다"가 아니라 "이제 위험해졌다"를 정해야 합니다.
+            // 재베이크를 잊은 에셋이나 손으로 쓴 SO가 만멘탈을 한 방에 지우지 못하도록
+            // 데이터와 무관하게 여기서 상한을 강제합니다.
+            mental = Mathf.Max(mental, -MaxSingleEventMentalPenalty);
 
             if (mental != 0) traderStatus.ModifyMentalState(mental);
             if (health != 0) traderStatus.ModifyHealthState(health);

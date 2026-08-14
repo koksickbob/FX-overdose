@@ -624,7 +624,8 @@ namespace FXOverdose.UI
                 {
                     if (!SaveLoadManager.Instance.PrepareLoadGame(slotIndex))
                         return;
-                    LoadGameFlow();
+                    // 저장 당시 있던 씬으로 복귀합니다. 값이 없거나 복귀 불가면 LoadGameFlow가 GameScene으로 떨굽니다.
+                    LoadGameFlow(SaveLoadManager.Instance.CurrentData?.LastSceneName);
                 }
                 else
                 {
@@ -693,8 +694,8 @@ namespace FXOverdose.UI
             }
             else
             {
-                Debug.LogWarning("[MainMenuController] tutorial 씬을 찾을 수 없어 GameScene으로 진입합니다.");
-                LoadGameFlow();
+                Debug.LogWarning("[MainMenuController] tutorial 씬을 찾을 수 없어 요미의 방으로 진입합니다.");
+                LoadGameFlow("YomiRoomScene");
             }
         }
 
@@ -702,7 +703,7 @@ namespace FXOverdose.UI
         {
             if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
             SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex, pendingDifficulty);
-            LoadGameFlow();
+            LoadGameFlow("YomiRoomScene");
         }
 
         private static void StartNewMode(GameMode mode, int storySlotIndex = 0)
@@ -723,9 +724,13 @@ namespace FXOverdose.UI
             LoadGameFlow();
         }
 
-        private static void LoadGameFlow()
+        private static void LoadGameFlow(string targetScene = "GameScene")
         {
-            LoadingScreenController.TargetSceneToLoad = "GameScene";
+            // 빈 문자열(구버전 세이브), 빌드에서 빠진 씬, 복귀 목록에서 제거된 씬이 전부 여기 걸립니다.
+            if (!SaveLoadManager.IsResumableScene(targetScene) || !Application.CanStreamedLevelBeLoaded(targetScene))
+                targetScene = "GameScene";
+
+            LoadingScreenController.TargetSceneToLoad = targetScene;
 
             if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
             {
@@ -733,8 +738,8 @@ namespace FXOverdose.UI
                 return;
             }
 
-            Debug.LogWarning("[MainMenuController] LoadingScene이 아직 없어 GameScene으로 바로 진입합니다.");
-            SceneManager.LoadScene("GameScene");
+            Debug.LogWarning($"[MainMenuController] LoadingScene이 아직 없어 {targetScene}으로 바로 진입합니다.");
+            SceneManager.LoadScene(targetScene);
         }
 
         public void OnClickQuitGame()

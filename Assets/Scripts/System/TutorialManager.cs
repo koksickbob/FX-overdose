@@ -1197,24 +1197,24 @@ namespace FXOverdose.Core
 
         public void EndTutorial()
         {
-            Debug.Log("[TutorialManager] 튜토리얼 종료 버튼 클릭 -> LoadingScene -> GameScene 이동");
+            Debug.Log("[TutorialManager] 튜토리얼 종료 버튼 클릭 -> LoadingScene -> 요미의 방 이동");
             if (btnEndTutorial != null) btnEndTutorial.interactable = false;
-            
+
             if (SaveLoadManager.Instance != null)
             {
                 SaveLoadManager.Instance.IsTutorialCompleted = true;
                 SaveLoadManager.Instance.SaveCurrentGame();
             }
-            
-            FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "GameScene";
-            
+
+            FXOverdose.UI.LoadingScreenController.TargetSceneToLoad = "YomiRoomScene";
+
             if (Application.CanStreamedLevelBeLoaded("LoadingScene"))
             {
                 SceneManager.LoadScene("LoadingScene");
             }
             else
             {
-                SceneManager.LoadScene("GameScene");
+                SceneManager.LoadScene("YomiRoomScene");
             }
         }
     }

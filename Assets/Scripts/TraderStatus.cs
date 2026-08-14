@@ -8,7 +8,7 @@ public class TraderStatus : MonoBehaviour
     public void EnableP2PExternalMode()=>p2pExternalMode=true;
     public void ApplyP2PVitals(float health,float mental)
     {
-        float hd=health-currentHealth,md=mental-currentMental;currentHealth=Mathf.Clamp(health,0,MaxHealth);currentMental=Mathf.Clamp(mental,0,EffectiveMaxMental);
+        float hd=health-currentHealth,md=mental-currentMental;currentHealth=Mathf.Clamp(health,0,MaxHealth);currentMental=Mathf.Clamp(mental,0,MaxMental);
         // 네트워크 복제는 값 표시만 갱신합니다. 매 패킷을 멘탈 감소 사유 팝업으로 출력하지 않습니다.
         if(!Mathf.Approximately(hd,0))OnHealthChanged?.Invoke(hd);if(!Mathf.Approximately(md,0))OnMentalValueChanged?.Invoke(md);UpdateMentalState();SyncAllInstances();
     }
@@ -36,20 +36,12 @@ public class TraderStatus : MonoBehaviour
     [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
     [SerializeField] private float healthDecreasePerSecond = 0.05f;
 
-    [Tooltip("체력이 0일 때 현실 시간 1초마다 감소하는 멘탈입니다.")]
-    [SerializeField] private float mentalDecreasePerSecond = 0.04f;
-
-    [Header("상시 멘탈 기믹 상태 (6대 기믹 확장)")]
-    [SerializeField] private float maxMentalLimit = 100f; // 트라우마 발생 시 제한되는 멘탈 천장
+    [Header("상시 멘탈 기믹 상태")]
     [SerializeField] private int currentLosingStreak = 0; // 연속 손절 카운터
     [SerializeField] private bool isLeverageAddicted = false; // 고배율 중독 상태
     [SerializeField] private int consecutiveHighLevWins = 0; // 50배 이상 연속 익절 카운터
     [SerializeField] private int consecutiveLowLevTrades = 0; // 중독 상태에서 50배 이하 매매 카운터
     [SerializeField] private float peakBalance = 0f; // 역대 최고 자산(High Water Mark)
-    [SerializeField] private bool canRegenMental = true; // 자연 회복 허용 여부 (체력 30% 이하 시 false)
-
-    [Header("트라우마 기믹 변수")]
-    // (트라우마 변수 삭제됨)
 
     [Header("지속 멘탈 감소 누적기")]
     [SerializeField] private float healthDropMentalDrainAccumulator = 0f;
@@ -58,6 +50,11 @@ public class TraderStatus : MonoBehaviour
     [Header("현재 상태")]
     [SerializeField] private MentalState currentMentalState;
     private MentalState lastTrackedMentalState = MentalState.Stable;
+
+    // 체력 저하로 인한 자연 감소의 사유 문자열입니다.
+    // 지뢰계 의상의 감소 증폭에서 제외되는 유일한 경로라, 리터럴 대신 이 상수로 비교합니다.
+    // ponytail: 문자열 reason 비교. 증폭 제외 대상이 2개 이상 되면 MentalChangeSource enum으로 승격.
+    public const string NaturalDrainReason = "체력 저하";
 
     // 멘탈 감소/증가 시 원인과 함께 알리는 이벤트
     public event System.Action<float, string> OnMentalChangedWithReason;
@@ -92,19 +89,6 @@ public class TraderStatus : MonoBehaviour
             return maxMental + bonus;
         }
     }
-    public float MaxMentalLimit 
-    {
-        get
-        {
-            float bonus = 0f;
-            if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.PajamaId)
-            {
-                bonus = 15f;
-            }
-            return maxMentalLimit + bonus;
-        }
-    }
-    public float EffectiveMaxMental => Mathf.Min(MaxMental, MaxMentalLimit);
     public MentalState CurrentMentalState => currentMentalState;
 
     public int CurrentLosingStreak
@@ -132,12 +116,6 @@ public class TraderStatus : MonoBehaviour
         get => peakBalance;
         set => peakBalance = value;
     }
-    public bool CanRegenMental
-    {
-        get => canRegenMental;
-        set => canRegenMental = value;
-    }
-
 
     // 지출 전후의 드로다운 비율(%)이 정확히 유지되게 역대 최고 자산(PeakBalance)을 비례 하향 조정합니다.
     public void AdjustPeakBalanceForExpenditure(float expenditureAmount)
@@ -209,13 +187,11 @@ public class TraderStatus : MonoBehaviour
         data.CurrentMentalState = currentMentalState;
         data.CurrentHealth = currentHealth;
         data.MaxMental = maxMental;
-        data.MaxMentalLimit = maxMentalLimit;
 
         data.IsLeverageAddicted = isLeverageAddicted;
         data.ConsecutiveHighLevWins = consecutiveHighLevWins;
         data.ConsecutiveLowLevTrades = consecutiveLowLevTrades;
         data.CurrentLosingStreak = currentLosingStreak;
-        data.CanRegenMental = canRegenMental;
     }
 
     /// <summary>세이브에서 상태를 되돌립니다.</summary>
@@ -232,14 +208,12 @@ public class TraderStatus : MonoBehaviour
         if (data.MaxMental > 0f)
         {
             maxMental = data.MaxMental;
-            maxMentalLimit = data.MaxMentalLimit;
         }
 
         isLeverageAddicted = data.IsLeverageAddicted;
         consecutiveHighLevWins = data.ConsecutiveHighLevWins;
         consecutiveLowLevTrades = data.ConsecutiveLowLevTrades;
         currentLosingStreak = data.CurrentLosingStreak;
-        canRegenMental = data.CanRegenMental;
     }
 
     private void Start()
@@ -270,13 +244,11 @@ public class TraderStatus : MonoBehaviour
             this.maxHealth = canonical.maxHealth;
             this.currentMental = canonical.currentMental;
             this.maxMental = canonical.maxMental;
-            this.maxMentalLimit = canonical.maxMentalLimit;
             this.currentLosingStreak = canonical.currentLosingStreak;
             this.isLeverageAddicted = canonical.isLeverageAddicted;
             this.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
             this.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
             this.peakBalance = canonical.peakBalance;
-            this.canRegenMental = canonical.canRegenMental;
             this.currentMentalState = canonical.currentMentalState;
 
             this.healthDropMentalDrainAccumulator = canonical.healthDropMentalDrainAccumulator;
@@ -300,13 +272,11 @@ public class TraderStatus : MonoBehaviour
                 st.maxHealth = canonical.maxHealth;
                 st.currentMental = canonical.currentMental;
                 st.maxMental = canonical.maxMental;
-                st.maxMentalLimit = canonical.maxMentalLimit;
                 st.currentLosingStreak = canonical.currentLosingStreak;
                 st.isLeverageAddicted = canonical.isLeverageAddicted;
                 st.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
                 st.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
                 st.peakBalance = canonical.peakBalance;
-                st.canRegenMental = canonical.canRegenMental;
                 st.currentMentalState = canonical.currentMentalState;
             }
         }
@@ -342,7 +312,7 @@ public class TraderStatus : MonoBehaviour
         {
             if (healthDropMentalDrainAccumulator <= -0.01f)
             {
-                ChangeMental(healthDropMentalDrainAccumulator, false, "체력 저하");
+                ChangeMental(healthDropMentalDrainAccumulator, NaturalDrainReason);
                 healthDropMentalDrainAccumulator = 0f;
             }
             healthDropMentalDrainTimer = 0f;
@@ -360,14 +330,12 @@ public class TraderStatus : MonoBehaviour
 
         currentHealth = maxHealth;
         currentMental = maxMental;
-        maxMentalLimit = maxMental;
         currentLosingStreak = 0;
         isLeverageAddicted = false;
         consecutiveHighLevWins = 0;
         consecutiveLowLevTrades = 0;
         if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
         peakBalance = 0f;
-        canRegenMental = true;
 
         healthDropMentalDrainAccumulator = 0f;
         healthDropMentalDrainTimer = 0f;
@@ -387,18 +355,17 @@ public class TraderStatus : MonoBehaviour
 
         float currentDay = gameManager != null ? gameManager.CurrentDay : 1f;
         float currentHealthDecrease = Mathf.Min(0.15f, healthDecreasePerSecond + (currentDay * 0.005f));
+        float healthDrainThisFrame = currentHealthDecrease * 1.5f * (1f - healthGuard) * speedScale * Time.deltaTime;
 
-        ChangeHealth(-currentHealthDecrease * 1.5f * (1f - healthGuard) * speedScale * Time.deltaTime);
+        ChangeHealth(-healthDrainThisFrame);
 
-        // 체력이 모두 떨어지면(0 이하) 멘탈이 2배 속도로 급감
+        // 체력 1~50% 구간의 멘탈 감소는 ChangeHealth의 체력 연동이 전담합니다.
+        // 여기서 같은 감소를 한 번 더 누적하면 하나의 사건(시간 경과에 따른 체력 감소)이
+        // 이중으로 계상되므로, 체력이 0이라 ChangeHealth가 아무 변화도 만들지 못하는
+        // 경우에만 직접 누적합니다. 연동 대비 2배 속도로 급감시킵니다.
         if (currentHealth <= 0f)
         {
-            healthDropMentalDrainAccumulator += -mentalDecreasePerSecond * 4.0f * (1f - mentalGuard) * speedScale * Time.deltaTime;
-        }
-        else if (currentHealth <= maxHealth * 0.5f)
-        {
-            // 체력이 절반 이하일 때는 기본 멘탈 지속 감소 속도 적용
-            healthDropMentalDrainAccumulator += -mentalDecreasePerSecond * (1f - mentalGuard) * speedScale * Time.deltaTime;
+            healthDropMentalDrainAccumulator += -healthDrainThisFrame * 2.0f * (1f - mentalGuard);
         }
     }
 
@@ -440,18 +407,28 @@ public class TraderStatus : MonoBehaviour
             }
         }
 
-        // [핵심 기능 규격] 체력이 절반 이하(<= 50%)로 떨어진 이후부터는 
-        // 체력이 감소할 때마다 멘탈 수치도 동일한 비율로 함께 감소하도록 연동
-        if (amount < 0f && prevHealth <= MaxHealth * 0.5f)
+        // [핵심 기능 규격] 체력이 절반 이하(<= 50%)로 떨어진 이후부터는
+        // 체력이 감소할 때마다 멘탈 수치도 동일한 비율로 함께 감소하도록 연동.
+        // 요청량(amount)이 아니라 클램프 후 실제 변화량(appliedHealthDelta)을 기준으로 삼습니다.
+        // 요청량을 쓰면 체력이 0으로 클램프된 뒤에도 "계속 떨어지는 것처럼" 멘탈이 청구됩니다.
+        if (appliedHealthDelta < 0f)
         {
-            healthDropMentalDrainAccumulator += amount;
-        }
-        else if (amount < 0f && prevHealth > MaxHealth * 0.5f && currentHealth < MaxHealth * 0.5f)
-        {
-            float excessDrop = currentHealth - (MaxHealth * 0.5f);
-            if (excessDrop < 0f)
+            float mentalGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.MentalDrainReduction : 0f;
+            float linkedDrop = 0f;
+
+            if (prevHealth <= MaxHealth * 0.5f)
             {
-                healthDropMentalDrainAccumulator += excessDrop;
+                linkedDrop = appliedHealthDelta;
+            }
+            else if (currentHealth < MaxHealth * 0.5f)
+            {
+                // 50% 경계를 넘어 내려간 경우, 경계 아래로 내려간 초과분만 연동합니다.
+                linkedDrop = Mathf.Min(0f, currentHealth - (MaxHealth * 0.5f));
+            }
+
+            if (linkedDrop < 0f)
+            {
+                healthDropMentalDrainAccumulator += linkedDrop * (1f - mentalGuard);
             }
         }
 
@@ -459,22 +436,16 @@ public class TraderStatus : MonoBehaviour
     }
 
     // 멘탈을 증가하거나 감소시키는 함수
-    public void ChangeMental(float amount, bool ignoreRegenBlock = false, string reason = "")
+    public void ChangeMental(float amount, string reason = "")
     {
         if (this != CanonicalInstance && CanonicalInstance != null)
         {
-            CanonicalInstance.ChangeMental(amount, ignoreRegenBlock, reason);
+            CanonicalInstance.ChangeMental(amount, reason);
             return;
         }
 
-        // 자연 회복 차단(canRegenMental == false) 상태에서 양수(회복) 시도 시, ignoreRegenBlock이 false이면 차단
-        if (amount > 0f && !canRegenMental && !ignoreRegenBlock)
-        {
-            return;
-        }
-
-        // 지뢰계 의상(Costume) 디버프 적용: 시간에 따른 자연 감소("TimeDrain")를 제외한 모든 멘탈 감소 수치 1.25배 가속
-        if (amount < 0f && reason != "TimeDrain" && CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.JiraiKeiId)
+        // 지뢰계 의상(Costume) 디버프 적용: 체력 저하로 인한 자연 감소를 제외한 모든 멘탈 감소 1.25배 가속
+        if (amount < 0f && reason != NaturalDrainReason && CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.JiraiKeiId)
         {
             amount *= 1.25f;
         }
@@ -482,12 +453,11 @@ public class TraderStatus : MonoBehaviour
         float prevMental = currentMental;
         currentMental += amount;
 
-        // 멘탈이 0보다 작거나 최대 멘탈(및 트라우마 제한 maxMentalLimit)보다 커지지 않도록 제한
-        float effectiveMax = Mathf.Min(maxMental, maxMentalLimit);
+        // 멘탈이 0보다 작거나 최대 멘탈보다 커지지 않도록 제한
         currentMental = Mathf.Clamp(
             currentMental,
             0f,
-            effectiveMax
+            MaxMental
         );
         float appliedMentalDelta = currentMental - prevMental;
         if (!Mathf.Approximately(appliedMentalDelta, 0f))
@@ -614,26 +584,7 @@ public class TraderStatus : MonoBehaviour
     // --- 돌발 선택 이벤트 연동 메서드 ---
     public void ModifyMentalState(float amount)
     {
-        // 이벤트 및 아이템 등에 의한 회복은 자연 회복 차단(canRegenMental == false) 중이라도 적용
-        ChangeMental(amount, true);
-    }
-
-    // --- 상시 멘탈 소모 6대 기믹 제어 메서드 ---
-    public void SetMaxMentalCeiling(float ceiling)
-    {
-        if (this != CanonicalInstance && CanonicalInstance != null)
-        {
-            CanonicalInstance.SetMaxMentalCeiling(ceiling);
-            return;
-        }
-
-        this.maxMentalLimit = Mathf.Clamp(ceiling, 0f, maxMental);
-        if (this.currentMental > this.maxMentalLimit)
-        {
-            this.currentMental = this.maxMentalLimit;
-            UpdateMentalState();
-        }
-        SyncAllInstances();
+        ChangeMental(amount);
     }
 
     public void IncreaseMaxMental(float amount)
@@ -646,8 +597,7 @@ public class TraderStatus : MonoBehaviour
 
         if (amount <= 0f) return;
         maxMental += amount;
-        maxMentalLimit += amount;
-        currentMental = Mathf.Min(currentMental + amount, EffectiveMaxMental);
+        currentMental = Mathf.Min(currentMental + amount, MaxMental);
         UpdateMentalState();
         SyncAllInstances();
     }

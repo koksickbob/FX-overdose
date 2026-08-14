@@ -6,6 +6,14 @@ namespace FXOverdose.Trading
 {
     public class TradingController : MonoBehaviour
     {
+        // --- 청산 시 멘탈 변화 곡선 (자본 대비 손익률 기준) ---
+        // mental = ±min(상한, 계수 × √(손익률)). 절대 금액이 아니라 비율을 쓰므로
+        // 초기 자본 7,000이든 후반 자본 700,000이든 같은 손익률이면 같은 멘탈 변화가 나옵니다.
+        private const float CloseMentalLossCoefficient = 40f;  // 손실률 10% → -12.6
+        private const float MaxCloseMentalLoss = 25f;          // 손실률 39% 이상에서 상한
+        private const float CloseMentalGainCoefficient = 25f;  // 수익률 10% → +7.9
+        private const float MaxCloseMentalGain = 15f;          // 수익률 36% 이상에서 상한
+
         private bool p2pExternalMode;
         private float p2pUnrealizedPnL;
         public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
@@ -1122,16 +1130,25 @@ namespace FXOverdose.Trading
 
             float totalReturn = marginAmount + pnl;
 
+            // 멘탈 변화는 절대 금액이 아니라 "총자본 대비 몇 %를 잃었/벌었는가"로 산정합니다.
+            // 분모는 진입 시점의 총자본(현금 + 증거금)이어야 하므로 ChangeBalance로 회수금이
+            // 반영되기 전에 캡처합니다. 이 순서를 바꾸면 분모에 회수금이 섞여 비율이 왜곡됩니다.
+            float capitalBeforeSettle = Mathf.Max(1f, gameManager.CurrentBalance + marginAmount);
+
             // 자산 정산
             gameManager.ChangeBalance(totalReturn);
 
-            // 멘탈 및 체력 상태 반영 (손실 크기에 비례한 AI 트레이더 멘탈 변화)
+            // 멘탈 및 체력 상태 반영 (자본 대비 손익률에 비례한 AI 트레이더 멘탈 변화)
             if (traderStatus != null)
             {
                 if (pnl < 0f)
                 {
-                    // 손실 시 극심한 스트레스 및 기분 저하
-                    traderStatus.ChangeMental(pnl * 0.05f); // 예: -1000원 손실 시 멘탈 -50 감소
+                    // 손실 시 극심한 스트레스 및 기분 저하.
+                    // 제곱근 곡선이라 소액 손실도 체감이 남고, 대형 손실은 완만해져
+                    // 단발 오버도즈 대신 누적으로만 오버도즈에 도달합니다.
+                    float lossRatio = Mathf.Abs(pnl) / capitalBeforeSettle;
+                    float mentalLoss = Mathf.Min(MaxCloseMentalLoss, CloseMentalLossCoefficient * Mathf.Sqrt(lossRatio));
+                    traderStatus.ChangeMental(-mentalLoss, "손실 청산");
                 }
                 else if (pnl > 0f)
                 {
@@ -1141,8 +1158,12 @@ namespace FXOverdose.Trading
                         TraderLevelSystem.Instance.AddProtagonistEXP(pnl, currentLeverage);
                     }
 
+                    // 감소만 비율화하고 회복을 절대 금액으로 두면 후반부에 익절 한 번으로
+                    // 멘탈이 만땅이 되어 시스템이 반대 방향으로 무력화됩니다. 같은 곡선을 씁니다.
                     float winMultiplier = TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMentalRecoveryMultiplierOnWin() : 1.0f;
-                    traderStatus.ChangeMental(pnl * 0.02f * winMultiplier);
+                    float gainRatio = pnl / capitalBeforeSettle;
+                    float mentalGain = Mathf.Min(MaxCloseMentalGain, CloseMentalGainCoefficient * Mathf.Sqrt(gainRatio));
+                    traderStatus.ChangeMental(mentalGain * winMultiplier, "익절");
                     traderStatus.ChangeHealth(5f);
                 }
                 else
@@ -1209,7 +1230,9 @@ namespace FXOverdose.Trading
         public float CalculateUnrealizedPnL()
         {
             if(p2pExternalMode)return p2pUnrealizedPnL;
-            if (currentPosition == PositionType.None || marketEngine == null || entryPrice <= 0f)
+            // entryPrice <= 0f 형태는 NaN에서 false라 NaN 진입가를 통과시켜 손익·잔고까지 NaN으로 오염시켰습니다.
+            // 긍정 조건을 부정하는 형태로 두어야 NaN도 함께 걸립니다.
+            if (currentPosition == PositionType.None || marketEngine == null || !(entryPrice > 0f))
             {
                 return 0f;
             }
@@ -1296,7 +1319,7 @@ namespace FXOverdose.Trading
                 }
                 else
                 {
-                    traderStatus.ChangeMental(-40f);
+                    traderStatus.ChangeMental(-40f, "강제 청산");
                 }
             }
 

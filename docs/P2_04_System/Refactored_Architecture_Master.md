@@ -201,4 +201,147 @@
 > **새 저장 경로를 만들면 반드시 그 소스를 `RunFieldCoverageAudit`의 목록에 추가할 것.** 빠뜨리면 그 파일이 소유한 필드가 전부 데드로 오판된다.
 
 ---
+
+## 6. 하루의 시작 지점 이전 + 세이브 씬 위치 보존 (2026-08-14)
+
+상세는 [Scene_Position_Persistence_Plan.md](Scene_Position_Persistence_Plan.md).
+
+### 6.1 시작 지점 이전
+
+스토리 모드 진입 순서를 `타이틀 → 로딩 → GameScene`에서 **`타이틀 → 로딩 → YomiRoomScene`**으로 바꿨다. 튜토리얼 종료(`TutorialManager.EndTutorial`) 목적지도 방으로 옮겼다. 이로써 새 게임 1일차와 매일 아침(`GameManager.ReturnToYomiRoomForNewMorning`)이 모두 방에서 시작한다.
+
+### 6.2 이 변경이 드러낸 구조 문제 — 새 게임 초기화가 `GameScene`에 갇혀 있었다
+
+**`GameManager`는 `GameScene`에만 있다** (씬 GUID 대조로 확인. 방·월드맵엔 없다). 그런데 난이도별 초기 자금과 시작 아이템 지급이 전부 `GameManager.StartNewGame()` 안에 있었다. 시작 지점을 방으로 옮기자 다음이 깨졌다:
+
+방은 거래 개시 전에 `저장 → PrepareLoadGame` 순서를 밟는다(SV-B10). 그러면 `IsPendingLoad`가 서고, `GameScene`에 도착한 `GameManager`가 이를 **불러오기로 오인해 `StartNewGame()`을 영영 실행하지 않는다.** 결과는 잔고 기본값 1000달러 고정 + 인벤토리 0개.
+
+**해법은 초기화를 데이터 레벨로 끌어내는 것이다.** `SaveLoadManager.PrepareNewGame()`이 난이도별 초기 자금을 `CurrentData`에 직접 심는다(`StoryDifficultyTables`는 순수 static이라 씬 의존이 없다). 날짜·레벨·기억·코스튬은 `SaveData` 기본값이 곧 초기 상태라 심을 것이 없다.
+
+**시작 아이템만 예외다.** `Inventory.ResetForNewGame()`이 씬에 배치된 `ItemData` 에셋의 이름을 부분 문자열로 매칭해 수량을 정하므로 데이터로 재현할 수 없다. 아이템 ID를 복제하는 대신 `SaveData.NeedsStartingItems` 플래그를 두고, `ApplyLoadedDataToGame()`이 이 플래그를 보면 저장된 목록 대신 `ResetForNewGame()`을 호출하게 했다.
+
+이로써 스토리 모드에서 `StartNewGame()`은 실행되지 않는다. 세이브를 쓰지 않는 **무한·챌린지 모드 전용 경로**로 남는다.
+
+### 6.3 씬 위치 보존
+
+| 항목 | 내용 |
+| --- | --- |
+| 필드 | `SaveData.LastSceneName` (기본 `""` = `GameScene`. 기본값이 곧 구버전 호환이라 마이그레이터 불필요) |
+| 허용 목록 | `SaveLoadManager.ResumableScenes` — `GameScene`/`YomiRoomScene`/`WorldMapScene`. 저장하는 쪽과 불러오는 쪽이 같은 판정을 공유해야 해서 한 곳에 모았다. 씬이 늘면 이 배열에만 추가 |
+| 수집 | `SaveGame()`이 현재 씬을 찍는다. **목록에 없는 씬에서는 갱신하지 않고 이전 값을 유지** — 그러지 않으면 튜토리얼 중 저장한 세이브가 재접속 때 튜토리얼을 다시 재생한다 |
+| 복귀 | `MainMenuController` 이어하기가 `LastSceneName`으로 전환. 빈 값·빌드 누락·목록 제거는 `LoadGameFlow` 가드가 `GameScene`으로 떨군다 |
+
+**신규 복원 로직은 만들지 않았다.** 방·월드맵은 이미 `GameManager` 없는 환경을 전제로 작성되어 있다 — `YomiRoomManager.ProgressData`는 `CurrentData`를 매번 직접 읽고, `WorldMapManager`/`WorldMapUIController`는 `GameManager`가 null이면 `CurrentData.Balance`로 폴백한다. 트레이딩 상태는 `IsPendingLoad`가 살아 있어 플레이어가 거래를 개시할 때 정상 복원된다(늦게 복원될 뿐 유실되지 않는다).
+
+### 6.4 씬 도착을 스스로 기록하게 했다 (F-11)
+
+`LastSceneName`은 "저장이 일어난 씬"인데 **씬 도착만으로는 저장이 일어나지 않는다.** 방의 저장은 전부 행동에 붙어 있다. 그래서 아침에 방으로 나오자마자 종료하면 `LastSceneName`이 여전히 `GameScene`이었다 — **매일 아침이 이 경우다.**
+
+`YomiRoomManager.Start()`와 `WorldMapManager.Start()`에서 도착 즉시 한 번 저장한다. `SaveGame()`이 현재 씬을 찍으므로 이 저장 자체가 복귀 지점 갱신이고, 별도 스탬프 코드가 필요 없다. **각 씬이 자기 도착을 스스로 기록**하므로 방으로 오는 경로가 몇 개든(새 게임·튜토리얼 종료·아침 복귀·월드맵 귀환) 전부 덮인다.
+
+부수 효과로 스토리 새 게임의 슬롯 파일이 방 도착 시점에 생성된다. 종전엔 `StartNewGame()`이 `GameScene`에서 만들었으므로 그 역할을 대신한다.
+
+### 6.5 함께 잡은 기존 버그 3건
+
+| ID | 버그 | 수정 |
+| --- | --- | --- |
+| **F-12** | **1일차 알바 수익 증발.** 새 게임 → 월드맵 알바(`GameManager`가 null이라 `CurrentData.Balance`에 직접 합산·저장) → 거래 개시 → `StartNewGame()`이 `currentBalance = startingBalance`로 되돌리고 곧바로 `SaveCurrentGame()`이 확정 | 6.2의 데이터 시딩으로 스토리 모드에서 `StartNewGame()`이 실행되지 않아 소멸 |
+| **F-13** | **이어하기 후 누적 수익률 오표시.** `TopStatusBarUIController.UpdatePnLUI()`가 `gameManager.StartingBalance`를 분모로 쓰는데 `ApplyLoadedDataToGame()`이 이 필드를 복원하지 않아, 인스펙터 기본값 7000이 분모가 됐다. 초기 자금이 7000이 아닌 난이도는 수익률이 전부 틀렸다 | 복원 리플렉션 블록에 `startingBalance` 한 줄 추가 |
+| **F-14** | **한 세션에서 새 게임 시 튜토리얼 스킵.** `SaveLoadManager.IsTutorialCompleted`가 `DontDestroyOnLoad` 프로퍼티인데 `PrepareNewGame()`이 내리지 않아 이전 판의 값이 남았다 | `PrepareNewGame()`에 `IsTutorialCompleted = false` 한 줄 |
+
+추가로 이 프로퍼티는 `ApplyLoadedDataToGame()`에서만 복원됐는데, 방으로 바로 복귀하면 그게 돌지 않는다. 6.4의 도착 저장이 `data.IsTutorialCompleted = this.IsTutorialCompleted`를 쓰므로 **완료된 튜토리얼이 false로 덮인다.** 복원을 `PrepareLoadGame()`으로 옮겼다(중복이 아니라 이동 — `ApplyLoadedDataToGame()`은 항상 그 뒤에만 실행된다).
+
+> **`GameManager` 없는 씬에 새 로직을 넣을 때는 `SaveLoadManager.CurrentData`를 진실의 원천으로 삼을 것.** 방·월드맵의 기존 코드가 전부 그 규약을 따르고 있고, 씬 위치 보존이 성립한 이유도 그것이다.
+
+---
+
+## 7. 멘탈 감소 시스템 리밸런싱 (2026-08-14)
+
+전체 계획과 수치 근거는 [Mental_Drain_Rebalance_Plan.md](Mental_Drain_Rebalance_Plan.md). 여기엔 구조가 바뀐 부분만 남긴다.
+
+### 7.1 `ChangeMental` 시그니처가 좁아졌다
+
+`ChangeMental(float, bool ignoreRegenBlock, string reason)` → **`ChangeMental(float, string reason = "")`**.
+
+`canRegenMental`을 `false`로 세팅하는 코드가 프로젝트에 하나도 없어 회복 차단 분기는 실행된 적이 없었고, 그걸 우회하려던 `ignoreRegenBlock`도 따라서 무의미했다. 필드·프로퍼티·`SaveData.CanRegenMental`까지 함께 걷어냈다. **구버전 세이브의 잉여 키는 `JsonUtility`가 무시하므로 마이그레이터는 필요 없다.**
+
+### 7.2 트라우마 천장(`maxMentalLimit`)이 사라졌다
+
+천장을 낮추는 호출자가 없는 채로 배관만 남아 있었다. 필드·`MaxMentalLimit`·`EffectiveMaxMental`·`SetMaxMentalCeiling()`·`SaveData.MaxMentalLimit`을 제거하고 클램프를 `MaxMental` 단독으로 되돌렸다.
+
+`EffectiveMaxMental`을 읽던 UI 3곳(`GameOverUIController`, `DailySettlementUIController`)은 `MaxMental`로 바꿨다. **`IncreaseMaxMental()`은 존치** — 최대 멘탈 영구 증가 아이템이 실사용 중이며 트라우마와 무관하다.
+
+곁가지로 `AchievementManager.RecordTraumaCured()`가 호출된 적이 없어 `trauma_cured` 업적이 획득 불가였다. 업적 정의·`Pref_TraumaCured`·판정 분기·`AchievementType.Custom`(유일 사용처였다)을 함께 제거했다.
+
+### 7.3 자연 감소의 이중 계상을 없앴다 (안 A)
+
+`DecreaseStatusOverTime()`이 `ChangeHealth(-체력감소량)`을 부르고 **별도로** `mentalDecreasePerSecond`를 누적기에 더했는데, 그 `ChangeHealth`가 내부에서 같은 누적기에 또 더하고 있었다. 이름이 다른 두 규칙이 "시간 경과에 따른 체력 감소"라는 한 사건을 두 번 세고 있었다.
+
+- 체력 1~50% 구간의 멘탈 감소는 **`ChangeHealth`의 체력 연동이 전담**한다.
+- 체력 0에서는 `ChangeHealth`가 아무 변화도 만들지 못하므로(클램프) `DecreaseStatusOverTime()`이 직접 연동 대비 2배로 누적한다.
+- `mentalDecreasePerSecond` 필드는 제거했다.
+
+**`ChangeHealth`의 연동 기준을 `amount`(요청량) → `appliedHealthDelta`(클램프 후 실제 변화량)로 바꿨다.** 종전엔 체력이 0으로 클램프된 뒤에도 요청량이 그대로 청구돼 "체력이 계속 떨어지는 것처럼" 멘탈이 깎였다. 같은 지점에 `MentalDrainReduction`도 적용했다 — 종전엔 경감이 안 걸리는 쪽이 걸리는 쪽보다 2~5.6배 커서 아이템의 "멘탈 보호 -80%"가 전체의 15~30%에만 먹혔다.
+
+### 7.4 청산 멘탈 변화가 절대 금액에서 자본 대비 비율로 바뀌었다
+
+`pnl * 0.05f`는 절대 금액이라 후반부엔 잔고의 0.1%도 안 되는 손실이 멘탈 바 전체를 날렸다. 제곱근 곡선으로 교체했다(`TradingController`의 4개 상수).
+
+```
+손실: -min(25, 40·√(|pnl| / 진입시점총자본))
+익절: +min(15, 25·√( pnl  / 진입시점총자본)) × winMultiplier
+```
+
+> **분모는 `gameManager.ChangeBalance(totalReturn)` 호출 _전에_ 캡처해야 한다.** 멘탈 계산 시점의 `CurrentBalance`에는 이미 회수금이 반영돼 있어, 순서를 바꾸면 분모에 회수금이 섞여 비율이 왜곡된다.
+
+감소만 비율화하면 후반에 익절 한 번으로 멘탈이 만땅이 되므로 **익절도 같은 곡선으로 묶었다.**
+
+### 7.5 이벤트 페널티는 코드에도 상한을 걸었다
+
+`ChoiceEventController.ApplyVitals()`가 데이터와 무관하게 단발 -35를 강제한다. 생성기만 고치면 재베이크를 잊은 에셋이나 손으로 쓴 SO가 다시 -120을 들고 올 수 있다.
+
+`MigrateEventTemplates`에 압축 단계(C5)를 추가했다 — 이관한 페널티를 -30~-5로 좁히고, 성공 보상은 **이관 전** 위험도 기준으로 뽑아 위험/보상이 1:1에 수렴한다. 이미 이관된 자산도 범위로 끌어오므로 재실행에 안전하다.
+
+> ⚠️ **에셋 마이그레이션은 아직 실행되지 않았다.** `Assets/Resources/Events/Templates`의 726개 선택지 중 244개가 여전히 음수 `MentalChangeAmount`(최소 -120)를 들고 있고 `MentalPenaltyOnFail`은 전부 0이다. 즉 **베팅 성공 시 멘탈이 폭락하고 실패 시 무손실**인 상태다. 에디터에서 `Tools/FX OVERDOSE/Migrate Event Templates (C3+C4)` 1회 실행이 남았다.
+
+### 7.6 지뢰계 배율은 의도와 정반대로 동작하고 있었다
+
+`reason != "TimeDrain"`으로 자연 감소를 증폭에서 빼려 했으나 **`"TimeDrain"`으로 `ChangeMental`을 부르는 코드가 없었다.** 자연 감소는 `"체력 저하"`로 들어오므로 예외가 한 번도 성립하지 않았다. `TraderStatus.NaturalDrainReason` 상수를 도입해 호출부와 비교부가 같은 값을 쓰게 했다.
+
+### 7.7 `AITradingBrain`은 LLM 잔재가 아니다
+
+이름 때문에 폐기된 LLM 자동매매의 잔재로 오인되기 쉬우나, **파일 전체에 `LLM` 문자열이 0건인 규칙 기반 판정 엔진이며 현재 자동 매매의 실행 주체다.** 삭제하면 자동 매매·FOMO 후회 기믹(`OnSignalEvaluationCompleted` 구독)·고배율 중독 폭주·차트 힌트가 함께 죽는다. 클래스 요약 주석에 이 경고를 박아 뒀다.
+
+실제로 사장돼 있던 건 `TriggerDialogue`(본문 없음)와 `TriggerDialogueWithCategory`(호출자 0건) 두 메서드이며, 후자가 이 파일에서 멘탈을 건드리는 유일한 코드였다. 둘 다 제거했다.
+
+그에 딸린 `OnAIDecisionMade` 이벤트와 구독자 `AIVisualController.HandleAIDecisionMade`도 함께 걷어냈다. 처음엔 "의도됐으나 배선이 끊긴 기능"으로 보였으나, 점검 결과 **재배선할 대상이 아니었다.**
+
+`HandleAIDecisionMade`는 자기 파라미터(`dialogue`, `emotionDelta`)를 쓰지 않고 게임 상태를 다시 읽어 `YomiDialogueMatcher.GetDialogue()`를 호출하는데, 뒤쪽 7개 인자(`owner`/`actualChartTrend`/`absolutePnL`/`duration`/`currentHealth`/`costumeId`/`currentAction`)를 전부 생략했다. 특히 `currentAction`이 기본값 `""`인 것이 치명적이다 — `CalculateScore`의 첫 게이트가
+
+```csharp
+if (!string.IsNullOrEmpty(entry.eventCategory)) {
+    if (entry.eventCategory == currentAction) score += 500;
+    else return -9999;   // 원천 차단
+}
+```
+
+인데 `YomiDialogueDatabase.asset`의 **810개 엔트리 전부가 비어 있지 않은 `eventCategory`를 가진다**(빈 값 0개). 따라서 후보 전량이 `-9999`로 걸러져 `GetDialogue`는 항상 `null`을 반환했다. **발행자가 살아 있던 시절에도 이 핸들러는 말풍선을 한 번도 띄운 적이 없다.**
+
+의도했던 기능은 [`TradingController.OutputYomiDialogue`](../../Assets/Scripts/Trading/TradingController.cs#L1712)가 `currentAction`에 `cat.ToString()`을 넘겨 +500 정확 매칭 경로로 이미 온전히 수행하고 있다(호출처 10곳). `HandleAIDecisionMade`는 그 설계로 가는 도중에 남은 축소 중복이었다.
+
+> **LLM과 무관하다.** `YomiDialogueMatcher`는 `YomiDialogueDatabase` ScriptableObject를 점수화해 고르는 순수 룰 기반 조회기다. `Assets/Scripts/AI/`에서 LLM을 쓰는 파일은 `LLM/LLMSafeGenerator.cs`, `LLM/LLMOutputSanitizer.cs` 둘뿐이며 트레이딩 파트의 선택 이벤트/일기 전용이다.
+
+곁가지로 `AITradingSystemTestRunner`의 Test 1이 `if (decisionFired && ...)`로 게이트돼 있었다. `decisionFired`가 항상 false라 **테스트 본문 전체가 한 번도 실행된 적이 없었다.** 죽은 게이트를 걷어내 `IsActive` 검증만 남겼고, 그 결과 Test 1이 실제로 돌게 됐다.
+
+> 남은 잔재: `AITradingBrain.lastDecisionLog` / `LastDecisionLog`도 유일한 기입자가 `TriggerDialogueWithCategory`였다. 지금은 항상 빈 문자열이며 테스트 러너 로그 5곳이 이를 `최종 AI 독백: ""`로 출력한다. 제거하려면 그 로그 문구까지 손봐야 해 이번 범위에서 제외했다.
+
+### 7.8 P2P는 손대지 않았다
+
+`P2PPlayerRuntimeState`/`P2PLocalMatch`/`NetworkCompetitionAuthority`가 이번에 바뀐 싱글 규칙(진입 -10, 연속 손절 5/12/25, `pnl × 0.05`)을 **이식해 복제**하고 있다. 계획 범위가 트레이딩 파트였으므로 그대로 뒀고, 따라서 **두 파트의 멘탈 밸런스는 현재 갈라져 있다.** P2P를 맞출지는 별도 판단이 필요하다.
+
+### 7.9 검증
+
+`verify_mental_balance.py`(리포지토리 루트)가 청산 곡선과 합산 예산 제약을 검사한다. 핵심은 **스케일 불변성**(자본 7천~200만에서 동일 손익률 → 동일 멘탈 변화)과 **4연속 손절 뇌동매매 기믹의 발동 가능성**이다. 후자는 종전 수치로는 2회차에 오버도즈가 확정돼 기믹이 사장돼 있었고, 지금은 수동 3연속 손절 후 멘탈 14.7이 남는다. 수치를 바꾸면 이 스크립트의 상수도 함께 고칠 것.
+
+---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

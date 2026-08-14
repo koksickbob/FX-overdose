@@ -43,7 +43,12 @@ namespace FXOverdose.Core
         public int CurrentDay = 1;
         public int CurrentHour = 9;
         public int CurrentMinute = 0;
-        public float SecondsPerGameMinute = 3f;
+        // -1 = 저장된 적 없음. 요미의 방·월드맵처럼 GameManager가 없는 씬에서 저장하면
+        // 기록 블록이 통째로 건너뛰어져 이 기본값이 그대로 남습니다. 복원 측이 이 값을 보고
+        // 주입을 건너뛰어 씬에 설정된 기준 배속(1.0)을 유지합니다.
+        // 종전 기본값 3f는 기준값도 아니면서 하필 강제 청산 슬로우 모션 수치와 같아,
+        // 방에서 저장된 세이브를 이어하면 게임이 연출 속도로 영구 고정됐습니다.
+        public float SecondsPerGameMinute = -1f;
         public float StartOfDayEquity = -1f;
 
         // --- TraderStatus 상태 ---
@@ -51,7 +56,6 @@ namespace FXOverdose.Core
         public float CurrentMental = 100f;
         public float CurrentHealth = 100f; // 24.12.01: 체력 저장 복구
         public float MaxMental = 100f;
-        public float MaxMentalLimit = 100f;
         public TraderStatus.MentalState CurrentMentalState = TraderStatus.MentalState.Stable;
 
         // --- 인벤토리 상태 ---
@@ -60,6 +64,17 @@ namespace FXOverdose.Core
 
         // --- 튜토리얼 완료 플래그 ---
         public bool IsTutorialCompleted = false;
+
+        // --- 재접속 복귀 지점 ---
+        // 저장 당시 플레이어가 있던 씬. 빈 문자열이면 GameScene(구버전 세이브의 기존 동작).
+        // 기록 대상은 SaveLoadManager.ResumableScenes로 제한됩니다.
+        public string LastSceneName = "";
+
+        // 시작 아이템(에너지드링크·파르페 5개, 약품 2개)을 아직 지급받지 못했음을 뜻합니다.
+        // 아이템 구성의 출처가 GameScene에 배치된 ItemData 슬롯이라 데이터만으로는 심을 수 없어,
+        // 복원 경로가 이 플래그를 보고 Inventory.ResetForNewGame()을 대신 호출합니다.
+        // 기본값 false = "이미 지급됨"이라 구버전 세이브는 마이그레이션 없이 안전합니다.
+        public bool NeedsStartingItems = false;
 
         // --- 차트 및 주가 저장 ---
         public List<TimeframeHistory> ChartHistories = new List<TimeframeHistory>();
@@ -141,7 +156,6 @@ namespace FXOverdose.Core
         public int ConsecutiveHighLevWins = 0;
         public int ConsecutiveLowLevTrades = 0;
         public int CurrentLosingStreak = 0;
-        public bool CanRegenMental = true;
 
         // --- 돌발 선택 이벤트 일일 스케줄 (SV-A4) ---
         public int EventLastTriggerDay = -1;

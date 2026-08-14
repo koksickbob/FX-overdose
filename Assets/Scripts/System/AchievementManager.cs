@@ -14,7 +14,6 @@ namespace FXOverdose.Core
 
         public enum AchievementType
         {
-            Custom,
             Ending,
             ItemUsage,
             ItemPurchase,
@@ -57,8 +56,6 @@ namespace FXOverdose.Core
         private const string Pref_EndingBankruptcy = "Stat_EndingBankruptcy";
         private const string Pref_EndingOverdose = "Stat_EndingOverdose";
 
-        // For other custom flags
-        private const string Pref_TraumaCured = "Stat_TraumaCured";
         private const string Pref_Level9Reached = "Stat_Level9Reached";
         private const string Pref_AllSkillsMaxed = "Stat_AllSkillsMaxed";
         private const string Pref_HighestLevel = "Stat_HighestLevel";
@@ -96,8 +93,6 @@ namespace FXOverdose.Core
             achievements.Add(new AchievementDefinition { Id = "ending_overdose", Title = "과부하", Description = "배드 엔딩 - 오버도즈 엔딩 달성", Type = AchievementType.Ending, StringParameter = "Overdose", RewardCostumeId = CostumeManager.PajamaId });
             
             achievements.Add(new AchievementDefinition { Id = "level_master", Title = "트레이딩 마스터", Description = "모든 스킬 레벨 10 달성", Type = AchievementType.LevelUp, RewardCostumeId = CostumeManager.OfficeLookId });
-            achievements.Add(new AchievementDefinition { Id = "trauma_cured", Title = "트라우마 극복", Description = "드로다운 트라우마 상태에서 회복 아이템을 사용해 최대 멘탈 한계치를 완치", Type = AchievementType.Custom, StringParameter = "TraumaCured" });
-            
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_50", Title = "카페인 중독 I", Description = "에너지 드링크 총 50개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 50, RewardCostumeId = "street_cap" });
             achievements.Add(new AchievementDefinition { Id = "use_energy_drink_100", Title = "카페인 중독 II", Description = "에너지 드링크 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "EnergyDrink", TargetValue = 100, RewardCostumeId = CostumeManager.BartenderId });
             achievements.Add(new AchievementDefinition { Id = "use_parfait_100", Title = "당분 중독", Description = "파르페 총 100개 사용", Type = AchievementType.ItemUsage, StringParameter = "Parfait", TargetValue = 100, RewardCostumeId = CostumeManager.MaidId });
@@ -165,9 +160,6 @@ namespace FXOverdose.Core
                 bool isMet = false;
                 switch (ach.Type)
                 {
-                    case AchievementType.Custom:
-                        if (ach.StringParameter == "TraumaCured" && PlayerPrefs.GetInt(Pref_TraumaCured, 0) == 1) isMet = true;
-                        break;
                     case AchievementType.Ending:
                         if (ach.StringParameter == "FirstGameOver" && PlayerPrefs.GetInt(Pref_EndingFirstGameOver, 0) >= 1) isMet = true;
                         if (ach.StringParameter == "TrueClear" && PlayerPrefs.GetInt(Pref_EndingTrueClear, 0) >= 1) isMet = true;
@@ -310,13 +302,6 @@ namespace FXOverdose.Core
             CheckAchievements();
         }
 
-        public void RecordTraumaCured()
-        {
-            PlayerPrefs.SetInt(Pref_TraumaCured, 1);
-            PlayerPrefs.Save();
-            CheckAchievements();
-        }
-
         public bool IsCostumeUnlocked(string costumeId, out string requirementText)
         {
             requirementText = string.Empty;
@@ -360,11 +345,6 @@ namespace FXOverdose.Core
             float target = achievement.TargetValue > 0f ? achievement.TargetValue : 1f;
             switch (achievement.Type)
             {
-                case AchievementType.Custom:
-                    current = achievement.StringParameter == "TraumaCured"
-                        ? PlayerPrefs.GetInt(Pref_TraumaCured, 0)
-                        : 0f;
-                    break;
                 case AchievementType.Ending:
                     if (achievement.StringParameter == "FirstGameOver") current = PlayerPrefs.GetInt(Pref_EndingFirstGameOver, 0);
                     else if (achievement.StringParameter == "TrueClear") current = PlayerPrefs.GetInt(Pref_EndingTrueClear, 0);
@@ -409,7 +389,6 @@ namespace FXOverdose.Core
             PlayerPrefs.DeleteKey(Pref_EndingTrueClear);
             PlayerPrefs.DeleteKey(Pref_EndingBankruptcy);
             PlayerPrefs.DeleteKey(Pref_EndingOverdose);
-            PlayerPrefs.DeleteKey(Pref_TraumaCured);
             PlayerPrefs.DeleteKey(Pref_Level9Reached);
             PlayerPrefs.DeleteKey(Pref_AllSkillsMaxed);
             PlayerPrefs.DeleteKey(Pref_HighestLevel);

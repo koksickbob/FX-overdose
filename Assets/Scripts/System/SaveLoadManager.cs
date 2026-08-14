@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using FXOverdose.AI;
 using FXOverdose.Trading;
 using System.Collections.Generic;
@@ -27,6 +28,19 @@ namespace FXOverdose.Core
 
         // 로드 진행 후 GameScene 진입 시 상태를 복원해야 하는지 여부 플래그
         public bool IsPendingLoad { get; private set; }
+
+        /// <summary>
+        /// 재접속 시 복귀를 허용하는 씬입니다. 복귀 가능한 씬이 늘어나면 이 배열에만 추가하십시오.
+        ///
+        /// 저장하는 쪽(SaveGame)과 불러오는 쪽(MainMenuController)이 같은 판정을 공유해야 하므로
+        /// 여기 한 곳에 모읍니다. 목록에 없는 씬(tutorial·LoadingScene 등)에서 저장하면
+        /// 기록을 갱신하지 않고 이전 값을 유지합니다 — 그러지 않으면 튜토리얼 중 저장한 세이브가
+        /// 재접속 때 튜토리얼을 다시 재생합니다.
+        /// </summary>
+        public static readonly string[] ResumableScenes = { "GameScene", "YomiRoomScene", "WorldMapScene" };
+
+        public static bool IsResumableScene(string sceneName)
+            => !string.IsNullOrEmpty(sceneName) && Array.IndexOf(ResumableScenes, sceneName) >= 0;
 
         private void Awake()
         {
@@ -106,6 +120,11 @@ namespace FXOverdose.Core
             data.GameMode = CurrentGameMode;
             data.StoryDifficulty = CurrentStoryDifficulty;
             data.IsTutorialCompleted = this.IsTutorialCompleted;
+
+            // 재접속 복귀 지점. 복귀 가능한 씬에서만 갱신하고, 그 외에는 이전 값을 유지합니다.
+            string activeScene = SceneManager.GetActiveScene().name;
+            if (IsResumableScene(activeScene))
+                data.LastSceneName = activeScene;
 
             if (gm != null)
             {
@@ -359,7 +378,23 @@ namespace FXOverdose.Core
             CurrentStoryDifficulty = CurrentData.StoryDifficulty;
             ActiveStorySlotIndex = slotIndex;
             IsPendingLoad = true;
-            Debug.Log($"[SaveLoadManager] 스토리 슬롯 {slotIndex + 1} 데이터 로드 대기 중 (GameScene 진입 시 복원 예정)");
+
+            // 아래 둘은 GameScene 진입을 기다리지 않고 지금 복원합니다.
+            // 요미의 방/월드맵으로 바로 복귀하면 ApplyLoadedDataToGame이 돌지 않는데,
+            // 그 씬들도 이 값을 읽고 또 저장까지 하기 때문입니다.
+            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
+
+            // 방에서 저장이 일어나면 이 값이 그대로 디스크에 다시 쓰입니다.
+            // 복원해 두지 않으면 완료된 튜토리얼이 false로 덮여 다시 재생됩니다.
+            this.IsTutorialCompleted = CurrentData.IsTutorialCompleted;
+            // 과거 세이브 보정: 플래그가 없더라도 이미 2일차 이상이면 완료된 것으로 간주합니다.
+            if (!this.IsTutorialCompleted && CurrentData.CurrentDay > 1)
+            {
+                this.IsTutorialCompleted = true;
+                CurrentData.IsTutorialCompleted = true;
+            }
+
+            Debug.Log($"[SaveLoadManager] 스토리 슬롯 {slotIndex + 1} 데이터 로드 대기 중 (복귀 씬: {(string.IsNullOrEmpty(CurrentData.LastSceneName) ? "GameScene" : CurrentData.LastSceneName)})");
             return true;
         }
 
@@ -387,6 +422,26 @@ namespace FXOverdose.Core
             //    파일을 지우지 않는 이유는, 플레이어가 새 게임을 시작만 하고 그만둘 수 있기 때문입니다.
             //    기존 세이브는 이 슬롯에 처음 저장하는 순간 정상적으로 덮어써집니다.
             CurrentData = new SaveData();
+
+            // 새 게임 초기화를 여기서 끝냅니다. GameManager는 GameScene에만 있는데 스토리 모드는
+            // 요미의 방에서 시작하므로, 초기 자금을 GameScene 진입까지 미루면 방에서 기본값이 보이고
+            // 그 사이 벌어들인 알바 수익이 나중에 StartNewGame()에 덮여 사라집니다.
+            // StoryDifficultyTables는 순수 static이라 씬 의존이 없습니다.
+            // 날짜·시각·레벨·기억·코스튬은 SaveData 기본값이 곧 초기 상태라 따로 심지 않습니다.
+            if (CurrentGameMode == GameMode.Story)
+            {
+                float initialBalance = StoryDifficultyTables.Get(CurrentStoryDifficulty).StartingBalance;
+                CurrentData.Balance = initialBalance;
+                CurrentData.StartOfDayEquity = initialBalance;
+            }
+            // 시작 아이템만은 씬의 ItemData 에셋이 출처라 데이터로 심을 수 없습니다.
+            // 첫 GameScene 진입 때 복원 경로가 대신 지급합니다. (ApplyLoadedDataToGame)
+            CurrentData.NeedsStartingItems = true;
+
+            // 이 프로퍼티는 DontDestroyOnLoad라 이전 판의 값이 남습니다. 내리지 않으면 한 세션에서
+            // 게임을 끝낸 뒤 새로 시작할 때 TutorialManager가 튜토리얼을 완료된 것으로 보고 건너뜁니다.
+            IsTutorialCompleted = false;
+
             IsPendingLoad = false;
 
             DeliveryFoodManager.ResetStateForNewGame();
@@ -415,14 +470,7 @@ namespace FXOverdose.Core
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
 
-            this.IsTutorialCompleted = CurrentData.IsTutorialCompleted;
-            
-            // 과거 세이브 파일 보정: 튜토리얼 완료 플래그가 없더라도 이미 2일차 이상이라면 완료된 것으로 간주
-            if (!this.IsTutorialCompleted && CurrentData.CurrentDay > 1)
-            {
-                this.IsTutorialCompleted = true;
-                CurrentData.IsTutorialCompleted = true;
-            }
+            // IsTutorialCompleted는 PrepareLoadGame에서 이미 복원했습니다 (방으로 바로 복귀하는 경우 때문).
 
             if (gm != null)
             {
@@ -432,7 +480,23 @@ namespace FXOverdose.Core
                 gmType.GetField("currentDay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentDay);
                 gmType.GetField("currentHour", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentHour);
                 gmType.GetField("currentMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentMinute);
-                gmType.GetField("secondsPerGameMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.SecondsPerGameMinute);
+                // 시간 배속은 이 세이브가 실제로 트레이딩 세션을 거쳤을 때만 신뢰합니다.
+                // 요미의 방·월드맵에서만 저장된 세이브는 GameManager도 MarketSimulationEngine도 없어
+                // 시간 배속과 차트가 "함께" 기록되지 않습니다. 그래서 차트 유무를 신호로 씁니다.
+                // 이 검사가 없으면 SaveData의 옛 기본값 3f(하필 강제 청산 슬로우 모션 수치)가
+                // 그대로 주입돼 게임이 3배 느린 연출 속도로 고정됩니다.
+                bool cameFromTradingSession = CurrentData.CurrentChartPrice > 0f;
+                if (cameFromTradingSession && CurrentData.SecondsPerGameMinute > 0f)
+                {
+                    gmType.GetField("secondsPerGameMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.SecondsPerGameMinute);
+                }
+                // 누적 수익률(P&L)의 분모입니다. 복원하지 않으면 인스펙터 기본값 7000이 그대로 쓰여
+                // 초기 자금이 7000이 아닌 난이도의 수익률이 전부 틀리게 표시됩니다.
+                if (CurrentGameMode == GameMode.Story)
+                {
+                    gmType.GetField("startingBalance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                          ?.SetValue(gm, StoryDifficultyTables.Get(CurrentStoryDifficulty).StartingBalance);
+                }
                 bool hasDailyBaseline = float.IsFinite(CurrentData.StartOfDayEquity) && CurrentData.StartOfDayEquity > 0f;
                 gm.RestoreStartOfDayEquity(
                     hasDailyBaseline ? CurrentData.StartOfDayEquity : CurrentData.Balance,
@@ -478,7 +542,14 @@ namespace FXOverdose.Core
                     CurrentData.ActiveItemLevels);
             }
 
-            if (inventory != null && shopManager != null)
+            if (inventory != null && shopManager != null && CurrentData.NeedsStartingItems)
+            {
+                // 새 게임의 첫 GameScene 진입입니다. 저장된 목록(비어 있음) 대신 시작 지급분을 넣습니다.
+                // 아이템 구성의 출처는 씬에 배치된 ItemData 슬롯이므로 Inventory가 직접 판정합니다.
+                inventory.ResetForNewGame();
+                CurrentData.NeedsStartingItems = false;
+            }
+            else if (inventory != null && shopManager != null)
             {
                 inventory.Clear();
                 int count = Mathf.Min(CurrentData.InventoryItemIds.Count, CurrentData.InventoryItemQuantities.Count);

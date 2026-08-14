@@ -123,7 +123,6 @@ namespace FXOverdose.EditorTools
 
             // 구버전 JSON(신규 필드 없음)에서 초기화자 기본값이 유지되는지. 마이그레이션 백필 불필요의 근거입니다.
             var legacy = JsonUtility.FromJson<SaveData>("{\"Balance\":500.0}");
-            failures += Expect(legacy.CanRegenMental, "구버전 JSON에서 CanRegenMental 기본값 true 유지");
             failures += Expect(legacy.OutlookDay == -1, "구버전 JSON에서 OutlookDay 기본값 -1 유지");
             failures += Expect(legacy.IsEventTrueSignal, "구버전 JSON에서 IsEventTrueSignal 기본값 true 유지");
 

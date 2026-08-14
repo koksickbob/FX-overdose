@@ -100,7 +100,7 @@ public class ItemUser : MonoBehaviour
             case "steak":
                 traderStatus.IncreaseMaxMental(10f);
                 traderStatus.ChangeHealth(traderStatus.MaxHealth);
-                traderStatus.ChangeMental(traderStatus.MaxMental, true);
+                traderStatus.ChangeMental(traderStatus.MaxMental);
                 specialEffect = true;
                 break;
             default:
@@ -116,11 +116,11 @@ public class ItemUser : MonoBehaviour
         }
 
         bool canHealHealth = health > 0f && traderStatus.CurrentHealth < traderStatus.MaxHealth;
-        bool canHealMental = mental > 0f && traderStatus.CurrentMental < traderStatus.EffectiveMaxMental;
+        bool canHealMental = mental > 0f && traderStatus.CurrentMental < traderStatus.MaxMental;
         if (!canHealHealth && !canHealMental && !specialEffect) return false;
 
         if (canHealHealth) traderStatus.ChangeHealth(health);
-        if (canHealMental) traderStatus.ChangeMental(mental, true);
+        if (canHealMental) traderStatus.ChangeMental(mental);
         Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
         TriggerItemDialogue(item);
         FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
@@ -163,33 +163,20 @@ public class ItemUser : MonoBehaviour
         return true;
     }
 
-    // 멘탈이 가득 차 있지 않거나, 트라우마로 인해 한계치(천장)가 제한되었을 때 멘탈 및 한계치 회복 효과를 적용합니다.
+    // 멘탈이 가득 차 있지 않을 때 멘탈 회복 효과를 적용합니다.
     private bool RestoreMental(ItemData item)
     {
-        if (traderStatus.CurrentMental >= traderStatus.MaxMental && traderStatus.MaxMentalLimit >= traderStatus.MaxMental)
+        if (traderStatus.CurrentMental >= traderStatus.MaxMental)
         {
-            Debug.Log("[ItemUser] 멘탈과 최대 한계치가 이미 최대치(100)까지 가득 찼습니다.");
+            Debug.Log("[ItemUser] 멘탈이 이미 최대치까지 가득 찼습니다.");
             return false;
         }
 
-        // 💡 [트라우마 천장 극복 기믹] 만약 드로다운 트라우마 등으로 인해 멘탈 한계치(MaxMentalLimit)가 100 미만으로 제한된 상태라면,
-        // 디저트 및 멘탈 회복 아이템 사용 시 제한된 천장(한계치) 자체를 함께 상승시켜 트라우마 극복을 돕습니다!
-        if (traderStatus.MaxMentalLimit < traderStatus.MaxMental)
-        {
-            float newLimit = Mathf.Min(traderStatus.MaxMental, traderStatus.MaxMentalLimit + item.EffectAmount);
-            traderStatus.SetMaxMentalCeiling(newLimit);
-
-            if (newLimit >= traderStatus.MaxMental)
-            {
-                Debug.Log("[ItemUser] ✨ 당분 및 진정제 효과로 멘탈 한계치 제한이 완전히 극복되었습니다!");
-            }
-        }
-
         Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
-        
+
         float finalEffectAmount = item.EffectAmount;
 
-        traderStatus.ChangeMental(finalEffectAmount, true);
+        traderStatus.ChangeMental(finalEffectAmount);
 
         // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료
         if (traderStatus.IsLeverageAddicted && (item.ItemName.Contains("진정") || item.ItemName.Contains("수면") || item.EffectAmount >= 20f))
@@ -198,7 +185,7 @@ public class ItemUser : MonoBehaviour
         }
 
         TriggerItemDialogue(item);
-        Debug.Log($"[ItemUser] {item.ItemName} 사용: 멘탈 및 한계치 +{item.EffectAmount} 회복");
+        Debug.Log($"[ItemUser] {item.ItemName} 사용: 멘탈 +{item.EffectAmount} 회복");
         
         FXOverdose.Core.AchievementManager.Instance?.RecordItemUsage(item.ItemId);
         return true;

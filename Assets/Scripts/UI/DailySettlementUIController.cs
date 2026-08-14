@@ -313,8 +313,8 @@ namespace FXOverdose.UI
             totalEquityText.text = $"${currentTotalEquity:N2}";
 
             float healthRatio = status != null ? Mathf.Clamp01(status.HealthRatio) : 1f;
-            float mentalRatio = status != null && status.EffectiveMaxMental > 0.001f
-                ? Mathf.Clamp01(status.CurrentMental / status.EffectiveMaxMental)
+            float mentalRatio = status != null && status.MaxMental > 0.001f
+                ? Mathf.Clamp01(status.CurrentMental / status.MaxMental)
                 : 1f;
             healthFillRect.anchorMax = new Vector2(healthRatio, 1f);
             mentalFillRect.anchorMax = new Vector2(mentalRatio, 1f);
@@ -322,7 +322,7 @@ namespace FXOverdose.UI
                 ? $"{status.CurrentHealth:0}/{status.MaxHealth:0}"
                 : "--/--";
             mentalValueText.text = status != null
-                ? $"{status.CurrentMental:0}/{status.EffectiveMaxMental:0}"
+                ? $"{status.CurrentMental:0}/{status.MaxMental:0}"
                 : "--/--";
         }
 

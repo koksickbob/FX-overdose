@@ -75,6 +75,11 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void Start()
         {
             ChangeState(YomiRoomState.Idle);
+
+            // 방에 도착했다는 사실 자체를 기록으로 남깁니다. SaveGame이 현재 씬을 LastSceneName에 찍으므로
+            // 이 한 번의 저장이 곧 복귀 지점 갱신입니다. 이게 없으면 아침에 방으로 나오자마자 종료한
+            // 플레이어가 다음 접속에서 트레이딩 화면에 떨어집니다 — 매일 아침이 그 경우입니다. (F-11)
+            FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
         }
 
         // 요미의 방 씬을 에디터에서 단독 재생할 때 쓰는 임시 진행 데이터입니다.

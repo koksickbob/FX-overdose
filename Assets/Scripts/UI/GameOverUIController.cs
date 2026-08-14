@@ -231,7 +231,7 @@ namespace FXOverdose.UI
                 ? $"DAY {Mathf.Max(1, gameManager.CurrentDay):00}  /  {gameManager.CurrentHour:00}:{gameManager.CurrentMinute:00}"
                 : "DAY --  /  --:--";
             mentalValueText.text = status != null
-                ? $"{status.CurrentMental:0}/{status.EffectiveMaxMental:0}  /  {status.CurrentMentalState.ToString().ToUpperInvariant()}"
+                ? $"{status.CurrentMental:0}/{status.MaxMental:0}  /  {status.CurrentMentalState.ToString().ToUpperInvariant()}"
                 : "--/--  /  UNKNOWN";
 
             Sprite emotionSprite = Resources.Load<Sprite>($"Characters/Emotions/{emotionName}");

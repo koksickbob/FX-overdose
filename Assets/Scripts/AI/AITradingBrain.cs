@@ -5,6 +5,12 @@ using FXOverdose.Core;
 
 namespace FXOverdose.AI
 {
+    /// <summary>
+    /// 요미의 자동 매매 판단 엔진입니다. 시장 신호를 규칙 기반으로 평가해 진입/청산을 실행합니다.
+    /// 이름과 달리 LLM을 사용하지 않습니다(사용한 적도 없습니다). 삭제하면 자동 매매,
+    /// FOMO 후회 기믹(OnSignalEvaluationCompleted 구독), 고배율 중독 폭주(ForceNextTradeHighLeverage),
+    /// 차트 힌트가 함께 죽으므로 "LLM 잔재"로 오인해 제거하지 마십시오.
+    /// </summary>
     public class AITradingBrain : MonoBehaviour
     {
         [Header("시스템 연결")]
@@ -22,8 +28,6 @@ namespace FXOverdose.AI
         [SerializeField] private MarketSignal currentActiveSignal;
         [SerializeField] private string lastDecisionLog = "";
 
-        // UI 및 대화 엔진 통지 이벤트: (대사 텍스트, 감정 변화량)
-        public event Action<string, float> OnAIDecisionMade;
         public event Action<MarketSignal, bool> OnSignalEvaluationCompleted; // (신호, 진입여부)
 
         public string LastDecisionLog => lastDecisionLog;
@@ -802,33 +806,6 @@ namespace FXOverdose.AI
             FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(FXOverdose.AI.EventCategory.ChartMovement, hintText, 6);
         }
 
-        private void TriggerDialogue(string dialogue, float emotionDelta)
-        {
-
-        }
-
-        private void TriggerDialogueWithCategory(FXOverdose.AI.EventCategory category, string dialogue, float emotionDelta)
-        {
-            lastDecisionLog = dialogue;
-            Debug.Log($"[AITradingBrain 💬] ({category}) {dialogue}");
-            if (traderStatus != null && Mathf.Abs(emotionDelta) > 0.001f)
-            {
-                traderStatus.ModifyMentalState(emotionDelta * 10f);
-            }
-
-            // ⭐ 이벤트 중요도 점수 자동 산정 및 장기 기억 등록
-            int importanceScore = 3;
-            if (dialogue.Contains("강제청산")) importanceScore = 10;
-            else if (dialogue.Contains("OVERDOSE")) importanceScore = 9;
-            else if (dialogue.Contains("대형 손실") || dialogue.Contains("오인 진입") || dialogue.Contains("역매매")) importanceScore = 8;
-            else if (dialogue.Contains("익절 성공")) importanceScore = 7;
-            else if (dialogue.Contains("정상 진입") || Mathf.Abs(emotionDelta) >= 0.15f) importanceScore = 6;
-            else if (category != FXOverdose.AI.EventCategory.General) importanceScore = 4;
-
-            FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(category, dialogue, importanceScore);
-
-            OnAIDecisionMade?.Invoke(dialogue, emotionDelta);
-        }
     }
 }
 
