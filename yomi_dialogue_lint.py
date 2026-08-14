@@ -200,17 +200,26 @@ def check_talk_table():
     topics = re.split(r'new TalkTopic\("', body)[1:]
     print(f"[대화 테이블] 토픽 {len(topics)}개 검사")
 
+    # 해금 경계는 리터럴이 아니라 AffectionTier 상수로 적힌다 (T1~T4 확정, 2026-08-14).
+    # 같은 파일의 const 선언을 읽어 해석한다 — 모르는 이름이면 -1이 되어 아래 gate 검사가 잡는다.
+    consts = dict(re.findall(r"const int (\w+) = (\d+)", src))
+
+    def resolve(token):
+        if token.isdigit():
+            return int(token)
+        return int(consts.get(token.split(".")[-1], -1))
+
     # 호감도 0(게임 시작 시점)에 열리는 토픽 수. 해금 조건을 잘못 걸면 첫날부터 대화가 막힌다. (TS10)
     # 시간대까지 걸리므로 구간별로 센다 — 밤은 슬롯이 두 칸이라 최소 2편이 필요하다. (TS23)
     slots_per_time = {"Morning": 1, "Noon": 1, "Evening": 1, "Night": 2}
     starting = {k: 0 for k in slots_per_time}
     for chunk in topics:
-        gate = re.search(r'",\s*TalkCategory\.\w+,\s*([\w\s|.]+?),\s*(\d+),\s*(\d+),', chunk)
-        if not gate:
+        gate = re.search(r'",\s*TalkCategory\.\w+,\s*([\w\s|.]+?),\s*([\w.]+),\s*([\w.]+),', chunk)
+        if not gate or resolve(gate.group(2)) < 0 or resolve(gate.group(3)) < 0:
             print(f"  ❌ {chunk.split(chr(34), 1)[0]}: 카테고리/시간대/호감도 인자를 못 읽었다")
             failures += 1
             continue
-        if int(gate.group(2)) != 0:
+        if resolve(gate.group(2)) != 0:
             continue
         flags = re.findall(r"TalkTime\.(\w+)", gate.group(1))
         if "Any" in flags:

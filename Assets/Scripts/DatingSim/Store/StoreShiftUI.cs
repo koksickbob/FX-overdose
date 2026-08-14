@@ -270,6 +270,13 @@ namespace FXOverdose.DatingSim.Store
             StoreConfig cfg = manager.Config;
             StringBuilder sb = new StringBuilder();
 
+            if (result.Aborted)
+            {
+                sb.AppendLine("<color=#EF4444><b>근무 중도 포기</b></color>");
+                sb.AppendLine("근무 시간을 끝까지 채워야 기본급이 지급됩니다.");
+                sb.AppendLine();
+            }
+
             // 기본급이 맨 위, 감점이 아래. 이 패널은 "얼마를 벌었나"가 아니라 "얼마를 깎였나"를 읽는 표입니다.
             sb.AppendLine($"기본급                {Mathf.RoundToInt(result.BasePay):N0} 원");
             sb.AppendLine("──────────────────────────");

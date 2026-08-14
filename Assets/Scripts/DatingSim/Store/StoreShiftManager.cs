@@ -36,6 +36,8 @@ namespace FXOverdose.DatingSim.Store
         public StoreShiftTally Tally;
         public List<string> Gifts;
         public bool SaveFailed;
+        /// <summary>중도 포기 여부. true면 일급도 선물도 없습니다.</summary>
+        public bool Aborted;
     }
 
     /// <summary>
@@ -92,6 +94,7 @@ namespace FXOverdose.DatingSim.Store
         private float spawnTimer;
         private StoreCustomer lastServed;
         private float basePay;
+        private bool aborted;
         private string lastDenyReason;
         private float lastDenyTime = -99f;
 
@@ -163,8 +166,9 @@ namespace FXOverdose.DatingSim.Store
 
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
-                // 중도 포기. 슬롯·체력은 환불하지 않고 그 시점까지의 성과로 정산합니다.
-                OnFeedback?.Invoke("근무를 중단했습니다.");
+                // 중도 포기. 근무 시간을 다 채워야만 기본급이 나옵니다 — 일급·선물 모두 0입니다.
+                aborted = true;
+                OnFeedback?.Invoke("근무를 중단했습니다. 일급이 지급되지 않습니다.");
                 Settle();
                 return;
             }
@@ -471,6 +475,14 @@ namespace FXOverdose.DatingSim.Store
                 if (shelves[i] != null && shelves[i].IsShelfEmpty) tally.EmptyShelves++;
 
             StoreShiftResult result = Settle(tally, basePay, config);
+            if (aborted)
+            {
+                // 기본급은 근무 완주의 대가입니다. 중도 포기는 감점 정산이 아니라 전액 미지급입니다.
+                result.Pay = 0f;
+                result.Grade = 'D';
+                result.Aborted = true;
+                gifts.Clear();
+            }
             result.Gifts = new List<string>(gifts);
             result.SaveFailed = !Commit(result);
 
@@ -518,7 +530,8 @@ namespace FXOverdose.DatingSim.Store
 
             for (int i = 0; i < gifts.Count; i++) save.GrantItemToSave(gifts[i]);
 
-            if (save.CurrentData != null) save.CurrentData.StoreTotalShifts++;
+            // 완주한 근무만 경력으로 칩니다. 중도 포기로 난이도 티어가 오르면 포기가 곧 손해 위에 손해입니다.
+            if (!result.Aborted && save.CurrentData != null) save.CurrentData.StoreTotalShifts++;
 
             // 오버도즈 중에는 저장이 거부됩니다. CurrentData의 변경은 메모리에 남아 다음 성공 저장에
             // 딸려 가지만, 그 사이 강제 종료하면 사라지므로 결과 패널에 경고를 띄웁니다.

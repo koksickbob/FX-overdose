@@ -1,4 +1,4 @@
-using FXOverdose.Trading;
+﻿using FXOverdose.Trading;
 
 namespace FXOverdose.DatingSim.Dialogue
 {
@@ -154,6 +154,18 @@ namespace FXOverdose.DatingSim.Dialogue
         {
             return (Time & now) != 0;
         }
+    }
+
+    /// <summary>
+    /// 호감도 티어 경계. 단일 진실 원천: docs/P2_04_System/Affection_Tier_Table.md (2026-08-14 확정).
+    /// 해금 판정은 역대 최고치(peak), 연출 판정은 현재치를 입력으로 씁니다. 90은 T3입니다.
+    /// 경계값은 세이브에 저장하지 않습니다 — 저장하면 이중 진실 원천이 됩니다.
+    /// </summary>
+    public static class AffectionTier
+    {
+        public const int T2Min = 31;
+        public const int T3Min = 61;
+        public const int T4Min = 91;   // T4 전면화 신설 (2026-08-14)
     }
 
     /// <summary>
@@ -410,7 +422,7 @@ namespace FXOverdose.DatingSim.Dialogue
             // ── 삐짐 ─────────────────────────────────────────────────────
             // 장면: 저녁/밤. 낮에 세 번 불렀는데 오빠는 화면만 봤다. 방이 좁아 피할 데가 없어 이불을 뒤집어썼다.
             //       말하지 않을 것 — 그때 하려던 말이 따로 있었다는 것.
-            new TalkTopic("TALK_ANGER_001", TalkCategory.Anger, TalkTime.Evening | TalkTime.Night, 31, 100,
+            new TalkTopic("TALK_ANGER_001", TalkCategory.Anger, TalkTime.Evening | TalkTime.Night, AffectionTier.T2Min, 100,
                 "...다 풀린 건 아니야. 조금 남겨뒀어.",
                 // 도입
                 new TalkNode(new[]
@@ -476,7 +488,7 @@ namespace FXOverdose.DatingSim.Dialogue
             // ── 수면 ─────────────────────────────────────────────────────
             // 장면: 밤. 불을 끄고 누웠는데 요미가 잠들지 못한다. 방이 하나라 서로의 기척이 다 들린다.
             //       말하지 않을 것 — 악몽에 깼는데 깨워도 되는지 몰라 한참 누워 있었다는 것.
-            new TalkTopic("TALK_SLEEP_001", TalkCategory.Sleeping, TalkTime.Night, 31, 100,
+            new TalkTopic("TALK_SLEEP_001", TalkCategory.Sleeping, TalkTime.Night, AffectionTier.T2Min, 100,
                 "...아직 깨어 있지?",
                 // 도입
                 new TalkNode(new[]
@@ -541,7 +553,7 @@ namespace FXOverdose.DatingSim.Dialogue
             // ── 애정 ─────────────────────────────────────────────────────
             // 장면: 밤. 불을 끄고 창가에 나란히 앉아 있다. 원룸이라 창은 하나뿐이다.
             //       말하지 않을 것 — 이 방에서 나가야 하는 날을 상상해봤다는 것.
-            new TalkTopic("TALK_LOVE_001", TalkCategory.Affection, TalkTime.Night, 61, 100,
+            new TalkTopic("TALK_LOVE_001", TalkCategory.Affection, TalkTime.Night, AffectionTier.T3Min, 100,
                 "...아직 안 졸려. 조금만 더 이러고 있자.",
                 // 도입
                 new TalkNode(new[]
@@ -602,6 +614,209 @@ namespace FXOverdose.DatingSim.Dialogue
                     new TalkChoice("내일도, 그다음도 이럴 건데.", TalkTrait.Duty, 0, "응. 아니까 이러고 있는 거야."),
                     new TalkChoice("내일도 불 끄고 앉자.", TalkTrait.Warm, 0, "좋아. 그럼 그게 우리 약속인 걸로."),
                     new TalkChoice("내일 일은 내일 생각하자.", TalkTrait.Plain, -1, "...그렇지. 괜히 약속 같은 거 바랐네."))),
+
+            // ══ T4 전면화 (91+) ═══════════════════════════════════════════
+            // 세계가 오빠 하나로 축소된 구간. 수위는 애원·응석까지 — 위협·감시·공포 클리셰 금지.
+            // T3까지가 "방 안의 마음"이라면 T4는 방 밖과 이후, 그리고 준비해 온 흔적을 들키는 얘기다. (계획서 16장)
+
+            // ── 질투 (T4) ────────────────────────────────────────────────
+            // 장면: 저녁. 오빠가 낮에 차트를 보다 혼잣말로 웃었다. 요미는 그 1초가 하루 종일 신경 쓰였다.
+            //       T2 삐짐(ANGER_001)은 사건형, 이건 무사건형 — 요미가 모르는 오빠의 1초가 원인이다.
+            //       말하지 않을 것 — 질투했다는 사실 자체. 끝까지 인정하지 않는다.
+            new TalkTopic("TALK_ANGER_002", TalkCategory.Anger, TalkTime.Evening | TalkTime.Night, AffectionTier.T4Min, 100,
+                "...3초 규칙 잊지 마. 오늘부터 시행이야.",
+                // 도입
+                new TalkNode(new[]
+                    {
+                        "※ 쿠션을 끌어안은 채 벽 쪽으로 돌아앉아 있다.",
+                        "아니야. 아무것도 아니야.",
+                        "...묻지도 않았는데 말해버렸어.",
+                    },
+                    new TalkChoice("아무것도 아닌 목소리가 아닌데.", TalkTrait.Plain, 0, "목소리는 원래 이래. 원래... 아니, 오늘만 이래."),
+                    new TalkChoice("음, 그럼 나 저녁 먹는다?", TalkTrait.Waver, 0, "야! 거기서 그냥 가면 어떡해! 앉아. 앉으라고."),
+                    new TalkChoice("무슨 일인지 맞혀볼까?", TalkTrait.Plain, 0, "...맞히면 인정해줄게. 못 맞히면 놀린 걸로 간주야.")),
+                // 곁길 — 요미가 묻는다
+                new TalkNode(new[]
+                    {
+                        "...그럼 하나만 묻자.",
+                        "낮에 좋은 일 있었어? 차트 보면서.",
+                    },
+                    new TalkChoice("좋은 일? 기억이 안 나는데.", TalkTrait.Waver, 0, "기억이 안 나? 웃어놓고? ...아, 방금 건 못 들은 걸로 해."),
+                    new TalkChoice("차트가 잘 풀려서 그랬나.", TalkTrait.Plain, 0, "차트 때문이야? 진짜 차트 때문인 거지? 알았어."),
+                    new TalkChoice("...너 뭔가 봤구나?", TalkTrait.Plain, 0, "본 게 아니라 들린 거야. 웃음소리는 막 퍼진다고.")),
+                // 균열
+                new TalkNode(new[]
+                    {
+                        "※ 쿠션이 조금씩 얼굴 쪽으로 올라간다.",
+                        "낮에 웃었잖아. 화면 보면서.",
+                        "...뭐가 웃겼는데? 요미도 알아야겠어.",
+                    },
+                    new TalkChoice("어, 그걸 다 듣고 있었어?", TalkTrait.Plain, -1, "...듣고 있던 게 이상한 것처럼 말하지 마. 같은 방이잖아."),
+                    new TalkChoice("별거 아니었어. 짤 하나 봤어.", TalkTrait.Plain, 0, "별거 아닌데 요미는 하루 종일 신경 썼네. 이상하다."),
+                    new TalkChoice("웃겼는데 설명하면 안 웃겨.", TalkTrait.Plain, 0, "설명해도 웃긴 게 진짜 웃긴 거야. 어디서 아끼려고."),
+                    new TalkChoice("이따 보여줄게. 같이 보자.", TalkTrait.Warm, 0, "...지금은? 지금 보면 안 되는 거야? 아니다, 이따 봐.")),
+                // 직면
+                new TalkNode(new[]
+                    {
+                        "요미가 모르는 데서 웃는 거, 싫어.",
+                        "...아니야, 방금 건 질투 아니야. 절대 아니야.",
+                        "그냥... 그 1초를 요미만 몰랐잖아.",
+                    },
+                    new TalkChoice("말해주려고 아껴둔 거였어.", TalkTrait.Warm, 2, "...아껴뒀다고? 그럼 됐어. 됐는데... 지금 당장 풀어."),
+                    new TalkChoice("...나도 네 웃음 놓치면 그래.", TalkTrait.Anxious, 1, "그건 질투 맞네. 요미 건 아니고. ...같은 거 아니야, 절대."),
+                    new TalkChoice("질투 맞잖아, 그거.", TalkTrait.Plain, 0, "아니라고 했다? 요미 사전에 질투는 없어. 방금 지웠어."),
+                    new TalkChoice("미안. 앞으로 소리 내서 웃을게.", TalkTrait.Duty, 1, "소리 내서 웃으면 요미가 3초 안에 달려갈게.")),
+                // 전환
+                new TalkNode(new[]
+                    {
+                        "좋아. 그럼 오늘부터 규칙 하나 만들자.",
+                        "웃긴 거 생기면 3초 안에 공유. 3초야.",
+                    },
+                    new TalkChoice("공유는 좋은데 3초는 심한데.", TalkTrait.Plain, 0, "심하지 않아. 요미 인내심 기준으로는 3초도 긴 거야."),
+                    new TalkChoice("그래, 콜. 규칙 접수.", TalkTrait.Waver, 0, "접수 빠르고 좋네. 어기면 벌칙도 있어. 뭔지는 비밀."),
+                    new TalkChoice("별것도 아닌 걸로 하루 썼네.", TalkTrait.Plain, -1, "...별거 아니면 왜 하루 종일 마음이 시끄러웠을까, 요미는.")),
+                // 착지
+                new TalkNode(new[]
+                    {
+                        "※ 쿠션을 내려놓고 옆자리를 손바닥으로 두드린다.",
+                        "그래서, 그 웃긴 거.",
+                        "지금 풀어봐. 요미가 판정해줄게.",
+                    },
+                    new TalkChoice("웃긴 거 맞는지 자신 없는데.", TalkTrait.Waver, 0, "자신 없어도 해봐. 판정은 어차피 요미 마음이야."),
+                    new TalkChoice("좋아. 대신 웃어줘야 돼.", TalkTrait.Warm, 1, "...봐서. 근데 아마 웃을 거야. 오빠가 말하는 거니까."))),
+
+            // ── 다른 방 (T4) ─────────────────────────────────────────────
+            // 장면: 아침. 요미가 폰을 보다가 눈이 마주치자 황급히 끈다. 처음으로 "이 방 말고"를 입 밖에 낸다.
+            //       넓은 집을 원하면서 방이 나뉘는 건 싫다는 모순이 T4의 거리 제로다.
+            //       말하지 않을 것 — 방 두 개짜리 매물을 매일 밤 보고 있었다는 것. (직면에서 들킨다)
+            new TalkTopic("TALK_LOVE_002", TalkCategory.Affection, TalkTime.Morning, AffectionTier.T4Min, 100,
+                "...반 평만 넓은 데. 기억해둬, 그거.",
+                // 도입
+                new TalkNode(new[]
+                    {
+                        "※ 폰 화면이 급하게 꺼진다. 손이 반 박자 늦었다.",
+                        "아, 아무것도 안 봤어.",
+                        "...봤어도 별거 아니었어.",
+                    },
+                    new TalkChoice("안 봤는데 별거까지 아니야?", TalkTrait.Plain, 0, "...말이 꼬였네. 아침이라 그래. 아침 탓이야."),
+                    new TalkChoice("어, 알았어. 안 물어볼게.", TalkTrait.Waver, 0, "안 물어보면 그건 그거대로 서운한데. 어려운 여자라 미안."),
+                    new TalkChoice("화면 켜봐. 같이 보자.", TalkTrait.Plain, 0, "지, 지금은 배터리가 없어. 1퍼센트야. 진짜야.")),
+                // 곁길 — 요미가 묻는다
+                new TalkNode(new[]
+                    {
+                        "그것보다. 요미가 궁금한 게 있는데,",
+                        "돈 많이 벌면 뭐부터 하고 싶어?",
+                    },
+                    new TalkChoice("글쎄... 생각 안 해봤는데.", TalkTrait.Waver, 0, "그럼 지금 해봐. 요미가 기다려줄게. 3분 줄게."),
+                    new TalkChoice("빚부터 갚아야지.", TalkTrait.Duty, 0, "...맞다. 그게 먼저지. 요미가 성급했다."),
+                    new TalkChoice("돈 벌면? 너 맛있는 거.", TalkTrait.Warm, 0, "먹는 걸로 넘어가려고 하지 마. ...근데 뭐 사줄 건데?")),
+                // 균열
+                new TalkNode(new[]
+                    {
+                        "※ 폰을 뒤집어 놓고도 손이 그 위에 머문다.",
+                        "요미는... 이 방보다 조금만 넓은 데.",
+                        "아니, 지금 방이 싫다는 건 아니고.",
+                    },
+                    new TalkChoice("지금 방도 충분하잖아.", TalkTrait.Plain, -1, "...그치. 충분하지. 응. 방금 말은 잊어줘."),
+                    new TalkChoice("넓은 데라니, 얼마나?", TalkTrait.Plain, 0, "아주 조금. 창문 하나만 더 있어도 돼."),
+                    new TalkChoice("계속해봐. 안 웃어.", TalkTrait.Warm, 0, "웃으면 진짜 끝이야. ...창문 큰 방을 봤거든, 어쩌다가."),
+                    new TalkChoice("...이사 생각하고 있었어?", TalkTrait.Anxious, 0, "생각까지는 아니고. 그냥... 봐두기만 했어. 진짜 보기만.")),
+                // 직면
+                new TalkNode(new[]
+                    {
+                        "...사실 매일 봤어. 방 두 개짜리.",
+                        "매일 본 건 아니고. ...아니다, 매일 봤어.",
+                        "오빠 돈 많이 벌면... 그 집에 요미도 있어?",
+                    },
+                    new TalkChoice("있지. 방부터 같이 고르자.", TalkTrait.Duty, 2, "...같이 고르는 거야? 그럼 요미 기준 엄청 깐깐해질 건데."),
+                    new TalkChoice("매일 봤으면 보여줘, 그 방.", TalkTrait.Plain, 1, "...웃지 마? 즐겨찾기 폴더까지 있어. 이름은 비밀이야."),
+                    new TalkChoice("...나도 가끔 그런 거 봐.", TalkTrait.Anxious, 1, "오빠도 봐? 어느 동네? ...아니다, 천천히 맞춰보자."),
+                    new TalkChoice("글쎄, 미래 일은 모르니까.", TalkTrait.Waver, 0, "...모른다고 하네. 알았어. 요미가 알게 만들면 되지.")),
+                // 전환
+                new TalkNode(new[]
+                    {
+                        "근데 조건이 하나 있어.",
+                        "방 두 개는 안 돼. 문 닫으면 안 보이잖아.",
+                    },
+                    new TalkChoice("그럼 왜 두 개짜리를 봤어?", TalkTrait.Plain, 0, "하나는 옷방이야. 사람 자는 방은 하나면 돼."),
+                    new TalkChoice("아니 그럼 왜 알아본 거야.", TalkTrait.Plain, -1, "...알아보는 시간이 좋았던 건데. 그렇게 말하면 어떡해."),
+                    new TalkChoice("닫으면 안 되는 문으로 하자.", TalkTrait.Warm, 0, "그런 문이 어딨어. ...찾아보자, 같이. 있을 수도 있잖아.")),
+                // 착지
+                new TalkNode(new[]
+                    {
+                        "※ 뒤집혀 있던 폰 화면이 다시 켜져 있다.",
+                        "언젠가. 여기보다 반 평만 넓은 데.",
+                        "약속까지는 아니고, 예고야.",
+                    },
+                    new TalkChoice("예고 접수. 기대할게.", TalkTrait.Warm, 1, "...접수됐다. 무르기 없어. 요미 다 적어놓을 거야."),
+                    new TalkChoice("언젠가가 언제쯤인데?", TalkTrait.Plain, 0, "그건 오빠 하기 나름이지. 차트한테 물어봐."))),
+
+            // ── 이름 (T4) ────────────────────────────────────────────────
+            // 장면: 밤. 불 끄기 전. 요미가 "오빠" 말고 이름으로 불러보고 싶어 한다. 정작 부르려니 목소리가 안 나온다.
+            //       호칭은 관계의 형태 그 자체 — 그걸 바꾸겠다는 게 전면화의 정점이다. 수위는 애원까지.
+            //       말하지 않을 것 — 혼자 몇 번이나 연습했다는 것. 입 밖에 내면 뭔가 변할까 봐 무서웠다는 것.
+            //       ⚠️ 플레이어의 이름은 게임에 존재하지 않는다. 실제 호칭은 끝까지 소리로 들려주지 않고
+            //          착지의 지문으로만 처리한다 — "오빠가 아닌 호칭"이라는 서술이 이름의 자리를 대신한다.
+            new TalkTopic("TALK_LOVE_003", TalkCategory.Affection, TalkTime.Night, AffectionTier.T4Min, 100,
+                "...들었어도 못 들은 척해. 그게 규칙이야.",
+                // 도입
+                new TalkNode(new[]
+                    {
+                        "오빠.",
+                        "...아니야. 방금 건 취소.",
+                    },
+                    new TalkChoice("취소라니, 뭐가?", TalkTrait.Plain, 0, "취소한 걸 물어보면 취소가 아니잖아. 규칙 위반이야."),
+                    new TalkChoice("어, 왜. 말해.", TalkTrait.Plain, 0, "말하려다가 관뒀어. 아직 준비가 안 됐어, 요미가."),
+                    new TalkChoice("부르고 취소하는 게 어딨어.", TalkTrait.Waver, 0, "여기 있어. 요미 사전엔 있는 제도야. 방금 만들었어.")),
+                // 곁길 — 요미가 묻는다
+                new TalkNode(new[]
+                    {
+                        "...있잖아. 하나 물어봐도 돼?",
+                        "요미 이름 부를 때, 무슨 생각 해?",
+                    },
+                    new TalkChoice("생각? 그냥 부르는 건데.", TalkTrait.Plain, 0, "그냥이구나. ...그냥이 제일 무섭다, 가끔."),
+                    new TalkChoice("예쁜 이름이라는 생각.", TalkTrait.Warm, 0, "...밤에 그런 말 하면 반칙이라고 했지. 심장에 안 좋아."),
+                    new TalkChoice("갑자기 왜, 무슨 일인데.", TalkTrait.Plain, 0, "일은 아니고. 준비 운동이야. 뭐의 준비인지는 곧 알아.")),
+                // 균열
+                new TalkNode(new[]
+                    {
+                        "※ 이불 끝을 코까지 끌어올린 채 눈만 내놓고 있다.",
+                        "요미도... 이름으로 불러보고 싶어.",
+                        "오빠 말고, 이름. ...웃으면 안 하고 만다.",
+                    },
+                    new TalkChoice("갑자기 왜, 오글거리게.", TalkTrait.Waver, -1, "...오글. 오글이라고 했어. 알았어, 없던 일로 해줄게."),
+                    new TalkChoice("안 웃어. 불러봐, 지금.", TalkTrait.Plain, 0, "지, 지금? 지금은 좀... 마음의 준비가. 기다려봐."),
+                    new TalkChoice("이름, 좋지. 불러줘.", TalkTrait.Warm, 0, "허락이 너무 빠른데. 그러면 요미가 더 긴장되잖아."),
+                    new TalkChoice("...나도 그 생각 해본 적 있어.", TalkTrait.Anxious, 0, "진짜? 우리 같은 생각 자주 하네, 요즘.")),
+                // 직면
+                new TalkNode(new[]
+                    {
+                        "연습은... 했어. 몇 번인지는 비밀이야.",
+                        "근데 막상 부르려니까 목소리가 안 나와.",
+                        "부르고 나면, 지금이랑 달라질 것 같아서.",
+                    },
+                    new TalkChoice("달라져도 돼. 내가 들을게.", TalkTrait.Warm, 2, "...그 말 믿고 간다? 물리기 없기다? 진짜 없기다?"),
+                    new TalkChoice("...달라지는 게 무서운 건 나도야.", TalkTrait.Anxious, 1, "그럼 우리 둘 다 겁쟁이네. 겁쟁이끼리 잘됐다."),
+                    new TalkChoice("연습한 만큼은 나올 거야.", TalkTrait.Duty, 0, "연습이랑 실전은 다르잖아. 차트도 그렇고."),
+                    new TalkChoice("음, 몇 번인지가 왜 비밀이야?", TalkTrait.Plain, 0, "비밀이 몇 번이냐니, 그런 질문이 어딨어. ...세 번이야.")),
+                // 전환
+                new TalkNode(new[]
+                    {
+                        "...역시 오늘은 예행연습까지만 할래.",
+                        "본방은 예고 없이 온다? 각오해둬.",
+                    },
+                    new TalkChoice("못 부를 거면 자자.", TalkTrait.Plain, -1, "...냉정해. 알았어. 오늘 밤 요미가 얼마나 용감했는지는 알아둬."),
+                    new TalkChoice("예행연습 치고 길었다?", TalkTrait.Plain, 0, "긴 만큼 본방이 대단할 거라는 뜻이지. 기대해."),
+                    new TalkChoice("본방, 오늘 밤일 수도 있어?", TalkTrait.Waver, 0, "그건... 요미도 몰라. 밤은 기니까. 모른다?")),
+                // 착지
+                new TalkNode(new[]
+                    {
+                        "※ 불이 꺼지고, 이불 스치는 소리가 잦아든다.",
+                        "※ 어둠 속에서 아주 작게, 오빠가 아닌 호칭이 들렸다.",
+                        "...자는 거지? 못 들었지?",
+                    },
+                    new TalkChoice("쿨쿨. 아무것도 못 들었다.", TalkTrait.Warm, 1, "...잘했어. 그렇게 며칠만 더 못 들어줘. 연습 끝날 때까지."),
+                    new TalkChoice("방금 그거, 한 번만 더.", TalkTrait.Plain, 0, "안 돼! 하루 한 번 한정이야. 내일... 아니, 언젠가."))),
         };
 
         /// <summary>
