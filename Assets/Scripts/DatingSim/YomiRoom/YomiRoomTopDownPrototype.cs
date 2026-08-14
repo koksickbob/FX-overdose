@@ -462,12 +462,20 @@ namespace FXOverdose.DatingSim.YomiRoom
         private int direction;
         private float animationTime;
 
-        public void Configure(Rigidbody2D targetBody, SpriteRenderer targetRenderer, Sprite[] walkFrames)
+        // 이동량의 출처. null이면 기존대로 부모의 YomiRoomTopDownController를 찾습니다.
+        // 편의점 씬의 요미·손님처럼 그 컨트롤러가 없는 경우에만 주입합니다.
+        private System.Func<Vector2> inputSource;
+
+        public void Configure(Rigidbody2D targetBody, SpriteRenderer targetRenderer, Sprite[] walkFrames,
+            System.Func<Vector2> moveInputSource = null)
         {
             body = targetBody;
             renderer = targetRenderer;
             frames = walkFrames;
-            controller = body != null ? body.transform.parent.GetComponent<YomiRoomTopDownController>() : null;
+            inputSource = moveInputSource;
+            controller = inputSource == null && body != null && body.transform.parent != null
+                ? body.transform.parent.GetComponent<YomiRoomTopDownController>()
+                : null;
             direction = 0;
             if (renderer != null && frames != null && frames.Length >= 2)
                 renderer.sprite = frames[1];
@@ -477,10 +485,12 @@ namespace FXOverdose.DatingSim.YomiRoom
         {
             if (body == null || renderer == null || frames == null || frames.Length < 12) return;
 
-            if (controller == null && body.transform.parent != null)
+            if (inputSource == null && controller == null && body.transform.parent != null)
                 controller = body.transform.parent.GetComponent<YomiRoomTopDownController>();
 
-            Vector2 delta = controller != null ? controller.MoveInput : Vector2.zero;
+            Vector2 delta = inputSource != null
+                ? inputSource()
+                : (controller != null ? controller.MoveInput : Vector2.zero);
             bool moving = delta.sqrMagnitude > 0.01f;
             if (moving)
             {

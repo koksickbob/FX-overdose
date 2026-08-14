@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FXOverdose.DatingSim.Core;
@@ -193,7 +193,6 @@ namespace FXOverdose.DatingSim.WorldMap
             if (WorldMapManager.Instance != null)
             {
                 WorldMapManager.Instance.OnActionFailed += HandleActionFailed;
-                WorldMapManager.Instance.OnJobFinished += HandleJobFinished;
                 WorldMapManager.Instance.OnDateStarted += HandleDateStarted;
             }
         }
@@ -210,7 +209,6 @@ namespace FXOverdose.DatingSim.WorldMap
             if (WorldMapManager.Instance != null)
             {
                 WorldMapManager.Instance.OnActionFailed -= HandleActionFailed;
-                WorldMapManager.Instance.OnJobFinished -= HandleJobFinished;
                 WorldMapManager.Instance.OnDateStarted -= HandleDateStarted;
             }
         }
@@ -350,12 +348,6 @@ namespace FXOverdose.DatingSim.WorldMap
         private void HandleActionFailed()
         {
             if (feedbackText != null) feedbackText.text = "행동 불가: 자원(체력/시간/자금)이 부족합니다.";
-        }
-
-        private void HandleJobFinished(string jobName, float reward)
-        {
-            UpdateBalanceUI();
-            if (feedbackText != null) feedbackText.text = $"{jobName} 완료! 보상금: ${reward:N0}이 자산에 합산되었습니다.";
         }
 
         private void HandleDateStarted(string courseName)

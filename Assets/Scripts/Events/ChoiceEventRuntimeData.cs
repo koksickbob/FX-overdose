@@ -110,7 +110,7 @@ namespace FXOverdose.Events
                 {
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Safe, OptionTitle = "AI가 완전히 미쳤다. 시스템을 강제 종료하고 치료.", Description = "특이점 모드 해제 및 일반 차트 복귀. 멘탈 Stable 강제 초기화, 체력 50% 회복.", MentalChangeAmount = 60, HealthChangeAmount = 50, ForcePosition = TradingController.PositionType.None },
                     new ChoiceOptionData { OptionType = ChoiceOptionType.Aggressive, OptionTitle = "AI의 신성한 틱 예측 능력을 믿고 제어권 100% 양도!", Description = "향후 3분 동안 발생할 모든 캔들의 방향을 100% 정확히 예언. 안전 배율 고정 연속 복리 익절 성공.", OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 25f, OverrideDurationSeconds = 20, MentalChangeAmount = 50, ForceLeverage = 10, ForcePosition = TradingController.PositionType.Long },
-                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[에너지 드링크 + 디저트 과다 투입] (에너지 드링크 1개 소모)", Description = "각성 유지 시간을 연장하고 수수료 0원 버프 활성화. 게임 목표 자산 달성 가능.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 30f, OverrideDurationSeconds = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long }
+                    new ChoiceOptionData { OptionType = ChoiceOptionType.SpecialItem, OptionTitle = "[에너지 드링크 + 디저트 과다 투입] (에너지 드링크 1개 소모)", Description = "각성 유지 시간을 연장하고 수수료 0원 버프를 활성화합니다.", RequiredItemId = "energy_drink", RequiredItemCount = 1, OverrideSignalProbTrue = 1.0f, OverrideBeamPercent = 30f, OverrideDurationSeconds = 25, ForceLeverage = 50, ForcePosition = TradingController.PositionType.Long }
                 }));
 
             list.Add(Create("EVENT_11_FOMC_DEADLOCK", "연방준비은행(FRB) 금리 결정 FOMC 직전 50:50 교착 분기",

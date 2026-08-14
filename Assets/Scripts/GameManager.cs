@@ -114,8 +114,11 @@ public class GameManager : MonoBehaviour
 
     [Header("자산 설정")]
     [SerializeField] private float startingBalance = 7000f; // 초기 자본금
-    [SerializeField] private float targetBalance = 100000f;  // 목표 자산 (엔딩 철폐되어 단순 표기용)
     [SerializeField] private float currentBalance;           // 현재 자산
+
+    // 최종 보스(20일차 사채업자)의 자산 배율. BossManager의 등록값과 같아야 합니다.
+    // 보스 데이터가 없을 때의 엔딩 백업 판정에만 쓰입니다.
+    private const float FinalBossAssetScale = 0.9f;
 
     [Header("스토리 모드 이벤트 및 엔딩 연출")]
     [SerializeField] private System.Collections.Generic.List<StoryEvent> storyEvents = new System.Collections.Generic.List<StoryEvent>();
@@ -157,7 +160,6 @@ public class GameManager : MonoBehaviour
     public EndingType CurrentEnding => currentEnding;
     public float StartingBalance => startingBalance;
     public float CurrentBalance => currentBalance;
-    public float TargetBalance => targetBalance;
     public int CurrentDay => currentDay;
     public int CurrentHour => currentHour;
     public int CurrentMinute => currentMinute;
@@ -398,14 +400,8 @@ public class GameManager : MonoBehaviour
         bossManager.SpawnBossForDay(currentDay, encounterEquity);
     }
 
-    private System.Collections.Generic.List<string> day1Monologue = new System.Collections.Generic.List<string> {
-        "알바에서도 짤리고... 내 수중엔 단돈 4,000달러뿐. 20일 안에 100만 달러를 만들지 못하면 끝장이야!",
-        "일단 레버리지는 5배밖에 안 되니까, 조심스럽게 소액 익절을 반복해서 경험치를 쌓고 레벨부터 올려야 해.",
-        "5일 뒤엔 밀린 월세도 내야 하니까 방심하지 말자!"
-    };
-
     private System.Collections.Generic.List<string> day6Monologue = new System.Collections.Generic.List<string> {
-        "하아... 이런 푼돈 단타로는 20일 안에 절대 100만 달러를 못 만들어! 더 큰 돈을 벌려면 레버리지 배율을 높여야 해.",
+        "하아... 이런 푼돈 단타로는 사채업자 근처도 못 가! 더 큰 돈을 벌려면 레버리지 배율을 높여야 해.",
         "부지런히 거래해서 경험치를 쌓고 레벨을 올려야만 중고배율 레버리지가 해금된다고!",
         "지금부터는 어떻게든 레벨을 올려서 자산을 공격적으로 뻥튀기해야만 살아남을 수 있어. 가자!"
     };
@@ -454,31 +450,14 @@ public class GameManager : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    public void FinishLoadingAndStartPlaying(bool skipCutscenes = false)
+    // 1일차 오프닝 컷씬과 독백은 제거되었습니다 (2026-08-14).
+    // 엔딩 조건이 바뀌고 스토리라인이 개편될 예정이라, 옛 목표("20일 안에 100만 달러")를
+    // 선언하던 인트로를 남겨두면 잘못된 목표를 안내하게 됩니다.
+    // 새 인트로를 붙일 때는 튜토리얼 중 재생을 막을 수단(옛 skipCutscenes 인자)도 함께 되살리십시오.
+    public void FinishLoadingAndStartPlaying()
     {
         if (currentState == GameState.Loading)
         {
-            if (!skipCutscenes && !IsGameLoaded && FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
-            {
-                if (currentDay == 1)
-                {
-                    var introEvent = storyEvents.Find(e => e.triggerDay == 1);
-                    if (introEvent != null && introEvent.comicPanels != null && introEvent.comicPanels.Count > 0 && FXOverdose.UI.ComicCutsceneController.Instance != null)
-                    {
-                        currentState = GameState.Paused; // 시간 흐름 정지
-                        Debug.Log("[GameManager] 1일차 오프닝 컷씬 시작 (시간 정지)");
-                        FXOverdose.UI.ComicCutsceneController.Instance.PlayCutscene(introEvent.comicPanels, () => {
-                            StartCoroutine(PlayStoryMonologueAndWait(day1Monologue, () => {
-                                SyncBossForCurrentDay();
-                                currentState = GameState.Playing;
-                                Debug.Log("[GameManager] 오프닝 컷씬 및 독백 종료. 차트 엔진 예열 완료 -> 게임 정식 개장 (Playing)");
-                            }));
-                        });
-                        return;
-                    }
-                }
-            }
-
             SyncBossForCurrentDay();
             var bossManager = FXOverdose.Core.BossManager.Instance;
             if (bossManager != null && bossManager.HasBossToday(currentDay) && bossManager.CurrentBoss != null)
@@ -567,6 +546,16 @@ public class GameManager : MonoBehaviour
         // 구독자들이 이 분의 손익을 반영한 뒤에 자산을 표본으로 남깁니다. 순서를 앞당기면 한 틱 밀린 값이 찍힙니다.
         SampleDailyEquityIfDue();
 
+        // 오늘 나갈 돈을 요미가 미리 알려줍니다.
+        // Playing 전이 지점이 6곳(보스 연출·스토리 컷씬·로드·취침 복귀 등)에 흩어져 있어 그 전부에 걸면 취약합니다.
+        // 여기는 아침 연출이 모두 끝나고 시간이 실제로 흐르기 시작한 뒤에만 도달하므로
+        // 말풍선이 등장 연출과 겹치지 않고, 하루 1회가 보장됩니다.
+        if (expenseAnnouncedForDay != currentDay)
+        {
+            expenseAnnouncedForDay = currentDay;
+            AnnounceTodayExpenses();
+        }
+
         // 24시가 되면 마지막 1분 데이터 반영 이후 일일 정산 모드 진입
         if (currentHour >= 24 && currentState == GameState.Playing)
         {
@@ -640,6 +629,56 @@ public class GameManager : MonoBehaviour
         }
         
         return deduction;
+    }
+
+    // 오늘 지출을 예고한 일차. 하루 1회만 알리기 위한 표식입니다.
+    // 저장하지 않으므로 중간에 다시 접속하면 한 번 더 알려줍니다 — 리마인더로 유용합니다.
+    private int expenseAnnouncedForDay = -1;
+
+    /// <summary>
+    /// 오늘 빠져나갈 돈을 트레이딩 시작 시점에 요미가 미리 알려줍니다.
+    ///
+    /// 16일차는 대상이 아닙니다. 그날 위약금은 아침 컷씬 직후에 이미 차감되므로
+    /// "오늘 밤 나갈 거야"라고 하면 거짓말이 됩니다. (day16Monologue가 사후 반응을 담당합니다)
+    /// </summary>
+    private void AnnounceTodayExpenses()
+    {
+        if (FXOverdose.Core.SaveLoadManager.Instance == null
+            || FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode != FXOverdose.Core.GameMode.Story)
+        {
+            return;
+        }
+
+        float deduction = CalculateExpectedDeduction(currentDay, out string reason);
+
+        // 아침에 이미 차감되는 16일차 위약금은 예고에서 제외합니다.
+        float penalty = 0f;
+        if (currentDay != 16)
+        {
+            var evt = storyEvents.Find(e => e.triggerDay == currentDay);
+            if (evt != null && evt.isPenalty && evt.penaltyAmount > 0f) penalty = evt.penaltyAmount;
+        }
+
+        if (deduction <= 0f && penalty <= 0f) return;
+
+        string line;
+        if (deduction > 0f && penalty > 0f)
+        {
+            line = $"오빠, 오늘 최악이야... {reason} ${deduction:N0}에 위약금 ${penalty:N0}까지, "
+                 + $"합쳐서 ${deduction + penalty:N0}이 밤에 빠져나가!";
+        }
+        else if (deduction > 0f)
+        {
+            line = $"오빠, 오늘 밤에 {reason}로 ${deduction:N0} 빠져나가. 그 전에 벌어놔야 해!";
+        }
+        else
+        {
+            line = $"오늘 밤 위약금 ${penalty:N0} 나가는 날이야... 각오하고 시작하자.";
+        }
+
+        var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+        visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
+        Debug.Log($"[GameManager] 💸 {currentDay}일차 지출 예고: 정기 {deduction:N0} / 위약금 {penalty:N0}");
     }
 
     private void ProcessDailySettlementWithStory()
@@ -756,10 +795,16 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Day 20 진 엔딩 조건 검사 (보스전 백업)
+        // Day 20 엔딩 백업. BossManager가 없거나 최종 보스 스폰에 실패했을 때만 도달합니다.
+        // 이 분기가 없으면 그런 예외 상황에서 21일차로 넘어가 엔딩이 영영 나지 않습니다.
+        //
+        // 종전에는 $1,000,000 고정값을 썼는데, 목표 자산 성공 조건이 철폐된 뒤로는
+        // 근거 없는 숫자였습니다(당시 targetBalance는 $100,000으로 10배 어긋나 있었습니다).
+        // 실제 승리 조건인 "최종 보스 자산 초과"를 그대로 흉내 냅니다.
         if (currentDay == 20)
         {
-            if (totalEquity >= 1000000f) EndGame(EndingType.Success);
+            float finalBossAsset = StartOfDayEquity * FinalBossAssetScale;
+            if (totalEquity > finalBossAsset) EndGame(EndingType.Success);
             else EndGame(EndingType.Bankruptcy);
             return;
         }

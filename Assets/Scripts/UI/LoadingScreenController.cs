@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using FXOverdose.Core;
 using FXOverdose.Trading;
 
 namespace FXOverdose.UI
@@ -55,6 +56,21 @@ namespace FXOverdose.UI
             {
                 canvasGroup.alpha = 0f;
                 yield return FadeCanvas(0f, 1f, fadeInDuration);
+            }
+
+            // 빌드에 없는 씬을 요청받으면 LoadSceneAsync가 null을 돌려줍니다.
+            // 예전에는 여기서 yield break 했는데, 그러면 플레이어가 로딩 화면에 <b>영구히 갇힙니다</b> —
+            // 화면에 보이는 건 멈춘 진행 바뿐이고 빠져나갈 손잡이가 없습니다.
+            // 되돌아갈 곳은 세이브의 복귀 지점(LastSceneName)입니다. 그것도 없으면 GameScene입니다.
+            if (!Application.CanStreamedLevelBeLoaded(targetSceneName))
+            {
+                string fallback = SaveLoadManager.Instance?.CurrentData?.LastSceneName;
+                if (string.IsNullOrEmpty(fallback) || fallback == targetSceneName ||
+                    !Application.CanStreamedLevelBeLoaded(fallback))
+                    fallback = "GameScene";
+
+                Debug.LogError($"[LoadingScreen] {targetSceneName}이(가) 빌드 세팅에 없습니다. {fallback}(으)로 되돌립니다.");
+                targetSceneName = fallback;
             }
 
             AsyncOperation operation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Additive);

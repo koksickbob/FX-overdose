@@ -103,7 +103,7 @@ namespace FXOverdose.Core
             
             achievements.Add(new AchievementDefinition { Id = "risky_event_success_20", Title = "하이 리스크 하이 리턴", Description = "돌발 이벤트에서 위험 선택지를 선택하여 총 20번 성공", Type = AchievementType.RiskyEventSuccess, TargetValue = 20, RewardCostumeId = "jirai_kei" });
             
-            achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "첫 목표 달성", Description = "100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000 });
+            achievements.Add(new AchievementDefinition { Id = "balance_1m", Title = "백만장자", Description = "누적 최고 자산 100만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 1000000 });
             achievements.Add(new AchievementDefinition { Id = "balance_25m", Title = "억만장자의 길 I", Description = "누적 최고 자산 2,500만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 25000000, RewardCostumeId = CostumeManager.NurseId });
             achievements.Add(new AchievementDefinition { Id = "balance_50m", Title = "억만장자의 길 II", Description = "누적 최고 자산 5,000만 달러 달성", Type = AchievementType.PeakBalance, TargetValue = 50000000, RewardCostumeId = "bunny_girl,bikini" });
         }
