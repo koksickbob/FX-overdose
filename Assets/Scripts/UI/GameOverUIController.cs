@@ -109,7 +109,7 @@ namespace FXOverdose.UI
         {
             if (gameManager == null)
             {
-                gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager = GameManager.Instance;
             }
         }
 
@@ -228,8 +228,8 @@ namespace FXOverdose.UI
 
             balanceValueText.text = $"${Mathf.Max(0f, finalEquity):N2}";
             dayValueText.text = gameManager != null
-                ? $"DAY {Mathf.Max(1, gameManager.CurrentDay):00}  /  {gameManager.CurrentHour:00}:{gameManager.CurrentMinute:00}"
-                : "DAY --  /  --:--";
+                ? $"{FXOverdose.Core.GameCalendar.ToKoreanFull(gameManager.CurrentDate)}  /  {gameManager.CurrentHour:00}:{gameManager.CurrentMinute:00}"
+                : "----년 --월 --일  /  --:--";
             mentalValueText.text = status != null
                 ? $"{status.CurrentMental:0}/{status.MaxMental:0}  /  {status.CurrentMentalState.ToString().ToUpperInvariant()}"
                 : "--/--  /  UNKNOWN";
@@ -555,7 +555,7 @@ namespace FXOverdose.UI
             SetTopRect(metrics.GetComponent<RectTransform>(), 446f, 30f, 424f, 110f);
 
             balanceValueText = CreateMetricCard(metrics.transform, "BalanceMetric", "FINAL EQUITY", "$0.00", 0f, 0.315f);
-            dayValueText = CreateMetricCard(metrics.transform, "DayMetric", "SESSION CLOSED", "DAY 01 / 09:00", 0.3425f, 0.6575f);
+            dayValueText = CreateMetricCard(metrics.transform, "DayMetric", "SESSION CLOSED", "2026년 6월 26일 / 09:00", 0.3425f, 0.6575f);
             mentalValueText = CreateMetricCard(metrics.transform, "MentalMetric", "MENTAL STATUS", "0/100 / OVERDOSE", 0.685f, 1f);
         }
 

@@ -235,8 +235,9 @@ namespace FXOverdose.DatingSim.WorldMap
 
         private void UpdateTimeSlotUI(int currentSlots)
         {
+            // 슬롯 1개가 3시간을 소모하게 된 뒤로는 개수만으로 "지금 몇 시인지"를 알 수 없습니다.
             if (timeSlotText != null)
-                timeSlotText.text = $"남은 시간  {currentSlots}/5";
+                timeSlotText.text = $"남은 시간  {currentSlots}/5  ({DatingTimeManager.ClockTextForSlots(currentSlots)})";
             if (timePips != null)
             {
                 for (int i = 0; i < timePips.Length; i++)
@@ -246,7 +247,7 @@ namespace FXOverdose.DatingSim.WorldMap
 
         private void UpdateBalanceUI()
         {
-            var gm = FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             if (gm != null && balanceText != null)
             {
                 balanceText.text = $"보유 자산  ₩{gm.CurrentBalance:N0}";

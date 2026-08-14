@@ -196,7 +196,7 @@ namespace FXOverdose.Core
             BindGameplayEvents();
             BindTitleButtons(scene);
 
-            bool isGameplay = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include) != null;
+            bool isGameplay = GameManager.Instance != null;
             if (isGameplay) StartNormalMusic();
             else StartTitleMusic();
         }

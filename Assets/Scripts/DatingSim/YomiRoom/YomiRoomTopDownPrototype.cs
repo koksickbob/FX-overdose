@@ -426,7 +426,8 @@ namespace FXOverdose.DatingSim.YomiRoom
         private void UpdateTime(int current)
         {
             int clamped = Mathf.Clamp(current, 0, 5);
-            if (timeValue != null) timeValue.text = $"{clamped}/5";
+            // 슬롯 1개 = 3시간이므로 개수만으로는 지금 몇 시인지 알 수 없습니다.
+            if (timeValue != null) timeValue.text = $"{clamped}/5  {DatingTimeManager.ClockTextForSlots(clamped)}";
             if (timePips == null) return;
             for (int i = 0; i < timePips.Length; i++)
             {

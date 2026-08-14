@@ -100,7 +100,7 @@ namespace FXOverdose.Core
             slotIndex = Mathf.Clamp(slotIndex, 0, MaxStorySlots - 1);
             ActiveStorySlotIndex = slotIndex;
 
-            var gm = FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
@@ -154,6 +154,8 @@ namespace FXOverdose.Core
             if (gm != null)
             {
                 data.Balance = gm.CurrentBalance;
+                data.CurrentDate = GameCalendar.ToSerialized(gm.CurrentDate);
+                data.StartDate = GameCalendar.ToSerialized(gm.StartDate);
                 data.CurrentDay = gm.CurrentDay;
                 data.CurrentHour = gm.CurrentHour;
                 data.CurrentMinute = gm.CurrentMinute;
@@ -452,7 +454,16 @@ namespace FXOverdose.Core
             // 요미의 방에서 시작하므로, 초기 자금을 GameScene 진입까지 미루면 방에서 기본값이 보이고
             // 그 사이 벌어들인 알바 수익이 나중에 StartNewGame()에 덮여 사라집니다.
             // StoryDifficultyTables는 순수 static이라 씬 의존이 없습니다.
-            // 날짜·시각·레벨·기억·코스튬은 SaveData 기본값이 곧 초기 상태라 따로 심지 않습니다.
+            // 시각·레벨·기억·코스튬은 SaveData 기본값이 곧 초기 상태라 따로 심지 않습니다.
+
+            // ⚠️ 날짜만은 여기서 반드시 심어야 합니다. SaveData의 날짜 기본값은 "구버전 세이브"를
+            //    가려내는 빈 문자열이라(SaveData 주석 참고), 그대로 두면 새 게임의 첫 저장이 빈 날짜로
+            //    기록됩니다. 스토리 모드는 GameManager가 없는 요미의 방에서 시작해 거래 개시 전에
+            //    저장하므로 수집 경로(`if (gm != null)`)가 채워주지 못하고, 버전 태그는 이미 최신이라
+            //    마이그레이터도 돌지 않습니다.
+            CurrentData.StartDate = GameCalendar.DefaultStartDateText;
+            CurrentData.CurrentDate = GameCalendar.DefaultStartDateText;
+
             if (CurrentGameMode == GameMode.Story)
             {
                 float initialBalance = StoryDifficultyTables.Get(CurrentStoryDifficulty).StartingBalance;
@@ -483,7 +494,7 @@ namespace FXOverdose.Core
         {
             if (!IsPendingLoad || CurrentData == null) return;
 
-            var gm = FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
             var memory = TraderMemoryManager.Instance;
@@ -502,9 +513,12 @@ namespace FXOverdose.Core
                 // GameManager 필드 복구 (Reflection)
                 var gmType = typeof(GameManager);
                 gmType.GetField("currentBalance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.Balance);
-                gmType.GetField("currentDay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentDay);
-                gmType.GetField("currentHour", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentHour);
-                gmType.GetField("currentMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentMinute);
+
+                // 시계는 리플렉션이 아니라 전용 복원 메서드로 되돌립니다. 리플렉션은 필드명이 바뀌어도
+                // 컴파일 에러 없이 조용히 실패하는데, 시간축이 통째로 초기값이 되는 사고는 눈에 잘 띄지 않습니다.
+                // 이 메서드는 날짜가 비었거나 손상된 세이브도 일차 서수로 역산해 받아냅니다.
+                gm.RestoreClock(CurrentData.StartDate, CurrentData.CurrentDate,
+                                CurrentData.CurrentHour, CurrentData.CurrentMinute, CurrentData.CurrentDay);
                 // 시간 배속(secondsPerGameMinute)은 일부러 복원하지 않습니다.
                 // 이 값을 바꾸는 유일한 경로가 DynamicTimeRegulator의 슬로우 모션 lerp라
                 // 세션 중 씬에 설정된 기준값에서 벗어나지 않습니다 — 플레이어 상태가 아니라 설계 상수입니다.

@@ -7,7 +7,7 @@ namespace FXOverdose.AI
     {
         public static TraderEmotion Evaluate(float roe, TraderStatus.MentalState mentalState, float healthRatio, EventCategory category, string extraContext)
         {
-            var gm = Object.FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             bool isGameOverState = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
             bool isLiquidationContext = extraContext != null && (extraContext.Contains("강제청산") || extraContext.Contains("게임오버") || extraContext.Contains("파산") || extraContext.Contains("청산 소진") || extraContext.Contains("Overdose 확정") || extraContext.Contains("연쇄 붕괴"));
 

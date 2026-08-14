@@ -46,7 +46,7 @@ public class SettingsMenuController : MonoBehaviour
     private void Awake()
     {
         if (settingsButton == null) settingsButton = GetComponent<Button>();
-        if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+        if (gameManager == null) gameManager = GameManager.Instance;
 
         BuildMenu();
         settingsButton?.onClick.AddListener(ToggleMenu);

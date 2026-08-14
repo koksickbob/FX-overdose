@@ -150,7 +150,7 @@ namespace FXOverdose.Trading
                 }
 
                 // 2. 게임 플레이(장이 개시된 상태) 검증
-                var gm = gameManager != null ? gameManager : UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                var gm = gameManager != null ? gameManager : GameManager.Instance;
                 if (gm != null && gm.CurrentState != GameManager.GameState.Playing)
                 {
                     Debug.LogWarning("[TradingController] ⚠️ 장이 개시(Playing)되기 전에는 매매 모드를 전환할 수 없습니다.");
@@ -281,7 +281,7 @@ namespace FXOverdose.Trading
 
         private void Start()
         {
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             traderStatus = TraderStatus.CanonicalInstance;
 
@@ -849,7 +849,7 @@ namespace FXOverdose.Trading
         // 포지션 진입 (AI가 방향, 레버리지, 목표가 TargetPrice를 독자적으로 결정하여 호출)
         public bool OpenPosition(PositionType type, float margin, int leverage, float aiTargetPrice = 0f, float aiStopLossPrice = 0f, bool isEmergencyTrade = false, float customEntryPrice = 0f, bool isPlayerDirectedTrade = false)
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
 
@@ -960,7 +960,7 @@ namespace FXOverdose.Trading
                 return false;
             }
 
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
 
@@ -1477,7 +1477,7 @@ namespace FXOverdose.Trading
                 return;
             }
 
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
 

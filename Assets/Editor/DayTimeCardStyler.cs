@@ -87,7 +87,7 @@ public static class DayTimeCardStyler
         outline.useGraphicAlpha = true;
 
         ConfigureText(day, fontAsset, 29f, 122f, Color.white);
-        day.text = string.IsNullOrWhiteSpace(day.text) ? "DAY 03" : day.text;
+        day.text = string.IsNullOrWhiteSpace(day.text) ? "6월 28일" : day.text;
         day.transform.SetAsFirstSibling();
 
         TMP_Text clock = GetOrCreateClock(card.transform);

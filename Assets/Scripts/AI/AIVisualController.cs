@@ -811,7 +811,7 @@ namespace FXOverdose.AI
             if (string.IsNullOrEmpty(text) || dialogueBalloonPanel == null || dialogueText == null) return;
 
             // 🚀 [고속 스킵 중 대사 제한] 시간이 빠르게 스킵 중일 때는 중요(High 이상) 대사만 수용하고, 나머지는 무시하여 밀림 방지
-            var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             if (gm != null && gm.IsFastForwardingTime && priority < DialoguePriority.High)
             {
                 return;
@@ -1041,7 +1041,7 @@ namespace FXOverdose.AI
             while (dialogueQueue.Count > 0)
             {
                 DialogueRequest nextReq = dialogueQueue.Dequeue();
-                var gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                var gm = GameManager.Instance;
                 bool isGameOver = gm != null && gm.CurrentState == GameManager.GameState.GameOver;
                 
                 float ttl = nextReq.Priority >= DialoguePriority.High ? 8f : 5f; // 상황 지난 대사 폐기 유효기간 대폭 축소

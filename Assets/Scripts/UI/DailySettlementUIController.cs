@@ -101,7 +101,7 @@ namespace FXOverdose.UI
         {
             if (gameManager == null)
             {
-                gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager = GameManager.Instance;
             }
 
         }
@@ -142,10 +142,10 @@ namespace FXOverdose.UI
 
             lastPresentedDay = gameManager.CurrentDay;
             if (dayCompleteCoroutine != null) StopCoroutine(dayCompleteCoroutine);
-            dayCompleteCoroutine = StartCoroutine(ShowDayCompleteThenSettlement(gameManager.CurrentDay));
+            dayCompleteCoroutine = StartCoroutine(ShowDayCompleteThenSettlement(gameManager.CurrentDate));
         }
 
-        private IEnumerator ShowDayCompleteThenSettlement(int completedDay)
+        private IEnumerator ShowDayCompleteThenSettlement(System.DateTime completedDate)
         {
             EnsureUIBuilt();
             Transform parent = overlayRoot != null && overlayRoot.transform.parent != null
@@ -166,7 +166,7 @@ namespace FXOverdose.UI
 
             TMP_Text headline = CreateText(dayCompleteOverlay.transform, "DayComplete", 62f, AiText, TextAlignmentOptions.Center);
             Fixed(headline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(1100f, 110f), new Vector2(0f, 22f));
-            headline.text = $"<color=#EAB308>DAY {completedDay:00}</color> COMPLETE";
+            headline.text = $"<color=#EAB308>{FXOverdose.Core.GameCalendar.ToKoreanShort(completedDate)}</color> COMPLETE";
             headline.fontStyle = FontStyles.Bold;
 
             TMP_Text closed = CreateText(dayCompleteOverlay.transform, "SessionClosed", 28f, Cyan, TextAlignmentOptions.Center);
@@ -301,10 +301,12 @@ namespace FXOverdose.UI
 
         private void UpdateSettlementValues(float startingEquity, TraderStatus status)
         {
+            // 원장 번호는 DAY 라벨이 아니라 문서 일련번호이므로 일차 서수를 그대로 씁니다.
             int day = Mathf.Max(1, gameManager.CurrentDay);
+            System.DateTime date = gameManager.CurrentDate;
             ledgerLabel.text = $"FX OVERDOSE  /  DAILY LEDGER  /  #{day:000}";
-            titleText.text = $"DAY {day:00} SETTLEMENT";
-            nextDayButtonText.text = $"PROCEED TO DAY {day + 1:00}";
+            titleText.text = $"{FXOverdose.Core.GameCalendar.ToKoreanShort(date)} SETTLEMENT";
+            nextDayButtonText.text = $"PROCEED TO {FXOverdose.Core.GameCalendar.ToKoreanShort(date.AddDays(1))}";
             dailyPnlLabelText.text = gameManager.IsDailyPnlPartial ? "P&L SINCE LOAD" : "DAILY P&L";
 
             pnlValueText.text = FormatSignedCurrency(currentDailyPnl);
@@ -610,7 +612,7 @@ namespace FXOverdose.UI
 
             titleText = CreateText(header.transform, "Title", 39f, Color.white, TextAlignmentOptions.TopLeft);
             SetTopRect(titleText.rectTransform, 28f, 410f, 38f, 50f);
-            titleText.text = "DAY 01 SETTLEMENT";
+            titleText.text = "6월 26일 SETTLEMENT";
             titleText.fontStyle = FontStyles.Bold;
 
             GameObject closedBadge = CreatePanel(header.transform, "ClosedBadge", DeepBackground, false);
@@ -765,7 +767,7 @@ namespace FXOverdose.UI
 
             nextDayButtonText = CreateText(buttonObject.transform, "Text", 20f, Color.white, TextAlignmentOptions.Center);
             Stretch(nextDayButtonText.rectTransform, new Vector2(12f, 4f), new Vector2(-12f, -4f));
-            nextDayButtonText.text = "PROCEED TO DAY 02";
+            nextDayButtonText.text = "PROCEED TO 6월 27일";
             nextDayButtonText.fontStyle = FontStyles.Bold;
             nextDayButtonText.characterSpacing = 0.7f;
         }

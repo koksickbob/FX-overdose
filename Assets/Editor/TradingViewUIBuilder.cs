@@ -308,7 +308,7 @@ namespace FXOverdose.EditorTools
             dtLayout.padding = new RectOffset(18, 18, 12, 12);
             dtLayout.spacing = 8f;
             dtLayout.childForceExpandWidth = false;
-            TMP_Text dayText = CreateTMPText("DayLabel", dayTimeCard.transform, "DAY 03", 30, Color.white);
+            TMP_Text dayText = CreateTMPText("DayLabel", dayTimeCard.transform, "6월 28일", 30, Color.white);
             dayText.fontStyle = FontStyles.Bold;
             dayText.alignment = TextAlignmentOptions.Center;
             LayoutElement dayElem = dayText.gameObject.AddComponent<LayoutElement>();

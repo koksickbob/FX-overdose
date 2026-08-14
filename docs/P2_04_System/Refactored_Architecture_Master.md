@@ -344,4 +344,99 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 `verify_mental_balance.py`(리포지토리 루트)가 청산 곡선과 합산 예산 제약을 검사한다. 핵심은 **스케일 불변성**(자본 7천~200만에서 동일 손익률 → 동일 멘탈 변화)과 **4연속 손절 뇌동매매 기믹의 발동 가능성**이다. 후자는 종전 수치로는 2회차에 오버도즈가 확정돼 기믹이 사장돼 있었고, 지금은 수동 3연속 손절 후 멘탈 14.7이 남는다. 수치를 바꾸면 이 스크립트의 상수도 함께 고칠 것.
 
 ---
+
+## 8. 일차 누적 → 달력 날짜 전환 (2026-08-15)
+
+계획서: [Calendar_DateTime_System_Plan.md](Calendar_DateTime_System_Plan.md)
+
+`~일차` 누적 표기를 버리고 년/월/일/시/분 달력으로 전환했다. 에폭은 **2026년 6월 26일(금)**, 20일차 = 7월 15일.
+
+### 8.1 달력이 권위값, 일차는 파생값
+
+`GameManager.currentDay` 필드를 없애고 `currentDate`(DateTime)를 권위값으로 뒀다. `CurrentDay`는 `(currentDate - startDate).Days + 1`을 돌려주는 **프로퍼티**로 남았다.
+
+시그니처가 그대로라 **일차 서수를 키로 쓰는 15개 시스템 30여 개 호출 지점이 한 줄도 바뀌지 않았다** — 보스 일정, 스토리 `triggerDay`, 시장 난이도 구간, 스테이크 7일 쿨다운, 요미 대화 하루 게이트, AI 기억 pruning. 이들이 원하는 건 달력이 아니라 "며칠째"이며 그 의미는 변하지 않았기 때문이다.
+
+> **시/분은 날짜와 합치지 않았다.** 하루는 24:00에 끝나는데 그 시점의 일차는 아직 '어제'여야 정산과 보스 승패 판정이 맞는다. 하나의 `DateTime`으로 합치면 24:00이 익일 00:00이 되어 하루가 어긋난다.
+
+### 8.2 저장 테이블
+
+실질 추가는 문자열 2개(`CurrentDate`, `StartDate`)뿐이다. 나머지 일차 서수 필드 12개(`OutlookDay`·`LastSteakPurchaseDay`·`DatingDay`·`Talk*Day` 등)는 의미가 그대로라 마이그레이션 대상이 아니다. `CurrentDay`도 파생값이지만 계속 기록한다(구버전 호환·역산 근거·`DatingDay` 계약 검증).
+
+**`SaveData`의 날짜 초기화자는 빈 문자열이어야 한다.** 이 값이 "달력 도입 이전 세이브"를 가려내는 판정 기준이다. 기본 날짜를 박으면 구버전 JSON에 키가 없어 초기화자 값이 남고 20일차 세이브가 1일차 날짜로 로드된다. 새 게임의 초기값은 `SaveLoadManager.PrepareNewGame()`이 명시적으로 심는다 — 스토리 모드는 `GameManager`가 없는 요미의 방에서 첫 저장이 일어나 수집 경로(`if (gm != null)`)가 채워주지 못하고, 버전 태그는 이미 최신이라 마이그레이터도 돌지 않는다.
+
+그래서 `GameManager.RestoreClock()`이 **버전과 무관하게** 폴백한다: 날짜가 비었거나 손상되면 `StartDate + (CurrentDay - 1)`로 역산한다.
+
+### 8.3 리플렉션 제거
+
+`SaveLoadManager`가 `currentDay`/`currentHour`/`currentMinute`를 리플렉션으로 주입하던 3줄을 `GameManager.RestoreClock()` 호출로 교체했다. 리플렉션은 필드명이 바뀌어도 컴파일 에러 없이 조용히 실패하는데, 시간축이 통째로 초기값이 되는 사고는 눈에 잘 띄지 않는다. (`currentBalance` 주입은 그대로 남아 있다.)
+
+### 8.4 직렬화는 반드시 InvariantCulture
+
+`FXOverdose.Core.GameCalendar`가 포맷·파싱·표기를 전담한다. 태국(불기)·일본(연호) 로케일에서 `ToString("yyyy-MM-dd")`가 연도를 2569로 쓰는 것을 막기 위해서다. 파싱은 `TryParseExact` — 손상된 날짜 한 줄 때문에 세이브 전체가 예외로 죽으면 안 된다.
+
+### 8.5 날짜 점프의 함정
+
+`AdvanceDate(days)`를 넣었으나 **날짜만 옮긴다** — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋은 하지 않는다. 건너뛴 날의 정기 지출 정책도 미정이라 실제로 점프를 쓰는 스토리 작업에서 정해야 한다.
+
+예약 일차(보스·스토리 이벤트·`StoryLastDay`)는 넘지 못하고 그 날에서 멈추며 경고를 남긴다. 특히 **최종일 판정이 등호 비교(`CurrentDay == StoryLastDay`)라 뛰어넘으면 엔딩이 영영 발생하지 않는다.**
+
+### 8.6 화면
+
+`DAY NN` 표기를 8곳에서 제거하고 `6월 28일`(엔딩은 `2026년 6월 28일`)로 바꿨다. 요일은 표기하지 않는다. 보스 배지만은 **예정 일차**를 표시하므로 `GameManager.DateForDay(ordinal)`로 환산한다 — 현재 날짜를 쓰면 일차 복구보다 보스 스폰이 먼저 오는 순서 문제에 걸린다. 정산 원장 번호 `#003`은 DAY 라벨이 아니라 문서 일련번호이므로 서수를 유지했다.
+
+### 8.7 게임 길이
+
+20일 유지. 다만 하드코딩돼 있던 `20`을 `GameManager.StoryLastDay` 상수로 모아 스토리 개편이 한 줄로 길이를 바꿀 수 있게 했다. 실제 최종일의 주인은 여전히 `BossData.IsFinalBoss`이고, 이 상수는 보스 스폰 실패 시의 백업 판정에만 쓰인다.
+
+### 8.8 검증
+
+에디터 메뉴 `FXOverdose/Debug/Calendar System Test`가 순수 로직 17건을 검사한다(에폭·요일, 일차 환산, 월말/연말 경계, 불기 로케일 왕복, 마이그레이션 역산과 sentinel 보존). 씬이 필요한 항목 — 24:00 정산의 날짜, 새 게임 첫 저장 왕복, 날짜 점프 클램프 — 은 계획서 7절의 수기 체크리스트로 남겼다.
+
+> ⚠️ **폰트 프리베이크 필요.** `년`/`월`/`일`이 새 UI 문자열로 들어갔다. `Tools/Prebake All Scripts Text into Font`를 돌리지 않으면 □로 렌더된다.
+
+---
+
+## 9. 시간 슬롯 ↔ 시계 연동 · 방 내 정산 · 시스템 임시 비활성화 (2026-08-15)
+
+계획서 3종: [TimeSlot_Clock_Integration_Plan.md](TimeSlot_Clock_Integration_Plan.md) · [Settlement_In_YomiRoom_Plan.md](Settlement_In_YomiRoom_Plan.md) · [Boss_Penalty_Temporary_Disable.md](Boss_Penalty_Temporary_Disable.md)
+
+### 9.1 슬롯이 시계를 민다
+
+시간 슬롯 1개 = **게임 내 3시간**. 5슬롯 × 3시간 = 09:00~24:00과 정확히 일치한다. 슬롯을 깎는 유일한 통로인 `DatingTimeManager.TryConsumeTimeSlot`이 시계도 함께 밀므로, 거래 개시 시각은 **기존 세이브 복원 경로를 타고 저절로** 맞는다(2슬롯 소모 → 15:00 시작). 저장 테이블은 변경 없음 — 시계와 슬롯이 이미 둘 다 저장되고 있었고, 관계만 부여했다.
+
+> ⚠️ 시계 전진에 `AdvanceGameMinutes`를 쓰면 안 된다. 그쪽은 `Playing`이 아니면 멈춰 분을 쌓아두므로 거래 개시 때 한꺼번에 터진다. 방·월드맵은 `Paused`이므로 **`AdvanceClockWithoutSimulation`** 을 쓴다.
+
+돌발 이벤트는 두 곳을 고쳤다. **시계 점프 재스케줄** — 슬롯 전진은 `OnGameMinuteAdvanced`를 발행하지 않아 컨트롤러가 점프를 목격하지 못하고 "예정 시각이 지났다"만 보게 되어 개시 첫 분에 팝업이 터졌다. **잔여 시간 기반 한도** — 개시 시각(남은 슬롯에서 역산)으로 재서 6시간 미만 1회, 3시간 미만 0회. 현재 시각으로 재면 평소 09:00 시작에서도 저녁에 한도가 줄어 동작이 바뀐다.
+
+### 9.2 취침 시 방에서 정산 (씬 로드 2회 → 0회)
+
+**계획서 5절의 씬 수술을 하지 않았다.** GameScene의 GameManager가 `Awake`에서 스스로 `DontDestroyOnLoad`로 올라가고, 재진입 시 딸려온 사본이 자폭한다. 상주본이 최초 GameScene의 그 오브젝트이므로 **`storyEvents`·엔딩 만화가 그대로 살아 `StoryDatabase` 추출이 필요 없어졌다.**
+
+딸린 조치 셋:
+- `Start` 본문을 `InitializeForTradingScene()`으로 분리 — 상주 오브젝트는 재진입해도 `Start`가 안 돌아서, 그대로 뒀다면 **세이브 복원이 통째로 누락**된다
+- 거래 씬 밖에서는 `Paused` — 시계·드레인·이벤트는 멎고 저장·잔고 변동은 허용된다. `Playing`으로 두면 방에서 시간이 흐르고, 다른 상태면 방에서 저장이 조용히 실패한다
+- `FindAnyObjectByType<GameManager>` **61곳(34파일)을 `GameManager.Instance`로 치환** — `Destroy`는 프레임 끝에 반영되므로 `Find`는 자폭 예약된 사본을 돌려줄 수 있다
+
+방의 UI는 `RoomSettlementUIBootstrap`이 씬 로드 시 루트 Canvas에 정산·게임오버 컨트롤러를 붙인다(`BossBattleUIBootstrap`과 같은 패턴, 씬 편집 없음).
+
+**차트 리셋 누락 방어**: 일차 전환은 `MarketSimulationEngine`을 리셋하는데 방에는 엔진이 없어 조용히 건너뛰어진다. 직후 자동 저장이 돌아 **전날 캔들이 디스크에 남으므로**, 엔진이 없을 때는 세이브의 차트 상태(`ChartHistories`·`MarketLastUpdatedDay`·`MarketTotalMinutes`)를 비워 다음 진입에서 프리웜되게 한다.
+
+**한계**: 상주본은 최초 GameScene 진입에서 생긴다. 그 전(새 게임 첫날 방)에는 GameManager가 없어 `TrySleep`이 종전 경로로 떨어진다. `GameManager.RoomSettlementEnabled = false`로 전체를 되돌릴 수 있다.
+
+### 9.3 임시 비활성화 스위치 3종
+
+`BossManager.BossesEnabled` / `GameManager.StoryPenaltiesEnabled` / `GameManager.StoryDayLimitEnabled` — 전부 `false`. 스토리 개편 기간 한정이며 되살리기는 세 줄이다.
+
+> **이 상태에서는 성공 엔딩에 도달할 수 없다.** 성공 판정이 「최종 보스 격파」와 「20일차 백업」 둘뿐인데 양쪽이 닫혔다. 파산·오버도즈만 남고 게임은 무한히 이어진다.
+
+주석 처리 대신 **관문 스위치**를 쓴 이유는 소비 지점이 보스 11곳·위약금 5곳으로 흩어져 있어서다. `const`가 아니라 `static readonly`인 것도 의도적이다 — `const`면 하위 코드가 도달 불가로 판정돼 경고가 쏟아진다.
+
+**기능 실행과 일정 보호는 다른 질문이다.** `HasBossToday`(스위치 영향 받음, 조우·스폰·판정용)와 `IsBossScheduledDay`(영향 안 받음, 날짜 점프 클램프용)를 나눴다. 보스가 꺼졌다고 그 날을 건너뛰면, 되살려도 이미 지나친 세이브가 남는다.
+
+### 9.4 검증
+
+에디터 메뉴 `FXOverdose/Debug/Calendar System Test`가 순수 로직 28건을 검사한다(달력 환산·경계·로케일 왕복·마이그레이션 1.7.0/1.8.0·슬롯 시각 환산·스위치 상태). 씬이 필요한 항목은 각 계획서의 검증 체크리스트로 남겼다.
+
+---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

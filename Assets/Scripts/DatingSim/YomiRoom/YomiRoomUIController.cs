@@ -182,8 +182,9 @@ namespace FXOverdose.DatingSim.YomiRoom
 
         private void UpdateTimeSlotUI(int currentSlots)
         {
+            // 슬롯 1개가 3시간을 소모하게 된 뒤로는 개수만으로 "지금 몇 시인지"를 알 수 없습니다.
             if (timeSlotText != null)
-                timeSlotText.text = $"TIME SLOT  {currentSlots}";
+                timeSlotText.text = $"TIME SLOT  {currentSlots}  /  {DatingTimeManager.ClockTextForSlots(currentSlots)}";
         }
 
         private void UpdateAffectionUI(int affection)

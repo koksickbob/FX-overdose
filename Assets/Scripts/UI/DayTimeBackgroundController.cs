@@ -43,7 +43,7 @@ namespace FXOverdose.UI
         {
             gameManager = GetComponent<GameManager>();
             if (gameManager == null)
-                gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager = GameManager.Instance;
 
             ResolveBackgroundImage();
             LoadTimeOfDaySprites();
@@ -61,7 +61,7 @@ namespace FXOverdose.UI
         private void Update()
         {
             if (gameManager == null)
-                gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager = GameManager.Instance;
 
             if (backgroundImage == null)
             {

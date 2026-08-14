@@ -347,7 +347,7 @@ namespace FXOverdose.Trading
             EnsureCandleHistoriesInitialized();
             if (gameManager == null)
             {
-                gameManager = FindAnyObjectByType<GameManager>();
+                gameManager = GameManager.Instance;
             }
 
             if (gameManager != null)

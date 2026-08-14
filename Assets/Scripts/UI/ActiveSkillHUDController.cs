@@ -374,7 +374,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         isUpgradeSequencePlaying = true;
         if (upgradeButton != null) upgradeButton.interactable = false;
 
-        GameManager gameManager = FindAnyObjectByType<GameManager>();
+        GameManager gameManager = GameManager.Instance;
         FXOverdose.AI.AIVisualController visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
         int timeHours = levelSystem.GetSkillTimeCostHours(type);
         string beforeTime = FormatGameTime(gameManager);

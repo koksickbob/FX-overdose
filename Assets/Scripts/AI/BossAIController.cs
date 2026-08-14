@@ -59,7 +59,7 @@ namespace FXOverdose.AI
                 return true; 
             };
             
-            gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            gameManager = GameManager.Instance;
             if (marketEngine != null)
             {
                 marketEngine.OnMarketSignalGenerated += HandleMarketSignalGenerated;

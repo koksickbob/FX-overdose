@@ -146,8 +146,9 @@ namespace FXOverdose.Events
                     $"<color=#CFFAFE>“{monologue}”</color>";
             }
 
-            GameManager gameManager = FindAnyObjectByType<GameManager>();
-            int day = gameManager != null ? gameManager.CurrentDay : 1;
+            GameManager gameManager = GameManager.Instance;
+            string dateText = FXOverdose.Core.GameCalendar.ToKoreanShort(
+                gameManager != null ? gameManager.CurrentDate : FXOverdose.Core.GameCalendar.DefaultStartDate);
             int hour = gameManager != null ? gameManager.CurrentHour : 0;
             int minute = gameManager != null ? gameManager.CurrentMinute : 0;
 
@@ -158,7 +159,7 @@ namespace FXOverdose.Events
 
             if (breakingMetaText != null)
             {
-                breakingMetaText.text = $"LIVE UPDATE  /  {category}  /  DAY {day:00}  {hour:00}:{minute:00}";
+                breakingMetaText.text = $"LIVE UPDATE  /  {category}  /  {dateText}  {hour:00}:{minute:00}";
             }
 
             if (articleMetaText != null)
@@ -635,7 +636,7 @@ namespace FXOverdose.Events
 
             breakingMetaText = CreateText(ticker.transform, "BreakingMeta", 18f, BodyText, TextAlignmentOptions.MidlineLeft);
             Stretch(breakingMetaText.rectTransform, new Vector2(188f, 0f), new Vector2(-22f, 0f));
-            breakingMetaText.text = "LIVE UPDATE  /  MARKET ALERT  /  DAY 01  09:00";
+            breakingMetaText.text = "LIVE UPDATE  /  MARKET ALERT  /  6월 26일  09:00";
             breakingMetaText.characterSpacing = 0.8f;
         }
 

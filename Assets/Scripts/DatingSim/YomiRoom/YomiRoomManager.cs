@@ -444,6 +444,18 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (currentState != YomiRoomState.Idle) return false;
 
             ChangeState(YomiRoomState.Transitioning);
+
+            // 상주 GameManager가 있으면 방에서 그대로 마감합니다. 씬 전환이 0회가 됩니다.
+            // 없는 경우(새 게임 첫날처럼 아직 거래 씬을 한 번도 거치지 않은 상태)에는
+            // 아래의 종전 경로 — GameScene으로 넘어가 남은 시간을 가속 — 로 떨어집니다.
+            var gm = GameManager.Instance;
+            if (gm != null && gm.TrySettleFromRoom())
+            {
+                FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
+                ChangeState(YomiRoomState.Idle);
+                return true;
+            }
+
             GameManager.PendingSleepThroughToday = true;
 
             var saveManager = FXOverdose.Core.SaveLoadManager.Instance;

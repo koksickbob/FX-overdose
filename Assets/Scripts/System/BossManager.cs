@@ -49,7 +49,7 @@ namespace FXOverdose.Core
                     {
                         // Additive 로딩 중 활성 씬이 LoadingScene일 수 있으므로,
                         // 가능하면 GameManager에 붙여 반드시 게임 씬 소속으로 생성합니다.
-                        GameManager gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                        GameManager gameManager = GameManager.Instance;
                         if (gameManager != null)
                         {
                             _instance = gameManager.GetComponent<BossManager>();
@@ -110,14 +110,62 @@ namespace FXOverdose.Core
                 _instance = null;
         }
 
+        /// <summary>
+        /// 보스 시스템 전체 스위치. <b>스토리 개편 기간 동안 꺼 둡니다 (2026-08-15).</b>
+        ///
+        /// 이 한 값이 보스의 유일한 관문입니다 — 조우 판정·아침 등장 연출·AI 스폰·HUD 설치·
+        /// 정산 승패 판정·세이브 기록이 전부 <see cref="HasBossToday"/>/<see cref="GetBossData"/>를
+        /// 거치므로, 여기서 끊으면 하위 경로가 전부 함께 죽습니다. 되살릴 때는 true 한 글자입니다.
+        ///
+        /// ⚠️ <b>const가 아니라 static readonly입니다.</b> const로 두면 하위 코드가 도달 불가로
+        ///    판정되어 경고가 쏟아지고, 되살릴 때까지 그 경고가 진짜 문제를 가립니다.
+        ///
+        /// ⚠️ <b>AITradingBrain은 보스 시스템이 아닙니다.</b> IsBossAI 분기를 갖고 있을 뿐,
+        ///    평상시 자동 매매의 실행 주체입니다. 함께 끄지 마십시오.
+        /// </summary>
+        public static readonly bool BossesEnabled = false;
+
+        /// <summary>
+        /// 지금 보스가 동작해야 하는지. <b>비활성화는 스토리 모드에만 적용됩니다.</b>
+        ///
+        /// 엔드리스·챌린지는 보스전이 곧 모드의 존재 이유이므로 스위치와 무관하게 항상 켜 둡니다.
+        /// (P2P는 애초에 이 매니저를 쓰지 않습니다.)
+        /// </summary>
+        private static bool BossesActive
+        {
+            get
+            {
+                if (BossesEnabled) return true;
+                var save = SaveLoadManager.Instance;
+                // 세이브 매니저가 없는 테스트 씬 등은 스토리로 간주해 종전대로 꺼 둡니다.
+                return save != null && save.CurrentGameMode != GameMode.Story;
+            }
+        }
+
         public bool HasBossToday(int day)
         {
+            if (!BossesActive) return false;
             return bossDatabase.Exists(b => b.Day == day);
         }
 
         public BossData GetBossData(int day)
         {
+            if (!BossesActive) return null;
             return bossDatabase.Find(b => b.Day == day);
+        }
+
+        /// <summary>
+        /// 그 일차에 보스가 <b>편성되어 있는지</b>를 <see cref="BossesEnabled"/>와 무관하게 답합니다.
+        ///
+        /// 보스를 껐다고 해서 "그 날은 아무것도 없는 날"이 되는 것은 아닙니다. 날짜 점프 클램프처럼
+        /// <b>일정을 보호하는 쪽</b>은 기능이 꺼져 있어도 계속 그 날을 피해야 합니다 —
+        /// 그러지 않으면 보스를 되살렸을 때 이미 건너뛰어진 세이브가 남습니다.
+        ///
+        /// 조우·스폰·판정처럼 <b>기능을 실행하는 쪽</b>은 <see cref="HasBossToday"/>를 쓰십시오.
+        /// </summary>
+        public bool IsBossScheduledDay(int day)
+        {
+            return bossDatabase.Exists(b => b.Day == day);
         }
 
         public void ClearBoss()
@@ -136,6 +184,10 @@ namespace FXOverdose.Core
         public void SpawnBossForDay(int day, float playerCurrentAssets)
         {
             ClearBoss();
+
+            // GetBossData가 null을 돌려주므로 아래 블록은 어차피 통과하지 않지만,
+            // 스폰은 UI 설치·AI 오브젝트 생성 같은 부작용이 있어 관문을 하나 더 둡니다.
+            if (!BossesActive) return;
 
             CurrentBoss = GetBossData(day);
             if (CurrentBoss != null)

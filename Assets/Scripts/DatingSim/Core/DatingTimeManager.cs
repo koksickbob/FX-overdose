@@ -108,17 +108,84 @@ namespace FXOverdose.DatingSim.Core
 
         // --- 핵심 로직 메서드 ---
 
+        /// <summary>
+        /// 슬롯 1개가 소모하는 게임 내 시간. 5슬롯 × 3시간 = 15시간이고,
+        /// 하루가 09:00에 시작해 24:00에 끝나므로 정확히 하루 전체와 맞아떨어집니다.
+        /// </summary>
+        public const int MinutesPerTimeSlot = 180;
+
+        /// <summary>하루에 주어지는 기본 슬롯 수. 09:00 + 5×3시간 = 24:00.</summary>
+        public const int DefaultTimeSlots = 5;
+
+        /// <summary>하루가 시작하는 시각(분). 09:00.</summary>
+        public const int DayStartMinuteOfDay = 9 * 60;
+
+        /// <summary>
+        /// 남은 슬롯 수에 대응하는 시각(분)을 돌려줍니다. 5→09:00, 4→12:00 ... 0→24:00.
+        /// 방·월드맵에 있는 동안 성립하는 계약이며, 거래가 시작되면 시계만 자유롭게 흐릅니다.
+        /// </summary>
+        public static int MinuteOfDayForSlots(int remainingSlots)
+        {
+            int used = Mathf.Clamp(DefaultTimeSlots - remainingSlots, 0, DefaultTimeSlots);
+            return DayStartMinuteOfDay + used * MinutesPerTimeSlot;
+        }
+
+        /// <summary>남은 슬롯 수에 대응하는 시각 표기. 예: 3 → "15:00", 0 → "24:00".</summary>
+        public static string ClockTextForSlots(int remainingSlots)
+        {
+            int minutes = MinuteOfDayForSlots(remainingSlots);
+            return $"{minutes / 60:00}:{minutes % 60:00}";
+        }
+
         /// <summary>시간 슬롯을 소모합니다. 부족하면 false 반환</summary>
         public bool TryConsumeTimeSlot(int cost)
         {
             if (currentTimeSlot < cost) return false;
-            
+
             currentTimeSlot -= cost;
+
+            // 슬롯을 깎는 유일한 통로가 여기이므로 시계도 여기서 밉니다.
+            // 소비 지점(휴식·알바·데이트)을 각각 고치면 네 번째 소비 지점이 생길 때 조용히 누락됩니다.
+            // ⚠️ 저장보다 먼저여야 합니다. 뒤에 두면 한 박자 늦은 시각이 디스크에 남고,
+            //    그 사이에 씬이 전환되면 영영 반영되지 않습니다.
+            AdvanceClockBySlots(cost);
+
             OnTimeSlotChanged?.Invoke(currentTimeSlot);
-            
+
             // 데이터 변경 시 자동 저장 플래그 혹은 직접 저장
             SaveLoadManager.Instance?.SaveCurrentGame();
             return true;
+        }
+
+        /// <summary>
+        /// 소모한 슬롯만큼 게임 시계를 앞으로 밉니다.
+        ///
+        /// GameManager가 있는 씬(GameScene)과 없는 씬(요미의 방·월드맵·편의점)에서 경로가 갈립니다 —
+        /// 잔고를 다루는 <c>WorldMapManager.PayWage</c>와 같은 이분기입니다.
+        ///
+        /// ⚠️ GameManager가 있어도 <c>AdvanceGameMinutes</c>를 쓰면 안 됩니다. 그쪽은 Playing이
+        ///    아니면 멈춰서 분을 쌓아두므로, 거래 개시 시점에 한꺼번에 터집니다.
+        /// </summary>
+        private void AdvanceClockBySlots(int slots)
+        {
+            if (slots <= 0) return;
+            int minutes = slots * MinutesPerTimeSlot;
+
+            var gm = GameManager.Instance;
+            if (gm != null)
+            {
+                gm.AdvanceClockWithoutSimulation(minutes);
+                return;
+            }
+
+            // GameManager가 없는 씬: 세이브 스냅샷에 직접 기입합니다.
+            // 확정은 호출부(TryConsumeTimeSlot)의 SaveCurrentGame이 합니다.
+            var data = SaveLoadManager.Instance?.CurrentData;
+            if (data == null) return;
+
+            int total = Mathf.Min(data.CurrentHour * 60 + data.CurrentMinute + minutes, 24 * 60);
+            data.CurrentHour = total / 60;
+            data.CurrentMinute = total % 60;
         }
 
         /// <summary>체력을 소모합니다. 부족하면 false 반환</summary>
@@ -185,7 +252,13 @@ namespace FXOverdose.DatingSim.Core
         ///    데이팅 전용 일차 진행을 만들면 그 게이트들이 <b>한꺼번에 조용히</b> 깨집니다.
         ///    그런 경로가 필요해지면 CurrentDay도 함께 올리거나, 게이트의 기준을 DatingDay로 통일하십시오.
         /// </summary>
-        public void SyncToNewDay(int newDay, int defaultTimeSlots = 5)
+        /// <remarks>
+        /// 슬롯 리필과 시계 09:00 복귀는 <b>둘 다 일차 전환에서</b> 일어납니다 —
+        /// 시계는 <c>GameManager.FinalizeProceedToNextDay</c>가, 슬롯은 여기가 맡습니다.
+        /// 그래서 새 하루는 항상 「슬롯 5 / 09:00」으로 계약(<see cref="MinuteOfDayForSlots"/>)을
+        /// 만족한 상태로 시작합니다. 한쪽만 바꾸면 계약이 깨집니다.
+        /// </remarks>
+        public void SyncToNewDay(int newDay, int defaultTimeSlots = DefaultTimeSlots)
         {
             bool dayChanged = currentDay != newDay;
             currentDay = newDay;

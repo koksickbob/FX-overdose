@@ -40,6 +40,19 @@ namespace FXOverdose.Core
 
         // --- GameManager 상태 ---
         public float Balance = 1000f;
+
+        // 달력 날짜 (2026-08 개편). JsonUtility가 DateTime을 직렬화하지 못하므로 ISO 문자열입니다.
+        // ⚠️ 초기화자를 빈 문자열이 아닌 실제 날짜로 바꾸지 마십시오. 빈 문자열은 "달력 도입 이전
+        //    세이브"를 가려내는 판정 기준입니다. 기본 날짜를 박으면 구버전 JSON에 이 키가 없어
+        //    초기화자 값이 그대로 남고, 20일차 세이브가 1일차 날짜로 로드됩니다.
+        //    새 게임의 초기값은 SaveLoadManager.PrepareNewGame()이 명시적으로 심습니다.
+        public string CurrentDate = "";
+        // 세이브가 만들어진 시점의 에폭. 밸런싱으로 기본 에폭을 바꿔도 진행 중인 세이브의
+        // 일차 계산이 어긋나지 않도록 세이브가 스스로 들고 있습니다.
+        public string StartDate = "";
+
+        // 일차 서수. CurrentDate에서 파생되는 값이지만 계속 기록합니다 —
+        // 구버전 호환, 날짜 손상 시의 역산 근거, DatingDay 계약 검증에 쓰입니다.
         public int CurrentDay = 1;
         public int CurrentHour = 9;
         public int CurrentMinute = 0;

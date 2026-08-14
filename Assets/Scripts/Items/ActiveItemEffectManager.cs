@@ -83,7 +83,7 @@ public class ActiveItemEffectManager : MonoBehaviour
         
         float basePrice = item.Price;
         
-        GameManager gm = FindAnyObjectByType<GameManager>();
+        GameManager gm = GameManager.Instance;
         if (gm != null)
         {
             // 액티브/패시브 아이템도 2일마다 20% 상승

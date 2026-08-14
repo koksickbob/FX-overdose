@@ -53,7 +53,7 @@ namespace FXOverdose.AI
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             traderStatus = TraderStatus.CanonicalInstance;
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
 
             if (marketEngine != null)
             {
@@ -97,7 +97,7 @@ namespace FXOverdose.AI
         // 1단계: 신호 방송 수신 (Grace Window 돌입 시점)
         private void HandleMarketSignalGenerated(MarketSignal signal)
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = UnityEngine.Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
 
             if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) return;
@@ -181,7 +181,7 @@ namespace FXOverdose.AI
 
         private void HandleSignalPhaseChanged(SignalPhase phase, MarketSignal signal)
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager != null && gameManager.IsFastForwardingTime)
             {
                 return;
@@ -239,7 +239,7 @@ namespace FXOverdose.AI
         {
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
             if (tradingController == null) tradingController = UnityEngine.Object.FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
 
             if (traderStatus == null || tradingController == null || gameManager == null) return;
             if (!IsBossAI && (tradingController.IsEventProtected || tradingController.IsOverdoseTradeActive))

@@ -163,7 +163,7 @@ public class TraderStatus : MonoBehaviour
     {
         get
         {
-            GameManager gm = Object.FindAnyObjectByType<GameManager>();
+            GameManager gm = GameManager.Instance;
             if (gm != null && gm.GetComponent<TraderStatus>() != null)
             {
                 return gm.GetComponent<TraderStatus>();
@@ -295,7 +295,7 @@ public class TraderStatus : MonoBehaviour
         // GameManager가 연결되지 않았다면 자동 탐색
         if (gameManager == null)
         {
-            gameManager = Object.FindAnyObjectByType<GameManager>();
+            gameManager = GameManager.Instance;
             if (gameManager == null) return;
         }
 
@@ -334,7 +334,7 @@ public class TraderStatus : MonoBehaviour
         isLeverageAddicted = false;
         consecutiveHighLevWins = 0;
         consecutiveLowLevTrades = 0;
-        if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+        if (gameManager == null) gameManager = GameManager.Instance;
         peakBalance = 0f;
 
         healthDropMentalDrainAccumulator = 0f;

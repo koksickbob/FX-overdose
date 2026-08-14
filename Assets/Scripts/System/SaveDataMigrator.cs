@@ -63,6 +63,40 @@ namespace FXOverdose.Core
                     data.TalkPeakAffection = data.DatingAffection;
             }
 
+            if (CompareVersions(dataVersion, "1.7.0") < 0)
+            {
+                // 1.7.0에서 일차 누적 표기를 달력 날짜로 바꿨습니다.
+                // 나머지 일차 필드(OutlookDay·LastSteakPurchaseDay·DatingDay·Talk*Day 등)는 전부
+                // '게임 시작으로부터 며칠째'라는 서수 의미가 그대로라 손댈 것이 없습니다.
+                if (string.IsNullOrEmpty(data.StartDate)) data.StartDate = GameCalendar.DefaultStartDateText;
+                if (string.IsNullOrEmpty(data.CurrentDate))
+                {
+                    DateTime start = GameCalendar.TryParse(data.StartDate, out var parsed)
+                        ? parsed
+                        : GameCalendar.DefaultStartDate;
+                    data.CurrentDate = GameCalendar.ToSerialized(start.AddDays(Mathf.Max(1, data.CurrentDay) - 1));
+                }
+            }
+
+            if (CompareVersions(dataVersion, "1.8.0") < 0)
+            {
+                // 1.8.0부터 시간 슬롯 1개가 게임 내 3시간을 소모합니다.
+                // 그 이전 세이브는 슬롯을 써도 시계가 09:00에 머물러 있어 계약을 위반합니다.
+                //
+                // ⚠️ 보정 대상을 09:00 정각으로 한정하는 것이 핵심입니다.
+                //    조건 없이 슬롯으로 시계를 덮으면, 거래 도중(예: 14:30)에 저장한 세이브가
+                //    슬롯 기준으로 되돌아가 그날 진행이 통째로 날아갑니다.
+                //    09:00 정각 = 아직 거래를 시작하지 않은 방/월드맵 세이브입니다.
+                bool notYetTrading = data.CurrentHour == 9 && data.CurrentMinute == 0;
+                if (notYetTrading && data.DatingTimeSlot < FXOverdose.DatingSim.Core.DatingTimeManager.DefaultTimeSlots)
+                {
+                    int minutes = FXOverdose.DatingSim.Core.DatingTimeManager.MinuteOfDayForSlots(data.DatingTimeSlot);
+                    data.CurrentHour = minutes / 60;
+                    data.CurrentMinute = minutes % 60;
+                    Debug.Log($"[SaveDataMigrator] 슬롯 {data.DatingTimeSlot}개 잔여 → 시각 {data.CurrentHour:00}:{data.CurrentMinute:00}로 보정했습니다.");
+                }
+            }
+
             // 더 높은 버전의 마이그레이션이 필요하다면 계속 추가
 
             // 마이그레이션 파이프라인을 통과한 뒤 최종 버전을 기록

@@ -34,7 +34,7 @@ namespace FXOverdose.UI.TopBar
         [SerializeField] private SparklineRenderer sparklineRenderer;
 
         [Header("[카드 1] 날짜 및 시간 UI")]
-        [SerializeField] private TMP_Text dayLabel;  // "DAY 03"
+        [SerializeField] private TMP_Text dayLabel;  // "6월 28일"
         [SerializeField] private TMP_Text timeLabel; // "23:47"
 
         [Header("[카드 2] BALANCE (총 자산/Equity) UI")]
@@ -55,7 +55,7 @@ namespace FXOverdose.UI.TopBar
 
         private void Start()
         {
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (sparklineRenderer == null) sparklineRenderer = GetComponentInChildren<SparklineRenderer>();
             ConfigureDayTimeCardLayout();
@@ -198,7 +198,7 @@ namespace FXOverdose.UI.TopBar
 
             if (dayLabel != null)
             {
-                dayLabel.text = $"DAY {gameManager.CurrentDay:00}";
+                dayLabel.text = FXOverdose.Core.GameCalendar.ToKoreanShort(gameManager.CurrentDate);
             }
 
             if (timeLabel != null)

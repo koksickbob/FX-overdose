@@ -59,7 +59,7 @@ namespace FXOverdose.UI
 
         private void Awake()
         {
-            gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            gameManager = GameManager.Instance;
             BuildRuntimeUI();
             SetVisible(false);
         }
@@ -99,7 +99,7 @@ namespace FXOverdose.UI
         private void Update()
         {
             if (gameManager == null)
-                gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                gameManager = GameManager.Instance;
 
             BossManager currentManager = bossManager != null
                 ? bossManager
@@ -210,7 +210,7 @@ namespace FXOverdose.UI
             SetVisible(isBossDay);
             if (!isBossDay) return;
 
-            dayBadge.text = $"DAY {boss.Day:00}  /  BOSS";
+            dayBadge.text = $"{BossDateText(boss)}  /  BOSS";
             bossName.text = boss.IsFinalBoss ? $"FINAL · {boss.Name}" : boss.Name;
             bossDescription.text = boss.Description;
             bankruptAnimationPlayed = false;
@@ -223,11 +223,24 @@ namespace FXOverdose.UI
                 PlayBossEntrance(boss);
         }
 
+        /// <summary>
+        /// 보스 배지는 '현재 날짜'가 아니라 <b>예정된 일차</b>를 표시하므로 서수를 날짜로 환산합니다.
+        /// 현재 날짜를 쓰면 위(204행)에 적힌 순서 문제 — 일차 복구보다 보스 스폰이 먼저 오는 경우 —
+        /// 에 걸려 엉뚱한 날짜가 찍힙니다.
+        /// </summary>
+        private string BossDateText(BossData boss)
+        {
+            System.DateTime date = gameManager != null
+                ? gameManager.DateForDay(boss.Day)
+                : FXOverdose.Core.GameCalendar.DefaultStartDate.AddDays(Mathf.Max(1, boss.Day) - 1);
+            return FXOverdose.Core.GameCalendar.ToKoreanShort(date);
+        }
+
         private void PlayBossEntrance(BossData boss)
         {
             if (entranceRoot == null || boss == null) return;
 
-            entranceDay.text = $"DAY {boss.Day:00} · BOSS DETECTED";
+            entranceDay.text = $"{BossDateText(boss)} · BOSS DETECTED";
             entranceBossName.text = boss.IsFinalBoss ? $"FINAL BOSS  /  {boss.Name}" : boss.Name;
             entranceDescription.text = boss.Description;
             RefreshTextMeshes();
@@ -449,7 +462,7 @@ namespace FXOverdose.UI
             SetRect(liveLabel.rectTransform, Vector2.zero, Vector2.one,
                 new Vector2(32f, 0f), new Vector2(-165f, 0f));
 
-            dayBadge = CreateText(header.transform, "DayBadge", "DAY 00  /  BOSS",
+            dayBadge = CreateText(header.transform, "DayBadge", "0월 0일  /  BOSS",
                 14f, Gold, TextAlignmentOptions.Right);
             SetRect(dayBadge.rectTransform, new Vector2(0.62f, 0f), Vector2.one,
                 new Vector2(0f, 0f), new Vector2(-14f, 0f));
@@ -549,7 +562,7 @@ namespace FXOverdose.UI
             bandOutline.effectColor = new Color32(239, 68, 68, 210);
             bandOutline.effectDistance = new Vector2(5f, -5f);
 
-            entranceDay = CreateText(entranceBand, "DetectedLabel", "DAY 00 · BOSS DETECTED",
+            entranceDay = CreateText(entranceBand, "DetectedLabel", "0월 0일 · BOSS DETECTED",
                 25f, Red, TextAlignmentOptions.Center);
             entranceDay.fontStyle = FontStyles.Bold;
             SetRect(entranceDay.rectTransform, new Vector2(0f, 1f), Vector2.one,

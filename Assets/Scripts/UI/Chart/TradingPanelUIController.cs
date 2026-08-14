@@ -158,7 +158,7 @@ namespace FXOverdose.UI.Chart
             BuildEffectStatusHUD();
             BindActiveItemManager();
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
 
             traderStatus = TraderStatus.CanonicalInstance;
 

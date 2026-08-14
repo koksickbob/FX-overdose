@@ -68,7 +68,7 @@ namespace FXOverdose.AI
             traderStatus = TraderStatus.CanonicalInstance;
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (visualController == null) visualController = FindAnyObjectByType<AIVisualController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
             
@@ -101,7 +101,7 @@ namespace FXOverdose.AI
             traderStatus = TraderStatus.CanonicalInstance;
             if (trading != null) tradingController = trading;
             if (market != null) marketEngine = market;
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (visualController == null) visualController = FindAnyObjectByType<AIVisualController>();
             if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
 
@@ -134,7 +134,7 @@ namespace FXOverdose.AI
 
         private void Update()
         {
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
             {
                 return;
@@ -462,7 +462,7 @@ namespace FXOverdose.AI
         // --- 인게임 분 단위 연산 (기믹 3, 4, 5, 6) ---
         public void OnGameMinuteAdvanced()
         {
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
             {
                 return;

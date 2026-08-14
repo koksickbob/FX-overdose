@@ -57,7 +57,7 @@ namespace FXOverdose.AI
 
         private void Start()
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
         }
 
         // 1. 단기 기억 (최근 내뱉은 대사) 기록
@@ -90,7 +90,7 @@ namespace FXOverdose.AI
         // 2. 중요 이벤트 기억 추가 (장기 기억 후보)
         public void AddMemory(EventCategory category, string description, int importanceScore)
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             int day = gameManager != null ? gameManager.CurrentDay : 1;
             string timeStr = gameManager != null ? $"{gameManager.CurrentHour:D2}:{gameManager.CurrentMinute:D2}" : "12:00";
 
@@ -144,7 +144,7 @@ namespace FXOverdose.AI
         // 기억 최적화: 중요도 낮은 과거 기억 정리 및 Top N 유지
         private void PruneMemories()
         {
-            if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             int currentDay = gameManager != null ? gameManager.CurrentDay : 1;
 
             // 현재 일차가 아닌 과거 일차의 기억 중 중요도가 4 이하인 것은 과감히 삭제 (Daily Summary로 이미 압축되었으므로)

@@ -31,7 +31,7 @@ public class HUDController : MonoBehaviour
 
     private void ResolveReferences()
     {
-        if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>();
+        if (gameManager == null) gameManager = GameManager.Instance;
         traderStatus = TraderStatus.CanonicalInstance;
 
         if (healthSlider == null)
@@ -106,7 +106,7 @@ public class HUDController : MonoBehaviour
     private void UpdateTimeUI()
     {
         // 01, 02처럼 두 자리 숫자로 표시
-        if (dayText != null) dayText.text = $"DAY {gameManager.CurrentDay:00}";
+        if (dayText != null) dayText.text = FXOverdose.Core.GameCalendar.ToKoreanShort(gameManager.CurrentDate);
 
         // 09:05처럼 시와 분을 두 자리 숫자로 표시
         if (timeText != null) timeText.text =

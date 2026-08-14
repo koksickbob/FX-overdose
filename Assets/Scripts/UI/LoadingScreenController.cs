@@ -147,7 +147,7 @@ namespace FXOverdose.UI
             // 매 진입마다 현재 GameScene의 매니저와 시장을 명시적으로 개장해 Loading 상태 고착을 방지합니다.
             if (targetSceneName == "GameScene" || targetSceneName == "tutorial")
             {
-                GameManager gameManager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+                GameManager gameManager = GameManager.Instance;
                 gameManager?.FinishLoadingAndStartPlaying();
                 MarketSimulationEngine market = Object.FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
                 market?.OpenMarketAfterLoading();

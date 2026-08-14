@@ -85,7 +85,7 @@ namespace FXOverdose.UI.Chart
             }
             if (gameManager == null)
             {
-                gameManager = FindAnyObjectByType<GameManager>();
+                gameManager = GameManager.Instance;
             }
             tradingController = FindAnyObjectByType<TradingController>();
             BuildPositionDirectionVisuals();

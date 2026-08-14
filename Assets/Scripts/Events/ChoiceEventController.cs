@@ -75,6 +75,10 @@ namespace FXOverdose.Events
 
         private bool pausedByChoiceEvent;
         private int lastTriggerDay = -1;
+
+        // 이 세션(씬 진입)에서 저장된 스케줄이 현재 시각과 맞는지 한 번 검사했는지.
+        // 저장하지 않습니다 — 씬에 들어올 때마다 다시 검사해야 하는 값입니다.
+        private bool scheduleValidatedThisSession = false;
         private int nextRandomTriggerMinuteOfDay = -1;
         private int preFetchMinuteOfDay = -1;
         private bool isFetchingLLM = false;
@@ -103,7 +107,7 @@ namespace FXOverdose.Events
         {
             if (lastTriggerDay != -1 && gameManager != null) return;
 
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             traderStatus = TraderStatus.CanonicalInstance;
@@ -149,6 +153,9 @@ namespace FXOverdose.Events
             lowMentalEventsTriggeredToday = data.LowMentalEventsTriggeredToday;
             nextRandomTriggerMinuteOfDay = data.EventNextRandomTriggerMinuteOfDay;
             lastEventTriggerGameMinutes = data.EventLastTriggerGameMinutes;
+
+            // 되돌린 스케줄이 지금 시각과 맞는지는 첫 분 진행 때 검사합니다.
+            scheduleValidatedThisSession = false;
         }
 
         /// <summary>
@@ -184,6 +191,39 @@ namespace FXOverdose.Events
             }
 
             ResetDailySchedule(1);
+            scheduleValidatedThisSession = false;
+        }
+
+        /// <summary>
+        /// 그날 발생시킬 돌발 이벤트 상한. 거래 시간이 짧은 날에는 줄입니다.
+        ///
+        /// 데이팅 파트에서 시간 슬롯을 쓰면 거래 개시 시각이 뒤로 밀립니다(슬롯 1개 = 3시간).
+        /// 21:00에 시작하면 남은 3시간에 이벤트 2번은 과밀하고, 애초에 다음 이벤트 예약 상한이
+        /// 23:20이라 두 번째는 잡히지도 않은 채 "한도만 차지"하는 상태가 됩니다.
+        ///
+        /// 기준을 <b>현재 시각이 아니라 그날의 개시 시각</b>으로 잡는 것이 중요합니다.
+        /// 현재 시각으로 재면 정상적인 09:00 시작에서도 저녁이 되면 한도가 줄어 평소 동작이 바뀝니다.
+        /// 개시 시각은 남은 슬롯 수에서 되짚을 수 있고, 슬롯은 거래 중에 변하지 않으므로
+        /// 하루 내내 같은 값이 나옵니다 — 별도 저장이 필요 없습니다.
+        /// </summary>
+        private int DailyEventCap()
+        {
+            // 시간 슬롯은 스토리 모드의 데이팅 파트에만 있습니다. 엔드리스·챌린지는 항상 09:00에 시작하므로
+            // 종전대로 2회입니다.
+            // ⚠️ DatingTimeManager는 DontDestroyOnLoad라 스토리 세션의 잔여 슬롯이 남아 있을 수 있습니다.
+            //    모드를 먼저 보지 않으면 그 값이 엔드리스의 이벤트 한도를 조용히 깎습니다.
+            var save = FXOverdose.Core.SaveLoadManager.Instance;
+            if (save != null && save.CurrentGameMode != FXOverdose.Core.GameMode.Story) return 2;
+
+            var dating = FXOverdose.DatingSim.Core.DatingTimeManager.Instance;
+            int startMinute = dating != null
+                ? FXOverdose.DatingSim.Core.DatingTimeManager.MinuteOfDayForSlots(dating.CurrentTimeSlot)
+                : 9 * 60;
+
+            int tradableMinutes = (24 * 60) - startMinute;
+            if (tradableMinutes >= 360) return 2;   // 6시간 이상 — 평소대로 2회
+            if (tradableMinutes >= 180) return 1;   // 3시간 이상 — 1회
+            return 0;                               // 3시간 미만 — 발생시키지 않음
         }
 
         private void ResetDailySchedule(int day, int currentDayMinutes = 0)
@@ -254,7 +294,7 @@ namespace FXOverdose.Events
                 // 고속 스킵 중 이벤트 예정 시간을 돌파했다면, 스킵 도중이나 직후에 팝업이 바로 떠서 지저분해지는 것을 방지하기 위해
                 // 이벤트 발생 시각을 '현재 시간 + 15~45분 뒤'로 지속적으로 밀어냅니다.
                 // 결과적으로 고속 스킵이 완전히 종료된 이후 15~45분 사이에 자연스럽게 이벤트가 발생하게 됩니다.
-                if (eventsTriggeredToday < 2 && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
+                if (eventsTriggeredToday < DailyEventCap() && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
                 {
                     nextRandomTriggerMinuteOfDay = currentDayMinutes + UnityEngine.Random.Range(15, 46);
                     Debug.Log($"[ChoiceEventController] 📅 고속 스킵 중 이벤트 예정 시간 돌파 감지! 이벤트 발생을 고속 스킵 이후 자연스러운 시점({nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2})으로 재조정합니다.");
@@ -274,6 +314,17 @@ namespace FXOverdose.Events
             {
                 ResetDailySchedule(day, currentDayMinutes);
             }
+            else if (!scheduleValidatedThisSession && nextRandomTriggerMinuteOfDay <= currentDayMinutes)
+            {
+                // 같은 일차인데 예정 시각이 이미 지나 있다 = 스케줄을 잡은 뒤 시계가 앞으로 점프했다는 뜻입니다.
+                // 데이팅 파트에서 시간 슬롯을 쓰면 시계가 분 단위 진행 없이 통째로 밀리므로
+                // (AdvanceClockWithoutSimulation은 OnGameMinuteAdvanced를 발행하지 않습니다)
+                // 이 컨트롤러는 점프를 목격하지 못한 채 "예정 시각이 지났다"만 보게 됩니다.
+                // 그대로 두면 거래 개시 첫 분에 팝업이 터집니다. 현재 시각 기준으로 다시 잡습니다.
+                Debug.Log($"[ChoiceEventController] ⏭️ 시계 점프 감지 — 지난 예정 시각({nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2})을 현재({hour:D2}:{minute:D2}) 기준으로 재조정합니다.");
+                ResetDailySchedule(day, currentDayMinutes);
+            }
+            scheduleValidatedThisSession = true;
 
             // 1. 게임 시작 이후 오전 10시 이전에는 발생 차단
             if (hour < 10)
@@ -290,14 +341,14 @@ namespace FXOverdose.Events
             // 2.5. 이벤트 발생 60분 전 사전 텍스트 생성 시작
             //      ⚠️ preFetchAttempted로 1회만 시도합니다. 생성이 실패해 cachedLLMData가 null로
             //         남는 것은 정상 결과이므로, 이것만 조건으로 삼으면 매 분 재시도하게 됩니다.
-            if (eventsTriggeredToday < 2 && !preFetchAttempted &&
+            if (eventsTriggeredToday < DailyEventCap() && !preFetchAttempted &&
                 currentDayMinutes >= preFetchMinuteOfDay && currentDayMinutes < nextRandomTriggerMinuteOfDay)
             {
                 StartPreFetchingLLMEvent();
             }
 
             // 3. 일일 랜덤 발생 (하루 2회 한도 & 예정된 랜덤 시간 도달 시)
-            if (eventsTriggeredToday < 2 && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
+            if (eventsTriggeredToday < DailyEventCap() && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
             {
                 // 💡 텍스트 생성이 아직 안 끝났다면 게임을 멈추지 않고 10분씩 미뤄서 기다려 줍니다.
                 //    단 무한정 미루지 않습니다. 상한을 넘기면 템플릿 사전 텍스트로 그냥 띄웁니다.
@@ -334,7 +385,7 @@ namespace FXOverdose.Events
 
                 eventsTriggeredToday++;
                 lastEventTriggerGameMinutes = totalGameMinutes;
-                if (eventsTriggeredToday < 2)
+                if (eventsTriggeredToday < DailyEventCap())
                 {
                     ScheduleNextRandomTrigger(currentDayMinutes);
                 }
@@ -359,7 +410,7 @@ namespace FXOverdose.Events
                     lastEventTriggerGameMinutes = totalGameMinutes;
                     lowMentalEventsTriggeredToday++;
 
-                    if (eventsTriggeredToday < 2 && nextRandomTriggerMinuteOfDay < currentDayMinutes + 60)
+                    if (eventsTriggeredToday < DailyEventCap() && nextRandomTriggerMinuteOfDay < currentDayMinutes + 60)
                     {
                         ScheduleNextRandomTrigger(currentDayMinutes);
                     }
@@ -1002,7 +1053,7 @@ namespace FXOverdose.Events
             }
 
             // 매매 처리 중 파산/Overdose로 게임이 종료되었으면 차트 빔 주입 중단
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager != null && gameManager.CurrentState == GameManager.GameState.GameOver)
             {
                 return;

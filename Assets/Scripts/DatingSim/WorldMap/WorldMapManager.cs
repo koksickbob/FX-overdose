@@ -104,7 +104,7 @@ namespace FXOverdose.DatingSim.WorldMap
         {
             if (amount <= 0f) return;
 
-            var gameManager = FindAnyObjectByType<GameManager>();
+            var gameManager = GameManager.Instance;
             if (gameManager != null)
             {
                 gameManager.ChangeBalance(amount);
@@ -132,7 +132,7 @@ namespace FXOverdose.DatingSim.WorldMap
             }
 
             // 2. 자금 검사 및 차감 (GameManager 연동)
-            var gameManager = FindAnyObjectByType<GameManager>();
+            var gameManager = GameManager.Instance;
             bool paid;
             if (gameManager != null)
             {

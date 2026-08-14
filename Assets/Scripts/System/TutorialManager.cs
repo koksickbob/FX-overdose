@@ -113,7 +113,7 @@ namespace FXOverdose.Core
                 
                 if (aiVisualController != null) aiVisualController.SuppressNormalDialogues = false;
 
-                var gmSkip = FindAnyObjectByType<GameManager>();
+                var gmSkip = GameManager.Instance;
                 // 종전에는 1일차 오프닝 컷씬을 건너뛰라고 true를 넘겼습니다.
                 // 그 컷씬이 제거되어 인자가 사라졌습니다 — 새 인트로를 붙이면 억제 수단을 다시 만들어야 합니다.
                 if (gmSkip != null) gmSkip.FinishLoadingAndStartPlaying();
@@ -194,7 +194,7 @@ namespace FXOverdose.Core
             DisableAllHighlights();
 
             // 튜토리얼 진입 시 장 개장 (GameManager 상태 변경 및 차트 개시)
-            var gm = FindAnyObjectByType<GameManager>();
+            var gm = GameManager.Instance;
             if (gm != null)
             {
                 gm.FinishLoadingAndStartPlaying();
@@ -722,7 +722,7 @@ namespace FXOverdose.Core
             {
                 // 스토리 모드 1일차 오프닝과 동일하게 컷씬 재생 중에는
                 // 게임 시간과 시장 진행을 멈추고, 종료 콜백에서만 재개합니다.
-                GameManager gameManager = FindAnyObjectByType<GameManager>();
+                GameManager gameManager = GameManager.Instance;
                 bool resumeAfterCutscene = gameManager != null && gameManager.CurrentState == GameManager.GameState.Playing;
                 if (resumeAfterCutscene)
                     gameManager.PauseGame();
@@ -987,7 +987,7 @@ namespace FXOverdose.Core
                 yield return StartCoroutine(PlayDialogueAndWait("어때? 돌발 이벤트에 어떻게 대처해야 할지 감이 좀 와?"));
                 yield return StartCoroutine(PlayDialogueAndWait("오빠의 선택이 시장에 어떤 결과를 가져오는지 빠르게 시간을 돌려볼게!"));
                 
-                var gameManager = FindAnyObjectByType<GameManager>();
+                var gameManager = GameManager.Instance;
                 if (gameManager != null)
                 {
                     // 이벤트 지속시간 150분 고속 경과

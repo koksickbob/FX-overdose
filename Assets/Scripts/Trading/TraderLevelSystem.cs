@@ -38,7 +38,7 @@ namespace FXOverdose.Trading
                     _instance = FindAnyObjectByType<TraderLevelSystem>();
                     if (_instance == null)
                     {
-                        var gm = FindAnyObjectByType<GameManager>();
+                        var gm = GameManager.Instance;
                         if (gm != null)
                         {
                             _instance = gm.gameObject.AddComponent<TraderLevelSystem>();
@@ -95,7 +95,7 @@ namespace FXOverdose.Trading
 
         private void Start()
         {
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
         }
 
@@ -329,7 +329,7 @@ namespace FXOverdose.Trading
                 _ => 100f
             };
             
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager != null)
             {
                 baseCost *= Mathf.Pow(1.15f, gameManager.CurrentDay - 1);
@@ -369,7 +369,7 @@ namespace FXOverdose.Trading
                 return false;
             }
 
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (gameManager == null)
             {
                 reason = "자산 정보를 찾을 수 없습니다.";
@@ -419,7 +419,7 @@ namespace FXOverdose.Trading
                 return false;
             }
 
-            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (gameManager == null) gameManager = GameManager.Instance;
             if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
 
             float cost = GetSkillCost(type);

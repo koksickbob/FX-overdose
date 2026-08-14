@@ -71,7 +71,7 @@ namespace FXOverdose.P2P.UI
             originalChart=FindAnyObjectByType<FXOverdose.UI.Chart.ChartUIController>(FindObjectsInactive.Include);
             originalEventPopup=FindActiveEventPopup();
             originalMarket=FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>(FindObjectsInactive.Include);originalMarket?.EnableP2PExternalMode();
-            originalGameManager=FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);originalGameManager?.EnableP2PExternalMode();
+            originalGameManager=GameManager.Instance;originalGameManager?.EnableP2PExternalMode();
             originalTraderStatus=TraderStatus.CanonicalInstance??FindAnyObjectByType<TraderStatus>(FindObjectsInactive.Include);originalTraderStatus?.EnableP2PExternalMode();
             originalTrading=FindAnyObjectByType<FXOverdose.Trading.TradingController>(FindObjectsInactive.Include);originalTrading?.EnableP2PExternalMode();
             originalShop=FindAnyObjectByType<ShopManager>(FindObjectsInactive.Include);
@@ -159,7 +159,7 @@ namespace FXOverdose.P2P.UI
         private void RefreshMarket()
         {
             var s=P2PNetworkSessionManager.Instance?.MarketAuthority?.CurrentSnapshot??default;if(s.Sequence==0)return;
-            if(day!=null)day.text="DAY 01";if(time!=null)time.text=$"{s.Hour:00}:{s.Minute:00}";
+            if(day!=null)day.text=FXOverdose.Core.GameCalendar.ToKoreanShort(FXOverdose.Core.GameCalendar.DefaultStartDate);if(time!=null)time.text=$"{s.Hour:00}:{s.Minute:00}";
             originalGameManager?.ApplyP2PState(s.TotalMinutes,mineCash);
         }
         private void RefreshPlayer()

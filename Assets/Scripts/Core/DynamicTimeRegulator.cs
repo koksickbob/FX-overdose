@@ -31,7 +31,7 @@ namespace FXOverdose.Core
         {
             if (gameManager == null)
             {
-                gameManager = FindAnyObjectByType<GameManager>();
+                gameManager = GameManager.Instance;
             }
             
             if (gameManager != null)
