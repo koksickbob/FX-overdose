@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -405,7 +405,7 @@ namespace FXOverdose.DatingSim.UI
             if (outline != null) outline.enabled = false;
         }
 
-        private static GameObject CreateCollisionRegion(Transform parent, string label, Vector2 position, Vector2 size)
+        internal static GameObject CreateCollisionRegion(Transform parent, string label, Vector2 position, Vector2 size)
         {
             GameObject region = new(label, typeof(BoxCollider2D));
             region.transform.SetParent(parent, false);
@@ -414,7 +414,7 @@ namespace FXOverdose.DatingSim.UI
             return region;
         }
 
-        private static void ApplyResourceSprite(GameObject target, string resourcePath, Vector2 desiredSize)
+        internal static void ApplyResourceSprite(GameObject target, string resourcePath, Vector2 desiredSize)
         {
             Texture2D texture = Resources.Load<Texture2D>(resourcePath);
             if (texture == null)
@@ -433,7 +433,7 @@ namespace FXOverdose.DatingSim.UI
             target.transform.localScale = new Vector3(desiredSize.x / bounds.x, desiredSize.y / bounds.y, 1f);
         }
 
-        private static Sprite[] LoadWalkFrames(string resourcePath)
+        internal static Sprite[] LoadWalkFrames(string resourcePath)
         {
             Texture2D texture = Resources.Load<Texture2D>(resourcePath);
             if (texture == null)
@@ -461,7 +461,7 @@ namespace FXOverdose.DatingSim.UI
             return frames;
         }
 
-        private static GameObject CreateBlock(Transform parent, string name, Vector2 position, Vector2 size,
+        internal static GameObject CreateBlock(Transform parent, string name, Vector2 position, Vector2 size,
             Color color, int sortingOrder, bool collider)
         {
             GameObject go = new(name, typeof(SpriteRenderer));
@@ -476,7 +476,7 @@ namespace FXOverdose.DatingSim.UI
             return go;
         }
 
-        private static Sprite GetPixelSprite()
+        internal static Sprite GetPixelSprite()
         {
             if (pixelSprite != null) return pixelSprite;
             Texture2D texture = new(1, 1, TextureFormat.RGBA32, false);
@@ -488,9 +488,9 @@ namespace FXOverdose.DatingSim.UI
             return pixelSprite;
         }
 
-        private static Canvas CreateCanvas(Scene scene)
+        internal static Canvas CreateCanvas(Scene scene, string name = "Canvas_YomiRoomTopDown")
         {
-            GameObject go = new("Canvas_YomiRoomTopDown", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            GameObject go = new(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             SceneManager.MoveGameObjectToScene(go, scene);
             Canvas canvas = go.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -502,7 +502,7 @@ namespace FXOverdose.DatingSim.UI
             return canvas;
         }
 
-        private static RectTransform CreatePanel(Transform parent, string name, Vector2 min, Vector2 max, Color color)
+        internal static RectTransform CreatePanel(Transform parent, string name, Vector2 min, Vector2 max, Color color)
         {
             GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
             go.transform.SetParent(parent, false);
@@ -514,7 +514,7 @@ namespace FXOverdose.DatingSim.UI
             return go.GetComponent<RectTransform>();
         }
 
-        private static TextMeshProUGUI CreateText(Transform parent, string name, string value, float size,
+        internal static TextMeshProUGUI CreateText(Transform parent, string name, string value, float size,
             Vector2 min, Vector2 max, Color color)
         {
             GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -534,7 +534,7 @@ namespace FXOverdose.DatingSim.UI
             return text;
         }
 
-        private static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color accent)
+        internal static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color accent)
         {
             RectTransform panel = CreatePanel(parent, name, min, max, new Color32(17, 31, 51, 245));
             Button button = panel.gameObject.AddComponent<Button>();
@@ -544,7 +544,7 @@ namespace FXOverdose.DatingSim.UI
             return button;
         }
 
-        private static Image CreateUIImage(Transform parent, string name, Sprite sprite, Color color, Vector2 min, Vector2 max)
+        internal static Image CreateUIImage(Transform parent, string name, Sprite sprite, Color color, Vector2 min, Vector2 max)
         {
             GameObject go = new(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -556,7 +556,7 @@ namespace FXOverdose.DatingSim.UI
             return image;
         }
 
-        private static Sprite LoadUISprite(string resourcePath, Vector4 border = default)
+        internal static Sprite LoadUISprite(string resourcePath, Vector4 border = default)
         {
             Texture2D texture = Resources.Load<Texture2D>(resourcePath);
             if (texture == null) return null;
@@ -565,7 +565,7 @@ namespace FXOverdose.DatingSim.UI
             return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
         }
 
-        private static void Stretch(RectTransform rect, Vector2 min, Vector2 max)
+        internal static void Stretch(RectTransform rect, Vector2 min, Vector2 max)
         {
             rect.anchorMin = min;
             rect.anchorMax = max;
@@ -573,14 +573,14 @@ namespace FXOverdose.DatingSim.UI
             rect.offsetMax = Vector2.zero;
         }
 
-        private static GameObject CreateRoot(Scene scene, string name)
+        internal static GameObject CreateRoot(Scene scene, string name)
         {
             GameObject go = new(name);
             SceneManager.MoveGameObjectToScene(go, scene);
             return go;
         }
 
-        private static GameObject Find(Scene scene, string name)
+        internal static GameObject Find(Scene scene, string name)
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
@@ -588,7 +588,7 @@ namespace FXOverdose.DatingSim.UI
             return null;
         }
 
-        private static T FindComponent<T>(Scene scene) where T : Component
+        internal static T FindComponent<T>(Scene scene) where T : Component
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             foreach (T component in root.GetComponentsInChildren<T>(true))

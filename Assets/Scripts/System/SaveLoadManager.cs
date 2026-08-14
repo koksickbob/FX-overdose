@@ -64,6 +64,31 @@ namespace FXOverdose.Core
             return File.Exists(GetSaveFilePath(slotIndex));
         }
 
+        /// <summary>
+        /// GameScene 밖(요미의 방·월드맵·편의점)에서 아이템을 지급합니다.
+        /// 그 씬들에는 Inventory 인스턴스가 없어 AddItem을 부를 대상이 없으므로 세이브 스냅샷에 직접 누적합니다.
+        /// 다음 GameScene 진입 때 ApplyLoadedDataToGame이 이 목록으로 인벤토리를 재구성합니다.
+        ///
+        /// ⚠️ 이 메서드는 디스크에 쓰지 않습니다. 호출부가 SaveCurrentGame()으로 확정해야 합니다.
+        /// ⚠️ itemId가 ShopManager 카탈로그에 없으면 복원 단계에서 조용히 버려집니다.
+        /// </summary>
+        public bool GrantItemToSave(string itemId, int amount = 1)
+        {
+            if (CurrentData == null || string.IsNullOrEmpty(itemId) || amount <= 0) return false;
+
+            int index = CurrentData.InventoryItemIds.IndexOf(itemId);
+            if (index >= 0 && index < CurrentData.InventoryItemQuantities.Count)
+            {
+                // 같은 ID로 행을 하나 더 만들면 복원 루프가 두 번 AddItem 하거나 한쪽을 잃습니다. 반드시 합산합니다.
+                CurrentData.InventoryItemQuantities[index] += amount;
+                return true;
+            }
+
+            CurrentData.InventoryItemIds.Add(itemId);
+            CurrentData.InventoryItemQuantities.Add(amount);
+            return true;
+        }
+
         public bool SaveGame(int slotIndex, string saveName = null)
         {
             if (!AllowsSaving)

@@ -26,5 +26,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/WorldMapScene.unity
     guid: d75d236b68d0b4399b1d439414c9a705
+  - enabled: 1
+    path: Assets/Scenes/ConvenienceStoreScene.unity
+    guid: 38e17cda99cf495e922473697294f940
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

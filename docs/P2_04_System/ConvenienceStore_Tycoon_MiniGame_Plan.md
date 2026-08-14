@@ -366,13 +366,19 @@ save?.SaveCurrentGame();
 
 ## 7. 파이프라인 / 신설·수정 파일
 
-### 7.1 에디터 빌더 (필수)
+### 7.1 씬 생성 — 런타임 조립 (구현 확정)
 
-이 프로젝트는 씬을 손으로 만들지 않습니다. `Assets/Editor/YomiRoomTestSceneBuilder.cs`(`FX Overdose/Build YomiRoom Test Scene`)와 동일한 골격으로:
+> **초안 수정**: 에디터 메뉴가 씬 전체를 만드는 줄 알았으나, 실제 메커니즘은 다릅니다.
+> `DatingSimSceneBuilder`가 `[RuntimeInitializeOnLoadMethod]`로 `SceneManager.sceneLoaded`를 걸어 두고
+> **씬이 로드될 때마다 런타임에 조립**합니다. `YomiRoomTopDownPrototype.Build`에 `if (!Application.isPlaying) return;`
+> 가드가 있는 이유가 이것입니다 — 임시 런타임 스프라이트를 씬 파일에 직렬화하지 않기 위함입니다.
+> 그래서 씬 파일은 **카메라만 있는 빈 껍데기**이고, 편의점도 같은 방식을 따릅니다.
 
 - **`Assets/Editor/ConvenienceStoreSceneBuilder.cs`** — `[MenuItem("FX Overdose/Build Convenience Store Scene")]`
-  씬 생성 → `ConvenienceStorePrototype.Build(scene)` 호출 → `Assets/Scenes/DatingSim/ConvenienceStoreScene.unity`로 저장 → **Build Settings에 등록**.
-- **`Assets/Scripts/DatingSim/UI/ConvenienceStorePrototypeBuilder.cs`** — 실제 지오메트리/UI 구축. `YomiRoomTopDownPrototype`의 헬퍼(`CreateBlock`, `CreateCanvas`, `CreateText`, `GetPixelSprite`, `LoadWalkFrames`)를 그대로 본떠 씁니다. 색상 상수(Navy/Floor/Wall/Cyan/Pink)도 동일하게 유지해 톤을 맞춥니다.
+  빈 씬을 `Assets/Scenes/ConvenienceStoreScene.unity`로 저장하고 **Build Settings에 등록**만 합니다. (요미의 방·월드맵과 같은 `Assets/Scenes/` 하위)
+- **`Assets/Scripts/DatingSim/UI/ConvenienceStorePrototypeBuilder.cs`** — 실제 지오메트리/UI 구축. `DatingSimSceneBuilder.BuildForScene`의 씬 이름 분기에 한 줄 추가해 연결합니다.
+- `YomiRoomTopDownPrototype`의 헬퍼 15개(`CreateBlock`·`CreateCanvas`·`CreateText`·`LoadWalkFrames`·`ApplyResourceSprite` 등)는 **`private` → `internal`로 가시성만 열어 그대로 재사용**했습니다. 복사하면 120줄이 중복됩니다. `CreateCanvas`에는 캔버스 이름 인자 하나를 추가했습니다.
+- 아트가 아직 없으므로 `Resources.Load` 실패 시 **색 블록으로 폴백**합니다. 스프라이트 0장 상태로 지금 바로 플레이할 수 있고, 파일을 채워 넣으면 자동으로 교체됩니다.
 
 ### 7.2 신설 파일 (5개)
 
@@ -546,13 +552,20 @@ public static StoreShiftResult Settle(in StoreShiftTally t, float basePay, Store
 
 ## 13. 구현 순서
 
-| 단계 | 산출물 | 완료 기준 |
-| --- | --- | --- |
-| M1 | 씬 빌더 + `StorePlayerController` | 편의점을 걸어다닐 수 있음 |
-| M2 | `StoreStation` + `E` 홀드 진행도 | 창고→매대 보충이 돌아가고, 손을 떼면 진행도가 유지됨 |
-| M3 | `StoreCustomer` + 스폰 | 손님이 들어와 물건을 집고 계산대에 줄을 섬 |
-| M4 | 계산 / 이탈 / 오염 / 잔여물 | 3분 근무가 끝까지 돌아감 |
-| M5 | `Settle()` + 결과 패널 + 세이브 커밋 | 일급·선물이 GameScene에 실제로 반영됨 |
-| M6 | `ConvenienceStoreTestRunner` + 밸런스 조정 | §11 전 항목 통과 |
+| 단계 | 산출물 | 완료 기준 | 상태 |
+| --- | --- | --- | --- |
+| M1 | 씬 빌더 + `StorePlayerController` | 편의점을 걸어다닐 수 있음 | ✅ 코드 완료 |
+| M2 | `StoreStation` + `E` 홀드 진행도 | 창고→매대 보충이 돌아가고, 손을 떼면 진행도가 유지됨 | ✅ 코드 완료 |
+| M3 | `StoreCustomer` + 스폰 | 손님이 들어와 물건을 집고 계산대에 줄을 섬 | ✅ 코드 완료 |
+| M4 | 계산 / 이탈 / 오염 / 잔여물 | 3분 근무가 끝까지 돌아감 | ✅ 코드 완료 |
+| M5 | `Settle()` + 결과 패널 + 세이브 커밋 | 일급·선물이 GameScene에 실제로 반영됨 | ✅ 코드 완료 |
+| M6 | `ConvenienceStoreTestRunner` + 밸런스 조정 | §11 전 항목 통과 | ⏳ 실기 확인 대기 |
+
+**남은 수동 작업** (Unity 에디터에서만 가능):
+
+1. `FX Overdose/Build Convenience Store Scene` 실행 — 씬 파일 생성 + Build Settings 등록
+2. `Tools/Prebake All Scripts Text into Font` 재실행 — 신규 한국어 문자열이 □로 나오지 않게
+3. `FXOverdose/Debug/Convenience Store Shift Test` 실행 — §11 항목 확인
+4. 실기 플레이 후 §5 수치 조정 (필요하면 `Assets/Resources/Store/ConvenienceStoreConfig.asset` 생성 — **없어도 코드 기본값으로 동작합니다**)
 
 M1~M2까지가 "재미있는지" 판정 지점입니다. **홀드 조작이 지루하면 M3 이후는 만들지 마십시오** — 손님을 아무리 늘려도 근본 조작감은 안 바뀝니다.

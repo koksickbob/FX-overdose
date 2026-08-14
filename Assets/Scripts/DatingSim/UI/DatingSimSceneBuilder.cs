@@ -36,13 +36,14 @@ namespace FXOverdose.DatingSim.UI
         public static void BuildForScene(Scene scene)
         {
             if (!scene.IsValid() || !scene.isLoaded) return;
-            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene") return;
+            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && scene.name != "ConvenienceStoreScene") return;
 
             EnsureCamera(scene);
             EnsureEventSystem(scene);
             EnsureTimeManager(scene);
 
-            if (scene.name == "YomiRoomScene") BuildYomiRoom(scene);
+            if (scene.name == "ConvenienceStoreScene") ConvenienceStorePrototype.Build(scene);
+            else if (scene.name == "YomiRoomScene") BuildYomiRoom(scene);
             else BuildWorldMap(scene);
         }
 
