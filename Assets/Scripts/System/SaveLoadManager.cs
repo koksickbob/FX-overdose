@@ -480,16 +480,16 @@ namespace FXOverdose.Core
                 gmType.GetField("currentDay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentDay);
                 gmType.GetField("currentHour", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentHour);
                 gmType.GetField("currentMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.CurrentMinute);
-                // 시간 배속은 이 세이브가 실제로 트레이딩 세션을 거쳤을 때만 신뢰합니다.
-                // 요미의 방·월드맵에서만 저장된 세이브는 GameManager도 MarketSimulationEngine도 없어
-                // 시간 배속과 차트가 "함께" 기록되지 않습니다. 그래서 차트 유무를 신호로 씁니다.
-                // 이 검사가 없으면 SaveData의 옛 기본값 3f(하필 강제 청산 슬로우 모션 수치)가
-                // 그대로 주입돼 게임이 3배 느린 연출 속도로 고정됩니다.
-                bool cameFromTradingSession = CurrentData.CurrentChartPrice > 0f;
-                if (cameFromTradingSession && CurrentData.SecondsPerGameMinute > 0f)
-                {
-                    gmType.GetField("secondsPerGameMinute", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(gm, CurrentData.SecondsPerGameMinute);
-                }
+                // 시간 배속(secondsPerGameMinute)은 일부러 복원하지 않습니다.
+                // 이 값을 바꾸는 유일한 경로가 DynamicTimeRegulator의 슬로우 모션 lerp라
+                // 세션 중 씬에 설정된 기준값에서 벗어나지 않습니다 — 플레이어 상태가 아니라 설계 상수입니다.
+                //
+                // 세이브에서 되돌리면 두 가지가 깨집니다.
+                //  1) 기준 배속을 조정해도 기존 세이브가 옛 값에 영구히 고착됩니다.
+                //  2) 방·월드맵처럼 GameManager가 없는 씬에서 저장하면 기록이 건너뛰어져
+                //     SaveData 기본값(과거 3f = 하필 강제 청산 슬로우 모션 수치)이 주입돼
+                //     게임이 3배 느린 연출 속도로 고정됐습니다.
+                // 기준값의 출처는 씬 하나로 유지합니다.
                 // 누적 수익률(P&L)의 분모입니다. 복원하지 않으면 인스펙터 기본값 7000이 그대로 쓰여
                 // 초기 자금이 7000이 아닌 난이도의 수익률이 전부 틀리게 표시됩니다.
                 if (CurrentGameMode == GameMode.Story)

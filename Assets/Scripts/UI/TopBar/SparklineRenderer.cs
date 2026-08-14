@@ -47,8 +47,9 @@ namespace FXOverdose.UI.TopBar
             }
         }
 
-        // 과거 고정점 리스트 + 현재 실시간 자산(Live Tip) 하이브리드 렌더러
-        public void RefreshSparkline(List<float> historicalPoints, float liveTipValue)
+        // 과거 고정점 리스트 + 현재 실시간 자산(Live Tip) 하이브리드 렌더러.
+        // 궤적의 소유자는 GameManager이므로 읽기 전용 뷰를 받습니다.
+        public void RefreshSparkline(IReadOnlyList<float> historicalPoints, float liveTipValue)
         {
             if (containerTransform == null || lineSegmentPrefab == null)
             {

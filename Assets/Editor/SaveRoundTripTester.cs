@@ -109,6 +109,7 @@ namespace FXOverdose.EditorTools
                 CurrentDay = 9,
                 IsLeverageAddicted = true,
                 EventsTriggeredToday = 2,
+                DailyEquityHistory = new System.Collections.Generic.List<float> { 7000f, 7150f, 6980f },
             };
 
             // JsonUtility 왕복에서 값이 살아남는지 (직렬화 가능 타입인지) 확인합니다.
@@ -121,8 +122,16 @@ namespace FXOverdose.EditorTools
             failures += Expect(revived.IsLeverageAddicted, "IsLeverageAddicted 직렬화 (SV-A1)");
             failures += Expect(revived.EventsTriggeredToday == 2, "EventsTriggeredToday 직렬화 (SV-A4)");
 
+            // P&L 스파크라인 궤적. 이게 깨지면 불러오기 후 그래프가 직선으로 표시됩니다.
+            failures += Expect(
+                revived.DailyEquityHistory != null && revived.DailyEquityHistory.Count == 3
+                && Mathf.Approximately(revived.DailyEquityHistory[2], 6980f),
+                "DailyEquityHistory 직렬화 (순서 및 값 보존)");
+
             // 구버전 JSON(신규 필드 없음)에서 초기화자 기본값이 유지되는지. 마이그레이션 백필 불필요의 근거입니다.
             var legacy = JsonUtility.FromJson<SaveData>("{\"Balance\":500.0}");
+            failures += Expect(legacy.DailyEquityHistory != null && legacy.DailyEquityHistory.Count == 0,
+                "구버전 JSON에서 DailyEquityHistory 빈 리스트 유지 (복원 측이 기준선으로 시딩)");
             failures += Expect(legacy.OutlookDay == -1, "구버전 JSON에서 OutlookDay 기본값 -1 유지");
             failures += Expect(legacy.IsEventTrueSignal, "구버전 JSON에서 IsEventTrueSignal 기본값 true 유지");
 

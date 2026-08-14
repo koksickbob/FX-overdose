@@ -1,9 +1,54 @@
 using System;
+using System.Collections.Generic;
 using FXOverdose.Core;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    // --- 당일 자산 궤적 (상단 HUD P&L 스파크라인) ---
+    // UI가 아니라 여기서 들고 있어야 세이브 수집 범위에 들어옵니다.
+    // 종전에는 TopStatusBarUIController의 private 필드라 저장이 구조적으로 불가능했고,
+    // 불러오면 그래프가 1점으로 재시작해 직선으로 보였습니다.
+    private readonly List<float> dailyEquityHistory = new List<float>();
+    private int lastEquitySampleMinute = -1;
+    private const int EquitySampleIntervalMinutes = 15;
+    private const int MaxEquitySamples = 96; // 인게임 24시간 / 15분
+
+    /// <summary>당일 자산 궤적(읽기 전용). UI는 이 값을 읽기만 하고 기록하지 않습니다.</summary>
+    public IReadOnlyList<float> DailyEquityHistory => dailyEquityHistory;
+
+    /// <summary>현재 총자산(현금 + 증거금 + 미실현손익). TraderStatus의 기존 계산을 재사용합니다.</summary>
+    private float CurrentTotalEquity()
+    {
+        var status = TraderStatus.CanonicalInstance;
+        return status != null ? status.GetTotalEquity() : currentBalance;
+    }
+
+    /// <summary>새 날(또는 새 게임)의 기준선으로 궤적을 다시 시작합니다.</summary>
+    private void ResetDailyEquityHistory(float seedEquity)
+    {
+        dailyEquityHistory.Clear();
+        dailyEquityHistory.Add(seedEquity);
+        lastEquitySampleMinute = -1;
+    }
+
+    /// <summary>
+    /// 표본 주기(15분)에 걸리면 현재 자산을 궤적에 남깁니다.
+    /// 싱글은 AdvanceOneMinute, P2P는 ApplyP2PState가 호출합니다 —
+    /// P2P는 분 진행이 AdvanceOneMinute를 거치지 않고 이벤트만 발행하기 때문입니다.
+    /// </summary>
+    private void SampleDailyEquityIfDue()
+    {
+        if (currentMinute % EquitySampleIntervalMinutes != 0 || currentMinute == lastEquitySampleMinute) return;
+
+        lastEquitySampleMinute = currentMinute;
+        dailyEquityHistory.Add(CurrentTotalEquity());
+        if (dailyEquityHistory.Count > MaxEquitySamples)
+        {
+            dailyEquityHistory.RemoveAt(0);
+        }
+    }
+
     private bool p2pExternalMode;
     public void EnableP2PExternalMode()
     {
@@ -12,6 +57,7 @@ public class GameManager : MonoBehaviour
         // TopStatusBar가 Start에서 수익선 최초 점을 기록하기 전에 P2P 시작 자산을 확정합니다.
         currentBalance=startingBalance;
         StartOfDayEquity=startingBalance;
+        ResetDailyEquityHistory(startingBalance);
         currentState=GameState.Playing;
     }
     public void ApplyP2PState(int totalMinutes,float balance)
@@ -22,6 +68,8 @@ public class GameManager : MonoBehaviour
         currentDay=1;currentHour=nextHour;currentMinute=nextMinute;currentBalance=balance;currentState=GameState.Playing;
         // 패킷 지연으로 두 분 이상 건너뛰어도 원본 캔들 엔진이 분봉을 빠뜨리지 않게 합니다.
         for(int i=0;i<advancedMinutes;i++)OnGameMinuteAdvanced?.Invoke();
+        // P2P는 AdvanceOneMinute를 거치지 않으므로 자산 표본을 여기서 직접 남깁니다.
+        SampleDailyEquityIfDue();
     }
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
@@ -130,6 +178,11 @@ public class GameManager : MonoBehaviour
         data.TodayRegularDeduction = TodayRegularDeduction;
         data.TodayRegularDeductionReason = TodayRegularDeductionReason ?? "";
         data.IsSettlementProcessing = isSettlementProcessing;
+
+        // 당일 P&L 스파크라인 궤적. 베이스 데이터를 재사용하므로 비우고 다시 채웁니다.
+        if (data.DailyEquityHistory == null) data.DailyEquityHistory = new List<float>();
+        data.DailyEquityHistory.Clear();
+        data.DailyEquityHistory.AddRange(dailyEquityHistory);
     }
 
     /// <summary>세이브에서 일일 정산 문맥을 되돌립니다. 정산 창의 지출 사유가 유지됩니다.</summary>
@@ -139,6 +192,23 @@ public class GameManager : MonoBehaviour
         TodayRegularDeduction = data.TodayRegularDeduction;
         TodayRegularDeductionReason = data.TodayRegularDeductionReason ?? "";
         isSettlementProcessing = data.IsSettlementProcessing;
+
+        // 저장된 궤적을 되돌립니다. 구버전 세이브나 방에서 저장된 세이브는 비어 있으므로
+        // 그날 기준선(StartOfDayEquity)으로 1점 시딩해 그래프가 엉뚱한 높이에서 시작하지 않게 합니다.
+        dailyEquityHistory.Clear();
+        if (data.DailyEquityHistory != null && data.DailyEquityHistory.Count > 0)
+        {
+            dailyEquityHistory.AddRange(data.DailyEquityHistory);
+            if (dailyEquityHistory.Count > MaxEquitySamples)
+            {
+                dailyEquityHistory.RemoveRange(0, dailyEquityHistory.Count - MaxEquitySamples);
+            }
+        }
+        else
+        {
+            dailyEquityHistory.Add(StartOfDayEquity > 0f ? StartOfDayEquity : currentBalance);
+        }
+        lastEquitySampleMinute = -1;
     }
 
     public void SetSecondsPerGameMinute(float newValue)
@@ -224,6 +294,7 @@ public class GameManager : MonoBehaviour
 
         StartOfDayEquity = startingBalance;
         IsDailyPnlPartial = false;
+        ResetDailyEquityHistory(startingBalance);
 
         TodayRegularDeduction = 0f;
         TodayRegularDeductionReason = "";
@@ -493,6 +564,9 @@ public class GameManager : MonoBehaviour
         // 해당 분의 차트/상태 계산을 먼저 완료한 뒤 정산 스냅샷을 만들 수 있도록 알립니다.
         OnGameMinuteAdvanced?.Invoke();
 
+        // 구독자들이 이 분의 손익을 반영한 뒤에 자산을 표본으로 남깁니다. 순서를 앞당기면 한 틱 밀린 값이 찍힙니다.
+        SampleDailyEquityIfDue();
+
         // 24시가 되면 마지막 1분 데이터 반영 이후 일일 정산 모드 진입
         if (currentHour >= 24 && currentState == GameState.Playing)
         {
@@ -706,6 +780,11 @@ public class GameManager : MonoBehaviour
         var status = TraderStatus.CanonicalInstance;
         StartOfDayEquity = status != null ? status.GetTotalEquity() : currentBalance;
         IsDailyPnlPartial = false;
+
+        // 스파크라인도 같은 기준선에서 다시 시작합니다.
+        // OnDayEnded(24:00)가 아니라 여기여야 합니다 — 그쪽은 정산 화면이 뜨기 전이라
+        // 거기서 비우면 정산 화면이 그날 그래프를 보여주는 도중에 그래프가 사라집니다.
+        ResetDailyEquityHistory(StartOfDayEquity);
 
         TodayRegularDeduction = 0f;
         TodayRegularDeductionReason = "";

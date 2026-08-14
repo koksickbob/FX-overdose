@@ -48,11 +48,7 @@ namespace FXOverdose.UI.TopBar
         [SerializeField] private Color bullishColor = new Color(0.133f, 0.773f, 0.369f, 1f); // #22C55E
         [SerializeField] private Color bearishColor = new Color(0.937f, 0.267f, 0.267f, 1f); // #EF4444
 
-        [Header("스파크라인 설정")]
-        [SerializeField] private int maxHistoryPoints = 96; // 하루 24시간 기준 (15분 주기 * 4 * 24 = 96개)
-
-        private List<float> equityHistory = new List<float>();
-        private int lastRecordedMinute = -1;
+        // 자산 궤적은 GameManager가 소유합니다(세이브 수집 대상). 이 컨트롤러는 읽어서 그리기만 합니다.
         private Image pnlAccent;
         private float lastLayoutWidth = -1f;
         private readonly Dictionary<Transform, float> baseCardWidths = new();
@@ -74,9 +70,9 @@ namespace FXOverdose.UI.TopBar
                 gameManager.OnFastForwardEnded += UpdateDayTimeUI;
             }
 
-            // 초기 자산 기록
-            float initialEquity = CalculateTotalEquity();
-            equityHistory.Add(initialEquity);
+            // 초기 자산 기록은 하지 않습니다. GameManager가 새 날·새 게임·로드 시점에 궤적을 시딩하므로,
+            // 여기서 점을 만들면 복원 전 잔고가 첫 점으로 박혀 그래프가 엉뚱한 높이에서 꺾입니다
+            // (스크립트 실행 순서가 지정돼 있지 않아 이 Start가 데이터 복원보다 먼저 돌 수 있습니다).
 
             UpdateDayTimeUI();
         }
@@ -121,10 +117,10 @@ namespace FXOverdose.UI.TopBar
             UpdateBalanceUI(currentEquity);
             UpdatePnLUI(currentEquity);
 
-            // 스파크라인 하이브리드 실시간 렌더링 (과거 궤적 고정점 + 매 프레임 실시간 끝점)
+            // 스파크라인 하이브리드 실시간 렌더링 (GameManager가 가진 당일 궤적 + 매 프레임 실시간 끝점)
             if (sparklineRenderer != null)
             {
-                sparklineRenderer.RefreshSparkline(equityHistory, currentEquity);
+                sparklineRenderer.RefreshSparkline(gameManager.DailyEquityHistory, currentEquity);
             }
         }
 
@@ -190,19 +186,7 @@ namespace FXOverdose.UI.TopBar
 
         private void HandleGameMinuteAdvanced()
         {
-            // 인게임 15분마다 과거 궤적 고정점 기록 (스파크라인 궤적은 정확히 유지)
-            if (gameManager != null && gameManager.CurrentMinute % 15 == 0 && gameManager.CurrentMinute != lastRecordedMinute)
-            {
-                lastRecordedMinute = gameManager.CurrentMinute;
-                float currentEquity = CalculateTotalEquity();
-                equityHistory.Add(currentEquity);
-
-                if (equityHistory.Count > maxHistoryPoints)
-                {
-                    equityHistory.RemoveAt(0);
-                }
-            }
-
+            // 궤적 고정점 기록은 GameManager.AdvanceOneMinute이 담당합니다. 여기서는 시계 표시만 갱신합니다.
             if (gameManager != null && gameManager.IsFastForwardingTime) return;
             UpdateDayTimeUI();
         }

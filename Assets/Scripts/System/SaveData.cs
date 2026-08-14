@@ -43,13 +43,18 @@ namespace FXOverdose.Core
         public int CurrentDay = 1;
         public int CurrentHour = 9;
         public int CurrentMinute = 0;
-        // -1 = 저장된 적 없음. 요미의 방·월드맵처럼 GameManager가 없는 씬에서 저장하면
-        // 기록 블록이 통째로 건너뛰어져 이 기본값이 그대로 남습니다. 복원 측이 이 값을 보고
-        // 주입을 건너뛰어 씬에 설정된 기준 배속(1.0)을 유지합니다.
-        // 종전 기본값 3f는 기준값도 아니면서 하필 강제 청산 슬로우 모션 수치와 같아,
-        // 방에서 저장된 세이브를 이어하면 게임이 연출 속도로 영구 고정됐습니다.
+        // ⚠️ 기록 전용입니다 — 불러오기 때 게임에 되돌리지 않습니다.
+        // 기준 배속은 씬에 직렬화된 값이 유일한 출처이며(설계 상수), 이 필드는 해당 세션이
+        // 어떤 배속으로 돌았는지 남기는 진단 기록입니다. 복원하면 기준값을 조정해도
+        // 기존 세이브가 옛 값에 고착됩니다. 자세한 경위는 SaveLoadManager의 복원 블록 주석 참고.
+        // -1 = GameManager가 없는 씬(요미의 방·월드맵)에서 저장돼 기록되지 않음.
         public float SecondsPerGameMinute = -1f;
         public float StartOfDayEquity = -1f;
+
+        // 당일 P&L 스파크라인 궤적(인게임 15분 간격 총자산 표본).
+        // 비어 있으면 복원 측이 StartOfDayEquity로 1점 시딩합니다 —
+        // 구버전 세이브는 이 키가 없어 초기화자의 빈 리스트가 유지되므로 마이그레이터가 필요 없습니다.
+        public List<float> DailyEquityHistory = new List<float>();
 
         // --- TraderStatus 상태 ---
         public float PeakBalance = 0f;

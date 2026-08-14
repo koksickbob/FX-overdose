@@ -744,7 +744,7 @@ MonoBehaviour:
   currentDay: 1
   currentHour: 9
   currentMinute: 0
-  secondsPerGameMinute: 1
+  secondsPerGameMinute: 0.666
 --- !u!4 &33821696
 Transform:
   m_ObjectHideFlags: 0
