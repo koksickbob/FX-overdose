@@ -46,6 +46,8 @@ namespace FXOverdose.DatingSim.Store
         public bool IsRunning { get; private set; }
 
         private SpriteRenderer stockOverlay;
+        private Sprite stockFullSprite;
+        private Sprite stockHalfSprite;
 
         public void Configure(StoreStationKind kind, string displayName, float requiredSeconds, int shelfIndex = -1)
         {
@@ -55,11 +57,14 @@ namespace FXOverdose.DatingSim.Store
             ShelfIndex = shelfIndex;
         }
 
-        public void ConfigureShelfStock(int initial, int max, SpriteRenderer overlay)
+        public void ConfigureShelfStock(int initial, int max, SpriteRenderer overlay,
+            Sprite fullSprite = null, Sprite halfSprite = null)
         {
             MaxStock = Mathf.Max(1, max);
             Stock = Mathf.Clamp(initial, 0, MaxStock);
             stockOverlay = overlay;
+            stockFullSprite = fullSprite;
+            stockHalfSprite = halfSprite;
             RefreshStockVisual();
         }
 
@@ -119,8 +124,13 @@ namespace FXOverdose.DatingSim.Store
             stockOverlay.enabled = Stock > 0;
             if (Stock <= 0) return;
 
-            // 아트가 아직 없으므로 색 농도로 가득/부족을 구분합니다. _Full/_Half 스프라이트가 들어오면 교체 지점입니다.
             float ratio = MaxStock > 0 ? (float)Stock / MaxStock : 0f;
+            if (stockFullSprite != null && stockHalfSprite != null)
+            {
+                stockOverlay.sprite = ratio >= 0.6f ? stockFullSprite : stockHalfSprite;
+                stockOverlay.color = Color.white;
+                return;
+            }
             Color color = stockOverlay.color;
             color.a = ratio >= 0.6f ? 1f : 0.55f;
             stockOverlay.color = color;

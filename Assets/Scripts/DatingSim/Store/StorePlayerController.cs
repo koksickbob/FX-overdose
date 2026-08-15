@@ -17,6 +17,7 @@ namespace FXOverdose.DatingSim.Store
         private Rigidbody2D body;
         private StoreShiftManager manager;
         private StoreConfig config;
+        private Collider2D playerCollider;
         private Vector2 input;
 
         private readonly List<StoreStation> stations = new List<StoreStation>();
@@ -37,6 +38,7 @@ namespace FXOverdose.DatingSim.Store
             body = playerBody;
             manager = owner;
             config = storeConfig;
+            playerCollider = GetComponent<Collider2D>();
             RefreshStations();
         }
 
@@ -101,6 +103,15 @@ namespace FXOverdose.DatingSim.Store
                 if (candidate == null) continue; // 청소로 파괴된 오염
 
                 float distance = Vector2.Distance(body.position, candidate.transform.position);
+                Collider2D candidateCollider = candidate.GetComponent<Collider2D>();
+                if (playerCollider != null && candidateCollider != null)
+                {
+                    ColliderDistance2D separation = playerCollider.Distance(candidateCollider);
+                    distance = separation.isOverlapped ? 0f : separation.distance;
+                }
+                // 청소도구를 들었을 때 가까운 오염이 진열대 상호작용에 가려지지 않게 우선합니다.
+                if (Carry == StoreCarry.Tool && candidate.Kind == StoreStationKind.Clean)
+                    distance = Mathf.Max(0f, distance - 0.45f);
                 if (distance >= bestDistance) continue;
                 best = candidate;
                 bestDistance = distance;
