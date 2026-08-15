@@ -465,14 +465,16 @@ namespace FXOverdose.DatingSim.YomiRoom
         // 이동량의 출처. null이면 기존대로 부모의 YomiRoomTopDownController를 찾습니다.
         // 편의점 씬의 요미·손님처럼 그 컨트롤러가 없는 경우에만 주입합니다.
         private System.Func<Vector2> inputSource;
+        private System.Func<bool> movingSource;
 
         public void Configure(Rigidbody2D targetBody, SpriteRenderer targetRenderer, Sprite[] walkFrames,
-            System.Func<Vector2> moveInputSource = null)
+            System.Func<Vector2> moveInputSource = null, System.Func<bool> isMovingSource = null)
         {
             body = targetBody;
             renderer = targetRenderer;
             frames = walkFrames;
             inputSource = moveInputSource;
+            movingSource = isMovingSource;
             controller = inputSource == null && body != null && body.transform.parent != null
                 ? body.transform.parent.GetComponent<YomiRoomTopDownController>()
                 : null;
@@ -491,12 +493,15 @@ namespace FXOverdose.DatingSim.YomiRoom
             Vector2 delta = inputSource != null
                 ? inputSource()
                 : (controller != null ? controller.MoveInput : Vector2.zero);
-            bool moving = delta.sqrMagnitude > 0.01f;
-            if (moving)
+            bool moving = movingSource != null ? movingSource() : delta.sqrMagnitude > 0.01f;
+            // 정지 중에도 별도 방향 입력이 있으면 해당 방향의 스탠딩 프레임으로 돌립니다.
+            if (delta.sqrMagnitude > 0.01f)
             {
                 if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y)) direction = delta.x < 0f ? 1 : 2;
                 else direction = delta.y < 0f ? 0 : 3;
-
+            }
+            if (moving)
+            {
                 animationTime += Time.deltaTime * 7.5f;
                 int[] walkOrder = { 0, 1, 2, 1 };
                 int frame = walkOrder[Mathf.FloorToInt(animationTime) % walkOrder.Length];

@@ -74,8 +74,9 @@ namespace FXOverdose.DatingSim.Store
         private StorePlayerController player;
         private StoreStation counter;
         private Transform customerParent;
-        private Sprite[] customerFrames;
-        private Sprite dirtSprite;
+        private Sprite[][] customerFrameSets;
+        private Sprite[] dirtSprites;
+        private Sprite leftoverSprite;
         private Vector2 entrance;
         private Vector2[] queueSlots = Array.Empty<Vector2>();
 
@@ -107,7 +108,7 @@ namespace FXOverdose.DatingSim.Store
 
         public void Configure(StoreConfig storeConfig, StorePlayerController playerController, StoreStation checkout,
             IEnumerable<StoreStation> shelfStations, Vector2 entrancePoint, Vector2[] slots,
-            Transform customersRoot, Sprite[] walkFrames, Sprite dirtVisual)
+            Transform customersRoot, Sprite[][] walkFrameSets, Sprite[] dirtVisuals, Sprite leftoverVisual)
         {
             config = storeConfig;
             player = playerController;
@@ -115,8 +116,9 @@ namespace FXOverdose.DatingSim.Store
             entrance = entrancePoint;
             queueSlots = slots;
             customerParent = customersRoot;
-            customerFrames = walkFrames;
-            dirtSprite = dirtVisual;
+            customerFrameSets = walkFrameSets;
+            dirtSprites = dirtVisuals;
+            leftoverSprite = leftoverVisual;
 
             shelves.Clear();
             shelves.AddRange(shelfStations);
@@ -197,6 +199,8 @@ namespace FXOverdose.DatingSim.Store
 
             SpriteRenderer renderer = go.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = 11;
+            Sprite[] customerFrames = customerFrameSets != null && customerFrameSets.Length > 0
+                ? customerFrameSets[UnityEngine.Random.Range(0, customerFrameSets.Length)] : null;
             if (customerFrames != null && customerFrames.Length >= 12)
             {
                 renderer.sprite = customerFrames[1];
@@ -206,11 +210,20 @@ namespace FXOverdose.DatingSim.Store
                 renderer.sprite = StoreVisuals.Pixel;
                 go.transform.localScale = new Vector3(0.7f, 1.2f, 1f);
             }
-            // 손님을 요미와 색으로 구분합니다. 아트 교체 전까지 실루엣이 같기 때문입니다.
-            renderer.color = Color.HSVToRGB(UnityEngine.Random.value, 0.45f, 0.95f);
+            renderer.color = customerFrames != null ? Color.white
+                : Color.HSVToRGB(UnityEngine.Random.value, 0.45f, 0.95f);
 
             Rigidbody2D body = go.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Kinematic;
+            body.useFullKinematicContacts = true;
+            CapsuleCollider2D customerCollider = go.AddComponent<CapsuleCollider2D>();
+            customerCollider.size = new Vector2(0.5f, 0.72f);
+            customerCollider.offset = new Vector2(0f, -0.12f);
+            // 이동 경로는 BFS가 고정 장애물을 피합니다. 캐릭터끼리는 물리적으로 밀지 않아 교착을 방지합니다.
+            customerCollider.isTrigger = true;
+            Collider2D playerCollider = player != null ? player.GetComponent<Collider2D>() : null;
+            if (playerCollider != null)
+                Physics2D.IgnoreCollision(customerCollider, playerCollider, true);
 
             StoreCustomer customer = go.AddComponent<StoreCustomer>();
             StoreStation shelf = shelves[UnityEngine.Random.Range(0, shelves.Count)];
@@ -220,7 +233,7 @@ namespace FXOverdose.DatingSim.Store
             if (customerFrames != null && customerFrames.Length >= 12)
             {
                 var animator = go.AddComponent<FXOverdose.DatingSim.YomiRoom.YomiTopDownWalkAnimator>();
-                animator.Configure(body, renderer, customerFrames, () => customer.MoveInput);
+                animator.Configure(body, renderer, customerFrames, () => customer.MoveInput, () => customer.IsWalking);
             }
 
             alive.Add(customer);
@@ -389,13 +402,16 @@ namespace FXOverdose.DatingSim.Store
 
         private void SpawnDirt(Vector2 origin)
         {
-            // 기존 스테이션과 겹치면 청소가 불가능해집니다. 3회까지 재추첨하고 실패하면 포기합니다. (R4)
-            for (int attempt = 0; attempt < 3; attempt++)
+            // 오염 그림 전체가 가구 콜라이더와 겹치지 않는 위치를 찾습니다.
+            for (int attempt = 0; attempt < 8; attempt++)
             {
                 Vector2 candidate = origin + new Vector2(UnityEngine.Random.Range(-1.6f, 1.6f), UnityEngine.Random.Range(-1.8f, -0.8f));
                 if (IsTooCloseToStation(candidate)) continue;
 
-                StoreStation station = CreateStation("Dirt", candidate, dirtSprite, new Color(0.55f, 0.2f, 0.2f, 1f), 2);
+                Sprite dirtVisual = dirtSprites != null && dirtSprites.Length > 0
+                    ? dirtSprites[UnityEngine.Random.Range(0, dirtSprites.Length)] : null;
+                StoreStation station = CreateStation("Dirt", candidate, dirtVisual,
+                    dirtVisual != null ? Color.white : new Color(0.55f, 0.2f, 0.2f, 1f), 2);
                 station.Configure(StoreStationKind.Clean, "오염", config.cleanSeconds);
                 dirt.Add(station);
                 player?.RefreshStations();
@@ -407,7 +423,8 @@ namespace FXOverdose.DatingSim.Store
         {
             if (counter == null) return;
             Vector2 position = (Vector2)counter.transform.position + new Vector2(UnityEngine.Random.Range(-0.9f, 0.9f), -1.5f);
-            StoreStation station = CreateStation("Leftover", position, dirtSprite, new Color(0.94f, 0.27f, 0.27f, 1f), 7);
+            StoreStation station = CreateStation("Leftover", position, leftoverSprite,
+                leftoverSprite != null ? Color.white : new Color(0.94f, 0.27f, 0.27f, 1f), 7);
             station.Configure(StoreStationKind.CleanupLeftover, "두고 간 물건", config.leftoverSeconds);
             leftovers.Add(station);
             player?.RefreshStations();
@@ -417,6 +434,15 @@ namespace FXOverdose.DatingSim.Store
         {
             foreach (StoreStation station in FindObjectsByType<StoreStation>(FindObjectsInactive.Exclude))
                 if (Vector2.Distance(point, station.transform.position) < 1.0f) return true;
+
+            // 중심 거리만으로는 긴 진열대 가장자리와 겹칠 수 있으므로 오염 크기만큼 실제 물리 영역도 검사합니다.
+            Collider2D[] overlaps = Physics2D.OverlapBoxAll(point, new Vector2(1.45f, 1.25f), 0f);
+            for (int i = 0; i < overlaps.Length; i++)
+            {
+                Collider2D overlap = overlaps[i];
+                if (overlap == null || overlap.isTrigger) continue;
+                return true;
+            }
             return false;
         }
 
