@@ -22,16 +22,28 @@ namespace FXOverdose.DatingSim.Store
         private TMP_Text customerText;
         private TMP_Text feedbackText;
         private TMP_Text introText;
+        private RectTransform introOverlay;
+        private RectTransform introAccent;
+        private CanvasGroup introCanvasGroup;
+        private float introElapsed;
 
         private RectTransform holdBar;
         private Image holdFill;
-        private TMP_Text carryText;
+        private RectTransform carryIcon;
+        private Image carryImage;
+        private TMP_Text carryCount;
+        private RectTransform promptRoot;
         private TMP_Text promptText;
 
         private GameObject resultPanel;
-        private TMP_Text resultGrade;
+        private Image resultGrade;
+        private GameObject resultGift;
         private TMP_Text resultBody;
         private Button resultButton;
+        private Sprite boxIcon;
+        private Sprite mopIcon;
+        private Sprite[] gradeIcons;
+        private bool payInitialized;
 
         private readonly List<StoreCustomer> tracked = new List<StoreCustomer>();
         private readonly List<RectTransform> patienceBars = new List<RectTransform>();
@@ -51,8 +63,9 @@ namespace FXOverdose.DatingSim.Store
 
         public void Configure(StoreShiftManager shiftManager, StorePlayerController playerController, Camera camera,
             RectTransform canvas, TMP_Text time, Image timeGauge, TMP_Text pay, TMP_Text customers,
-            TMP_Text feedback, TMP_Text intro, RectTransform hold, Image holdGauge, TMP_Text carry, TMP_Text prompt,
-            GameObject result, TMP_Text grade, TMP_Text body, Button confirm,
+            TMP_Text feedback, TMP_Text intro, RectTransform hold, Image holdGauge, RectTransform carry,
+            TMP_Text carryAmount, RectTransform prompt, TMP_Text promptLabel, GameObject result, Image grade,
+            GameObject gift, TMP_Text body, Button confirm, Sprite boxSprite, Sprite mopSprite, Sprite[] grades,
             IEnumerable<StoreStation> shelfStations, IEnumerable<TMP_Text> shelfTexts,
             IEnumerable<RectTransform> patience, IEnumerable<Image> patienceGauges)
         {
@@ -66,14 +79,22 @@ namespace FXOverdose.DatingSim.Store
             customerText = customers;
             feedbackText = feedback;
             introText = intro;
+            BuildIntroPresentation();
             holdBar = hold;
             holdFill = holdGauge;
-            carryText = carry;
-            promptText = prompt;
+            carryIcon = carry;
+            carryImage = carry != null ? carry.GetComponent<Image>() : null;
+            carryCount = carryAmount;
+            promptRoot = prompt;
+            promptText = promptLabel;
             resultPanel = result;
             resultGrade = grade;
+            resultGift = gift;
             resultBody = body;
             resultButton = confirm;
+            boxIcon = boxSprite;
+            mopIcon = mopSprite;
+            gradeIcons = grades;
 
             shelves.AddRange(shelfStations);
             shelfLabels.AddRange(shelfTexts);
@@ -88,6 +109,9 @@ namespace FXOverdose.DatingSim.Store
 
             resultButton.onClick.AddListener(() => manager.ReturnToWorldMap());
             resultPanel.SetActive(false);
+            if (holdBar != null) holdBar.gameObject.SetActive(false);
+            if (carryIcon != null) carryIcon.gameObject.SetActive(false);
+            if (promptRoot != null) promptRoot.gameObject.SetActive(false);
             UpdatePay(manager.CurrentPay);
             HandleState(manager.State);
         }
@@ -111,6 +135,82 @@ namespace FXOverdose.DatingSim.Store
             UpdatePatience();
             UpdateShelves();
             UpdateFeedback();
+            UpdateIntroPresentation();
+        }
+
+        /// <summary>
+        /// 별도 아트 에셋 없이 시작 타이틀을 전체 화면 연출로 확장합니다.
+        /// 런타임 조립 방식이라 씬/프리팹을 다시 만들 필요가 없습니다.
+        /// </summary>
+        private void BuildIntroPresentation()
+        {
+            if (introText == null || canvasRect == null) return;
+
+            GameObject overlayObject = new GameObject("IntroPresentation", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image), typeof(CanvasGroup));
+            introOverlay = overlayObject.GetComponent<RectTransform>();
+            introOverlay.SetParent(canvasRect, false);
+            introOverlay.anchorMin = Vector2.zero;
+            introOverlay.anchorMax = Vector2.one;
+            introOverlay.offsetMin = Vector2.zero;
+            introOverlay.offsetMax = Vector2.zero;
+
+            Image shade = overlayObject.GetComponent<Image>();
+            shade.sprite = StoreVisuals.Pixel;
+            shade.color = new Color32(2, 8, 18, 188);
+            shade.raycastTarget = false;
+            introCanvasGroup = overlayObject.GetComponent<CanvasGroup>();
+            introCanvasGroup.blocksRaycasts = false;
+            introCanvasGroup.interactable = false;
+
+            GameObject accentObject = new GameObject("Accent", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            introAccent = accentObject.GetComponent<RectTransform>();
+            introAccent.SetParent(introOverlay, false);
+            introAccent.anchorMin = introAccent.anchorMax = new Vector2(0.5f, 0.5f);
+            introAccent.anchoredPosition = new Vector2(0f, -115f);
+            introAccent.sizeDelta = new Vector2(0f, 3f);
+            Image accentImage = accentObject.GetComponent<Image>();
+            accentImage.sprite = StoreVisuals.Pixel;
+            accentImage.color = Cyan;
+            accentImage.raycastTarget = false;
+
+            introText.rectTransform.SetParent(introOverlay, false);
+            introText.rectTransform.anchorMin = introText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            introText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            introText.rectTransform.anchoredPosition = new Vector2(0f, -42f);
+            introText.rectTransform.sizeDelta = new Vector2(720f, 150f);
+            introText.alignment = TextAlignmentOptions.Center;
+            introText.fontStyle = FontStyles.Bold;
+            introText.enableAutoSizing = false;
+            introText.fontSize = 64f;
+            introText.raycastTarget = false;
+            introOverlay.SetAsLastSibling();
+        }
+
+        private void UpdateIntroPresentation()
+        {
+            if (introOverlay == null || !introOverlay.gameObject.activeSelf) return;
+
+            introElapsed += Time.unscaledDeltaTime;
+            float reveal = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.65f, introElapsed));
+            float exit = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(2.45f, 2.95f, introElapsed));
+            float visibility = Mathf.Min(reveal, exit);
+
+            if (introCanvasGroup != null) introCanvasGroup.alpha = visibility;
+            if (introAccent != null)
+            {
+                float width = Mathf.Lerp(0f, Mathf.Min(760f, canvasRect.rect.width * 0.48f), reveal);
+                introAccent.sizeDelta = new Vector2(width, introElapsed > 2.35f ? 6f : 3f);
+            }
+
+            if (introText == null) return;
+            introText.text = introElapsed < 0.55f
+                ? "<size=22><color=#22D3EE>SHIFT  START</color></size>"
+                : "<size=22><color=#22D3EE>CONVENIENCE STORE</color></size>\n근무 시작!";
+            float punch = 1f + Mathf.Sin(Mathf.InverseLerp(0.55f, 0.82f, introElapsed) * Mathf.PI) * 0.1f;
+            introText.rectTransform.localScale = Vector3.one * punch;
+            introText.color = Color.Lerp(new Color32(34, 211, 238, 255), Color.white, reveal);
         }
 
         private void UpdateTime()
@@ -141,6 +241,12 @@ namespace FXOverdose.DatingSim.Store
         {
             if (payText == null) return;
             payText.text = $"{Mathf.RoundToInt(value):N0} 원";
+            if (!payInitialized)
+            {
+                payInitialized = true;
+                RestorePayColor();
+                return;
+            }
             payText.color = Warn;
             CancelInvoke(nameof(RestorePayColor));
             Invoke(nameof(RestorePayColor), 0.4f);
@@ -167,28 +273,34 @@ namespace FXOverdose.DatingSim.Store
                 PlaceAtWorld(holdBar, player.transform.position + new Vector3(0f, 1.1f, 0f));
             }
 
-            if (carryText != null)
+            if (carryIcon != null)
             {
-                carryText.text = player.Carry switch
+                bool carrying = player.Carry != StoreCarry.None;
+                carryIcon.gameObject.SetActive(carrying);
+                if (carrying)
                 {
-                    StoreCarry.Stock => $"상자 {player.CarriedStockUnits}",
-                    StoreCarry.Tool => "청소도구",
-                    _ => string.Empty
-                };
-                if (player.Carry != StoreCarry.None)
-                    PlaceAtWorld(carryText.rectTransform, player.transform.position + new Vector3(0.95f, 1.1f, 0f));
+                    if (carryImage != null) carryImage.sprite = player.Carry == StoreCarry.Stock ? boxIcon : mopIcon;
+                    if (carryCount != null)
+                        carryCount.text = player.Carry == StoreCarry.Stock ? $"×{player.CarriedStockUnits}" : string.Empty;
+                    PlaceAtWorld(carryIcon, player.transform.position + new Vector3(0.95f, 1.1f, 0f));
+                }
             }
 
-            if (promptText != null)
+            if (promptRoot != null)
             {
-                bool showPrompt = manager.IsInputAllowed && player.Nearby != null && player.Active == null;
-                promptText.gameObject.SetActive(showPrompt);
+                bool showPrompt = manager.IsInputAllowed && target != null;
+                promptRoot.gameObject.SetActive(showPrompt);
                 if (showPrompt)
                 {
-                    bool tap = player.Nearby.Kind == StoreStationKind.PickupStock ||
-                               player.Nearby.Kind == StoreStationKind.PickupTool;
-                    promptText.text = tap ? $"[E]  {player.Nearby.DisplayName}" : $"[E] 길게  {player.Nearby.DisplayName}";
-                    PlaceAtWorld(promptText.rectTransform, player.Nearby.transform.position + new Vector3(0f, 1.4f, 0f));
+                    bool tap = target.Kind == StoreStationKind.PickupStock || target.Kind == StoreStationKind.PickupTool;
+                    if (promptText != null) promptText.text = tap ? target.DisplayName : $"길게  {target.DisplayName}";
+                    float promptHeight = tap ? 1.4f : 1.85f;
+                    PlaceAtWorld(promptRoot, target.transform.position + new Vector3(0f, promptHeight, 0f));
+                    if (tap)
+                    {
+                        // 상단 벽에 붙은 창고·청소 구역은 화면 밖으로 잘리지 않게 우하단으로 보정합니다.
+                        promptRoot.anchoredPosition += new Vector2(-6f, -55f);
+                    }
                 }
             }
         }
@@ -242,8 +354,21 @@ namespace FXOverdose.DatingSim.Store
         {
             if (introText == null) return;
             bool intro = state == StoreShiftState.Intro;
-            introText.gameObject.SetActive(intro);
-            if (intro) introText.text = "근무 시작!";
+            if (intro)
+            {
+                introElapsed = 0f;
+                if (introOverlay != null)
+                {
+                    introOverlay.gameObject.SetActive(true);
+                    introOverlay.SetAsLastSibling();
+                }
+                else introText.gameObject.SetActive(true);
+            }
+            else
+            {
+                if (introOverlay != null) introOverlay.gameObject.SetActive(false);
+                else introText.gameObject.SetActive(false);
+            }
         }
 
         private void ShowResult(StoreShiftResult result)
@@ -251,18 +376,18 @@ namespace FXOverdose.DatingSim.Store
             if (resultPanel == null) return;
             resultPanel.SetActive(true);
 
-            if (resultGrade != null)
+            if (resultGrade != null && gradeIcons != null && gradeIcons.Length >= 5)
             {
-                resultGrade.text = result.Grade.ToString();
-                resultGrade.color = result.Grade switch
+                int index = result.Grade switch
                 {
-                    'S' => new Color32(255, 211, 92, 255),
-                    'A' => Cyan,
-                    'B' => Good,
-                    'C' => Grey,
-                    _ => Warn
+                    'S' => 0, 'A' => 1, 'B' => 2, 'C' => 3, _ => 4
                 };
+                resultGrade.sprite = gradeIcons[index];
+                resultGrade.color = Color.white;
             }
+
+            if (resultGift != null)
+                resultGift.SetActive(result.Gifts != null && result.Gifts.Count > 0);
 
             if (resultBody == null) return;
 
