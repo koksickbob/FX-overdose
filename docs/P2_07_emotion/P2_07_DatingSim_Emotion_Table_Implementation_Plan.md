@@ -86,20 +86,24 @@ public class DatingEmotionTableSO : ScriptableObject
 }
 ```
 
-## 5. 권장 에셋 위치
+## 5. 에셋 위치 — 실제 구현 (2026-08-16 갱신)
 
 ```text
-Assets/Resources/DatingSim/Emotions/
-├── DatingEmotionTable.asset
-├── Definitions/
-│   ├── Calm.asset
-│   ├── Joy.asset
-│   └── ...
-└── Sprites/
-    ├── Calm.png
-    ├── Joy.png
-    └── ...
+Assets/Resources/DatingSim/Emotions/Sprites/
+├── T1/  (24장)  ├── T2/  (24장)
+├── T3/  (24장)  └── T4/  (24장)      = 96장. 파일명 = enum 이름
+
+ArtSource/DatingSim/Emotions/         ← Assets/ 밖. 게임이 쓰지 않는다
+└── T1~T4/  크로마키 원본(*_chroma) · 리테이크 잔재(*_redesign_v*, *_preview, *_source) 105장
 ```
+
+> **`DatingEmotionTable.asset` / `Definitions/*.asset`은 만들지 않았다.** 파일명이 enum 이름과 같아서 테이블이 하는 일이 문자열 연결 한 줄(`Sprites/{티어}/{감정}`)과 같다. 감정별 UI 강조 색상(12절 2번)이 실제로 필요해질 때 만든다.
+>
+> **작업 원본을 `Assets/` 밖에 둔 이유**: `Resources` 폴더는 참조 여부와 무관하게 **전부 빌드에 실린다.** 옆에 두면 쓰지도 않는 105장이 그대로 빌드 용량이 된다.
+>
+> ⚠️ **로드는 `Resources.LoadAll<Sprite>(경로)[0]`이다.** PNG가 Multiple 스프라이트 모드로 임포트돼 있어(시트당 서브 스프라이트 1장) 메인 에셋이 Texture2D고, `Resources.Load<Sprite>`는 **null을 돌려준다.**
+>
+> 소비처와 티어 판정 규칙은 [EventScene_System_Plan.md 7.9절](../P2_04_System/EventScene_System_Plan.md), 검증은 에디터 메뉴 `FXOverdose/Debug/Validate Event Data`.
 
 ## 6. 대화 및 스토리 데이터 연결
 

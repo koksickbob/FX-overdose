@@ -31,7 +31,19 @@ public class SettingsMenuController : MonoBehaviour
     private RectTransform settingsPanelRect;
     private GameObject settingsHeaderSurface;
     private GameObject settingsActionSurface;
-    private GameObject[] p2pHiddenSettingsObjects;
+    private GameObject[] restrictedHiddenObjects;
+
+    /// <summary>
+    /// 저장·업적을 숨긴 <b>제한 레이아웃</b>을 강제합니다. P2P 경기 외에 이벤트 진행 중에도 필요합니다.
+    ///
+    /// ⚠️ 이벤트 진행 중에는 저장이 금지되므로(이벤트 시스템 계획 7.1절) 저장 버튼이 노출되면
+    ///    요구를 정면으로 위반합니다. 세우는 쪽이 반드시 되돌려야 하며, 이벤트 시스템은
+    ///    종료 경로와 OnDestroy 양쪽에서 내립니다.
+    ///
+    /// 정적인 이유: 설정 메뉴는 씬마다 따로 있고 이벤트보다 늦게 만들어질 수도 있는데,
+    /// 이 값은 메뉴를 <b>열 때마다</b> 다시 읽히므로 누가 먼저 태어났는지와 무관해집니다.
+    /// </summary>
+    public static bool RestrictedLayoutRequested { get; set; }
     private Button resumeMenuButton;
     private Button quitMenuButton;
 
@@ -287,7 +299,7 @@ public class SettingsMenuController : MonoBehaviour
 
         previousTimeScale = Time.timeScale;
         Time.timeScale = 0f;
-        ApplyP2PMenuLayout();
+        ApplyRestrictedMenuLayout();
         UpdateModeButtonVisuals();
         overlay.SetActive(true);
         overlay.transform.SetAsLastSibling();
@@ -499,28 +511,32 @@ public class SettingsMenuController : MonoBehaviour
         SetRect(quitMenuButton.GetComponent<RectTransform>(), new Vector2(0.11f, 0.035f), new Vector2(0.89f, 0.10f));
         quitMenuButton.onClick.AddListener(QuitGame);
 
-        p2pHiddenSettingsObjects = new[]
+        restrictedHiddenObjects = new[]
         {
             achievementsMenuButton.gameObject, saveMenuButton.gameObject
         };
 
-        ApplyP2PMenuLayout();
+        ApplyRestrictedMenuLayout();
         UpdateModeButtonVisuals();
         CreateOverwriteConfirmDialog();
         CreateSaveSlotDialog();
         overlay.SetActive(false);
     }
 
-    /// <summary>P2P 경기에서는 업적·세이브만 숨기고 오디오·FPS 설정과 종료 동작을 제공합니다.</summary>
-    private void ApplyP2PMenuLayout()
+    /// <summary>
+    /// 제한 레이아웃 — 업적·세이브만 숨기고 오디오·FPS 설정과 종료 동작은 그대로 제공합니다.
+    /// P2P 경기와 이벤트 진행 중이 이 레이아웃을 씁니다. (<see cref="RestrictedLayoutRequested"/>)
+    /// </summary>
+    private void ApplyRestrictedMenuLayout()
     {
-        bool isP2P = FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true;
+        bool restricted = RestrictedLayoutRequested ||
+                          FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true;
 
-        if (p2pHiddenSettingsObjects != null)
+        if (restrictedHiddenObjects != null)
         {
-            foreach (GameObject target in p2pHiddenSettingsObjects)
+            foreach (GameObject target in restrictedHiddenObjects)
             {
-                if (target != null) target.SetActive(!isP2P);
+                if (target != null) target.SetActive(!restricted);
             }
         }
 
@@ -537,13 +553,13 @@ public class SettingsMenuController : MonoBehaviour
 
         if (resumeMenuButton != null)
             SetRect(resumeMenuButton.GetComponent<RectTransform>(),
-                isP2P ? new Vector2(0.11f, 0.29f) : new Vector2(0.11f, 0.12f),
-                isP2P ? new Vector2(0.89f, 0.355f) : new Vector2(0.89f, 0.185f));
+                restricted ? new Vector2(0.11f, 0.29f) : new Vector2(0.11f, 0.12f),
+                restricted ? new Vector2(0.89f, 0.355f) : new Vector2(0.89f, 0.185f));
 
         if (quitMenuButton != null)
             SetRect(quitMenuButton.GetComponent<RectTransform>(),
-                isP2P ? new Vector2(0.11f, 0.205f) : new Vector2(0.11f, 0.035f),
-                isP2P ? new Vector2(0.89f, 0.27f) : new Vector2(0.89f, 0.10f));
+                restricted ? new Vector2(0.11f, 0.205f) : new Vector2(0.11f, 0.035f),
+                restricted ? new Vector2(0.89f, 0.27f) : new Vector2(0.89f, 0.10f));
     }
 
     private void CreateOverwriteConfirmDialog()

@@ -539,19 +539,10 @@ namespace FXOverdose.DatingSim.YomiRoom
         private readonly List<string> lineQueue = new List<string>();
         private Coroutine drainRoutine;
         private TalkChoice[] pendingChoices;
-        private bool skipRequested;
 
         // ── 출력 연출 튜닝 노브 (11장 D-7) ──────────────────────────────
-        // 실기로 봐야 정해지는 값들입니다. 흩어 두면 못 고치므로 한 블록에 모읍니다.
-        private const float CharInterval = 0.045f;      // 글자 하나 (한글 초당 약 22자)
-        private const float PauseComma = 0.08f;         // , 뒤
-        private const float PausePeriod = 0.15f;        // . ! ? 뒤
-        private const float PauseEllipsis = 0.35f;      // ... 뒤 — 요미의 머뭇거림이 여기서 나옵니다
-        private const float LineTailBase = 0.25f;       // 줄 사이 여운 = Base + 글자수 * PerChar
-        private const float LineTailPerChar = 0.012f;
-        private const float LineTailMax = 0.8f;
-        private const float NarrationTail = 0.55f;      // 지문은 타자기 없이 즉시 표시 후 이 텀 (D-4)
-        private const float ChoiceDelay = 0.3f;         // 마지막 글자와 동시에 버튼이 튀어나오지 않게 (D-5)
+        // 이벤트 시스템이 같은 리듬을 써야 해서 DialogueTypewriter로 옮겼습니다. 노브도 그쪽에 있습니다.
+        // 두 벌로 갈라지면 대사 리듬이 화면마다 달라집니다.
 
         // 하단 버튼 하나가 상태에 따라 "자유대화"와 "대화 종료"를 겸합니다. (F-5)
         // 진행 중인 대화를 끊을 수단이 아예 없어서, 대화 중에는 방을 떠나지도 저장을 정리하지도 못했습니다.
@@ -738,13 +729,13 @@ namespace FXOverdose.DatingSim.YomiRoom
                     // 지문은 타자기를 쓰지 않습니다. 서술은 대사와 리듬이 달라야 하고,
                     // 타이핑까지 하면 늘어집니다. (D-4)
                     AppendNarration(TalkNode.StripMark(line));
-                    tail = NarrationTail;
+                    tail = DialogueTypewriter.NarrationTail;
                 }
                 else
                 {
                     TMP_Text body = AppendLine("요미", line, "#F472B6");
                     if (body != null) yield return TypeLine(body, line);
-                    tail = Mathf.Min(LineTailMax, LineTailBase + line.Length * LineTailPerChar);
+                    tail = DialogueTypewriter.LineTailFor(line);
                 }
 
                 if (lineQueue.Count == 0) break;
@@ -763,7 +754,7 @@ namespace FXOverdose.DatingSim.YomiRoom
 
             if (pendingChoices != null)
             {
-                yield return new WaitForSeconds(ChoiceDelay);
+                yield return new WaitForSeconds(DialogueTypewriter.ChoiceDelay);
                 ShowChoices(pendingChoices);
                 pendingChoices = null;
             }
@@ -772,50 +763,13 @@ namespace FXOverdose.DatingSim.YomiRoom
             drainRoutine = null;
         }
 
-        /// <summary>한 글자씩 찍습니다. 구두점에서는 손이 멈춥니다. (D-1 / D-2)</summary>
+        /// <summary>
+        /// 한 글자씩 찍습니다. 실제 구현은 <see cref="DialogueTypewriter"/>에 있습니다 (이벤트 시스템과 공용).
+        /// 방은 <b>스케일드 시간</b>을 그대로 씁니다 — 기존 동작을 바꾸지 않기 위해서입니다.
+        /// </summary>
         private System.Collections.IEnumerator TypeLine(TMP_Text body, string text)
         {
-            skipRequested = false;
-            body.maxVisibleCharacters = 0;
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                body.maxVisibleCharacters = i + 1;
-
-                float wait = CharInterval + PauseAfter(text, i);
-                float waited = 0f;
-                while (waited < wait)
-                {
-                    if (ClickedThisFrame()) { skipRequested = true; break; }
-                    waited += Time.deltaTime;
-                    yield return null;
-                }
-
-                if (skipRequested) break;
-            }
-
-            body.maxVisibleCharacters = int.MaxValue; // 남은 글자 즉시 표시
-        }
-
-        /// <summary>
-        /// 이 글자 뒤에 얼마나 쉴지. 요미 대사는 말줄임이 압도적으로 많아서,
-        /// "..." 뒤의 정지가 머뭇거림을 그대로 연출로 만들어 줍니다. 대사는 한 줄도 안 고칩니다.
-        /// </summary>
-        private static float PauseAfter(string text, int index)
-        {
-            char c = text[index];
-
-            if (c == '…') return PauseEllipsis;
-            if (c == '.')
-            {
-                // 점이 이어지는 중간에서는 쉬지 않습니다. 점마다 멈추면 1초를 넘깁니다.
-                if (index + 1 < text.Length && text[index + 1] == '.') return 0f;
-                bool ellipsis = index >= 2 && text[index - 1] == '.' && text[index - 2] == '.';
-                return ellipsis ? PauseEllipsis : PausePeriod;
-            }
-            if (c == '!' || c == '?') return PausePeriod;
-            if (c == ',') return PauseComma;
-            return 0f;
+            return DialogueTypewriter.TypeLine(body, text, ClickedThisFrame, useUnscaledTime: false);
         }
 
         private static bool ClickedThisFrame()

@@ -439,4 +439,63 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 에디터 메뉴 `FXOverdose/Debug/Calendar System Test`가 순수 로직 28건을 검사한다(달력 환산·경계·로케일 왕복·마이그레이션 1.7.0/1.8.0·슬롯 시각 환산·스위치 상태). 씬이 필요한 항목은 각 계획서의 검증 체크리스트로 남겼다.
 
 ---
+
+## 10. 이벤트 진행 시스템 (2026-08-15)
+
+계획: [EventScene_System_Plan.md](EventScene_System_Plan.md) v2. 데이트·메인 스토리·프롤로그가 공용으로 쓸 이벤트 재생 시스템. `Assets/Scripts/Events/Story/`.
+
+### 10.1 코어 1개, 호스트 2개
+
+`EventRunner`(상태기계·분기·지연 커밋, MonoBehaviour 아님) + `EventView`(위젯 트리 **한 벌**) + 호스트 2종. 두 표현이 `EventRunner` 하나만 돌리므로 진행 결과가 같다는 것이 구조로 보장된다.
+
+| | `EventOverlayHost` | `EventSceneHost` |
+| --- | --- | --- |
+| 캔버스 | 현재 씬에 런타임 생성 (`sortingOrder 1300`) | `EventScene` |
+| 종료 | 완료 콜백 | `ReturnScene` 복귀 |
+| 복귀 계약 | **없음** — 씬을 떠나지 않는다 | `LastSceneName` 기입 + 복귀지 제한 |
+
+**종료 계약이 비대칭인 것은 의도다.** 전용 씬은 씬이 파괴돼 콜백이 붙잡은 오브젝트가 먼저 죽는다. static으로 살리는 편법을 쓰지 않는다.
+
+**화면은 양쪽 다 런타임 생성**이다. 씬에 프리팹을 배치하면 오버레이가 만드는 화면과 조용히 어긋난다.
+
+### 10.2 2단계 커밋 — 저장은 조용히 실패한다
+
+`SaveGame()`이 `false`만 돌려주는 실패 경로가 셋이다 — 스토리 모드 아님 / `GameManager` 상태가 `Playing`·`Paused` 아님(**`Settlement` 포함**) / 오버도즈 중. **기존 스토리 이벤트가 바로 그 `Settlement`에서 발화한다**(`ProcessDailySettlementWithStory` → 컷씬). 그대로 붙이면 이벤트 결과가 통째로 증발한다.
+
+그래서 커밋을 나눴다. 1단계는 `CurrentData`에 반영(메모리, 항상 성공), 2단계는 디스크 1회 시도. **실패해도 1단계가 남아 부분 저장 베이스(SV-A6)를 타고 다음 저장에 실려 나간다.** 새로 만든 메커니즘이 아니라 기존 것을 얻어 쓴 것이다.
+
+`PauseGame()`은 `Settlement`에서 아무 일도 하지 않으므로 오버레이도 이 경로를 우회하지 못한다 — 2단계 커밋이 유일한 해법이다.
+
+### 10.3 전용 씬의 복귀 계약
+
+- **복귀지에서 GameScene을 뺐다** (`EventSceneHost.AllowedReturnScenes`). 거래 씬 복귀는 `SaveCurrentGame()` → `PrepareLoadGame()` 순서(SV-B10)를 지켜야 새 게임이 시작되지 않는데, 그 프로토콜을 한 벌 더 구현하느니 거래 중 이벤트는 오버레이로 보내는 편이 낫다. 오버레이는 씬을 아예 떠나지 않는다.
+- **`LastSceneName`을 커밋에서 직접 적는다.** `EventScene`은 `ResumableScenes`에 없고(의도적 — 이벤트 씬으로 복귀하면 안 된다), 새 게임 프롤로그는 `LastSceneName`이 `""`인 채로 오므로, 그대로 두면 프롤로그 직후 종료한 플레이어가 **요미 방이 아니라 GameScene**으로 떨어진다.
+- **정산 충돌 강등.** `HandleSceneLoaded`는 거래 씬이 아닌 모든 씬에서 상태를 `Paused`로 바꾼 뒤 정산이 밀려 있으면 그 씬에서 일일 정산을 시작한다 — `EventScene`도 예외가 아니다. `EventLauncher.ResolveHost`가 이 경우 오버레이로 강등한다.
+
+### 10.4 딸린 조치 2건 (선행 작업)
+
+- **`SettingsMenuController` 제한 레이아웃 일반화.** `ApplyP2PMenuLayout` → `ApplyRestrictedMenuLayout`. 판정이 `P2PNetworkSessionManager.IsRunning`에 하드와이어돼 있어 이벤트가 켤 수 없었다. `RestrictedLayoutRequested` 정적 플래그를 OR로 추가. **이걸 안 하면 이벤트 중 설정 창에 저장 버튼이 노출된다** — 자동 저장 금지 요구의 정면 위반. 세우는 쪽이 종료 경로와 `OnDestroy` 양쪽에서 내린다.
+- **타자기 발췌.** `YomiRoomTopDownPrototype`(989줄) 안에 말풍선 로그와 함께 박혀 있던 것을 `DialogueTypewriter`로 분리. 방은 스케일드 시간을 그대로 써서 기존 동작이 바뀌지 않고, 이벤트는 **unscaled**를 쓴다 — 설정 메뉴가 `Time.timeScale = 0`을 걸기 때문에 스케일드로 두면 설정을 한 번 열었다 닫는 것만으로 타자기가 영구히 멈춘다.
+
+### 10.5 SaveData
+
+`EventCompletedIds` / `EventChoiceHistory` / `StoryFlags` 3개. **gather·scatter·마이그레이션 코드가 하나도 없다** — 매니저가 아니라 `SaveData` 자신이 주인이라 `EventRunner`가 `CurrentData`에 직접 쓰고 `EventLauncher`가 직접 읽으며, `SaveGame`이 `CurrentData`를 베이스로 삼으므로 자동으로 실려 나간다. 구버전 JSON에 키가 없어도 `JsonUtility`가 초기화자를 유지한다.
+
+### 10.6 검증
+
+에디터 메뉴 3종. `FXOverdose/Debug/Validate Event Data`는 플레이 모드 없이 노드 그래프를 정적 검사한다(ID 중복·시작 노드·끊어진 링크·빈 대사·도달 불가 노드). 이벤트가 40노드를 넘으면 오타 하나가 "그 분기를 고르기 전까지 발견되지 않는" 형태로 숨으므로 이 검사가 필요하다. `Play Sample Event (Overlay|Scene)`은 플레이 모드에서 같은 이벤트를 두 호스트로 띄운다.
+
+### 10.7 감정 스프라이트 배선 (2026-08-16)
+
+`EventNode.Emotion`은 데이터로만 존재하고 렌더에 쓰이지 않는 상태였다(계획 7.9절의 "필드만 먼저 판다"). 스프라이트 96종이 들어와서 배선했다.
+
+- **`EventEmotion` 11종 → 24종** (P2_07 규격). 기존 11종이 24종의 완전한 부분집합이라 이름 충돌 없이 추가만 했고, 기존 이벤트 데이터는 손대지 않았다.
+- **enum 이름 = 파일명**이 계약이다 — `Resources/DatingSim/Emotions/Sprites/{T1~T4}/{감정}.png`. `DatingEmotionTableSO`(P2_07 4절)를 만들지 않은 이유가 이것이다. 파일명이 enum 이름과 같으면 테이블이 하는 일이 문자열 연결 한 줄과 같다. 감정별 UI 색상·표시명이 실제로 필요해질 때 만든다.
+- ⚠️ **`Resources.LoadAll<Sprite>(...)[0]`을 쓴다.** 감정 PNG가 전부 **Multiple 스프라이트 모드**로 임포트돼 있어(시트당 서브 스프라이트 1장, 이름은 `Calm_0` 꼴) 메인 에셋이 Texture2D다. `Resources.Load<Sprite>`는 여기서 **null을 돌려준다** — 배경 로드와 코드가 달라 보이는 것은 이 때문이다.
+- **티어 판정은 `CurrentAffection` 현재치**, 경계 91/61/31 ([Affection_Tier_Table.md](Affection_Tier_Table.md)). 피크를 쓰지 않는 이유는 호감도가 깎였는데 T4 표정이 나오면 연출이 거짓말이 되기 때문. 씬 단독 재생(계획 7.6절)에서는 매니저가 없어 T1로 떨어진다.
+- 폴백 사슬: 요청 감정 → Calm → 스탠딩 숨김 + 경고. 배경과 같은 방침이라 아트가 빠져도 이벤트는 완주한다.
+- **검증을 `Validate Event Data`에 합쳤다** — 24종 × 4티어 = 96장 로드 확인. 이게 없으면 enum만 늘리고 스프라이트를 안 넣었을 때 *그 감정이 쓰인 대사에 도달했을 때만* 조용히 Calm으로 떨어져서, 노드 그래프 오타와 같은 종류의 "나중에 발견되는" 문제가 된다.
+- **크로마키 원본·리테이크 잔재 105장을 `ArtSource/DatingSim/Emotions/`로 뺐다** (`Assets/` 밖). `Resources` 폴더는 **참조 여부와 무관하게 전부 빌드에 실리므로** 쓰지 않는 105장이 그대로 빌드 용량이었다. GUID 참조가 씬·프리팹·에셋 어디에도 없음을 확인하고 옮겼다.
+
+---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

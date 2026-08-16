@@ -36,6 +36,19 @@ namespace FXOverdose.DatingSim.UI
         public static void BuildForScene(Scene scene)
         {
             if (!scene.IsValid() || !scene.isLoaded) return;
+
+            // 이벤트 씬은 카메라·입력만 있으면 됩니다. 화면은 EventSceneHost가 EventView로 만들고,
+            // 그 EventView는 오버레이 호스트가 쓰는 것과 <b>같은 코드</b>입니다. (계획 R12)
+            if (scene.name == "EventScene")
+            {
+                EnsureCamera(scene);
+                EnsureEventSystem(scene);
+                EnsureTimeManager(scene);
+                if (FindInScene<FXOverdose.Events.Story.EventSceneHost>(scene) == null)
+                    CreateInScene<FXOverdose.Events.Story.EventSceneHost>(scene, "EventSceneHost");
+                return;
+            }
+
             if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && scene.name != "ConvenienceStoreScene") return;
 
             EnsureCamera(scene);

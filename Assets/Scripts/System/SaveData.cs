@@ -230,6 +230,18 @@ namespace FXOverdose.Core
         // 일차가 바뀐 것을 보면 스스로 비웁니다. 값이 어긋나 있어도 다음 대화 시작 때 자가 치유됩니다.
         public int TalkDailyStateDay = -1;
 
+        // --- 이벤트 진행 시스템 (EventSystem) ---
+        // 이 세 필드는 매니저가 아니라 SaveData 자신이 주인입니다. EventRunner가 CurrentData에 직접 쓰고
+        // EventLauncher가 직접 읽습니다. SaveGame이 CurrentData를 베이스로 삼으므로(SV-A6) 별도의
+        // gather/scatter 코드가 필요 없고, 구버전 JSON에 키가 없어도 초기화자가 유지되므로 마이그레이션도 없습니다.
+        //
+        // 종료 플래그. 끝까지 진행된 이벤트만 들어옵니다 — 중도 이탈은 아무것도 남기지 않습니다.
+        public List<string> EventCompletedIds = new List<string>();
+        // 선택 이력. "<이벤트ID>:<노드>:<선택인덱스>" 한 줄 = 선택 1회. TalkChoiceHistory와 동일 포맷·동일 상한.
+        public List<string> EventChoiceHistory = new List<string>();
+        // 분기 플래그. "MAIN_ROUTE_A" 등. 이후 이벤트의 조건 판정에 쓰입니다.
+        public List<string> StoryFlags = new List<string>();
+
         // --- 호감도 기반 토픽 해금 ---
         // 해금은 '현재 호감도'가 아니라 '역대 최고'로 판정합니다.
         // 호감도가 깎였다고 이미 열린 화제가 다시 잠기면 진행하던 대화가 증발합니다. (TS8)
