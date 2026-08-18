@@ -88,3 +88,6 @@ Thumbs.db
 # Large AI model files (>100MB)
 *.gguf
 *.bin
+
+# API 키 등 로컬 비밀값 — 절대 커밋 금지
+.env.local
