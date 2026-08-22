@@ -34,6 +34,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private TMP_Text timeTransitionTitle;
     private TMP_Text timeTransitionClock;
     private bool isUpgradeSequencePlaying;
+    private FXOverdose.AI.AIVisualController activeUpgradeVisual;
 
     /// <summary>튜토리얼에서 통합 SKILL 버튼을 강조하기 위한 안정적인 타겟입니다.</summary>
     public RectTransform TutorialSkillHUDHighlightTarget => skillRow;
@@ -82,6 +83,23 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private void OnDisable()
     {
         if (levelSystem != null) levelSystem.OnSkillLevelChanged -= OnSkillLevelChanged;
+
+        // PlayUpgradeSequence는 안에서 게임 시간을 진행시켜 하루 종료·씬 전환을 유발할 수 있습니다.
+        // 그 과정에서 이 오브젝트가 꺼지면 코루틴이 중단돼 전체 화면 오버레이(GraphicRaycaster)가
+        // 켜진 채 남아 화면이 영구히 막히고, 진행 플래그도 true로 굳어 이후 업그레이드가 전부 거부됩니다.
+        AbortUpgradeSequenceState();
+    }
+
+    private void AbortUpgradeSequenceState()
+    {
+        if (!isUpgradeSequencePlaying) return;
+
+        if (timeTransitionOverlay != null) timeTransitionOverlay.SetActive(false);
+        if (timeTransitionGroup != null) timeTransitionGroup.alpha = 0f;
+        if (activeUpgradeVisual != null) activeUpgradeVisual.EndSkillUpgradeVisual();
+        activeUpgradeVisual = null;
+        if (upgradeButton != null) upgradeButton.interactable = true;
+        isUpgradeSequencePlaying = false;
     }
 
     private void LateUpdate()
@@ -375,7 +393,9 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
         if (upgradeButton != null) upgradeButton.interactable = false;
 
         GameManager gameManager = GameManager.Instance;
+        // 중단(OnDisable) 시에도 연출을 되돌릴 수 있도록 필드에 남깁니다.
         FXOverdose.AI.AIVisualController visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include);
+        activeUpgradeVisual = visual;
         int timeHours = levelSystem.GetSkillTimeCostHours(type);
         string beforeTime = FormatGameTime(gameManager);
 
@@ -400,6 +420,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
 
         timeTransitionOverlay.SetActive(false);
         visual?.EndSkillUpgradeVisual();
+        activeUpgradeVisual = null;
 
         RefreshButtonLevels();
         isUpgradeSequencePlaying = false;

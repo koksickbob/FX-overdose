@@ -108,7 +108,7 @@ namespace FXOverdose.UI
             int unlockedCount = 0;
             foreach (var achievement in allAchievements)
             {
-                bool isUnlocked = AchievementManager.Instance.IsUnlocked(achievement.Id);
+                bool isUnlocked = AchievementManager.Instance.IsAchievementUnlocked(achievement.Id);
                 if (isUnlocked) unlockedCount++;
 
                 GameObject obj = itemPrefab != null

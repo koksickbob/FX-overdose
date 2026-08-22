@@ -136,12 +136,24 @@ public class ShopManager : MonoBehaviour
         return Mathf.RoundToInt(price * GetStoryDifficultyTable().ShopPriceMultiplier);
     }
 
+    /// <summary>
+    /// 플레이어가 실제로 지불하는 최종 가격. 표시와 차감이 어긋나지 않도록 양쪽 모두 이 함수를 씁니다.
+    /// </summary>
     public int GetPurchasePrice(ItemData item)
     {
         if (item == null) return 0;
-        if (item.IsActiveItem && ActiveItemEffectManager.Instance != null)
-            return ApplyDifficultyToUpgradePrice(ActiveItemEffectManager.Instance.GetNextUpgradePrice(item));
-        return GetInflatedPrice(item);
+
+        int price = item.IsActiveItem && ActiveItemEffectManager.Instance != null
+            ? ApplyDifficultyToUpgradePrice(ActiveItemEffectManager.Instance.GetNextUpgradePrice(item))
+            : GetInflatedPrice(item);
+
+        // 동탄룩: 아이템 구매 비용 15% 감소 (코스튬 설명에만 있고 구현이 없었습니다)
+        if (CostumeManager.IsAnyEquipped(CostumeManager.DongtanLookId))
+        {
+            price = Mathf.RoundToInt(price * 0.85f);
+        }
+
+        return price;
     }
 
     /// <summary>
@@ -207,7 +219,7 @@ public class ShopManager : MonoBehaviour
             if (item.ItemId == "steak")
                 foodManager.RecordSteakPurchase(gameManager.CurrentDay);
             Debug.Log($"[ShopManager] 소모형 아이템 {item.ItemName} 구매 완료");
-            FXOverdose.Core.AchievementManager.Instance?.RecordItemPurchase();
+            FXOverdose.Core.AchievementManager.Instance?.RecordItemPurchase(item);
         }
 
         AudioManager.Play(AudioCue.ShopPurchase);

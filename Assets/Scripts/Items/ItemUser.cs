@@ -108,8 +108,9 @@ public class ItemUser : MonoBehaviour
                 return false;
         }
 
-        // 치파오 스킨 효과: 배달음식의 기본 체력/멘탈 회복량 15% 증가 (특수 효과 수치는 제외)
-        if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.QipaoId)
+        // 치파오·한복·유카타 스킨 효과: 배달음식의 기본 체력/멘탈 회복량 15% 증가 (특수 효과 수치는 제외)
+        // 세 코스튬 모두 설명에 같은 효과가 적혀 있는데 치파오만 구현돼 있었습니다.
+        if (CostumeManager.IsAnyEquipped(CostumeManager.QipaoId, CostumeManager.HanbokId, CostumeManager.YukataId))
         {
             health *= 1.15f;
             mental *= 1.15f;
@@ -146,13 +147,18 @@ public class ItemUser : MonoBehaviour
         }
 
         float effectAmount = item.EffectAmount;
+        string itemId = item.ItemId != null ? item.ItemId.ToLowerInvariant() : string.Empty;
 
-        if (CostumeManager.Instance != null && CostumeManager.Instance.EquippedCostumeId == CostumeManager.BartenderId)
+        // 바텐더: 에너지 드링크 체력 회복량 +15%
+        if (itemId.Contains("energy") && CostumeManager.IsAnyEquipped(CostumeManager.BartenderId))
         {
-            if (!string.IsNullOrEmpty(item.ItemId) && item.ItemId.ToLowerInvariant().Contains("energy"))
-            {
-                effectAmount *= 1.15f;
-            }
+            effectAmount *= 1.15f;
+        }
+
+        // 간호사: 영양제 효율 +15% (진정제 쪽은 RestoreMental에서 처리)
+        if (itemId.Contains("supplement") && CostumeManager.IsAnyEquipped(CostumeManager.NurseId))
+        {
+            effectAmount *= 1.15f;
         }
 
         traderStatus.ChangeHealth(effectAmount);
@@ -166,7 +172,14 @@ public class ItemUser : MonoBehaviour
     // 멘탈이 가득 차 있지 않을 때 멘탈 회복 효과를 적용합니다.
     private bool RestoreMental(ItemData item)
     {
-        if (traderStatus.CurrentMental >= traderStatus.MaxMental)
+        // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료.
+        // 고배율 중독은 멘탈 수치와 독립된 상태라, 만땅 가드보다 먼저 판정해야 합니다.
+        // 예전에는 가드가 앞에 있어 멘탈이 가득 차면 진정제를 먹어도 중독이 풀리지 않았습니다.
+        bool curesAddiction = traderStatus.IsLeverageAddicted &&
+            (item.ItemName.Contains("진정") || item.ItemName.Contains("수면") || item.EffectAmount >= 20f);
+
+        bool mentalFull = traderStatus.CurrentMental >= traderStatus.MaxMental;
+        if (mentalFull && !curesAddiction)
         {
             Debug.Log("[ItemUser] 멘탈이 이미 최대치까지 가득 찼습니다.");
             return false;
@@ -175,14 +188,22 @@ public class ItemUser : MonoBehaviour
         Object.FindAnyObjectByType<FXOverdose.AI.MentalDrainGimmickController>()?.CureMentalGimmicks();
 
         float finalEffectAmount = item.EffectAmount;
+        string mentalItemId = item.ItemId != null ? item.ItemId.ToLowerInvariant() : string.Empty;
 
-        traderStatus.ChangeMental(finalEffectAmount);
-
-        // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료
-        if (traderStatus.IsLeverageAddicted && (item.ItemName.Contains("진정") || item.ItemName.Contains("수면") || item.EffectAmount >= 20f))
+        // 메이드: 파르페(ItemId "dessert") 멘탈 회복량 +15%
+        if (mentalItemId.Contains("dessert") && CostumeManager.IsAnyEquipped(CostumeManager.MaidId))
         {
-            traderStatus.CureLeverageAddiction();
+            finalEffectAmount *= 1.15f;
         }
+
+        // 간호사: 진정제 효율 +15% (영양제 쪽은 RestoreHealth에서 처리)
+        if (mentalItemId.Contains("sedative") && CostumeManager.IsAnyEquipped(CostumeManager.NurseId))
+        {
+            finalEffectAmount *= 1.15f;
+        }
+
+        if (!mentalFull) traderStatus.ChangeMental(finalEffectAmount);
+        if (curesAddiction) traderStatus.CureLeverageAddiction();
 
         TriggerItemDialogue(item);
         Debug.Log($"[ItemUser] {item.ItemName} 사용: 멘탈 +{item.EffectAmount} 회복");

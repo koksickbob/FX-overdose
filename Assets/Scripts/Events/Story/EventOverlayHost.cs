@@ -18,6 +18,7 @@ namespace FXOverdose.Events.Story
     {
         private Action onFinished;
         private bool pausedByThisEvent;
+        private bool completed;
 
         /// <summary>오버레이를 띄웁니다. 캔버스는 현재 씬에 만들어지고 종료 시 통째로 파괴됩니다.</summary>
         public static EventOverlayHost Show(EventDefinition definition, Action onComplete)
@@ -54,6 +55,7 @@ namespace FXOverdose.Events.Story
 
         private void Complete()
         {
+            completed = true;
             if (pausedByThisEvent) GameManager.Instance?.ResumeGame();
 
             Action callback = onFinished;
@@ -61,6 +63,24 @@ namespace FXOverdose.Events.Story
 
             Destroy(gameObject);
             callback?.Invoke();
+        }
+
+        /// <summary>
+        /// 오버레이 캔버스는 현재 씬 소속이라 이벤트 도중 씬이 바뀌면 통째로 파괴됩니다.
+        /// 그때는 <see cref="Complete"/>가 불리지 않으므로 여기서 되돌리지 않으면
+        /// 일시정지가 영구히 풀리지 않고, 정적 진행 플래그가 남아 이후 모든 이벤트가 막힙니다.
+        /// (<c>EventSceneHost.ReturnToCaller</c>의 방어와 같은 목적입니다.)
+        ///
+        /// <para>커밋은 하지 않습니다 — 중도 이탈은 기록을 남기지 않는 것이 설계입니다.
+        /// (<c>EventLauncher.IsCompleted</c> 주석)</para>
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (completed) return;
+
+            if (pausedByThisEvent) GameManager.Instance?.ResumeGame();
+            EventLauncher.NotifyFinished();
+            onFinished = null;
         }
     }
 }

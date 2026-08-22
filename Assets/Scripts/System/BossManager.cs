@@ -179,6 +179,9 @@ namespace FXOverdose.Core
             CurrentBoss = null;
             BossStartingAsset = 0;
             BossCurrentAsset = 0;
+            // 지금은 읽는 쪽이 모두 CurrentBoss != null을 함께 보지만, 보스 없는 날에 이 플래그를
+            // 참조하는 코드가 하나만 추가되면 즉시 오작동합니다. 여기서 함께 내립니다.
+            IsBossBankrupt = false;
         }
 
         public void SpawnBossForDay(int day, float playerCurrentAssets)

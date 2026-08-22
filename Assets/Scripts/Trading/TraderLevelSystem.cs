@@ -131,7 +131,6 @@ namespace FXOverdose.Trading
                 protagonistLevel++;
                 Debug.Log($"[TraderLevelSystem 🚀] [레벨업] 주인공 레벨 LV.{protagonistLevel} 달성! (레버리지/증거금 한도 및 멘탈 회복 증가)");
                 OnProtagonistLeveledUp?.Invoke(protagonistLevel);
-                FXOverdose.Core.AchievementManager.Instance?.RecordLevelUp(protagonistLevel);
             }
 
             OnProtagonistLevelChanged?.Invoke(protagonistLevel, protagonistEXP, GetMaxProtagonistEXP(protagonistLevel));
@@ -436,10 +435,6 @@ namespace FXOverdose.Trading
             // 체력 소모
             traderStatus.ChangeHealth(-healthCost);
 
-            // 시간 경과 처리 (예: 3시간이면 180분 경과)
-            // GameManager에 AdvanceMinutes나 그에 준하는 시간이동이 있다면 수행
-            gameManager.AdvanceGameMinutes(timeHours * 60);
-
             // 레벨 증가
             switch (type)
             {
@@ -458,6 +453,12 @@ namespace FXOverdose.Trading
             }
 
             OnSkillLevelChanged?.Invoke(type, GetSkillLevel(type));
+
+            // 시간 경과 처리 (예: 3시간이면 180분 경과)
+            // ⚠️ 반드시 레벨 증가·이벤트 발행 **뒤에** 있어야 합니다. AdvanceGameMinutes는 동기 루프라
+            //    그 안에서 고속 진행이 전부 끝나는데, 앞에 두면 그 구간 전체가 옛 스킬 레벨로 시뮬레이션됩니다
+            //    (익절 인내 배율·손절 기준을 쓰는 강제 청산 판정 포함).
+            gameManager.AdvanceGameMinutes(timeHours * 60);
 
             // 스킬 업그레이드 동적 반응 대사 트리거
             var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
@@ -502,6 +503,12 @@ namespace FXOverdose.Trading
 
             Debug.Log("[TraderLevelSystem] 🔄 주인공 레벨(LV.1) 및 스킬 레벨이 모두 초기화되었습니다.");
             OnProtagonistLevelChanged?.Invoke(protagonistLevel, protagonistEXP, GetMaxProtagonistEXP(protagonistLevel));
+
+            // 스킬 쪽 이벤트도 반드시 발행합니다. 빠뜨리면 ActiveSkillHUDController가 갱신을 못 받아
+            // 새 게임 직후 HUD에 이전 판의 스킬 레벨이 그대로 남습니다.
+            OnSkillLevelChanged?.Invoke(SkillType.ChartStudy, chartStudyLevel);
+            OnSkillLevelChanged?.Invoke(SkillType.CubePatience, cubePatienceLevel);
+            OnSkillLevelChanged?.Invoke(SkillType.BookJudgment, bookJudgmentLevel);
         }
     }
 }

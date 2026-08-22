@@ -91,6 +91,29 @@ namespace FXOverdose.Events.Story
         /// <summary>호스트가 이벤트를 끝냈음을 알립니다. 이걸 빼먹으면 이후 모든 이벤트가 막힙니다.</summary>
         public static void NotifyFinished() => IsRunning = false;
 
+        /// <summary>
+        /// 진행 플래그가 정적이라 씬을 다시 불러와도 풀리지 않습니다. 호스트가 죽는 경로(전용 씬 진입 실패,
+        /// <c>EventSceneHost</c> 미배치, 오버레이 캔버스 파괴)를 전부 개별 방어하는 대신, 이벤트를 재생할
+        /// 호스트가 없는 씬에 도착했다는 사실로 한곳에서 걷어냅니다.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void InstallStuckFlagWatchdog()
+        {
+            SceneManager.sceneLoaded -= OnAnySceneLoaded;
+            SceneManager.sceneLoaded += OnAnySceneLoaded;
+        }
+
+        private static void OnAnySceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (!IsRunning) return;
+
+            // 전용 씬으로 가는 도중입니다. 아직 호스트가 살아 있을 수 있으므로 건드리지 않습니다.
+            if (scene.name == "LoadingScene" || scene.name == "EventScene") return;
+
+            Debug.LogWarning($"[EventLauncher] '{scene.name}' 진입 시점에 진행 중이던 이벤트의 호스트가 없어 진행 플래그를 내립니다.");
+            IsRunning = false;
+        }
+
         /// <summary>이미 끝까지 진행한 이벤트인지. 중도 이탈은 기록이 남지 않으므로 false입니다.</summary>
         public static bool IsCompleted(string eventId)
         {

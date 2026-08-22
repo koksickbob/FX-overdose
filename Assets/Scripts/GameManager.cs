@@ -85,7 +85,11 @@ public class GameManager : MonoBehaviour
     }
     // 1분 경과 시 발행하는 이벤트
     public event Action OnGameMinuteAdvanced;
-    // 💡 고속 시간 경과(AdvanceGameMinutes) 완료 또는 중단 직후 UI 단 1회 갱신을 트리거하는 이벤트
+    // 💡 고속 시간 경과(AdvanceGameMinutes)가 **끝까지 소진되었을 때만** 1회 발행합니다.
+    //    일시정지·오버도즈로 중단된 경우에는 발행하지 않습니다 — 그때는 남은 분이 보존되었다가
+    //    ResumeGame / ResumePreservedFastForward가 AdvanceGameMinutes를 다시 타므로, 최종 완료 시점에 발행됩니다.
+    //    (중단 시점에 발행하면 MarketSimulationEngine.HandleFastForwardEnded가 진행 중인 신호 페이즈를 조기에 리셋합니다.
+    //     중단 구간의 시계 표시는 OnGameMinuteAdvanced가 이미 매분 갱신합니다.)
     public event Action OnFastForwardEnded;
     // 하루 종료(24:00) 시 발행하는 이벤트 (일일 정산 UI 표시용)
     public event Action OnDayEnded;
@@ -638,12 +642,16 @@ public class GameManager : MonoBehaviour
 
         Debug.Log("새 게임 시작 (차트 개장 로딩 단계 진입 - 초기 자본: $2,500)");
         
-        // 새 게임 진입 시 초기 설정된 데이터를 현재 선택된 슬롯에 즉시 저장
+        // 새 게임 진입 시 초기 설정된 데이터를 현재 선택된 슬롯에 즉시 저장.
         // SaveLoadManager는 Loading 상태일 때 저장을 막으므로 임시로 Playing 상태로 변경 후 저장합니다.
-        GameState previousState = currentState;
-        currentState = GameState.Playing;
-        FXOverdose.Core.SaveLoadManager.Instance?.SaveCurrentGame();
-        currentState = previousState;
+        // 엔드리스·챌린지는 애초에 저장을 지원하지 않으므로 호출하지 않습니다(매번 경고 로그만 남았습니다).
+        if (saveManager != null && saveManager.AllowsSaving)
+        {
+            GameState previousState = currentState;
+            currentState = GameState.Playing;
+            saveManager.SaveCurrentGame();
+            currentState = previousState;
+        }
     }
 
     private void EnsureActiveItemEffectManager()
@@ -1008,9 +1016,7 @@ public class GameManager : MonoBehaviour
         {
             if (CurrentDay != 16 && TodayEvent != null && TodayEvent.isPenalty && TodayEvent.penaltyAmount > 0)
             {
-                currentBalance -= TodayEvent.penaltyAmount; 
-                if (TraderStatus.CanonicalInstance != null)
-                    TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(TodayEvent.penaltyAmount);
+                currentBalance -= TodayEvent.penaltyAmount;
                 Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
             }
         }
@@ -1024,8 +1030,6 @@ public class GameManager : MonoBehaviour
         if (deduction > 0f)
         {
             currentBalance -= deduction;
-            if (TraderStatus.CanonicalInstance != null)
-                TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(deduction);
             Debug.Log($"[GameManager] 정기 지출 발생: {deductionReason} (-${deduction:N0}) -> 남은 잔고: ${currentBalance:N0}");
         }
 
@@ -1208,7 +1212,6 @@ public class GameManager : MonoBehaviour
                             if (CurrentDay == 16 && evt.isPenalty && evt.penaltyAmount > 0)
                             {
                                 currentBalance -= evt.penaltyAmount;
-                                if (TraderStatus.CanonicalInstance != null) TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(evt.penaltyAmount);
                                 Debug.Log($"[GameManager] {CurrentDay}일차 아침 페널티 차감: -{evt.penaltyAmount}");
                             }
                             
@@ -1528,10 +1531,6 @@ public class GameManager : MonoBehaviour
         }
 
         currentBalance -= amount;
-        if (TraderStatus.CanonicalInstance != null)
-        {
-            TraderStatus.CanonicalInstance.AdjustPeakBalanceForExpenditure(amount);
-        }
         Debug.Log($"자산 지출: -{amount:N0}, 현재 자산: {currentBalance:N0}");
         CheckEnding();
         return true;

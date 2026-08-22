@@ -6,8 +6,6 @@ using UnityEngine;
 public class CostumeManager : MonoBehaviour
 {
     // TEMP REVIEW: 메이드 스킨 검수 종료 후 false로 되돌립니다.
-    private static readonly bool UnlockAllCostumesForReview = false;
-    private static readonly bool UnlockMaidCostumeForReview = false;
 
     public const string StandardId = "standard";
     public const string BunnyGirlId = "bunny_girl";
@@ -175,6 +173,20 @@ public class CostumeManager : MonoBehaviour
     public IReadOnlyList<CostumeDefinition> Catalog => Definitions;
     public string EquippedCostumeId => equippedCostumeId;
 
+    /// <summary>
+    /// 착용 중인 코스튬이 목록 중 하나라도 해당하면 true. Instance null 검사를 품고 있어
+    /// 효과 적용부에서 그대로 부를 수 있습니다. (한복·유카타·치파오처럼 효과를 공유하는 묶음용)
+    /// </summary>
+    public static bool IsAnyEquipped(params string[] costumeIds)
+    {
+        if (Instance == null || costumeIds == null) return false;
+        for (int i = 0; i < costumeIds.Length; i++)
+        {
+            if (Instance.IsEquipped(costumeIds[i])) return true;
+        }
+        return false;
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -256,17 +268,11 @@ public class CostumeManager : MonoBehaviour
             {
                 if (GetDefinition(id) == null) continue;
 
-                // 검수 중 강제로 저장된 메이드는 연결 업적이 잠겨 있으면 보유 목록에서 제거합니다.
-                if (string.Equals(id, MaidId, StringComparison.Ordinal) &&
-                    FXOverdose.Core.AchievementManager.Instance != null &&
-                    !FXOverdose.Core.AchievementManager.Instance.IsAchievementUnlocked("use_parfait_100"))
-                    continue;
-
+                // 검수용 1회성 롤백(메이드 박탈)은 제거했습니다. use_parfait_100 업적이 잘못된 아이템 ID로
+                // 판정되어 영구 미해금이었던 탓에, 정당하게 얻은 메이드까지 불러올 때마다 사라졌습니다.
                 ownedCostumeIds.Add(id);
             }
         }
-
-        ApplyReviewOwnership();
 
         equippedCostumeId = ownedCostumeIds.Contains(equippedId) ? equippedId : StandardId;
         OnCostumesChanged?.Invoke();
@@ -275,16 +281,7 @@ public class CostumeManager : MonoBehaviour
     public void ResetAll()
     {
         ownedCostumeIds.Clear();
-        if (UnlockAllCostumesForReview)
-        {
-            foreach (CostumeDefinition definition in Definitions)
-                ownedCostumeIds.Add(definition.Id);
-        }
-        else
-        {
-            ownedCostumeIds.Add(StandardId);
-        }
-        ApplyReviewOwnership();
+        ownedCostumeIds.Add(StandardId);
         equippedCostumeId = StandardId;
         OnCostumesChanged?.Invoke();
     }
@@ -292,21 +289,7 @@ public class CostumeManager : MonoBehaviour
     private void EnsureDefaults()
     {
         ownedCostumeIds.Add(StandardId);
-        ApplyReviewOwnership();
         if (!ownedCostumeIds.Contains(equippedCostumeId))
             equippedCostumeId = StandardId;
-    }
-
-    private void ApplyReviewOwnership()
-    {
-        if (UnlockAllCostumesForReview)
-        {
-            foreach (CostumeDefinition definition in Definitions)
-                ownedCostumeIds.Add(definition.Id);
-        }
-        else if (UnlockMaidCostumeForReview)
-        {
-            ownedCostumeIds.Add(MaidId);
-        }
     }
 }

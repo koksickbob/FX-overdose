@@ -190,8 +190,10 @@ public class SettingsMenuController : MonoBehaviour
         // 주도권 변경 이벤트 구독
         if (FXOverdose.Trading.TradingController.Instance != null)
         {
-            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged -= _ => UpdateModeButtonVisuals();
-            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged += _ => UpdateModeButtonVisuals();
+            // 람다로 -= 하면 매번 새 델리게이트라 아무것도 제거되지 않아, BuildMenu가 다시 돌 때마다
+            // 구독이 누적됐습니다. 메서드 그룹이어야 -=가 실제로 동작합니다.
+            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged -= HandleTradingModeChanged;
+            FXOverdose.Trading.TradingController.Instance.OnTradingModeChanged += HandleTradingModeChanged;
             FXOverdose.Trading.TradingController.Instance.OnPositionChanged -= UpdateModeButtonVisuals;
             FXOverdose.Trading.TradingController.Instance.OnPositionChanged += UpdateModeButtonVisuals;
         }
@@ -275,9 +277,20 @@ public class SettingsMenuController : MonoBehaviour
         myRect.localPosition = localBottomRight + new Vector3(0f, -8f, 0f);
     }
 
+    private void HandleTradingModeChanged(FXOverdose.Trading.TradingController.TradingMode mode)
+        => UpdateModeButtonVisuals();
+
     private void OnDestroy()
     {
         settingsButton?.onClick.RemoveListener(ToggleMenu);
+
+        var trading = FXOverdose.Trading.TradingController.Instance;
+        if (trading != null)
+        {
+            trading.OnTradingModeChanged -= HandleTradingModeChanged;
+            trading.OnPositionChanged -= UpdateModeButtonVisuals;
+        }
+
         if (overlay != null && overlay.activeSelf) RestoreGameState();
     }
 
@@ -401,7 +414,9 @@ public class SettingsMenuController : MonoBehaviour
 
     private void RestoreGameState()
     {
-        Time.timeScale = previousTimeScale;
+        // 로딩 직후 freeze 구간(LoadingScreenController)에서 메뉴를 열면 previousTimeScale이 0으로 잡힙니다.
+        // 그대로 되돌리면 게임이 영구 정지하므로 QuitGame과 동일한 가드를 겁니다.
+        Time.timeScale = previousTimeScale > 0f ? previousTimeScale : 1f;
         if (pausedBySettings && gameManager != null) gameManager.ResumeGame();
         pausedBySettings = false;
     }

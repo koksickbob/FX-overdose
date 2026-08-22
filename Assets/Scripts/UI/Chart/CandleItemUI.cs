@@ -28,16 +28,6 @@ namespace FXOverdose.UI.Chart
         private readonly Color bearishVolumeColor = new Color(0.937f, 0.267f, 0.267f, 0.6f); // RGBA(239, 68, 68, 0.6)
 
         private CandleData currentData;
-        public CandleData CurrentData => currentData;
-
-        public float GetXPos()
-        {
-            if (candleContainerTransform == null)
-            {
-                candleContainerTransform = GetComponent<RectTransform>();
-            }
-            return candleContainerTransform != null ? candleContainerTransform.anchoredPosition.x : 0f;
-        }
 
         // 캔들 및 거래량 렌더링 갱신
         public void UpdateCandleDisplay(
@@ -48,7 +38,9 @@ namespace FXOverdose.UI.Chart
             float xPos,
             float candleWidth,
             float maxVolume,
-            float volumeAreaHeight)
+            float volumeAreaHeight,
+            float priceAreaBottom,
+            float priceAreaTop)
         {
             if (data == null) return;
             currentData = data;
@@ -81,9 +73,9 @@ namespace FXOverdose.UI.Chart
             if (lowerWickImage != null) lowerWickImage.color = targetColor;
             if (volumeBarImage != null) volumeBarImage.color = volColor;
 
-            // 2. Y 좌표 변환 함수 (차트 영역 상단 26% ~ 100% 전용 구역으로 분리)
-            float priceAreaBottom = chartHeight * 0.26f;
-            float priceAreaHeight = Mathf.Max(10f, chartHeight - priceAreaBottom);
+            // 2. Y 좌표 변환. 가격 영역은 ChartUIController.GetPriceArea가 단독으로 정합니다 —
+            //    예전에는 여기서 chartHeight * 0.26f를 따로 계산해 현재가 라인과 어긋났습니다.
+            float priceAreaHeight = Mathf.Max(10f, priceAreaTop - priceAreaBottom);
 
             float PriceToY(float price)
             {

@@ -137,7 +137,6 @@ namespace FXOverdose.UI.Chart
         private TMP_Text tradeCooldownText;
         private RectTransform effectStatusPanel;
         private ActiveItemEffectManager activeItemManager;
-        private readonly List<KeyValuePair<ItemData, int>> activeItemStates = new();
         private readonly List<EffectIconView> effectIconViews = new();
         private ItemData pastaItem;
         private RectTransform inventoryPanelRect;
@@ -147,7 +146,6 @@ namespace FXOverdose.UI.Chart
         private sealed class EffectIconView
         {
             public bool IsFood;
-            public TMP_Text Badge;
             public Image TimerFill;
         }
 
@@ -175,7 +173,7 @@ namespace FXOverdose.UI.Chart
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
                 tradingController.OnPositionOpened += HandlePositionOpened;
                 tradingController.OnPositionClosed += HandlePositionClosed;
-                tradingController.OnTradingModeChanged += (mode) => RefreshPanelUI();
+                tradingController.OnTradingModeChanged += HandleTradingModeChanged;
                 tradingController.OnAITradingStyleChanged += OnAITradingStyleChangedCallback;
             }
 
@@ -440,6 +438,12 @@ namespace FXOverdose.UI.Chart
             if (text != null) text.text = label;
         }
 
+        /// <summary>
+        /// 익명 람다로 두면 OnDestroy에서 해제할 수 없어, 패널이 파괴된 뒤 모드가 바뀌면
+        /// MissingReferenceException이 납니다. 메서드 그룹이어야 해제 목록에 넣을 수 있습니다.
+        /// </summary>
+        private void HandleTradingModeChanged(TradingController.TradingMode mode) => RefreshPanelUI();
+
         private void OnDestroy()
         {
             if (tradingController != null)
@@ -448,6 +452,7 @@ namespace FXOverdose.UI.Chart
                 tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
                 tradingController.OnPositionOpened -= HandlePositionOpened;
                 tradingController.OnPositionClosed -= HandlePositionClosed;
+                tradingController.OnTradingModeChanged -= HandleTradingModeChanged;
                 tradingController.OnAITradingStyleChanged -= OnAITradingStyleChangedCallback;
             }
             if (activeItemManager != null)
@@ -595,7 +600,6 @@ namespace FXOverdose.UI.Chart
 
             // 인벤토리 옆 효과 HUD는 시간제 파스타 효과만 표시합니다.
             // 영구 액티브 장비 효과는 실제 계산에는 유지하되 이 HUD에서는 노출하지 않습니다.
-            activeItemStates.Clear();
             float pastaSeconds = DeliveryFoodManager.Instance != null
                 ? DeliveryFoodManager.Instance.PastaRemainingSeconds
                 : 0f;
@@ -632,13 +636,18 @@ namespace FXOverdose.UI.Chart
             effectIconViews.Clear();
 
             if (hasPasta && pastaItem != null)
-                effectIconViews.Add(CreateEffectIcon(pastaItem, true, string.Empty, new Color(1f, 0.61f, 0.27f, 1f)));
+                effectIconViews.Add(CreateEffectIcon(pastaItem, new Color(1f, 0.61f, 0.27f, 1f)));
             effectStatusPanel.sizeDelta = new Vector2(
                 16f + effectIconViews.Count * 64f + Mathf.Max(0, effectIconViews.Count - 1) * 6f,
                 80f);
         }
 
-        private EffectIconView CreateEffectIcon(ItemData item, bool isFood, string badgeLabel, Color accent)
+        /// <summary>
+        /// 남은 시간이 채워지는 음식 효과 아이콘을 만듭니다.
+        /// 예전에는 isFood/badgeLabel 인자로 뱃지형 아이콘도 만들 수 있었지만, 그쪽을 만드는 호출이
+        /// 하나도 없어(activeItemStates가 채워지는 곳이 없음) 도달 불가 코드였습니다.
+        /// </summary>
+        private EffectIconView CreateEffectIcon(ItemData item, Color accent)
         {
             GameObject card = new($"EffectIcon_{item.ItemId}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline), typeof(LayoutElement));
             card.transform.SetParent(effectStatusPanel, false);
@@ -661,9 +670,8 @@ namespace FXOverdose.UI.Chart
             icon.preserveAspect = true;
             icon.raycastTarget = false;
             SetRuntimeRect(icon.rectTransform, Vector2.zero, Vector2.one,
-                new Vector2(7f, isFood ? 5f : 18f), new Vector2(-7f, -4f));
+                new Vector2(7f, 5f), new Vector2(-7f, -4f));
 
-            if (isFood)
             {
                 GameObject fillObject = new("TimeProgressFill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 fillObject.transform.SetParent(card.transform, false);
@@ -679,28 +687,6 @@ namespace FXOverdose.UI.Chart
                 return new EffectIconView { IsFood = true, TimerFill = timerFill };
             }
 
-            GameObject badgeObject = new("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            badgeObject.transform.SetParent(card.transform, false);
-            Image badgeBackground = badgeObject.GetComponent<Image>();
-            badgeBackground.color = new Color(0.015f, 0.027f, 0.05f, 0.94f);
-            badgeBackground.raycastTarget = false;
-            SetRuntimeRect(badgeObject.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f),
-                new Vector2(3f, 3f), new Vector2(-3f, 19f));
-
-            GameObject labelObject = new("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            labelObject.transform.SetParent(badgeObject.transform, false);
-            TMP_Text badge = labelObject.GetComponent<TextMeshProUGUI>();
-            badge.font = TMP_Settings.defaultFontAsset;
-            badge.text = badgeLabel;
-            badge.fontSize = 13f;
-            badge.fontStyle = FontStyles.Bold;
-            badge.alignment = TextAlignmentOptions.Center;
-            badge.color = accent;
-            badge.textWrappingMode = TextWrappingModes.NoWrap;
-            badge.raycastTarget = false;
-            SetRuntimeRect(badge.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-
-            return new EffectIconView { IsFood = false, Badge = badge };
         }
 
         private void UpdateVolatilityGimmicks()
@@ -964,24 +950,25 @@ namespace FXOverdose.UI.Chart
                 marginPercentageSlider.value = selectedMarginPercentage;
             }
 
-            float marginAmount = gameManager != null ? gameManager.CurrentBalance * selectedMarginPercentage : 0f;
+            // 증거금 표시 텍스트는 Update가 매 프레임 갱신하므로 여기서 쓰지 않습니다.
+            // 예전에는 양쪽이 서로 다른 포맷("MARGIN: $..." vs "투입: $...")으로 이중 기입해,
+            // 버튼으로 설정한 문자열이 같은 프레임에 사라졌습니다.
 
-            if (marginRatioDisplayText != null)
-            {
-                marginRatioDisplayText.text = $"{currentSelectedMarginPercent}% (${marginAmount:N0})";
-            }
+            // 프리셋 비율 버튼: 레벨 상한을 넘는 것은 잠급니다.
+            // LV1 상한이 15%라 25/50/75/100을 눌러도 15로 클램프되어 어떤 프리셋과도 값이 맞지 않았고,
+            // 하이라이트가 전부 꺼진 채 "눌러도 반응 없는" 것처럼 보였습니다.
+            UpdateMarginPreset(btnPresetRatio10, 10, maxAllowedPercent);
+            UpdateMarginPreset(btnPresetRatio25, 25, maxAllowedPercent);
+            UpdateMarginPreset(btnPresetRatio50, 50, maxAllowedPercent);
+            UpdateMarginPreset(btnPresetRatio75, 75, maxAllowedPercent);
+            UpdateMarginPreset(btnPresetRatio100, 100, maxAllowedPercent);
+        }
 
-            if (marginAmountText != null)
-            {
-                marginAmountText.text = $"MARGIN: ${marginAmount:N0} ({currentSelectedMarginPercent}%)";
-            }
-
-            // 프리셋 비율 버튼 하이라이트
-            UpdatePresetHighlight(btnPresetRatio10, currentSelectedMarginPercent == 10);
-            UpdatePresetHighlight(btnPresetRatio25, currentSelectedMarginPercent == 25);
-            UpdatePresetHighlight(btnPresetRatio50, currentSelectedMarginPercent == 50);
-            UpdatePresetHighlight(btnPresetRatio75, currentSelectedMarginPercent == 75);
-            UpdatePresetHighlight(btnPresetRatio100, currentSelectedMarginPercent == 100);
+        private void UpdateMarginPreset(Button btn, int presetPercent, int maxAllowedPercent)
+        {
+            if (btn == null) return;
+            btn.interactable = presetPercent <= maxAllowedPercent;
+            UpdatePresetHighlight(btn, currentSelectedMarginPercent == presetPercent);
         }
 
         // 3. 레버리지 배율 선택
@@ -1002,6 +989,8 @@ namespace FXOverdose.UI.Chart
                 leverageDisplayText.text = $"{currentSelectedLeverage}x";
             }
 
+            RefreshLeveragePresetAvailability(maxAllowed);
+
             // 프리셋 버튼 하이라이트
             UpdatePresetHighlight(btnPreset1x, currentSelectedLeverage == 1);
             UpdatePresetHighlight(btnPreset5x, currentSelectedLeverage == 5);
@@ -1010,6 +999,23 @@ namespace FXOverdose.UI.Chart
             UpdatePresetHighlight(btnPreset50x, currentSelectedLeverage == 50);
             UpdatePresetHighlight(btnPreset100x, currentSelectedLeverage == 100);
             UpdatePresetHighlight(btnPreset125x, currentSelectedLeverage == 125);
+        }
+
+        /// <summary>
+        /// 100x·125x 프리셋은 씬과 에디터 빌더 양쪽에서 비활성으로 저장돼 있고 다시 켜는 코드가 없었습니다.
+        /// 그 결과 LV15(100배)·LV20(125배) 레벨업 보상이 UI에 전혀 노출되지 않고 ±1 스테퍼로만 도달 가능했습니다.
+        /// 노출 여부를 레벨 상한으로 판정해 코드가 소유합니다.
+        /// </summary>
+        private void RefreshLeveragePresetAvailability(int maxAllowedLeverage)
+        {
+            SetPresetVisible(btnPreset100x, maxAllowedLeverage >= 100);
+            SetPresetVisible(btnPreset125x, maxAllowedLeverage >= 125);
+        }
+
+        private static void SetPresetVisible(Button btn, bool visible)
+        {
+            if (btn == null) return;
+            if (btn.gameObject.activeSelf != visible) btn.gameObject.SetActive(visible);
         }
 
         private void UpdatePresetHighlight(Button btn, bool isSelected)
@@ -1093,6 +1099,10 @@ namespace FXOverdose.UI.Chart
             }
 
             UpdateTradeCooldownUI();
+
+            // 레벨업으로 해금되는 고배율 프리셋(100x/125x)을 여기서도 반영합니다.
+            RefreshLeveragePresetAvailability(
+                TraderLevelSystem.Instance != null ? TraderLevelSystem.Instance.GetMaxAllowedLeverage() : 125);
 
             // 상태 오버레이 패널 및 탭 바 표시 여부
             if (positionStatusPanel != null)
@@ -1253,7 +1263,12 @@ namespace FXOverdose.UI.Chart
                 tradeCooldownText.text = $"COOLDOWN  {remaining:0.0}s";
             }
 
-            bool canEnter = isManualMode && !hasPosition && !showCooldown;
+            // ⚠️ RefreshPanelUI가 관전자 잠금을 건 직후 이 메서드를 부릅니다(1095행). 여기 조건이 그쪽보다
+            //    느슨하면 매 P2P 스냅샷마다 잠금이 도로 풀려 탈락한 관전자가 주문을 낼 수 있습니다.
+            //    정산/게임오버 상태도 함께 봅니다 — TradingController.OpenPlayerPosition이 어차피 거부하는데
+            //    버튼만 활성으로 남아 있어 지금은 오버레이의 raycast 차단에 우연히 기대고 있었습니다.
+            bool isPlayable = gameManager == null || gameManager.CurrentState == GameManager.GameState.Playing;
+            bool canEnter = !p2pSpectating && isPlayable && isManualMode && !hasPosition && !showCooldown;
             if (longButton != null && longButton.interactable != canEnter) longButton.interactable = canEnter;
             if (shortButton != null && shortButton.interactable != canEnter) shortButton.interactable = canEnter;
         }

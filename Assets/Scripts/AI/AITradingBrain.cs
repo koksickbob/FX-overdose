@@ -61,16 +61,22 @@ namespace FXOverdose.AI
                 marketEngine.OnSignalPhaseChanged += HandleSignalPhaseChanged;
             }
 
-            if (tradingController != null)
+            // 보스 브레인은 플레이어의 TradingController를 구독하지 않습니다.
+            // 구독하면 플레이어가 강제청산될 때 보스의 isProcessingSignal이 리셋되는 등 상태가 섞입니다.
+            if (!IsBossAI && tradingController != null)
             {
                 tradingController.OnPositionClosed += HandlePositionClosed;
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
             }
 
-            // 상시 멘탈 소모 6대 기믹 코어 컨트롤러 자동 바인딩
+            // 상시 멘탈 소모 기믹 코어 컨트롤러 자동 바인딩
             if (!IsBossAI)
             {
-                MentalDrainGimmickController drainController = FindAnyObjectByType<MentalDrainGimmickController>();
+                // 비활성 오브젝트에 있는 기존 인스턴스를 놓치면 새로 AddComponent하게 되는데,
+                // 그 새 컴포넌트는 Awake에서 중복 판정으로 스스로를 Destroy합니다.
+                // 그러면 아래 Initialize가 곧 사라질 컴포넌트에 걸려 모든 기믹이 죽습니다.
+                MentalDrainGimmickController drainController =
+                    FindAnyObjectByType<MentalDrainGimmickController>(FindObjectsInactive.Include);
                 if (drainController == null)
                 {
                     drainController = gameObject.AddComponent<MentalDrainGimmickController>();

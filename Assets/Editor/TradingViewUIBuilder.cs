@@ -27,7 +27,14 @@ namespace FXOverdose.EditorTools
                             Debug.Log("[FX OVERDOSE] 한글 Dynamic 폰트 에셋 무결성 검증 및 강제 재생성/아틀라스/머티리얼 연동 완료.");
                         }
 
-                        BuildTradingChartUI();
+                        // 이미 캔버스가 있으면 건드리지 않습니다. BuildTradingChartUI는 TradingViewCanvas를
+                        // 통째로 파괴하고 다시 만드는데, 씬에 손으로 배치한 LongButtonCard/ShortButtonCard는
+                        // 어떤 코드도 다시 만들어 주지 않습니다. 이 경로는 아래에서 씬 저장까지 하므로
+                        // 자동 실행이 한 번 돌면 수동 매매와 튜토리얼 2단계가 복구 불가로 사라집니다.
+                        if (GameObject.Find("TradingViewCanvas") == null)
+                        {
+                            BuildTradingChartUI();
+                        }
                         UnityEditor.EditorPrefs.SetBool("FXOverdose_AutoBuildDone_v9_IntegrityRebuild", true);
                         UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
                         Debug.Log("[FX OVERDOSE] 🚀 주인공 AI 캐릭터 및 말풍선 UI 원클릭 자동 조립 & 씬 저장 완료!");
@@ -55,9 +62,25 @@ namespace FXOverdose.EditorTools
             Debug.Log("[FX OVERDOSE] 신규 트레이딩뷰 전용 캔버스 원클릭 조립을 시작합니다...");
 
             // 1. 기존 TradingViewCanvas 검색 및 삭제 (중복 방지)
+            //    ⚠️ 이 빌더는 LONG/SHORT 버튼을 만들지 않습니다. 실제 버튼(LongButtonCard/ShortButtonCard)은
+            //       씬에 손으로 배치되어 BottomTradingPanel 밑에 있으므로 캔버스와 함께 사라집니다.
+            //       되살릴 코드가 없어 수동 매매와 튜토리얼 2단계가 영구히 죽으므로 반드시 확인을 받습니다.
             GameObject existingCanvas = GameObject.Find("TradingViewCanvas");
             if (existingCanvas != null)
             {
+                bool proceed = EditorUtility.DisplayDialog(
+                    "TradingViewCanvas 재조립",
+                    "기존 TradingViewCanvas를 통째로 지우고 다시 만듭니다.\n\n" +
+                    "씬에 손으로 배치한 LongButtonCard / ShortButtonCard 는 이 빌더가 다시 만들지 않습니다. " +
+                    "함께 사라지면 수동 매매와 튜토리얼 2단계가 동작하지 않습니다.\n\n계속할까요?",
+                    "재조립", "취소");
+
+                if (!proceed)
+                {
+                    Debug.Log("[FX OVERDOSE] TradingViewCanvas 재조립을 취소했습니다.");
+                    return;
+                }
+
                 Undo.DestroyObjectImmediate(existingCanvas);
                 Debug.Log("[FX OVERDOSE] 기존 TradingViewCanvas를 제거했습니다.");
             }
@@ -654,6 +677,8 @@ namespace FXOverdose.EditorTools
             Button btn50x = CreateButton("Btn50x", levPresets.transform, "50x", 56, 34);
             Button btn100x = CreateButton("Btn100x", levPresets.transform, "100x", 56, 34);
             Button btn125x = CreateButton("Btn125x", levPresets.transform, "125x", 56, 34);
+            // 초기 상태만 숨김입니다. 노출 여부는 런타임이 소유합니다 —
+            // TradingPanelUIController.RefreshLeveragePresetAvailability가 레벨 상한(LV15=100배, LV20=125배)을 보고 켭니다.
             btn100x.gameObject.SetActive(false); btn125x.gameObject.SetActive(false);
 
             // 투자비율 (Margin Ratio) 조작부 컨테이너
@@ -775,11 +800,10 @@ namespace FXOverdose.EditorTools
             statusOverlay.SetActive(false);
 
             // TradingPanelUIController 슬롯 연결
-            SetField(controller, "longButton", null);
-            SetField(controller, "shortButton", null);
+            // longButton / shortButton / long·shortSubtitleText 는 여기서 연결하지 않습니다.
+            // 해당 버튼(LongButtonCard/ShortButtonCard)은 씬에 손으로 배치된 것이라 이 빌더가 만들지 않습니다.
+            // 예전에는 이 자리에서 null을 대입해 씬 연결까지 지웠습니다.
             SetField(controller, "closePositionButton", btnClose);
-            SetField(controller, "longSubtitleText", null);
-            SetField(controller, "shortSubtitleText", null);
             SetField(controller, "btnTabLeverageMode", btnTabLev);
             SetField(controller, "btnTabMarginRatioMode", btnTabMar);
             SetField(controller, "btnTabAIStyleMode", btnTabAIStyle);

@@ -48,6 +48,9 @@ namespace FXOverdose.Events.Story
 
         private bool clickPending;
         private bool logOpen;
+
+        /// <summary>상단 버튼(기록·설정)이 눌린 프레임. 그 클릭이 대사 진행으로도 소비되는 것을 막습니다.</summary>
+        private int topButtonClickFrame = -10;
         private Coroutine playRoutine;
 
         /// <summary>
@@ -261,6 +264,13 @@ namespace FXOverdose.Events.Story
             // ClickCatcher 버튼과 별개로 물리 클릭도 받습니다. 버튼만 쓰면 로그 패널을 닫는 클릭이
             // 그대로 다음 대사까지 넘겨 버립니다.
             if (runner == null || runner.Phase == EventPhase.Choice || logOpen) return;
+
+            // 상단 버튼(기록·설정)을 **여는** 클릭은 그 순간 logOpen이 아직 false라 여기까지 내려와
+            // 대사 진행으로도 소비됐습니다(한 줄 스킵 / 타자기 스킵).
+            // EventSystem.IsPointerOverGameObject는 못 씁니다 — ClickCatcher가 전체 화면 버튼이라 항상 참입니다.
+            // 버튼 핸들러와 이 Update의 실행 순서가 보장되지 않으므로 한 프레임까지 여유를 둡니다.
+            if (Time.frameCount - topButtonClickFrame <= 1) return;
+
             if (Pointer.current != null && Pointer.current.press.wasPressedThisFrame) clickPending = true;
         }
 
@@ -483,6 +493,7 @@ namespace FXOverdose.Events.Story
         {
             Button log = CreateButton(root, "LogButton", "기록",
                 new Vector2(0.80f, 0.93f), new Vector2(0.88f, 0.985f), Accent);
+            log.onClick.AddListener(MarkTopButtonClick);
             log.onClick.AddListener(ToggleLog);
 
             // 설정 메뉴는 기존 컨트롤러를 그대로 씁니다. 비활성 상태에서 컴포넌트를 붙여야
@@ -493,7 +504,10 @@ namespace FXOverdose.Events.Story
             SettingsMenuController controller = settings.gameObject.AddComponent<SettingsMenuController>();
             controller.ConfigureRoomButton(settings);
             settings.gameObject.SetActive(true);
+            settings.onClick.AddListener(MarkTopButtonClick);
         }
+
+        private void MarkTopButtonClick() => topButtonClickFrame = Time.frameCount;
 
         // ── UI 헬퍼 ───────────────────────────────────────────────────
 

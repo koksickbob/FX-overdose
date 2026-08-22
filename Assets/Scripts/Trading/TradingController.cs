@@ -84,13 +84,26 @@ namespace FXOverdose.Trading
             SaveLoadManager.Instance != null && !SaveLoadManager.Instance.AllowsAITrading;
         
         public bool IsManualModeLockedByYomi { get; private set; } = false;
+
+        /// <summary>
+        /// 락 소유권 세대. 임시 락(<see cref="TemporaryLockRoutine"/>)이 대기하는 동안 다른 곳에서
+        /// 락/언락이 걸리면 세대가 바뀌고, 임시 락은 자기 세대가 아닐 때 해제를 포기합니다.
+        /// 이게 없으면 2초짜리 임시 락이 끝나면서 그 사이 걸린 영구 락(요미 주도권 강탈)까지 지웁니다.
+        /// </summary>
+        private int manualLockGeneration;
+
         public void LockManualMode()
         {
             // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
             if (IsAITradingLockedByGameMode) return;
+            manualLockGeneration++;
             IsManualModeLockedByYomi = true;
         }
-        public void UnlockManualMode() { IsManualModeLockedByYomi = false; }
+        public void UnlockManualMode()
+        {
+            manualLockGeneration++;
+            IsManualModeLockedByYomi = false;
+        }
 
         public void LockManualModeTemporarily(float seconds)
         {
@@ -100,9 +113,14 @@ namespace FXOverdose.Trading
 
         private global::System.Collections.IEnumerator TemporaryLockRoutine(float seconds)
         {
+            manualLockGeneration++;
+            int myGeneration = manualLockGeneration;
             IsManualModeLockedByYomi = true;
+
             yield return new WaitForSecondsRealtime(seconds);
-            IsManualModeLockedByYomi = false;
+
+            // 대기 중에 다른 곳이 락/언락을 걸었다면 그쪽이 주인입니다. 덮어쓰지 않습니다.
+            if (manualLockGeneration == myGeneration) IsManualModeLockedByYomi = false;
         }
 
         private void Awake()
@@ -245,40 +263,6 @@ namespace FXOverdose.Trading
         public event Action<float, float> OnPositionClosed; // (최종 회수금, PnL)
         public event Action<PositionType, float, int> OnPositionOpened; // (포지션방향, 증거금, 레버리지)
 
-        // 테스트 및 디버그용 포지션 청산 시뮬레이션 Helper
-        public void SimulateCloseForTest(bool isProfit, float pnl)
-        {
-            if (currentPosition == PositionType.None) return;
-
-            if (ActiveItemEffectManager.Instance != null)
-            {
-                if (pnl > 0f) pnl *= (1f + ActiveItemEffectManager.Instance.ProfitBoostRate);
-                else if (pnl < 0f) pnl *= (1f - ActiveItemEffectManager.Instance.LossReductionRate);
-            }
-
-
-            float returned = marginAmount + pnl;
-            if (returned < 0f) returned = 0f;
-            lastMarginAmount = marginAmount;
-
-            // 💡 [이벤트 순서 수정] 이벤트 수신자(AI, UI)가 활성 증거금(MarginAmount) 및 포지션 정보를 정확히 읽을 수 있도록 청산 직전에 이벤트 발송!
-            OnPositionClosed?.Invoke(returned, pnl);
-
-            currentPosition = PositionType.None;
-            targetPrice = 0f;
-            stopLossPrice = 0f;
-            isEventTradeActive = false;
-            eventProtectionEndTime = -1f;
-            currentEventHandlingMode = EventPositionHandlingMode.StandardAuto;
-            eventTargetROELimit = 0f;
-            eventStopLossROELimit = 0f;
-            isEventPlayerChoice = false;
-            isEventTrueSignal = true;
-            maxObservedEventROE = 0f;
-            lastReportedROEBasket = 0;
-            OnPositionChanged?.Invoke();
-        }
-
         private void Start()
         {
             if (gameManager == null) gameManager = GameManager.Instance;
@@ -414,8 +398,11 @@ namespace FXOverdose.Trading
 
             if (isEventTradeActive && currentPosition != PositionType.None)
             {
-                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
-                if (Time.time >= eventProtectionEndTime || isMarketEventOver)
+                // 쉴드 만료는 실시간 타이머 단독으로 판정합니다. 예전에는 marketEngine.IsExternalEventOverride가
+                // 내려갔는지도 함께 봤는데, ① 차트 빔이 없는 선택지(OverrideBeamPercent == 0)는 override가
+                // 애초에 서지 않아 1프레임 만에, ② 빔이 있어도 빔 수명은 인게임 분(30분 ≈ 20실초)이고
+                // 쉴드는 실시간 초(30초)라 단위가 어긋나 항상 2/3 지점에서 쉴드가 끊겼습니다.
+                if (Time.time >= eventProtectionEndTime)
                 {
                     HandleEventProtectionExpired();
                 }
@@ -772,8 +759,8 @@ namespace FXOverdose.Trading
             // ⭐ 이벤트 보호 쉴드 작동 중: 이벤트 결과에 따른 포지션 보유, 정리, 버티기 등 맞춤형 반응 로직 수행
             if (isEventTradeActive)
             {
-                bool isMarketEventOver = marketEngine != null && !marketEngine.IsExternalEventOverride;
-                if (Time.time < eventProtectionEndTime && !isMarketEventOver)
+                // 만료 판정은 실시간 타이머 단독입니다. (위 CheckEventProtectionTimeout의 주석 참고)
+                if (Time.time < eventProtectionEndTime)
                 {
                     ProcessEventPositionReaction(price);
                     return;
@@ -1220,9 +1207,16 @@ namespace FXOverdose.Trading
             eventStopLossROELimit = 0f;
             isEventPlayerChoice = false;
             isEventTrueSignal = true;
-            IsManualModeLockedByYomi = false;
+            // ⚠️ 여기서 IsManualModeLockedByYomi를 지우면 안 됩니다.
+            //    바로 위 OnPositionClosed 구독자(MentalDrainGimmickController의 고배율 중독 폭주)가
+            //    LockManualMode()로 요미의 주도권 강탈을 거는데, 같은 콜스택이라 몇 μs 만에 지워졌습니다.
+            //    락 해제는 AITradingBrain이 강제 고배율 매매를 실제로 실행할 때(UnlockManualMode) 일어납니다.
             maxObservedEventROE = 0f;
             lastReportedROEBasket = 0;
+            // 두 슬로우모션 연출은 포지션 단위 이벤트입니다. 되돌리는 곳이 없어
+            // 씬 로드당 딱 한 번만 재생되고 이후 영구히 죽어 있었습니다.
+            isTargetBreakthroughSlowMotionTriggered = false;
+            isMarginCallSlowMotionTriggered = false;
             OnPositionChanged?.Invoke();
         }
 
@@ -1356,6 +1350,10 @@ namespace FXOverdose.Trading
             isEventTrueSignal = true;
             maxObservedEventROE = 0f;
             lastReportedROEBasket = 0;
+            // 두 슬로우모션 연출은 포지션 단위 이벤트입니다. 되돌리는 곳이 없어
+            // 씬 로드당 딱 한 번만 재생되고 이후 영구히 죽어 있었습니다.
+            isTargetBreakthroughSlowMotionTriggered = false;
+            isMarginCallSlowMotionTriggered = false;
             OnPositionChanged?.Invoke();
         }
 

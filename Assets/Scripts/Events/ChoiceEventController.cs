@@ -115,6 +115,25 @@ namespace FXOverdose.Events
             Initialize(gameManager, marketEngine, tradingController, traderStatus);
         }
 
+        /// <summary>
+        /// 팝업이 떠 있는 동안 이 컴포넌트가 꺼지면(P2P 진입 시 <c>DisableAll&lt;ChoiceEventController&gt;()</c> 등)
+        /// <see cref="OnOptionSelected"/>가 영영 불리지 않아 <c>pausedByChoiceEvent</c>로 건 일시정지가
+        /// <c>GameState.Paused</c>로 굳습니다. 되돌릴 곳이 여기밖에 없습니다.
+        /// </summary>
+        private void OnDisable()
+        {
+            if (!pausedByChoiceEvent) return;
+
+            uiController?.Hide();
+            if (gameManager != null && gameManager.CurrentState == GameManager.GameState.Paused)
+            {
+                gameManager.ResumeGame();
+                Debug.LogWarning("[ChoiceEventController] 선택 이벤트 도중 컴포넌트가 비활성화되어 인게임 시간을 강제 재개합니다.");
+            }
+            pausedByChoiceEvent = false;
+            currentActiveEvent = null;
+        }
+
         private void OnDestroy()
         {
             if (gameManager != null)

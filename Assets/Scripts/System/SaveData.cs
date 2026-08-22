@@ -34,6 +34,8 @@ namespace FXOverdose.Core
         public string SaveName;
 
         // 구버전 JSON에는 이 필드가 없으므로 enum 기본값인 Story(0)로 안전하게 복원됩니다.
+        // ⚠️ 현재는 사실상 기록 전용입니다 — 슬롯이 스토리 전용이라 SaveLoadManager.PrepareLoadGame이
+        //    로드 시 무조건 Story로 덮어씁니다. 다른 모드를 슬롯에 저장하게 되면 그 덮어쓰기부터 제거하십시오.
         public GameMode GameMode = GameMode.Story;
         // 기존 세이브에는 값이 없어 enum 기본값 Hard(현행 난이도)로 호환됩니다.
         public StoryDifficulty StoryDifficulty = StoryDifficulty.Hard;
@@ -70,7 +72,9 @@ namespace FXOverdose.Core
         public List<float> DailyEquityHistory = new List<float>();
 
         // --- TraderStatus 상태 ---
-        public float PeakBalance = 0f;
+        // PeakBalance(역대 최고 자산)는 드로다운 트라우마 천장 기믹 전용 필드였습니다.
+        // 그 기믹이 폐지되면서(Mental_Drain_Rebalance_Plan 5장) 소비자가 사라졌고, 갱신 코드도 없어
+        // 항상 0이 저장되던 죽은 항목이라 제거했습니다. 구버전 JSON의 남은 키는 JsonUtility가 무시합니다.
         public float CurrentMental = 100f;
         public float CurrentHealth = 100f; // 24.12.01: 체력 저장 복구
         public float MaxMental = 100f;
@@ -92,6 +96,9 @@ namespace FXOverdose.Core
         // 아이템 구성의 출처가 GameScene에 배치된 ItemData 슬롯이라 데이터만으로는 심을 수 없어,
         // 복원 경로가 이 플래그를 보고 Inventory.ResetForNewGame()을 대신 호출합니다.
         // 기본값 false = "이미 지급됨"이라 구버전 세이브는 마이그레이션 없이 안전합니다.
+        // ⚠️ 이 기본값을 true로 뒤집지 마십시오. 구버전 세이브에는 키가 없어 초기화자가 그대로 남는데,
+        //    true가 되면 기존 플레이어의 인벤토리가 로드 때마다 시작 지급분으로 리셋됩니다.
+        //    뒤집어야 한다면 SaveDataMigrator에 명시 백필을 먼저 넣으십시오.
         public bool NeedsStartingItems = false;
 
         // --- 차트 및 주가 저장 ---

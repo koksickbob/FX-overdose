@@ -89,6 +89,33 @@ namespace FXOverdose.Core
             return true;
         }
 
+        /// <summary>
+        /// 세이브의 인벤토리 목록을 현재 인벤토리에 더합니다(비우기는 호출부 책임).
+        /// 카탈로그에 없는 itemId는 조용히 버려집니다 — <see cref="GrantItemToSave"/>의 계약과 같습니다.
+        /// </summary>
+        private void ApplySavedInventoryItems(Inventory inventory, ShopManager shopManager)
+        {
+            if (inventory == null || shopManager == null || CurrentData == null) return;
+
+            int count = Mathf.Min(CurrentData.InventoryItemIds.Count, CurrentData.InventoryItemQuantities.Count);
+            for (int i = 0; i < count; i++)
+            {
+                if (CurrentData.InventoryItemQuantities[i] <= 0) continue;
+
+                ItemData savedItem = null;
+                foreach (ItemData catalogItem in shopManager.CatalogItems)
+                {
+                    if (catalogItem != null && catalogItem.ItemId == CurrentData.InventoryItemIds[i])
+                    {
+                        savedItem = catalogItem;
+                        break;
+                    }
+                }
+                if (savedItem != null)
+                    inventory.AddItem(savedItem, CurrentData.InventoryItemQuantities[i]);
+            }
+        }
+
         public bool SaveGame(int slotIndex, string saveName = null)
         {
             if (!AllowsSaving)
@@ -98,7 +125,6 @@ namespace FXOverdose.Core
             }
 
             slotIndex = Mathf.Clamp(slotIndex, 0, MaxStorySlots - 1);
-            ActiveStorySlotIndex = slotIndex;
 
             var gm = GameManager.Instance;
             var status = TraderStatus.CanonicalInstance;
@@ -128,6 +154,10 @@ namespace FXOverdose.Core
                 Debug.LogWarning("[SaveLoadManager] 오버도즈 상태 또는 기믹 발동 중에는 저장할 수 없습니다.");
                 return false;
             }
+
+            // 활성 슬롯 전환은 가드를 모두 통과한 뒤에 합니다. 앞에 두면 다른 슬롯 저장이 거부된 뒤에도
+            // 이후 모든 자동 저장(SaveCurrentGame)이 그 새 슬롯을 향하게 됩니다.
+            ActiveStorySlotIndex = slotIndex;
 
             // 💡 [부분 저장] 직전 저장/로드본을 베이스로 삼습니다.
             //    씬에 없는 매니저의 필드를 기본값으로 덮어써 날려버리는 것을 막습니다. (SV-A6)
@@ -209,10 +239,14 @@ namespace FXOverdose.Core
             }
 
             var bossManager = FXOverdose.Core.BossManager.Instance;
-            if (bossManager != null && bossManager.CurrentBoss != null)
+            if (bossManager != null)
             {
-                data.SavedBossStartingAsset = bossManager.BossStartingAsset;
-                data.SavedBossCurrentAsset = bossManager.BossCurrentAsset;
+                // 보스가 없는 날에도 반드시 기록합니다. 조건부로 두면 부분 저장 특성상 예전 보스의 자산이
+                // 세이브에 계속 남고, 불러오기 뒤 다음 보스가 스폰될 때 BossManager가
+                // LoadedBossStartingAsset > 0f 분기를 타 플레이어 자산 기반 스케일링을 건너뜁니다.
+                bool hasBoss = bossManager.CurrentBoss != null;
+                data.SavedBossStartingAsset = hasBoss ? bossManager.BossStartingAsset : -1f;
+                data.SavedBossCurrentAsset = hasBoss ? bossManager.BossCurrentAsset : -1f;
             }
 
             // DatingSim 상태 저장 (요미의 방/월드맵에서는 이쪽만 갱신됩니다)
@@ -587,25 +621,16 @@ namespace FXOverdose.Core
                 // 아이템 구성의 출처는 씬에 배치된 ItemData 슬롯이므로 Inventory가 직접 판정합니다.
                 inventory.ResetForNewGame();
                 CurrentData.NeedsStartingItems = false;
+
+                // 첫 GameScene 진입 **전에** 지급받은 아이템(편의점 알바 선물 등)을 시작 지급분 위에 얹습니다.
+                // 예전에는 이 목록을 통째로 버려, 1일차에 알바를 먼저 하면 보상이 사라졌습니다.
+                // 새 게임의 저장 목록에는 GrantItemToSave로 들어온 것만 있으므로 중복 지급이 되지 않습니다.
+                ApplySavedInventoryItems(inventory, shopManager);
             }
             else if (inventory != null && shopManager != null)
             {
                 inventory.Clear();
-                int count = Mathf.Min(CurrentData.InventoryItemIds.Count, CurrentData.InventoryItemQuantities.Count);
-                for (int i = 0; i < count; i++)
-                {
-                    ItemData savedItem = null;
-                    foreach (ItemData catalogItem in shopManager.CatalogItems)
-                    {
-                        if (catalogItem != null && catalogItem.ItemId == CurrentData.InventoryItemIds[i])
-                        {
-                            savedItem = catalogItem;
-                            break;
-                        }
-                    }
-                    if (savedItem != null && CurrentData.InventoryItemQuantities[i] > 0)
-                        inventory.AddItem(savedItem, CurrentData.InventoryItemQuantities[i]);
-                }
+                ApplySavedInventoryItems(inventory, shopManager);
             }
 
             if (trading != null)

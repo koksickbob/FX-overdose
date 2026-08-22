@@ -190,7 +190,7 @@ namespace FXOverdose.Core
             // 런타임에 생성되는 AUTO STYLE / SKILL / AUTO-USER 버튼까지 준비될 때까지 재시도합니다.
             yield return StartCoroutine(BindHighlightsWhenReady());
 
-            SetButtonsInteractable(false);
+            BlockAllInput();
             DisableAllHighlights();
 
             // 튜토리얼 진입 시 장 개장 (GameManager 상태 변경 및 차트 개시)
@@ -250,9 +250,17 @@ namespace FXOverdose.Core
             yield return StartCoroutine(Step10_Graduation());
         }
 
-        private void SetButtonsInteractable(bool interactableState, Button specificBtn = null)
+        /// <summary>
+        /// 전 화면 클릭 차단막을 올립니다. 앞서 특정 버튼을 앞으로 끌어올렸던 정렬도 함께 되돌립니다.
+        ///
+        /// <para>예전 이름은 <c>SetButtonsInteractable(bool, Button)</c>이었지만 <b>Button.interactable은
+        /// 건드리지 않습니다</b> — 차단막의 blocksRaycasts만 토글합니다. 이름 때문에 "튜토리얼이 버튼
+        /// interactable을 복원해 줄 것"이라는 잘못된 기대가 생겨 실제 동작에 맞게 고쳤습니다.
+        /// 호출부 7곳이 전부 차단(=false)만 넘겼고 specificBtn 인자는 한 번도 쓰이지 않아 함께 없앴습니다.</para>
+        /// </summary>
+        private void BlockAllInput()
         {
-            // 초기화
+            // 앞으로 끌어올렸던 버튼들의 정렬 복구
             if (btnLong != null) ResetToNormal(btnLong);
             if (btnShort != null) ResetToNormal(btnShort);
             if (btnClose != null) ResetToNormal(btnClose);
@@ -261,17 +269,14 @@ namespace FXOverdose.Core
             if (btnShop != null) ResetToNormal(btnShop);
             if (btnEndTutorial != null) ResetToNormal(btnEndTutorial);
 
-            // 차단 또는 허용
-            if (fullScreenBlocker != null) 
+            if (fullScreenBlocker != null)
             {
-                fullScreenBlocker.blocksRaycasts = !interactableState;
-            }
-
-            if (specificBtn != null)
-            {
-                BringToFront(specificBtn);
+                fullScreenBlocker.blocksRaycasts = true;
             }
         }
+
+        /// <summary>튜토리얼이 스스로 만든 Canvas만 기억합니다. 원래 있던 Canvas를 지우지 않기 위함입니다.</summary>
+        private readonly HashSet<GameObject> tutorialCreatedCanvases = new HashSet<GameObject>();
 
         private void BringToFront(Button btn)
         {
@@ -281,6 +286,7 @@ namespace FXOverdose.Core
             {
                 canvas = btn.gameObject.AddComponent<Canvas>();
                 btn.gameObject.AddComponent<GraphicRaycaster>();
+                tutorialCreatedCanvases.Add(btn.gameObject);
             }
             canvas.overrideSorting = true;
             canvas.sortingOrder = 1000;
@@ -289,8 +295,13 @@ namespace FXOverdose.Core
         private void ResetToNormal(Button btn)
         {
             if (btn == null) return;
+
+            // ⚠️ "overrideSorting && sortingOrder == 1000"만 보고 지우면, 원래부터 그 설정을 갖고 있던
+            //    Canvas까지 파괴하고 복원할 방법이 없습니다. 우리가 만든 것만 지웁니다.
+            if (!tutorialCreatedCanvases.Remove(btn.gameObject)) return;
+
             var canvas = btn.gameObject.GetComponent<Canvas>();
-            if (canvas != null && canvas.overrideSorting && canvas.sortingOrder == 1000)
+            if (canvas != null)
             {
                 Destroy(btn.gameObject.GetComponent<GraphicRaycaster>());
                 Destroy(canvas);
@@ -760,7 +771,7 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("일단 오빠의 실력 좀 볼까? 수동 매매 모드로 바꿨으니까, 차트를 보고 상승(Long)이든 하락(Short)이든 버튼을 눌러서 포지션을 잡아봐!"));
 
             // 롱/숏 버튼만 앞으로 가져오고 활성화
-            SetButtonsInteractable(false);
+            BlockAllInput();
             BringToFront(btnLong);
             BringToFront(btnShort);
 
@@ -777,7 +788,7 @@ namespace FXOverdose.Core
 
             // 진입 성공 시 다시 전역 차단
             SetManualTradeHighlights(false);
-            SetButtonsInteractable(false);
+            BlockAllInput();
         }
 
         private IEnumerator Step3_ClosePosition()
@@ -788,7 +799,7 @@ namespace FXOverdose.Core
             if (closeButtonHighlight != null) SetHighlight(closeButtonHighlight, true);
             yield return StartCoroutine(PlayDialogueAndWait("좋아, 포지션이 잡혔어! 손익(ROE)이 움직이는 거 보이지? 적당할 때 '포지션 매도' 버튼을 눌러서 수익을 확정(또는 손절)해봐."));
 
-            SetButtonsInteractable(false);
+            BlockAllInput();
             BringToFront(btnClose);
 
             // 포지션 청산할 때까지 무한 대기
@@ -798,7 +809,7 @@ namespace FXOverdose.Core
             }
 
             if (closeButtonHighlight != null) SetHighlight(closeButtonHighlight, false);
-            SetButtonsInteractable(false);
+            BlockAllInput();
         }
 
         private IEnumerator Step4_AITradingDemo()
@@ -881,13 +892,13 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("레버리지를 높이면 증거금 대비 수익도 배가 되지만, 조금만 빗나가도 증거금을 순식간에 다 날려버리니까(청산) 조심해야 해!"));
             
             // 레버리지 조작 버튼 하이라이트
-            SetButtonsInteractable(false);
+            BlockAllInput();
             BringToFront(btnIncreaseLeverage);
             BringToFront(btnDecreaseLeverage);
             
             yield return new WaitForSeconds(2.0f);
             if (leverageHighlight != null) SetHighlight(leverageHighlight, false);
-            SetButtonsInteractable(false);
+            BlockAllInput();
         }
 
         private IEnumerator Step6_Mental()
@@ -968,20 +979,23 @@ namespace FXOverdose.Core
             var choiceController = FindAnyObjectByType<FXOverdose.Events.ChoiceEventController>();
             if (choiceController != null)
             {
-                // 이벤트 팝업을 클릭할 수 있도록 전체 화면 클릭 방지 임시 해제
-                if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = false;
-                
+                // 이벤트 팝업(sortingOrder 150)만 클릭할 수 있도록 차단막 캔버스를 잠시 그 아래로 내립니다.
+                // blocksRaycasts를 꺼 버리면 SHOP(100)·설정까지 함께 열리는데, 팝업이 끝나면 차단막이
+                // 999로 되돌아오면서 그 창을 닫지 못해 게임이 Paused로 영구히 굳습니다.
+                int blockerSortingOrder = highlightCanvas != null ? highlightCanvas.sortingOrder : 999;
+                if (highlightCanvas != null) highlightCanvas.sortingOrder = 140;
+
                 // 튜토리얼에서는 LLM 생성 상태와 무관하게 내용이 완성된 고정 이벤트를 사용합니다.
                 choiceController.TriggerSpecificEvent("EVENT_01_FSC_ETF");
-                
+
                 // 이벤트가 활성화되어 있는 동안 대기 (팝업 떠있는 상태)
                 while (choiceController.IsEventActive)
                 {
                     yield return null;
                 }
-                
-                // 이벤트 팝업 종료 후 다시 클릭 방지
-                if (fullScreenBlocker != null) fullScreenBlocker.blocksRaycasts = true;
+
+                // 이벤트 팝업 종료 후 다시 최상단으로 복귀
+                if (highlightCanvas != null) highlightCanvas.sortingOrder = blockerSortingOrder;
 
                 // [NEW] 선택 완료 후 요미의 자연스러운 확인 및 시간 가속 처리
                 yield return StartCoroutine(PlayDialogueAndWait("어때? 돌발 이벤트에 어떻게 대처해야 할지 감이 좀 와?"));
@@ -993,9 +1007,18 @@ namespace FXOverdose.Core
                     // 이벤트 지속시간 150분 고속 경과
                     gameManager.AdvanceGameMinutes(150);
                     
-                    // 빨리 감기가 끝날 때까지 대기
+                    // 빨리 감기가 끝날 때까지 대기.
+                    // 고속 진행은 Playing 상태에서만 소진됩니다(GameManager.AdvanceGameMinutes). 선택 효과로
+                    // 파산·Overdose 엔딩이 나면 남은 분이 영원히 소진되지 않으므로 종료 상태를 함께 봅니다.
+                    // (Paused는 상점·설정을 닫으면 재개되므로 계속 기다립니다.)
                     while (gameManager.IsFastForwardingTime)
                     {
+                        if (gameManager.CurrentState == GameManager.GameState.GameOver ||
+                            gameManager.CurrentState == GameManager.GameState.Settlement)
+                        {
+                            Debug.LogWarning($"[TutorialManager] 고속 진행 대기 중 게임 상태가 {gameManager.CurrentState}로 바뀌어 대기를 중단합니다.");
+                            break;
+                        }
                         yield return null;
                     }
                 }
@@ -1022,7 +1045,7 @@ namespace FXOverdose.Core
             yield return StartCoroutine(PlayDialogueAndWait("게임 시간은 계속 흘러서 24:00이 되면 하루가 끝나고 그 날의 모든 포지션이 강제 정산돼. 그 전에 깔끔하게 포지션을 정리하는 게 좋아. 자, 이제 진짜 실전으로 가볼까?"));
 
             // 튜토리얼 종료 버튼 활성화
-            SetButtonsInteractable(false);
+            BlockAllInput();
             
             if (btnEndTutorial == null)
             {

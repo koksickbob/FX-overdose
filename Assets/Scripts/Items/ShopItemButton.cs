@@ -165,7 +165,8 @@ public class ShopItemButton : MonoBehaviour
             }
             else
             {
-                int displayPrice = shopManager != null ? shopManager.GetInflatedPrice(item) : item.Price;
+                // 차감과 같은 함수를 써야 동탄룩 할인 등이 표시가에도 반영됩니다.
+                int displayPrice = shopManager != null ? shopManager.GetPurchasePrice(item) : item.Price;
                 priceText.text = $"${displayPrice:N0}";
             }
         }

@@ -5,8 +5,9 @@ using FXOverdose.Trading;
 namespace FXOverdose.AI
 {
     /// <summary>
-    /// 상시 멘탈 소모 기믹(미실현 손실 압박, 연속 손절 콤보, 고배율 중독, 포지션 진입, FOMO 후회)을
-    /// 실시간(Update) 및 인게임 시간(OnGameMinuteAdvanced) 주기로 병행 제어하는 중앙 컨트롤러입니다.
+    /// 상시 멘탈 소모 기믹 <b>5종</b>(미실현 손실 압박, 연속 손절 콤보, 고배율 중독, 포지션 진입, FOMO 후회)을
+    /// 실시간(Update)과 포지션 이벤트로 제어하는 중앙 컨트롤러입니다.
+    /// (수면 부족 연쇄·횡보 지루함·드로다운 트라우마는 기획에서 빠졌습니다.)
     /// </summary>
     public class MentalDrainGimmickController : MonoBehaviour
     {
@@ -29,11 +30,30 @@ namespace FXOverdose.AI
         public bool isUnrealizedPnLCured = false;
         private bool pendingImpulsiveTrade = false;
 
+        /// <summary>
+        /// 보스 전용 브레인이 아닌 <b>플레이어(요미) 브레인</b>을 찾습니다.
+        /// <c>BossManager</c>가 보스를 스폰하면 <c>[RequireComponent]</c>로 두 번째 <see cref="AITradingBrain"/>이
+        /// 생기는데, <c>FindAnyObjectByType</c>은 어느 쪽을 돌려줄지 보장하지 않습니다. 보스 브레인을 잡으면
+        /// 고배율 강제 매매 지시(<c>ForceNextTradeHighLeverage</c>)와 FOMO 후회 추적이 엉뚱한 대상에게 걸립니다.
+        /// </summary>
+        private static AITradingBrain FindPlayerBrain()
+        {
+            AITradingBrain[] brains = FindObjectsByType<AITradingBrain>(FindObjectsInactive.Include);
+            for (int i = 0; i < brains.Length; i++)
+            {
+                if (brains[i] != null && !brains[i].IsBossAI) return brains[i];
+            }
+            return null;
+        }
+
         public void CureMentalGimmicks()
         {
             isUnrealizedPnLCured = true;
             isTrackingMissedSignal = false;
-            traderStatus.CurrentLosingStreak = 0;
+
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
+            if (traderStatus != null) traderStatus.CurrentLosingStreak = 0;
+
             Debug.Log("[MentalDrainGimmickController] 💊 멘탈 감소 기믹들이 1회성으로 치료(초기화)되었습니다.");
         }
 
@@ -70,7 +90,7 @@ namespace FXOverdose.AI
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (gameManager == null) gameManager = GameManager.Instance;
             if (visualController == null) visualController = FindAnyObjectByType<AIVisualController>();
-            if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
+            if (aiBrain == null) aiBrain = FindPlayerBrain();
             
         }
 
@@ -86,10 +106,6 @@ namespace FXOverdose.AI
                 tradingController.OnPositionClosed -= OnPositionClosed;
                 tradingController.OnPositionOpened -= OnPositionOpened;
             }
-            if (gameManager != null)
-            {
-                gameManager.OnGameMinuteAdvanced -= OnGameMinuteAdvanced;
-            }
             if (aiBrain != null)
             {
                 aiBrain.OnSignalEvaluationCompleted -= OnSignalEvaluationCompleted;
@@ -103,7 +119,7 @@ namespace FXOverdose.AI
             if (market != null) marketEngine = market;
             if (gameManager == null) gameManager = GameManager.Instance;
             if (visualController == null) visualController = FindAnyObjectByType<AIVisualController>();
-            if (aiBrain == null) aiBrain = FindAnyObjectByType<AITradingBrain>();
+            if (aiBrain == null) aiBrain = FindPlayerBrain();
 
             if (tradingController != null)
             {
@@ -111,12 +127,6 @@ namespace FXOverdose.AI
                 tradingController.OnPositionClosed += OnPositionClosed;
                 tradingController.OnPositionOpened -= OnPositionOpened;
                 tradingController.OnPositionOpened += OnPositionOpened;
-            }
-
-            if (gameManager != null)
-            {
-                gameManager.OnGameMinuteAdvanced -= OnGameMinuteAdvanced;
-                gameManager.OnGameMinuteAdvanced += OnGameMinuteAdvanced;
             }
 
             if (aiBrain != null)
@@ -128,7 +138,7 @@ namespace FXOverdose.AI
             if (!isInitialized)
             {
                 isInitialized = true;
-                Debug.Log("[MentalDrainGimmickController] 🧠 상시 멘탈 소모 6대 기믹 코어 엔진이 초기화되었습니다.");
+                Debug.Log("[MentalDrainGimmickController] 🧠 상시 멘탈 소모 기믹 5종 코어 엔진이 초기화되었습니다.");
             }
         }
 
@@ -140,12 +150,12 @@ namespace FXOverdose.AI
                 return;
             }
 
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
             if (aiBrain == null)
             {
-                aiBrain = FindAnyObjectByType<AITradingBrain>();
+                aiBrain = FindPlayerBrain();
                 if (aiBrain != null)
                 {
                     aiBrain.OnSignalEvaluationCompleted -= OnSignalEvaluationCompleted;
@@ -247,7 +257,7 @@ namespace FXOverdose.AI
         {
             isUnrealizedPnLCured = false;
 
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (traderStatus == null || tradingController == null) return;
 
@@ -374,9 +384,11 @@ namespace FXOverdose.AI
         // --- [신규 기믹: 매 거래 실행(포지션 진입/물타기) 시 고정 10 멘탈 소모] ---
         private void OnPositionOpened(TradingController.PositionType type, float margin, int leverage)
         {
-            isUnrealizedPnLCured = false;
+            // ⚠️ 여기서 isUnrealizedPnLCured를 지우지 않습니다. 무포지션 상태에서 치료 아이템을 쓰고
+            //    바로 진입하면 치료가 그 즉시 무효가 되어 아이템 값어치가 사라졌습니다.
+            //    치료는 "포지션 하나를 덮는 1회성"이므로 해제는 OnPositionClosed에서만 합니다.
 
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
+            if (traderStatus == null) traderStatus = TraderStatus.CanonicalInstance;
             if (traderStatus == null) return;
             traderStatus.ChangeMental(-PositionOpenMentalCost, "포지션 진입/물타기");
             Debug.Log($"[MentalDrainGimmickController] 💸 매매 실행({type}, {leverage}배)으로 고정 멘탈 -{PositionOpenMentalCost} 감소 (현재 멘탈: {traderStatus.CurrentMental:F1})");
@@ -459,27 +471,9 @@ namespace FXOverdose.AI
             }
         }
 
-        // --- 인게임 분 단위 연산 (기믹 3, 4, 5, 6) ---
-        public void OnGameMinuteAdvanced()
-        {
-            if (gameManager == null) gameManager = GameManager.Instance;
-            if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsFastForwardingTime)
-            {
-                return;
-            }
-
-            if (traderStatus == null) traderStatus = FindAnyObjectByType<TraderStatus>();
-            if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
-            if (marketEngine == null) marketEngine = FindAnyObjectByType<MarketSimulationEngine>();
-            if (traderStatus == null || tradingController == null || marketEngine == null)
-            {
-                return;
-            }
-
-        }
-
-        // --- [기믹 3: 수면 부족 연쇄 (Sleep Deprivation Cascade)] ---
-        // (기획 변경으로 인해 삭제됨)
+        // 인게임 분 단위 연산은 없습니다. 담당하던 기믹(수면 부족 연쇄·횡보 지루함·드로다운 트라우마)이
+        // 전부 기획에서 빠지면서 본문이 빈 껍데기로 남아 매 분 헛돌던 것을 핸들러째 제거했습니다.
+        // 다시 필요해지면 OnGameMinuteAdvanced 핸들러와 GameManager 구독을 함께 되살리십시오.
 
 
 

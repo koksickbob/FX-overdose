@@ -316,7 +316,14 @@ namespace FXOverdose.Trading
             signalPhaseTimerMinutes = 0;
             isExternalEventOverride = false;
             isOverdoseTrapOverride = false;
-            
+            // 두 초기화 경로(ResetEngine/여기)의 목록을 일치시킵니다.
+            // 특히 서버 렉을 남겨 두면 불러오기 직후 차트가 몇 초간 멈춘 채 시작합니다.
+            overdoseTrapEndTime = -1f;
+            isServerLagging = false;
+            serverLagTimer = 0f;
+            accumulatedLagPriceDelta = 0f;
+            accumulatedLagVolume = 0f;
+
             candleHistories.Clear();
             liveAggregatedCandles.Clear();
             
@@ -384,6 +391,10 @@ namespace FXOverdose.Trading
             if (tradingCtrl != null && tradingCtrl.CurrentPosition == TradingController.PositionType.None)
             {
                 currentSignalPhase = SignalPhase.None;
+                // 페이즈를 None으로 되돌리면 UpdateSignalSystem의 해제 지점(GuaranteedOverride/Cooldown 전이)에
+                // 영영 도달하지 못합니다. 여기서 같이 내리지 않으면 스프레드 ×5와 세션 변동성·오더블록 정지가
+                // 다음 날 ResetEngine까지 그대로 남습니다.
+                isExternalEventOverride = false;
                 minutesUntilNextSignal = UnityEngine.Random.Range(3, 6);
                 Debug.Log($"[MarketEngine] 🚀 스킬 업그레이드(고속 시간 패스) 완료 -> 업그레이드된 새 스킬 능력치 반영을 위해 {minutesUntilNextSignal}분(초) 후 신규 거래 신호가 발행됩니다.");
             }
@@ -404,6 +415,14 @@ namespace FXOverdose.Trading
             currentSignalPhase = SignalPhase.None;
             signalPhaseTimerMinutes = 0;
             isExternalEventOverride = false;
+            // 아래 5개는 RestoreFromSaveData에서는 초기화하면서 여기서만 빠져 있었습니다.
+            // 일차 전환이 오버도즈 함정이나 서버 렉 도중에 일어나면 그 상태가 새 날로 넘어옵니다.
+            isOverdoseTrapOverride = false;
+            overdoseTrapEndTime = -1f;
+            isServerLagging = false;
+            serverLagTimer = 0f;
+            accumulatedLagPriceDelta = 0f;
+            accumulatedLagVolume = 0f;
             // 💡 [AI 매매 실시간 검증 최적화] 게임 시작 후 단 3초(3분봉) 만에 첫 매매 신호가 발생하여 주인공 AI가 즉시 판단 및 매매를 개시하도록 설정
             minutesUntilNextSignal = 3;
 
@@ -809,17 +828,32 @@ namespace FXOverdose.Trading
 
             // 6. 가격 변동 적용
             float priceDelta = currentPrice * totalReturn;
-            currentPrice += priceDelta;
-            // 최저가 방어. 긍정 조건을 부정하는 형태여야 NaN도 걸립니다.
-            // (currentPrice < 10f 는 NaN에서 false라 NaN 가격을 그대로 통과시켰습니다)
-            if (!(currentPrice >= 10f)) currentPrice = 10f;
-
-            // 6. 실시간 1분봉 및 상위 타임프레임 Live 캔들 갱신
             float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
-            UpdateLiveCandlesWithTick(currentPrice, tickVolume);
 
-            // 이벤트 알림
-            OnPriceUpdated?.Invoke(currentPrice);
+            if (isServerLagging)
+            {
+                // 서버 렉 중에는 화면을 멈추고 변동분만 쌓습니다. 렉이 풀리는 순간 Update()의 복구
+                // 블록(isServerLagging 해제부)이 누적분을 한 번에 반영합니다.
+                // 이 누적이 비어 있던 동안은 가격이 그대로 흘러 "차트 정지" 연출이 아예 없었고,
+                // 주문 버튼만 막혀 손절도 못 하는 구간이 됐습니다.
+                // ponytail: 렉 구간 동안 복리를 무시하고 델타를 단순 합산합니다(3~5초, 약 15~25틱).
+                //           체감 차이가 없고, 필요해지면 렉 시작가 기준 누적 수익률로 바꾸면 됩니다.
+                accumulatedLagPriceDelta += priceDelta;
+                accumulatedLagVolume += tickVolume;
+            }
+            else
+            {
+                currentPrice += priceDelta;
+                // 최저가 방어. 긍정 조건을 부정하는 형태여야 NaN도 걸립니다.
+                // (currentPrice < 10f 는 NaN에서 false라 NaN 가격을 그대로 통과시켰습니다)
+                if (!(currentPrice >= 10f)) currentPrice = 10f;
+
+                // 6. 실시간 1분봉 및 상위 타임프레임 Live 캔들 갱신
+                UpdateLiveCandlesWithTick(currentPrice, tickVolume);
+
+                // 이벤트 알림
+                OnPriceUpdated?.Invoke(currentPrice);
+            }
 
             // 🌟 [Realistic Feature 1] 스프레드(Spread) 계산 및 적용
             currentSpread = currentPrice * currentVolatility * 0.5f;
@@ -835,19 +869,6 @@ namespace FXOverdose.Trading
 
             currentBidPrice = currentPrice - (currentSpread * 0.5f);
             currentAskPrice = currentPrice + (currentSpread * 0.5f);
-        }
-
-        // 🌟 [Realistic Feature 4] 거시 경제 이벤트 연동 (Fundamental Events)
-        public void TriggerMacroEvent(float intensity = 5.0f)
-        {
-            // 오버도즈 발동 중에는 빔 궤적을 흩트리지 않기 위해 거시 이벤트의 변동성 폭발을 무시합니다.
-            if (isOverdoseTrapOverride) return;
-
-            Debug.Log($"[MarketEngine] 🚨 거시 경제 이벤트 발동! 시장 변동성 {intensity}배 폭증");
-            currentVolatility *= intensity;
-            
-            // GARCH 모델에 의해 변동성은 서서히 원래 타겟 변동성(targetVol)으로 회귀하게 됩니다.
-            // Spread는 currentVolatility에 비례하므로 자동으로 폭증합니다.
         }
 
         // 스킬 공부 및 시간 패스 등으로 1분 단위 고속 경과 시 차트 캔들이 비거나 0-Volume 일직선으로 굳는 현상을 방지하기 위한 실시간 틱 시뮬레이션
@@ -1060,22 +1081,6 @@ namespace FXOverdose.Trading
                 }
                 currentVolatility *= 2.0f; // 순간 변동성 폭발
             }
-        }
-
-        // 돌발 이벤트(Choice Event) 시 시장 충격 주기
-        public void TriggerMarketShock(float percentageChange, float volatilityMultiplier, int durationMinutes)
-        {
-            float shockPrice = currentPrice * (1f + (percentageChange / 100f));
-            currentPrice = shockPrice;
-            currentVolatility *= volatilityMultiplier;
-            minutesUntilNextRegimeChange = durationMinutes;
-
-            if (percentageChange > 0f) currentRegime = MarketRegime.Bull;
-            else if (percentageChange < 0f) currentRegime = MarketRegime.Bear;
-            else currentRegime = MarketRegime.Squeeze;
-
-            UpdateLiveCandlesWithTick(currentPrice, Mathf.Abs(percentageChange) * 100f);
-            Debug.Log($"[MarketEngine] 외부 이벤트 충격 발생! 변화율: {percentageChange:F2}%, 현재가: {currentPrice:N1}");
         }
 
         // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)
@@ -1435,6 +1440,8 @@ namespace FXOverdose.Trading
                 isOverdoseTrapOverride = false;
                 overdoseTrapEndTime = -1f;
                 currentSignalPhase = SignalPhase.None;
+                // 페이즈가 None이 되면 UpdateSignalSystem의 해제 지점에 도달할 수 없으므로 함께 내립니다.
+                isExternalEventOverride = false;
                 minutesUntilNextSignal = 3;
                 OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                 Debug.Log("[MarketEngine] 💊 [Overdose 차트 함정 해제] 플레이어의 멘탈 회복 조치로 죽음의 차트 빔이 해제되고 정상 차트로 복귀합니다.");

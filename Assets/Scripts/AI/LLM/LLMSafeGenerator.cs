@@ -24,6 +24,13 @@ namespace FXOverdose.AI.LLM
     {
         public static LLMSafeGenerator Instance { get; private set; }
 
+        /// <summary>
+        /// LLMAgent 동시 사용 방지. <c>llmAgent.grammar</c>가 에이전트 전역 설정이라
+        /// 두 생성이 겹치면 서로의 문법 제약을 지웁니다. 에이전트는 TitleScene의 LLM_Manager에
+        /// 하나만 존재하므로(DontDestroyOnLoad) 인스턴스가 아니라 정적으로 둡니다.
+        /// </summary>
+        private static readonly SemaphoreSlim AgentGate = new SemaphoreSlim(1, 1);
+
         [Header("모델 파라미터 (코드에서 강제 적용 — 씬 직렬화 값보다 우선)")]
         [Tooltip("끄면 TitleScene의 LLMAgent 인스펙터 값을 그대로 사용합니다. 진단용.")]
         [SerializeField] private bool overrideModelParameters = true;
@@ -118,30 +125,50 @@ namespace FXOverdose.AI.LLM
 
             string jsonText;
             bool grammarApplied = false;
+
+            // 에이전트 접근을 직렬화합니다. grammar는 LLMAgent 전역 설정이라 생성이 겹치면
+            // 먼저 끝난 쪽의 finally가 아직 생성 중인 쪽의 JSON 제약을 풀어 버려, 뒤쪽은
+            // 자유 텍스트를 뱉고 파싱에서 기각됩니다(→ 폴백). LLMUnity의 Chat에는 취소 인자가 없어
+            // 진행 중 호출을 끊을 수 없으므로 애초에 겹치지 않게 막습니다.
+            await AgentGate.WaitAsync();
             try
             {
-                if (useGrammarConstraint)
+                // 대기하는 동안 취소됐다면(일자 전환·다음 트리거 예약) 아예 시작하지 않습니다.
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    llmAgent.grammar = ChoiceEventGrammar;
-                    grammarApplied = true;
+                    Debug.Log("[LLMSafeGenerator] 대기 중 취소되어 생성을 시작하지 않습니다.");
+                    return null;
                 }
 
-                jsonText = await llmAgent.Chat(prompt, null, null, false);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[LLMSafeGenerator] 생성 호출 실패: {e.Message}");
-                LLMGenerationStats.RecordRejected($"생성 호출 예외: {e.Message}");
-                return null;
+                try
+                {
+                    if (useGrammarConstraint)
+                    {
+                        llmAgent.grammar = ChoiceEventGrammar;
+                        grammarApplied = true;
+                    }
+
+                    jsonText = await llmAgent.Chat(prompt, null, null, false);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[LLMSafeGenerator] 생성 호출 실패: {e.Message}");
+                    LLMGenerationStats.RecordRejected($"생성 호출 예외: {e.Message}");
+                    return null;
+                }
+                finally
+                {
+                    // 문법은 에이전트 전역 설정입니다. 일기 생성 등 다른 용도가 JSON에 묶이지 않도록 즉시 해제합니다.
+                    if (grammarApplied)
+                    {
+                        try { llmAgent.grammar = ""; }
+                        catch (Exception e) { Debug.LogWarning($"[LLMSafeGenerator] 문법 해제 실패: {e.Message}"); }
+                    }
+                }
             }
             finally
             {
-                // 문법은 에이전트 전역 설정입니다. 일기 생성 등 다른 용도가 JSON에 묶이지 않도록 즉시 해제합니다.
-                if (grammarApplied)
-                {
-                    try { llmAgent.grammar = ""; }
-                    catch (Exception e) { Debug.LogWarning($"[LLMSafeGenerator] 문법 해제 실패: {e.Message}"); }
-                }
+                AgentGate.Release();
             }
 
             if (cancellationToken.IsCancellationRequested)

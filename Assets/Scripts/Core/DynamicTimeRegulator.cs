@@ -19,7 +19,9 @@ namespace FXOverdose.Core
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                // GameManager.EnsureDynamicTimeRegulator가 GameManager 오브젝트에 이 컴포넌트를 붙입니다.
+                // Destroy(gameObject)로 지우면 씬 배치본과의 Awake 순서에 따라 GameManager가 통째로 사라집니다.
+                Destroy(this);
                 return;
             }
             Instance = this;

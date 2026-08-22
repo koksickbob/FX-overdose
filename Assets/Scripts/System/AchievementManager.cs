@@ -6,12 +6,6 @@ namespace FXOverdose.Core
 {
     public class AchievementManager : MonoBehaviour
     {
-        // TEMP: 코스튬/음식 연출 전수 검수용. 테스트 종료 후 false로 되돌립니다.
-        private static readonly bool DisableAchievementRequirementsForTesting = false;
-        // TEMP REVIEW: 메이드 스킨 검수 종료 후 false로 되돌립니다.
-        private static readonly bool UnlockMaidAchievementForReview = false;
-        private const string Pref_MaidReviewRollbackApplied = "ReviewRollback_MaidGrant_v1";
-
         public enum AchievementType
         {
             Ending,
@@ -56,9 +50,7 @@ namespace FXOverdose.Core
         private const string Pref_EndingBankruptcy = "Stat_EndingBankruptcy";
         private const string Pref_EndingOverdose = "Stat_EndingOverdose";
 
-        private const string Pref_Level9Reached = "Stat_Level9Reached";
         private const string Pref_AllSkillsMaxed = "Stat_AllSkillsMaxed";
-        private const string Pref_HighestLevel = "Stat_HighestLevel";
 
         public event Action OnAchievementsChanged;
         public event Action<AchievementDefinition> OnAchievementUnlocked;
@@ -110,15 +102,6 @@ namespace FXOverdose.Core
 
         private void LoadUnlockedAchievements()
         {
-            if (!UnlockMaidAchievementForReview && PlayerPrefs.GetInt(Pref_MaidReviewRollbackApplied, 0) == 0)
-            {
-                // 검수 플래그가 강제로 기록했던 해금만 제거합니다. 정상 달성 기록과 사용 횟수는 보존됩니다.
-                if (PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) < 100)
-                    PlayerPrefs.DeleteKey(Pref_UnlockedPrefix + "use_parfait_100");
-                PlayerPrefs.SetInt(Pref_MaidReviewRollbackApplied, 1);
-                PlayerPrefs.Save();
-            }
-
             unlockedAchievements.Clear();
             foreach (var ach in achievements)
             {
@@ -126,14 +109,6 @@ namespace FXOverdose.Core
                 {
                     unlockedAchievements.Add(ach.Id);
                 }
-            }
-
-            if (UnlockMaidAchievementForReview)
-            {
-                const string maidAchievementId = "use_parfait_100";
-                unlockedAchievements.Add(maidAchievementId);
-                PlayerPrefs.SetInt(Pref_UnlockedPrefix + maidAchievementId, 1);
-                PlayerPrefs.Save();
             }
         }
 
@@ -234,7 +209,10 @@ namespace FXOverdose.Core
                     int count = PlayerPrefs.GetInt(Pref_EnergyDrinkUsed, 0) + 1;
                     PlayerPrefs.SetInt(Pref_EnergyDrinkUsed, count);
                 }
-                else if (lowerId.Contains("parfait"))
+                // 파르페의 실제 ItemId는 "dessert"입니다(Assets/Data/Items/Dessert.asset).
+                // "parfait"으로 판정하던 동안 카운터가 영원히 0이라 use_parfait_100 업적과
+                // 그 보상인 메이드 코스튬이 해금 불가였습니다.
+                else if (lowerId.Contains("dessert"))
                 {
                     int count = PlayerPrefs.GetInt(Pref_ParfaitUsed, 0) + 1;
                     PlayerPrefs.SetInt(Pref_ParfaitUsed, count);
@@ -259,8 +237,15 @@ namespace FXOverdose.Core
             }
         }
 
-        public void RecordItemPurchase()
+        /// <summary>
+        /// 배달음식 구매를 기록합니다. purchase_delivery_200 업적(스테이크 해금 게이트)의 카운터라
+        /// **배달음식만** 셉니다. 예전에는 인자 없이 모든 소모품 구매마다 올려서, 배달음식을 한 번도
+        /// 사지 않아도 스테이크가 열렸습니다.
+        /// </summary>
+        public void RecordItemPurchase(ItemData item)
         {
+            if (item == null || item.Type != ItemData.EffectType.DeliveryFood) return;
+
             int count = PlayerPrefs.GetInt(Pref_ConsumablesPurchased, 0) + 1;
             PlayerPrefs.SetInt(Pref_ConsumablesPurchased, count);
             PlayerPrefs.Save();
@@ -271,18 +256,6 @@ namespace FXOverdose.Core
         {
             int count = PlayerPrefs.GetInt(Pref_RiskyEventSuccess, 0) + 1;
             PlayerPrefs.SetInt(Pref_RiskyEventSuccess, count);
-            PlayerPrefs.Save();
-            CheckAchievements();
-        }
-
-        public void RecordLevelUp(int level)
-        {
-            int highestLevel = Mathf.Max(PlayerPrefs.GetInt(Pref_HighestLevel, 0), level);
-            PlayerPrefs.SetInt(Pref_HighestLevel, highestLevel);
-            if (level >= 9)
-            {
-                PlayerPrefs.SetInt(Pref_Level9Reached, 1);
-            }
             PlayerPrefs.Save();
             CheckAchievements();
         }
@@ -305,7 +278,6 @@ namespace FXOverdose.Core
         public bool IsCostumeUnlocked(string costumeId, out string requirementText)
         {
             requirementText = string.Empty;
-            if (DisableAchievementRequirementsForTesting) return true;
 
             foreach (var ach in achievements)
             {
@@ -329,11 +301,6 @@ namespace FXOverdose.Core
         public IReadOnlyList<AchievementDefinition> GetAllAchievements()
         {
             return achievements.AsReadOnly();
-        }
-
-        public bool IsUnlocked(string id)
-        {
-            return unlockedAchievements.Contains(id);
         }
 
         public float GetProgress01(AchievementDefinition achievement)
@@ -389,9 +356,7 @@ namespace FXOverdose.Core
             PlayerPrefs.DeleteKey(Pref_EndingTrueClear);
             PlayerPrefs.DeleteKey(Pref_EndingBankruptcy);
             PlayerPrefs.DeleteKey(Pref_EndingOverdose);
-            PlayerPrefs.DeleteKey(Pref_Level9Reached);
             PlayerPrefs.DeleteKey(Pref_AllSkillsMaxed);
-            PlayerPrefs.DeleteKey(Pref_HighestLevel);
             
             foreach (var ach in achievements)
             {

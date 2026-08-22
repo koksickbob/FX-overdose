@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FXOverdose.Trading;
-using FXOverdose.P2P.Market;
 
 #pragma warning disable CS0649
 
@@ -34,6 +33,9 @@ namespace FXOverdose.UI.Chart
         [SerializeField] private float candleSpacing = 14f;
         [SerializeField] private float candleWidth = 10f;
         [SerializeField] private float volumeAreaRatio = 0.25f; // 차트 하단 25% 거래량 영역
+
+        // 차트 상단 여백. 최고가 캔들이 위 테두리에 붙지 않게 띄웁니다.
+        private const float PriceAreaTopPadding = 4f;
         [SerializeField] private float internalPriceAxisWidth = 86f; // 차트 내부 우측 가격축 전용 폭
 
         [Header("우측 가격축 및 하단 시간축")]
@@ -68,16 +70,12 @@ namespace FXOverdose.UI.Chart
         private TMP_Text entryDirectionTagText;
         private Image entryDirectionLineImage;
         private readonly List<Image> entryDirectionDashes = new List<Image>();
-        private readonly List<CandleData> p2pMinuteCandles = new List<CandleData>();
-        private CandleData p2pLiveCandle;
-        private float p2pCurrentPrice;
-        private bool useP2PMarket;
 
         private void Start()
         {
-            // P2P도 기존 MarketSimulationEngine의 캔들 버퍼를 외부 가격 입력으로 구동합니다.
-            // 별도 차트 데이터 경로를 사용하지 않아 싱글과 동일한 렌더링을 유지합니다.
-            useP2PMarket = false;
+            // P2P도 기존 MarketSimulationEngine의 캔들 버퍼를 외부 가격 입력으로 구동합니다
+            // (P2PGameplayUIController → MarketSimulationEngine.ApplyP2PExternalTick).
+            // 별도 차트 데이터 경로를 두지 않아 싱글과 동일한 렌더링을 유지합니다.
             ApplyMainHudHorizontalMargins();
             if (marketEngine == null)
             {
@@ -166,42 +164,16 @@ namespace FXOverdose.UI.Chart
             RefreshChartDisplay();
         }
 
-        /// <summary>P2P 호스트 스냅샷을 기존 캔들 차트 렌더러에 공급합니다.</summary>
-        public void ApplyP2PSnapshot(P2PMarketSnapshot snapshot)
+        /// <summary>
+        /// 가격 영역의 아래·위 Y좌표. <b>가격을 Y로 옮기는 곳은 전부 이 함수를 씁니다</b> —
+        /// 예전에는 현재가 라인·캔들 본체·Y축 눈금이 각자 상수를 갖고 있어(0.26 / 0.74 하드코딩)
+        /// volumeAreaRatio를 조정하는 순간 서로 어긋났고, 현재 값에서도 상단 4px 차이로
+        /// 같은 가격의 현재가 라인이 캔들보다 살짝 아래에 그려졌습니다.
+        /// </summary>
+        private void GetPriceArea(float chartHeight, out float bottom, out float top)
         {
-            useP2PMarket = true;
-            p2pCurrentPrice = (float)snapshot.Price;
-            var next = new CandleData(snapshot.TotalMinutes, (float)snapshot.Open, (float)snapshot.High,
-                (float)snapshot.Low, (float)snapshot.Price, (float)snapshot.Volume);
-            if (p2pLiveCandle != null && p2pLiveCandle.timestampMinutes != next.timestampMinutes)
-            {
-                p2pMinuteCandles.Add(p2pLiveCandle);
-                if (p2pMinuteCandles.Count > 1440) p2pMinuteCandles.RemoveAt(0);
-            }
-            p2pLiveCandle = next;
-            UpdatePriceHeaderP2P(p2pCurrentPrice);
-            RefreshChartDisplay();
-        }
-
-        private List<CandleData> GetP2PCandles(Timeframe timeframe)
-        {
-            int size=(int)timeframe;if(size<=1)return new List<CandleData>(p2pMinuteCandles);
-            var result=new List<CandleData>();var bucket=new List<CandleData>();long bucketStart=-1;
-            foreach(var candle in p2pMinuteCandles){long start=candle.timestampMinutes/size*size;if(bucketStart>=0&&start!=bucketStart){result.Add(CandleData.Aggregate(bucket,bucketStart));bucket.Clear();}bucketStart=start;bucket.Add(candle);}
-            if(bucket.Count>0)result.Add(CandleData.Aggregate(bucket,bucketStart));return result;
-        }
-
-        private CandleData GetP2PLiveCandle(Timeframe timeframe)
-        {
-            if(p2pLiveCandle==null)return null;int size=(int)timeframe;if(size<=1)return p2pLiveCandle;
-            long start=p2pLiveCandle.timestampMinutes/size*size;var bucket=new List<CandleData>();foreach(var c in p2pMinuteCandles)if(c.timestampMinutes>=start)bucket.Add(c);bucket.Add(p2pLiveCandle);return CandleData.Aggregate(bucket,start);
-        }
-
-        private void UpdatePriceHeaderP2P(float current)
-        {
-            if(priceHeaderLabel!=null)priceHeaderLabel.text=current.ToString("N1");
-            float open=p2pMinuteCandles.Count>0?p2pMinuteCandles[0].open:(p2pLiveCandle?.open??current);float pct=open>0?(current-open)/open*100f:0;
-            if(priceChangeLabel!=null){priceChangeLabel.text=$"≈ ${current:N2} {pct:+0.00;-0.00;0.00}%";priceChangeLabel.color=pct>=0?bullishText:bearishText;}
+            bottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f;
+            top = chartHeight - PriceAreaTopPadding;
         }
 
         private void UpdateButtonHighlight(Button btn, bool isSelected)
@@ -344,8 +316,7 @@ namespace FXOverdose.UI.Chart
             }
 
             float chartHeight = chartAreaTransform != null ? chartAreaTransform.rect.height : 400f;
-            float priceAreaBottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f;
-            float priceAreaTop = chartHeight - 4f;
+            GetPriceArea(chartHeight, out float priceAreaBottom, out float priceAreaTop);
             float range = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
             float y = priceAreaBottom + ((tradingController.EntryPrice - currentChartMinPrice) / range) * (priceAreaTop - priceAreaBottom);
             y = Mathf.Clamp(y, priceAreaBottom, priceAreaTop) - chartHeight * 0.5f;
@@ -393,8 +364,7 @@ namespace FXOverdose.UI.Chart
             float chartHeight = chartAreaTransform.rect.height;
             if (chartHeight <= 0f) chartHeight = 400f;
 
-            float priceAreaBottom = chartHeight * volumeAreaRatio + chartHeight * 0.01f;
-            float priceAreaTop = chartHeight - 4f;
+            GetPriceArea(chartHeight, out float priceAreaBottom, out float priceAreaTop);
             float priceAreaHeight = Mathf.Max(10f, priceAreaTop - priceAreaBottom);
             float priceRange = Mathf.Max(0.001f, currentChartMaxPrice - currentChartMinPrice);
             float absoluteYPos = priceAreaBottom + ((currentPrice - currentChartMinPrice) / priceRange) * priceAreaHeight;
@@ -404,7 +374,11 @@ namespace FXOverdose.UI.Chart
 
             currentPriceLineTransform.anchoredPosition = new Vector2(0f, anchoredYPos);
 
-            if (currentPriceTagText != null)
+            // 포지션 보유 중에는 UpdatePositionDirectionVisuals(LateUpdate)가 방향·레버리지까지 담아
+            // 같은 라벨에 씁니다. 여기서도 쓰면 매 프레임 서로 덮어써 깜빡이므로 소유권을 넘깁니다.
+            bool positionHeld = tradingController != null &&
+                                tradingController.CurrentPosition != TradingController.PositionType.None;
+            if (currentPriceTagText != null && !positionHeld)
             {
                 currentPriceTagText.text = currentPrice.ToString("N1");
             }
@@ -417,15 +391,15 @@ namespace FXOverdose.UI.Chart
         // 화면에 차트를 그리는 메인 로직
         public void RefreshChartDisplay()
         {
-            if ((!useP2PMarket && marketEngine == null) || chartAreaTransform == null || candlePrefab == null)
+            if (marketEngine == null || chartAreaTransform == null || candlePrefab == null)
             {
                 return;
             }
 
             CleanupOldScrollView();
 
-            List<CandleData> history = useP2PMarket ? GetP2PCandles(currentSelectedTimeframe) : marketEngine.GetCandleHistory(currentSelectedTimeframe);
-            CandleData liveCandle = useP2PMarket ? GetP2PLiveCandle(currentSelectedTimeframe) : marketEngine.GetLiveCandle(currentSelectedTimeframe);
+            List<CandleData> history = marketEngine.GetCandleHistory(currentSelectedTimeframe);
+            CandleData liveCandle = marketEngine.GetLiveCandle(currentSelectedTimeframe);
 
             float chartWidth = chartAreaTransform.rect.width > 0 ? chartAreaTransform.rect.width : 700f;
             float chartHeight = chartAreaTransform.rect.height > 0 ? chartAreaTransform.rect.height : 400f;
@@ -486,6 +460,7 @@ namespace FXOverdose.UI.Chart
             activeCandleItems.Clear();
 
             float volumeHeight = chartHeight * volumeAreaRatio;
+            GetPriceArea(chartHeight, out float candleAreaBottom, out float candleAreaTop);
 
             // 3. 고정 간격으로 캔들 배치 (화면 내 최신 캔들만 렌더링, 왼쪽으로 밀려난 캔들은 삭제 효과)
             for (int i = 0; i < visibleCandles.Count; i++)
@@ -507,7 +482,9 @@ namespace FXOverdose.UI.Chart
                         xPos,
                         candleWidth,
                         maxVolume,
-                        volumeHeight
+                        volumeHeight,
+                        candleAreaBottom,
+                        candleAreaTop
                     );
 
                     activeCandleItems.Add(item);
@@ -515,7 +492,7 @@ namespace FXOverdose.UI.Chart
             }
 
             UpdateXAxisTimeLabels(visibleCandles);
-            UpdateCurrentPriceLine(useP2PMarket ? p2pCurrentPrice : marketEngine.CurrentPrice);
+            UpdateCurrentPriceLine(marketEngine.CurrentPrice);
         }
 
         // 우측 Y축 눈금 업데이트
@@ -524,17 +501,24 @@ namespace FXOverdose.UI.Chart
             if (yAxisPriceLabels == null || yAxisPriceLabels.Length == 0) return;
 
             int labelCount = yAxisPriceLabels.Length;
-            
+
             float startY = 0.28f;
             float endY = 0.96f;
             float stepY = (endY - startY) / Mathf.Max(1, labelCount - 1);
+
+            // 하드코딩된 0.26/0.74 대신 실제 가격 영역 비율로 역산합니다.
+            float axisChartHeight = chartAreaTransform != null ? chartAreaTransform.rect.height : 400f;
+            GetPriceArea(axisChartHeight, out float labelAreaBottom, out float labelAreaTop);
+            float bottomRatio = labelAreaBottom / Mathf.Max(1f, axisChartHeight);
+            float topRatio = labelAreaTop / Mathf.Max(1f, axisChartHeight);
+            float ratioSpan = Mathf.Max(0.0001f, topRatio - bottomRatio);
 
             for (int i = 0; i < labelCount; i++)
             {
                 if (yAxisPriceLabels[i] != null)
                 {
                     float normalizedY = startY + (i * stepY);
-                    float labelPrice = min + ((normalizedY - 0.26f) / 0.74f) * (max - min);
+                    float labelPrice = min + ((normalizedY - bottomRatio) / ratioSpan) * (max - min);
                     yAxisPriceLabels[i].text = labelPrice.ToString("N1");
 
                     RectTransform lblRect = yAxisPriceLabels[i].transform.parent.GetComponent<RectTransform>();

@@ -497,5 +497,67 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 - **검증을 `Validate Event Data`에 합쳤다** — 24종 × 4티어 = 96장 로드 확인. 이게 없으면 enum만 늘리고 스프라이트를 안 넣었을 때 *그 감정이 쓰인 대사에 도달했을 때만* 조용히 Calm으로 떨어져서, 노드 그래프 오타와 같은 종류의 "나중에 발견되는" 문제가 된다.
 - **크로마키 원본·리테이크 잔재 105장을 `ArtSource/DatingSim/Emotions/`로 뺐다** (`Assets/` 밖). `Resources` 폴더는 **참조 여부와 무관하게 전부 빌드에 실리므로** 쓰지 않는 105장이 그대로 빌드 용량이었다. GUID 참조가 씬·프리팹·에셋 어디에도 없음을 확인하고 옮겼다.
 
+## 11. 트레이딩 시스템 전수 감사 대응 — P0·P1 (2026-08-22)
+
+전체 진단과 남은 항목은 [Trading_System_Audit_Fix_Plan.md](Trading_System_Audit_Fix_Plan.md). 여기에는 **구조가 바뀐 것만** 적는다.
+
+### 11.1 소유권을 옮긴 것
+
+- **요미 수동매매 락에 세대(generation) 개념 도입** (`TradingController`). `ClosePosition`이 `IsManualModeLockedByYomi = false`를 무조건 써서, 바로 위 `OnPositionClosed` 구독자가 건 락을 **같은 콜스택에서** 지우고 있었다. 해제 소유권을 `UnlockManualMode` 하나로 모으고, 임시 락 코루틴은 `manualLockGeneration`이 자기 것일 때만 해제한다. `AITradingBrain`의 언락은 **버그가 아니다** — 강제 고배율 매매를 실행하는 순간이 설계상 락의 끝이다.
+- **이벤트 쉴드 만료 판정을 실시간 타이머 단독으로** (`TradingController`). 차트 빔 상태(`IsExternalEventOverride`)를 함께 보던 탓에 ① 빔 없는 선택지는 1프레임 만에, ② 빔이 있어도 빔 수명(인게임 분)과 쉴드(실시간 초)의 **단위 불일치**로 항상 조기 종료됐다. 두 시스템의 수명을 서로 묶지 않는다.
+- **상점 최종가 choke point를 `GetPurchasePrice`로 통일** (`ShopManager` / `ShopItemButton`). 표시가는 `GetInflatedPrice`, 차감은 `GetPurchasePrice`로 갈라져 있어 코스튬 할인이 표시에 반영되지 않는 구조였다. `GetInflatedPrice`는 순수 인플레이션 계산으로 남기고, "플레이어가 실제로 내는 값"은 `GetPurchasePrice` 하나가 답한다.
+
+### 11.2 새로 생긴 안전장치
+
+- **`EventLauncher` 씬 감시자.** 정적 `IsRunning`은 씬 재로드로도 안 풀려, 호스트가 죽는 모든 경로를 개별 방어해야 했다. `SceneManager.sceneLoaded`에서 `LoadingScene`/`EventScene`이 아닌 씬에 도착했는데 플래그가 서 있으면 호스트가 없다는 뜻이므로 한곳에서 내린다. `EventOverlayHost.OnDestroy`(일시정지 복구 + `NotifyFinished`)와 짝을 이룬다. **커밋은 하지 않는다** — 중도 이탈 무기록은 설계다.
+- **중단 복구를 `OnDisable`에 두는 패턴.** `ChoiceEventController`(팝업 중 컴포넌트 비활성 → `Paused` 고착)와 `ActiveSkillHUDController`(코루틴 중단 → 전체화면 오버레이 잔존)가 같은 형태의 결함이었다. `OnDestroy`만으로는 P2P 진입 시의 `DisableAll<T>()`를 못 잡는다.
+- **`LLMSafeGenerator`에 정적 `SemaphoreSlim` 게이트.** `llmAgent.grammar`가 에이전트 전역 설정이라 생성이 겹치면 서로의 GBNF 제약을 지웠다. LLMUnity의 `Chat`에 취소 인자가 없어 진행 중 호출을 끊을 수 없으므로 **애초에 겹치지 않게** 직렬화한다. 게이트 획득 후 취소를 재확인해, 대기 중 취소된 요청은 시작하지 않는다.
+- **`CostumeManager.IsAnyEquipped(params string[])`.** 코스튬 효과 적용부가 늘면서 `Instance != null && Instance.EquippedCostumeId == X` 반복이 5곳으로 늘어 헬퍼로 접었다. 기존 인스턴스 메서드 `IsEquipped`를 감싼다.
+
+### 11.3 삭제 — `TraderStatus.PeakBalance`
+
+드로다운 트라우마 천장 기믹(Phase 1 "6대 기믹" ⑥) 전용 필드였다. 그 기믹은 [Mental_Drain_Rebalance_Plan.md](Mental_Drain_Rebalance_Plan.md) 5장으로 폐지됐는데 **그 계획서가 `PeakBalance`를 언급하지 않아** 함께 정리되지 못하고 남았다. 갱신 코드가 없어 항상 0이었고, `AdjustPeakBalanceForExpenditure`는 `peakBalance <= 0f` 가드에서 즉시 return해 호출부 4곳이 전부 no-op이었다.
+
+필드·프로퍼티·메서드·저장 왕복·인스턴스 동기화·`GameManager` 호출 4곳·`SaveData.PeakBalance`를 삭제했다. 구버전 JSON의 남은 키는 `JsonUtility`가 무시하므로 마이그레이션이 필요 없다.
+
+⚠️ **`AchievementManager`의 "누적 최고 자산"과 혼동하지 말 것.** `RecordPeakBalance` / `Stat_GlobalPeakBalance` / `AchievementType.PeakBalance`는 PlayerPrefs 기반 전역 기록으로 백만장자·억만장자 업적을 구동하며, 이번 삭제와 무관하게 정상 동작한다.
+
+> **교훈**: 기믹을 폐지할 때 그 기믹 **전용 데이터 필드**까지 삭제 목록에 넣어야 한다. 이번 건은 로직만 지우고 필드가 남아, 이후 호출부 4곳이 "동작하는 것처럼 보이는 no-op"으로 2년 가까이 남아 있었다.
+
+### 11.4 P2에서 바뀐 소유권
+
+- **`TraderStatus`의 기믹 카운터 4종에 `Owner` 프로퍼티 도입.** `CurrentLosingStreak` / `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`는 다른 mutator와 달리 정본 위임 가드가 없어, 미러 인스턴스에 쓰면 다음 동기화가 조용히 삼켰다. **읽기·쓰기 양쪽**을 `Owner`(정본이 있으면 정본)로 통과시킨다 — 쓰기만 위임하면 미러에서 쓴 직후 읽을 때 한 프레임 낡은 값이 나온다.
+- **`MentalDrainGimmickController.FindPlayerBrain()`.** 보스가 스폰되면 `[RequireComponent]` 때문에 두 번째 `AITradingBrain`이 생기고 `FindAnyObjectByType`은 어느 쪽을 줄지 보장하지 않는다. `!IsBossAI` 필터를 한곳에 모았다. 짝으로 `AITradingBrain`의 `TradingController` 구독도 `!IsBossAI`로 막았다 — 보스 브레인이 플레이어의 청산 이벤트를 받고 있었다.
+- **인벤토리 복원 루프를 `SaveLoadManager.ApplySavedInventoryItems()`로 분리.** 새 게임 첫 진입 분기가 저장 목록을 통째로 버려, 1일차에 편의점 알바를 먼저 하면 선물이 사라졌다. 두 분기가 같은 헬퍼를 쓰게 해 시작 지급분 위에 얹는다.
+- **`ShopManager.GetPurchasePrice`가 최종가의 유일한 답이 되었다** (11.1 참조). 표시 경로도 이쪽으로 통일.
+
+### 11.5 진단이 틀렸던 것 — 코드를 바꾸지 않은 2건
+
+감사 보고를 그대로 적용했으면 **회귀를 만들었을** 항목이다. 같은 지적이 다시 올라오면 여기를 먼저 볼 것.
+
+- **`OnFastForwardEnded`는 중단 시 발화하지 않는 것이 맞다.** 중단된 고속 진행은 남은 분이 보존됐다가 `ResumeGame` / `ResumePreservedFastForward`가 `AdvanceGameMinutes`를 다시 타므로 최종 완료 시점에 반드시 발화한다. 중단 시점에 발화시키면 `MarketSimulationEngine.HandleFastForwardEnded`가 진행 중인 신호 페이즈를 `None`으로 리셋하고 `isExternalEventOverride`까지 내린다 — 잠시 멈춘 것뿐인데 신호가 취소된다. 선언부 주석만 실제 계약으로 고쳤다.
+- **`EventView`의 클릭 이중 소비에 `EventSystem.IsPointerOverGameObject`를 쓰면 안 된다.** `ClickCatcher`가 전체 화면을 덮는 투명 Button이라 이벤트 진행 중에는 그 검사가 항상 참이고, 넣는 순간 대사 진행 입력이 통째로 죽는다. 대신 상단 버튼이 눌린 프레임을 기록해 그 프레임과 다음 프레임의 진행 입력만 무시한다(버튼 처리와 `Update`의 실행 순서가 보장되지 않으므로 1프레임 여유).
+
+또 **`GlobalPFStardustFont`의 전역 폰트 훅**은 지금 무해하다. 씬에 지정된 `font`의 GUID가 `TMP Settings`의 기본 폰트와 같은 에셋이라 덮어쓰기가 no-op이다. 실제로 **다른** 폰트를 지정하게 되는 시점에 예외 마커를 넣으면 된다. `CompactHudTextStabilizer`도 무한 루프가 아니다 — `ForceMeshUpdate`가 `havePropertiesChanged`를 다시 내려 `pendingFrames`가 정상 소진된다.
+
+### 11.6 P3 — 삭제와 소유권 통일
+
+**삭제**(순삭감 약 360줄): `YomiSpriteController`(604줄, 씬 미배치 + `AIVisualController`와 중복), `ChartUIController`의 P2P 차트 경로 전체, `MarketSimulationEngine.TriggerMacroEvent`/`TriggerMarketShock`, `TradingController.SimulateCloseForTest`, `AchievementManager.RecordLevelUp`, 검수용 킬스위치 4종, 효과 HUD의 뱃지 아이콘 분기.
+
+- **P2P 차트는 이미 다른 방식으로 동작하고 있었다.** `P2PGameplayUIController.RefreshOriginalChart`가 `MarketSimulationEngine.ApplyP2PExternalTick`으로 기존 엔진에 가격을 먹인다. `ChartUIController.ApplyP2PSnapshot` 계열은 그 이전 접근법의 잔재였다 — 기획 결정 사항이 아니라 폐기된 코드다.
+- **`ChartUIController.GetPriceArea`가 가격→Y 변환의 유일한 출처가 되었다.** 현재가 라인·진입선·캔들 본체(`CandleItemUI`에 인자로 전달)·Y축 눈금이 각자 상수(`0.26` / `0.74` 하드코딩)를 갖고 있어 `volumeAreaRatio`를 바꾸면 서로 어긋났고, 현재 값에서도 상단 4px이 맞지 않았다.
+- **`TutorialManager.SetButtonsInteractable` → `BlockAllInput()`.** `Button.interactable`을 건드리지 않으면서 그 이름을 달고 있어 "튜토리얼이 버튼 상태를 복원해 줄 것"이라는 잘못된 기대를 만들었다. 이름은 실제 동작을 말해야 한다. `ResetToNormal`도 튜토리얼이 만든 Canvas만 기억해서 지우도록 바꿨다 — 조건만 보고 지우면 원래부터 그 설정이던 남의 Canvas를 파괴한다.
+- **`RecordItemPurchase(ItemData)`.** 인자 없이 모든 소모품을 세던 카운터가 "배달음식 200개" 업적(스테이크 해금 게이트)을 구동하고 있었다. 세는 대상을 호출부가 아니라 카운터 자신이 판정하게 했다.
+
+**삭제하지 않은 것과 그 이유.** 감사 보고가 "사문"이라 한 것 중 `EventLogicTemplateSO.HasFallbackText`는 **에디터 스크립트 2곳에서 실제로 쓰이고 있었다** — 삭제 전 호출자 재확인이 필요한 이유다. `GameManager.AdvanceDate`와 `EventLauncher.HasFlag`는 프롤로그·미연시 스토리 작업에서 쓸 물건이라 남겼다. 특히 `AdvanceDate`의 주석은 "보스·스토리 예약일을 건너뛰면 엔딩이 영영 발생하지 않는다"는 비자명한 위험을 담고 있어, 코드와 함께 그 지식이 사라진다.
+
+### 11.7 에디터 빌더 파괴 방지
+
+`TradingViewUIBuilder.BuildTradingChartUI()`는 `TradingViewCanvas`를 통째로 파괴하고 다시 만드는데, **LONG/SHORT 버튼(`LongButtonCard`/`ShortButtonCard`)은 이 빌더가 만들지 않는다** — 씬에 손으로 배치돼 `BottomTradingPanel` 밑에 있어 함께 사라지고, 되살릴 코드가 없다. 게다가 `[InitializeOnLoadMethod]` 자동 실행이 직후 `SaveOpenScenes()`까지 하므로, EditorPrefs 키가 없는 환경(새 클론)에서 프로젝트를 열기만 해도 씬이 파괴된 채 저장된다.
+
+- 자동 실행 경로: 캔버스가 이미 있으면 건너뛴다.
+- 수동 경로: 파괴 직전 확인 다이얼로그. 모든 호출자가 이 한곳을 지나므로 폰트 무결성 메뉴도 함께 보호된다.
+- **교훈**: 씬을 파괴·재생성하는 빌더는 자기가 만들지 않는 오브젝트를 품고 있는지 먼저 확인해야 한다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

@@ -234,7 +234,9 @@ namespace FXOverdose.UI.TopBar
                 pnlPercentageLabel.color = targetColor;
             }
 
-            if (pnlAmountLabel != null)
+            // SeparatePnLCard가 이 라벨을 숨긴 뒤 다시 켜는 곳이 없습니다. 숨겨진 동안은 갱신도 하지 않습니다.
+            // (다시 노출할 계획이면 SeparatePnLCard의 SetActive(false)부터 걷어내십시오.)
+            if (pnlAmountLabel != null && pnlAmountLabel.gameObject.activeSelf)
             {
                 pnlAmountLabel.text = $"{sign}${pnlDiff:N2}";
                 pnlAmountLabel.color = targetColor;
@@ -674,20 +676,6 @@ namespace FXOverdose.UI.TopBar
             label.color = new Color32(85, 191, 132, 230);
             label.raycastTarget = false;
             label.textWrappingMode = TextWrappingModes.NoWrap;
-        }
-
-        private static void AddOrStyleRule(Transform parent, string name, Color color, bool top)
-        {
-            GameObject rule = GetOrCreateUi(parent, name);
-            RectTransform rect = rule.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, top ? 1f : 0f);
-            rect.anchorMax = new Vector2(1f, top ? 1f : 0f);
-            rect.pivot = new Vector2(0.5f, top ? 1f : 0f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(0f, top ? 2f : 1f);
-            rule.GetComponent<Image>().color = color;
-            IgnoreLayout(rule);
-            rule.transform.SetAsLastSibling();
         }
 
         private static void RemoveRule(Transform parent, string name)

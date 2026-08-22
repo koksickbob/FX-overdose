@@ -247,7 +247,7 @@ namespace FXOverdose.P2P.UI
 
         private void PlayConsumedItemVisual(P2PCompetitionPlayerSnapshot p)
         {
-            if(lastEnergy>=0){string used=p.EnergyDrink<lastEnergy?"energy_drink":p.Dessert<lastDessert?"dessert":p.Sedative<lastSedative?"sedative":p.Supplement<lastSupplement?"supplement":null;if(used!=null){FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include)?.ShowItemUse(used,1f);FindAnyObjectByType<FXOverdose.AI.YomiSpriteController>(FindObjectsInactive.Include)?.ShowItemUse(used,1f);}}
+            if(lastEnergy>=0){string used=p.EnergyDrink<lastEnergy?"energy_drink":p.Dessert<lastDessert?"dessert":p.Sedative<lastSedative?"sedative":p.Supplement<lastSupplement?"supplement":null;if(used!=null){FindAnyObjectByType<FXOverdose.AI.AIVisualController>(FindObjectsInactive.Include)?.ShowItemUse(used,1f);}}
             lastEnergy=p.EnergyDrink;lastDessert=p.Dessert;lastSedative=p.Sedative;lastSupplement=p.Supplement;
         }
 

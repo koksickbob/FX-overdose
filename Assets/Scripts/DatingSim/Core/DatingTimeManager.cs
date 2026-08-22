@@ -152,8 +152,15 @@ namespace FXOverdose.DatingSim.Core
 
             OnTimeSlotChanged?.Invoke(currentTimeSlot);
 
-            // 데이터 변경 시 자동 저장 플래그 혹은 직접 저장
-            SaveLoadManager.Instance?.SaveCurrentGame();
+            // 데이터 변경 시 자동 저장 플래그 혹은 직접 저장.
+            // 슬롯과 시계는 이미 메모리에서 소모됐으므로 여기서 되돌리지 않습니다(되돌리면 행동만 무효가 됩니다).
+            // 다만 디스크와 어긋난 상태는 알려야 합니다 — StoreShiftManager.Commit과 같은 방침입니다.
+            SaveLoadManager save = SaveLoadManager.Instance;
+            if (save != null && !save.SaveCurrentGame())
+            {
+                Debug.LogWarning($"[DatingTimeManager] 시간 슬롯 {cost}칸을 소모했지만 저장에 실패했습니다. " +
+                                 "변경은 메모리에만 남아 다음 성공 저장에 딸려 갑니다.");
+            }
             return true;
         }
 

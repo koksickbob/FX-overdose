@@ -120,16 +120,18 @@ public class HUDController : MonoBehaviour
         TraderStatus canonical = TraderStatus.CanonicalInstance;
         if (canonical != null) traderStatus = canonical;
 
-        // TraderStatus에서 0~1 사이 비율을 받아 Slider에 적용
+        // TraderStatus에서 0~1 사이 비율을 받아 Slider에 적용.
+        // ⚠️ EnsureSliderVisualSetup은 여기서 부르지 않습니다. 매 프레임 fillRect 앵커를 강제로 되돌려
+        //    TopStatusBarUIController.StyleVitals의 레이아웃 조정과 디자이너 설정을 계속 지웠습니다.
+        //    앵커 보정은 초기화(ResolveReferences)에서 한 번이면 충분합니다.
+        // 참고: 같은 슬라이더를 VitalsValueUI도 갱신하지만 출처가 같은 값이라 충돌하지 않습니다.
         if (healthSlider != null && traderStatus != null)
         {
             healthSlider.value = traderStatus.HealthRatio;
-            EnsureSliderVisualSetup(healthSlider);
         }
         if (mentalSlider != null && traderStatus != null)
         {
             mentalSlider.value = traderStatus.MentalRatio;
-            EnsureSliderVisualSetup(mentalSlider);
         }
     }
 }
