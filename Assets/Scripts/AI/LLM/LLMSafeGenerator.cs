@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace FXOverdose.AI.LLM
 {
-    [Serializable]
+    [Serializable, UnityEngine.Scripting.Preserve]
     public class GeneratedChoiceEventData
     {
         public string ScenarioTitle;

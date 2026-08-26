@@ -25,6 +25,18 @@ namespace FXOverdose.Core
     }
 
     [Serializable]
+    public struct FlatSavedCandle
+    {
+        public Timeframe timeframe;
+        public long timestampMinutes;
+        public float open;
+        public float high;
+        public float low;
+        public float close;
+        public float volume;
+    }
+
+    [Serializable]
     public class SaveData
     {
         // 저장 시 SaveLoadManager에서 Application.version을 자동으로 주입합니다.
@@ -103,6 +115,8 @@ namespace FXOverdose.Core
 
         // --- 차트 및 주가 저장 ---
         public List<TimeframeHistory> ChartHistories = new List<TimeframeHistory>();
+        public List<FlatSavedCandle> FlatChartHistories = new List<FlatSavedCandle>();
+        public List<FlatSavedCandle> FlatLiveCandles = new List<FlatSavedCandle>();
         public float CurrentChartPrice;
         public float Current24hHigh;
         public float Current24hLow;
