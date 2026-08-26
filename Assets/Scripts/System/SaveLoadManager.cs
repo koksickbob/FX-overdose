@@ -250,7 +250,14 @@ namespace FXOverdose.Core
             }
 
             // DatingSim 상태 저장 (요미의 방/월드맵에서는 이쪽만 갱신됩니다)
-            dating?.SaveToData(data);
+            if (dating != null)
+            {
+                dating.SaveToData(data);
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] DatingTimeManager가 없어 미연시 상태를 저장하지 못했습니다!");
+            }
 
             // MemoryManager
             // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만,
@@ -443,7 +450,15 @@ namespace FXOverdose.Core
             // 아래 둘은 GameScene 진입을 기다리지 않고 지금 복원합니다.
             // 요미의 방/월드맵으로 바로 복귀하면 ApplyLoadedDataToGame이 돌지 않는데,
             // 그 씬들도 이 값을 읽고 또 저장까지 하기 때문입니다.
-            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
+            if (FXOverdose.DatingSim.Core.DatingTimeManager.Instance != null)
+            {
+                FXOverdose.DatingSim.Core.DatingTimeManager.Instance.LoadFromSaveData(CurrentData);
+                Debug.Log("[SaveLoadManager] DatingTimeManager에 저장 데이터 복원됨");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] PrepareLoadGame 시점에 DatingTimeManager가 아직 없습니다. 씬 로드 후 복원됩니다.");
+            }
 
             // 방에서 저장이 일어나면 이 값이 그대로 디스크에 다시 쓰입니다.
             // 복원해 두지 않으면 완료된 튜토리얼이 false로 덮여 다시 재생됩니다.
@@ -655,7 +670,15 @@ namespace FXOverdose.Core
             }
 
             // DatingSim 상태 주입
-            FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.LoadFromSaveData(CurrentData);
+            if (FXOverdose.DatingSim.Core.DatingTimeManager.Instance != null)
+            {
+                FXOverdose.DatingSim.Core.DatingTimeManager.Instance.LoadFromSaveData(CurrentData);
+                Debug.Log("[SaveLoadManager] ApplyLoadedDataToGame에서 DatingTimeManager 복원됨");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] ApplyLoadedDataToGame 시점에도 DatingTimeManager가 없습니다!");
+            }
 
             IsPendingLoad = false;
             // CurrentData는 비우지 않습니다. 매니저가 없는 씬에서 부분 저장을 할 때

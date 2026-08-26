@@ -47,6 +47,16 @@ namespace FXOverdose.DatingSim.Core
                 Instance = this;
                 transform.SetParent(null);
                 DontDestroyOnLoad(gameObject);
+
+                // SaveLoadManager가 이미 저장된 데이터를 갖고 있으면 여기서 복원합니다.
+                // PrepareLoadGame/PrepareNewGame이 이미 실행되었지만 DatingTimeManager가 없어서
+                // LoadFromSaveData가 skipされた 경우를 처리합니다. (SV-D7)
+                var saveManager = SaveLoadManager.Instance;
+                if (saveManager?.CurrentData != null)
+                {
+                    LoadFromSaveData(saveManager.CurrentData);
+                    Debug.Log("[DatingTimeManager] Awake에서 SaveLoadManager의 데이터로 초기화됨");
+                }
             }
             else
             {
