@@ -96,9 +96,6 @@ namespace FXOverdose.Core
         public List<string> InventoryItemIds = new List<string>();
         public List<int> InventoryItemQuantities = new List<int>();
 
-        // --- 튜토리얼 완료 플래그 ---
-        public bool IsTutorialCompleted = false;
-
         // --- 재접속 복귀 지점 ---
         // 저장 당시 플레이어가 있던 씬. 빈 문자열이면 GameScene(구버전 세이브의 기존 동작).
         // 기록 대상은 SaveLoadManager.ResumableScenes로 제한됩니다.

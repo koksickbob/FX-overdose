@@ -85,16 +85,6 @@ namespace FXOverdose.UI.Chart
         public Button ClosePositionButton => closePositionButton;
         public Button BtnLeverageMinus => btnLeverageMinus;
         public Button BtnLeveragePlus => btnLeveragePlus;
-        public RectTransform TutorialMarginHighlightTarget =>
-            marginRatioControlContainer != null ? marginRatioControlContainer.GetComponent<RectTransform>() : null;
-        public RectTransform TutorialLeverageHighlightTarget =>
-            leverageControlContainer != null ? leverageControlContainer.GetComponent<RectTransform>() : null;
-        public RectTransform TutorialAIStyleHighlightTarget =>
-            btnTabAIStyleMode != null ? btnTabAIStyleMode.GetComponent<RectTransform>() :
-            aiStyleControlContainer != null ? aiStyleControlContainer.GetComponent<RectTransform>() : null;
-
-        public void ShowMarginControlsForTutorial() => SwitchControlMode(ControlMode.MarginRatio);
-        public void ShowLeverageControlsForTutorial() => SwitchControlMode(ControlMode.Leverage);
 
         [Header("실시간 포지션 상태 오버레이 (ROE & PnL)")]
         [SerializeField] private GameObject positionStatusPanel;

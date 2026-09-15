@@ -30,7 +30,7 @@ namespace FXOverdose.EditorTools
                         // 이미 캔버스가 있으면 건드리지 않습니다. BuildTradingChartUI는 TradingViewCanvas를
                         // 통째로 파괴하고 다시 만드는데, 씬에 손으로 배치한 LongButtonCard/ShortButtonCard는
                         // 어떤 코드도 다시 만들어 주지 않습니다. 이 경로는 아래에서 씬 저장까지 하므로
-                        // 자동 실행이 한 번 돌면 수동 매매와 튜토리얼 2단계가 복구 불가로 사라집니다.
+                        // 자동 실행이 한 번 돌면 수동 매매가 복구 불가로 사라집니다.
                         if (GameObject.Find("TradingViewCanvas") == null)
                         {
                             BuildTradingChartUI();
@@ -64,7 +64,7 @@ namespace FXOverdose.EditorTools
             // 1. 기존 TradingViewCanvas 검색 및 삭제 (중복 방지)
             //    ⚠️ 이 빌더는 LONG/SHORT 버튼을 만들지 않습니다. 실제 버튼(LongButtonCard/ShortButtonCard)은
             //       씬에 손으로 배치되어 BottomTradingPanel 밑에 있으므로 캔버스와 함께 사라집니다.
-            //       되살릴 코드가 없어 수동 매매와 튜토리얼 2단계가 영구히 죽으므로 반드시 확인을 받습니다.
+            //       되살릴 코드가 없어 수동 매매가 영구히 죽으므로 반드시 확인을 받습니다.
             GameObject existingCanvas = GameObject.Find("TradingViewCanvas");
             if (existingCanvas != null)
             {
@@ -72,7 +72,7 @@ namespace FXOverdose.EditorTools
                     "TradingViewCanvas 재조립",
                     "기존 TradingViewCanvas를 통째로 지우고 다시 만듭니다.\n\n" +
                     "씬에 손으로 배치한 LongButtonCard / ShortButtonCard 는 이 빌더가 다시 만들지 않습니다. " +
-                    "함께 사라지면 수동 매매와 튜토리얼 2단계가 동작하지 않습니다.\n\n계속할까요?",
+                    "함께 사라지면 수동 매매가 동작하지 않습니다.\n\n계속할까요?",
                     "재조립", "취소");
 
                 if (!proceed)

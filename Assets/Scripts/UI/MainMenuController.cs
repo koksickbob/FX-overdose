@@ -19,7 +19,6 @@ namespace FXOverdose.UI
         [SerializeField] private GameObject gameModePanel;
         [SerializeField] private GameObject loadGamePanel;
         [SerializeField] private GameObject settingsPanel;
-        [SerializeField] private GameObject tutorialPromptPanel;
         [SerializeField] private GameObject difficultyPanel;
         [SerializeField] private GameObject overwritePromptPanel;
         [SerializeField] private AchievementUIController achievementUI;
@@ -175,7 +174,6 @@ namespace FXOverdose.UI
             BindGameModePanelControls();
             BindLoadPanelControls();
             BindSettingsPanelControls();
-            BindTutorialPromptControls();
             BindDifficultyPanelControls();
             BindOverwritePromptControls();
         }
@@ -188,11 +186,6 @@ namespace FXOverdose.UI
             if (gameModePanel == null)
             {
                 gameModePanel = TitleScreenBuilder.EnsureGameModePanel(canvas.transform);
-            }
-
-            if (tutorialPromptPanel == null)
-            {
-                tutorialPromptPanel = TitleScreenBuilder.EnsureTutorialPromptPanel(canvas.transform);
             }
 
             if (difficultyPanel == null)
@@ -520,26 +513,6 @@ namespace FXOverdose.UI
             });
         }
 
-        private void BindTutorialPromptControls()
-        {
-            if (tutorialPromptPanel == null) return;
-
-            Button btnYes = tutorialPromptPanel.transform.Find("ModalWindow/Btn_Yes")?.GetComponent<Button>();
-            Button btnNo = tutorialPromptPanel.transform.Find("ModalWindow/Btn_No")?.GetComponent<Button>();
-
-            if (btnYes != null)
-            {
-                btnYes.onClick.RemoveAllListeners();
-                btnYes.onClick.AddListener(OnClickTutorialYes);
-            }
-
-            if (btnNo != null)
-            {
-                btnNo.onClick.RemoveAllListeners();
-                btnNo.onClick.AddListener(OnClickTutorialNo);
-            }
-        }
-
         private void BindDifficultyPanelControls()
         {
             if (difficultyPanel == null) return;
@@ -553,7 +526,7 @@ namespace FXOverdose.UI
         {
             pendingDifficulty = difficulty;
             if (difficultyPanel != null) difficultyPanel.SetActive(false);
-            ProceedToTutorialPrompt();
+            StartNewStoryGame();
         }
 
         private void CloseDifficultyPanel()
@@ -651,19 +624,6 @@ namespace FXOverdose.UI
             }
         }
 
-        private void ProceedToTutorialPrompt()
-        {
-            if (tutorialPromptPanel != null)
-            {
-                tutorialPromptPanel.SetActive(true);
-                tutorialPromptPanel.transform.SetAsLastSibling();
-            }
-            else
-            {
-                OnClickTutorialNo();
-            }
-        }
-
         private void ProceedToDifficultySelection()
         {
             if (difficultyPanel != null)
@@ -674,34 +634,13 @@ namespace FXOverdose.UI
             else
             {
                 pendingDifficulty = StoryDifficulty.Hard;
-                ProceedToTutorialPrompt();
+                StartNewStoryGame();
             }
         }
 
-        private void OnClickTutorialYes()
+        /// <summary>난이도 확정 후 스토리 새 게임을 준비하고 요미의 방에서 시작합니다.</summary>
+        private void StartNewStoryGame()
         {
-            if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
-            SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex, pendingDifficulty);
-            
-            if (Application.CanStreamedLevelBeLoaded("LoadingScene") && Application.CanStreamedLevelBeLoaded("tutorial"))
-            {
-                LoadingScreenController.TargetSceneToLoad = "tutorial";
-                SceneManager.LoadScene("LoadingScene");
-            }
-            else if (Application.CanStreamedLevelBeLoaded("tutorial"))
-            {
-                SceneManager.LoadScene("tutorial");
-            }
-            else
-            {
-                Debug.LogWarning("[MainMenuController] tutorial 씬을 찾을 수 없어 요미의 방으로 진입합니다.");
-                LoadGameFlow("YomiRoomScene");
-            }
-        }
-
-        private void OnClickTutorialNo()
-        {
-            if (tutorialPromptPanel != null) tutorialPromptPanel.SetActive(false);
             SaveLoadManager.Instance.PrepareNewGame(GameMode.Story, pendingSlotIndex, pendingDifficulty);
             LoadGameFlow("YomiRoomScene");
         }

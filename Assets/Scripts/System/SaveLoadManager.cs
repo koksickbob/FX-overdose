@@ -18,7 +18,6 @@ namespace FXOverdose.Core
         /// <summary>현재 타이틀에서 선택해 실행 중인 게임 모드입니다.</summary>
         public GameMode CurrentGameMode { get; private set; } = GameMode.Story;
         public StoryDifficulty CurrentStoryDifficulty { get; private set; } = StoryDifficulty.Hard;
-        public bool IsTutorialCompleted { get; set; } = false;
 
         /// <summary>스토리 모드에서 현재 사용 중인 저장 슬롯입니다.</summary>
         public int ActiveStorySlotIndex { get; private set; }
@@ -33,9 +32,8 @@ namespace FXOverdose.Core
         /// 재접속 시 복귀를 허용하는 씬입니다. 복귀 가능한 씬이 늘어나면 이 배열에만 추가하십시오.
         ///
         /// 저장하는 쪽(SaveGame)과 불러오는 쪽(MainMenuController)이 같은 판정을 공유해야 하므로
-        /// 여기 한 곳에 모읍니다. 목록에 없는 씬(tutorial·LoadingScene 등)에서 저장하면
-        /// 기록을 갱신하지 않고 이전 값을 유지합니다 — 그러지 않으면 튜토리얼 중 저장한 세이브가
-        /// 재접속 때 튜토리얼을 다시 재생합니다.
+        /// 여기 한 곳에 모읍니다. 목록에 없는 씬(LoadingScene·EventScene 등)에서 저장하면
+        /// 기록을 갱신하지 않고 이전 값을 유지합니다 — 그러지 않으면 그 중간 씬으로 복귀하게 됩니다.
         /// </summary>
         public static readonly string[] ResumableScenes = { "GameScene", "YomiRoomScene", "WorldMapScene" };
 
@@ -174,7 +172,6 @@ namespace FXOverdose.Core
             data.Version = Application.version;
             data.GameMode = CurrentGameMode;
             data.StoryDifficulty = CurrentStoryDifficulty;
-            data.IsTutorialCompleted = this.IsTutorialCompleted;
 
             // 재접속 복귀 지점. 복귀 가능한 씬에서만 갱신하고, 그 외에는 이전 값을 유지합니다.
             string activeScene = SceneManager.GetActiveScene().name;
@@ -460,16 +457,6 @@ namespace FXOverdose.Core
                 Debug.LogWarning("[SaveLoadManager] PrepareLoadGame 시점에 DatingTimeManager가 아직 없습니다. 씬 로드 후 복원됩니다.");
             }
 
-            // 방에서 저장이 일어나면 이 값이 그대로 디스크에 다시 쓰입니다.
-            // 복원해 두지 않으면 완료된 튜토리얼이 false로 덮여 다시 재생됩니다.
-            this.IsTutorialCompleted = CurrentData.IsTutorialCompleted;
-            // 과거 세이브 보정: 플래그가 없더라도 이미 2일차 이상이면 완료된 것으로 간주합니다.
-            if (!this.IsTutorialCompleted && CurrentData.CurrentDay > 1)
-            {
-                this.IsTutorialCompleted = true;
-                CurrentData.IsTutorialCompleted = true;
-            }
-
             Debug.Log($"[SaveLoadManager] 스토리 슬롯 {slotIndex + 1} 데이터 로드 대기 중 (복귀 씬: {(string.IsNullOrEmpty(CurrentData.LastSceneName) ? "GameScene" : CurrentData.LastSceneName)})");
             return true;
         }
@@ -523,10 +510,6 @@ namespace FXOverdose.Core
             // 첫 GameScene 진입 때 복원 경로가 대신 지급합니다. (ApplyLoadedDataToGame)
             CurrentData.NeedsStartingItems = true;
 
-            // 이 프로퍼티는 DontDestroyOnLoad라 이전 판의 값이 남습니다. 내리지 않으면 한 세션에서
-            // 게임을 끝낸 뒤 새로 시작할 때 TutorialManager가 튜토리얼을 완료된 것으로 보고 건너뜁니다.
-            IsTutorialCompleted = false;
-
             IsPendingLoad = false;
 
             DeliveryFoodManager.ResetStateForNewGame();
@@ -554,8 +537,6 @@ namespace FXOverdose.Core
             var shopManager = FindAnyObjectByType<ShopManager>(FindObjectsInactive.Include);
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
-
-            // IsTutorialCompleted는 PrepareLoadGame에서 이미 복원했습니다 (방으로 바로 복귀하는 경우 때문).
 
             if (gm != null)
             {

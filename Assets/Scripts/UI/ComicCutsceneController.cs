@@ -27,7 +27,7 @@ namespace FXOverdose.UI
         }
 
         /// <summary>
-        /// 스토리 컷씬 Canvas가 배치되지 않은 tutorial 씬에서도 동일한 재생 UI를 제공합니다.
+        /// 스토리 컷씬 Canvas가 배치되지 않은 씬에서도 동일한 재생 UI를 제공합니다.
         /// </summary>
         public static ComicCutsceneController GetOrCreateRuntime(Scene ownerScene)
         {
@@ -134,22 +134,6 @@ namespace FXOverdose.UI
         private TextMeshProUGUI _captionText;
         private TextMeshProUGUI _progressText;
 
-        private static readonly string[] TerminologyPanelPaths =
-        {
-            "Tutorial/Terminology/Panel01_LongShort",
-            "Tutorial/Terminology/Panel02_Margin",
-            "Tutorial/Terminology/Panel03_Leverage",
-            "Tutorial/Terminology/Panel04_Liquidation"
-        };
-
-        private static readonly string[] TerminologyCaptions =
-        {
-            "보통 주식은 오를 때만 돈을 벌지?\n<color=#FF5B65><b>LONG(롱)</b></color>: 주가가 <b>오를 것</b>에 배팅!    <color=#58AFFF><b>SHORT(숏)</b></color>: 주가가 <b>내릴 것</b>에 배팅!",
-            "<color=#F9D66D><b>증거금(Margin)</b></color>: 이번 거래에 내가 실제로 걸 '판돈'이야.\n가진 돈 전부가 아니라 일부만 떼어서 투자할 수 있어!",
-            "<color=#59E3F2><b>레버리지(Leverage)</b></color>: 적은 돈으로 큰 돈을 굴리는 마법의 지렛대!\n배율이 커지면 수익도 크게 늘어나지만 위험도 똑같이 커져.",
-            "<color=#FF6B72><b>청산(Liquidation)</b></color>: 손실이 증거금을 넘어서는 순간 거래가 강제로 종료돼!\n판돈을 전부 잃을 수 있으니 하이 리스크, 하이 리턴을 꼭 명심해!"
-        };
-
         private void Awake()
         {
             if (_instance != null && _instance != this)
@@ -194,7 +178,7 @@ namespace FXOverdose.UI
             if (comicImageDisplay != null)
             {
                 RectTransform imageRect = comicImageDisplay.rectTransform;
-                // 용어 만화는 대사/설명이 말풍선으로 이미지에 포함되어 있으므로
+                // 컷툰은 대사/설명이 말풍선으로 이미지에 포함되어 있으므로
                 // 하단 자막 공간을 비워두지 않고 패널 전체를 사용합니다.
                 imageRect.anchorMin = new Vector2(0.035f, 0.035f);
                 imageRect.anchorMax = new Vector2(0.965f, 0.965f);
@@ -228,21 +212,6 @@ namespace FXOverdose.UI
             captionPanel.transform.SetAsLastSibling();
             captionPanel.SetActive(false);
             if (skipButton != null) skipButton.transform.SetAsLastSibling();
-        }
-
-        public void PlayTerminologyTutorial(Action onCompleteCallback)
-        {
-            List<Sprite> panels = new();
-            foreach (string path in TerminologyPanelPaths)
-            {
-                Sprite panel = Resources.Load<Sprite>(path);
-                if (panel != null) panels.Add(panel);
-                else Debug.LogWarning($"[ComicCutsceneController] 용어 만화 컷 누락: Resources/{path}");
-            }
-
-            // 용어 설명은 각 패널의 말풍선에 직접 포함되어 있습니다.
-            _currentCaptions = null;
-            PlayCutscene(panels, onCompleteCallback);
         }
 
         private void ApplySkipButtonStyle()
