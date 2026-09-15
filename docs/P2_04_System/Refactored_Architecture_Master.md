@@ -578,5 +578,24 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 - `ComicCutsceneController.GetOrCreateRuntime` — `GameManager`가 컷씬 캔버스가 없는 씬에서 컷씬을 띄울 때 쓴다.
 - `ChoiceEventController.TriggerSpecificEvent` — 지금은 호출자가 없지만 ID로 선택 이벤트를 띄우는 범용 진입점이라, 스토리에 튜토리얼을 녹일 때 다시 쓸 수 있다.
 
+## 13. 요미의 방 포인트 앤 클릭 리뉴얼 — Phase 1 (2026-09-15)
+
+계획서: [YomiRoom_PointAndClick_Renewal_Plan.md](YomiRoom_PointAndClick_Renewal_Plan.md) · 발주 명세: [P2_05_YomiRoom_PointClick_Asset_Order_Spec.md](../P2_05_UI_and_Art/P2_05_YomiRoom_PointClick_Asset_Order_Spec.md)
+
+탑다운 이동 방을 **전체 화면 배경 + 클릭 핫스팟**으로 바꾸는 작업의 시스템 단계. 에셋이 없어도 플레이스홀더로 동작하고, **본 씬(`YomiRoomScene`)은 아직 탑다운 그대로**다. 교체는 Phase 3.
+
+| 추가 | 역할 |
+| --- | --- |
+| `YomiRoom/YomiRoomPointClick.cs` — `YomiRoomHotspotType`, `YomiRoomHotspotController` | 입력층. 핫스팟 클릭 → `YomiRoomManager` API. 모달·포지션 확인·피드백은 `YomiRoomTopDownController`에서 이관 |
+| `UI/YomiRoomPointClickBuilder.cs` | 런타임 조립. `PointClick/` 스프라이트가 있으면 1920×1080 레이어로 겹쳐 늘리고, 없으면 가이드 좌표에 플레이스홀더 |
+| `Editor/YomiRoomPointClickTestSceneBuilder.cs` | 메뉴 `FX Overdose/Build YomiRoom PointClick Test Scene` → 빈 씬 `Assets/Scenes/DatingSim/YomiRoom_PointClick_Test.unity` (빌드 설정 제외). 내용물은 `DatingSimSceneBuilder`가 씬 이름으로 조립 |
+
+- **`YomiRoomManager`는 건드리지 않았다.** 매니저 → UI 참조 금지 규칙 그대로. 세이브 형식 변경 없음.
+- **대화 패널은 `CanvasGroup`으로 숨긴다.** `YomiRoomDialogueUI.Start()`가 이벤트 구독과 입장 인사를 하므로 `SetActive(false)`로 시작하면 핸드폰을 누를 때까지 인사·실패 사유가 유실된다.
+- **대화 중에는 패널 닫기 버튼이 잠긴다.** 선택지 도중 패널만 닫히면 `Chatting`에 묶여 핫스팟이 전부 잠긴다.
+- **시간대 배경은 `YomiTalkTopics.TimeOfSlot`을 재사용**한다. 대화 토픽과 판정이 갈라지면 "밤 대사인데 아침 배경"이 된다.
+- **알파 클릭 판정은 텍스처가 Read/Write일 때만 켠다.** 꺼진 텍스처에 `alphaHitTestMinimumThreshold`를 걸면 레이캐스트마다 예외가 난다.
+- `YomiRoomTopDownPrototype`의 `BuildVerticalStatusCards`·`BuildDialoguePanel`·`BuildRoomSettingsButton`·`CreateModal`을 `internal`로 열고 배치 인자를 받게 했다. 대화 패널이 숨겨질 수 있으므로 포인트 앤 클릭 방에서는 **설정 버튼을 패널 밖**에 둔다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

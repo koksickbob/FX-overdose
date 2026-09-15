@@ -1,7 +1,7 @@
 # 요미의 방 포인트 앤 클릭 리뉴얼 계획서
 
 작성일: 2026-09-15
-상태: 계획 확정 (미결 사항 답변 반영, 착수 전)
+상태: Phase 1 구현 완료 (2026-09-15, 에디터 테스트 대기) — 기록은 [Refactored_Architecture_Master.md](Refactored_Architecture_Master.md) 13장
 관련 문서: [P2_03_YomiRoom_TopDown_Interaction_Draft.md](../P2_02_Worldbuilding/P2_03_YomiRoom_TopDown_Interaction_Draft.md) (리뉴얼 완료 시 폐기) · [P2_05_YomiRoom_Modal_UI_Spec.md](../P2_05_UI_and_Art/P2_05_YomiRoom_Modal_UI_Spec.md) · [Settlement_In_YomiRoom_Plan.md](Settlement_In_YomiRoom_Plan.md) · [Affection_Tier_Table.md](Affection_Tier_Table.md) · [YomiRoom_ChoiceTalk_System_Plan.md](YomiRoom_ChoiceTalk_System_Plan.md)
 
 ---
