@@ -1,0 +1,14 @@
+{
+  "source": "B1_Morning_v03.png",
+  "output": "B1_Morning_v04.png",
+  "size": [
+    1672,
+    941
+  ],
+  "target_edge_y": 683.6143,
+  "mask_half_edge_y": 683,
+  "wall_window_curtain_pixels_unchanged": true,
+  "outside_floor_pixels_unchanged": true,
+  "method": "기존 바닥 조명을 국소 명암 분리로 정리하고 계산된 직사광 마스크를 합성",
+  "limitation": "기존 조명을 제거한 바닥은 근사 복원. 실측 3D나 완전한 물리 렌더링은 아님"
+}

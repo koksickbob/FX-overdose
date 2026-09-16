@@ -1,0 +1,29 @@
+{
+  "output": "B1_Morning_v05.png",
+  "size": [
+    1920,
+    1080
+  ],
+  "mode": "RGB",
+  "method": "중간값 필터 약하게 혼합 + 경계 보존 양방향 필터 + Lanczos 확대 + 계산 마스크 재적용",
+  "target_light_edge_y": 784.5945629128604,
+  "mask_half_edge_y": 784,
+  "fine_variation": {
+    "left_wall": {
+      "before": 0.015856643356643357,
+      "after": 0.0,
+      "reduction_percent": 100.0
+    },
+    "rear_wall": {
+      "before": 0.013905723905723906,
+      "after": 0.0,
+      "reduction_percent": 100.0
+    },
+    "floor": {
+      "before": 1.762762148337596,
+      "after": 0.5334015345268542,
+      "reduction_percent": 69.74058383146654
+    }
+  },
+  "limitation": "미세 변동량은 잡티만 분리한 객관적 화질 점수가 아니며, 새 디테일을 생성하는 AI 초해상도는 사용하지 않음"
+}
