@@ -8,8 +8,6 @@ using FXOverdose.Trading;
 /// <summary>캐릭터 머리 위에 주인공 레벨과 경험치만 간결하게 표시합니다.</summary>
 public sealed class TraderLevelUIController : MonoBehaviour
 {
-    public RectTransform TutorialLevelHighlightTarget => levelHudRect;
-
     private const float BaseHudWidth = 280f;
     private const float BaseHudHeight = UIStrokeStyle.CompactHudHeight;
     private const float HudWidthScale = 1.3f;
@@ -241,7 +239,7 @@ public sealed class TraderLevelUIController : MonoBehaviour
     }
 }
 
-/// <summary>게임 및 튜토리얼 씬의 캐릭터 이미지에 소형 레벨 HUD를 자동 부착합니다.</summary>
+/// <summary>게임 씬의 캐릭터 이미지에 소형 레벨 HUD를 자동 부착합니다.</summary>
 public static class TraderLevelUIBootstrap
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -254,11 +252,7 @@ public static class TraderLevelUIBootstrap
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true) return;
-        if (scene.name != "GameScene" &&
-            !string.Equals(scene.name, "tutorial", System.StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
+        if (scene.name != "GameScene") return;
 
         Install(scene);
     }

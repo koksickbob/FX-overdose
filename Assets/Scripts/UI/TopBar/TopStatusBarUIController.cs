@@ -23,11 +23,6 @@ namespace FXOverdose.UI.TopBar
         private static readonly Color CyanAccent = new Color32(6, 182, 212, 255);
         private static readonly Color GoldAccent = new Color32(234, 179, 8, 255);
 
-        [Header("Tutorial Targets")]
-        [SerializeField] private RectTransform balanceHighlightTarget;
-
-        public RectTransform TutorialBalanceHighlightTarget => balanceHighlightTarget;
-
         [Header("시스템 및 렌더러 연결")]
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TradingController tradingController;
@@ -249,7 +244,7 @@ namespace FXOverdose.UI.TopBar
         }
 
         /// <summary>
-        /// 기존 데이터 바인딩과 튜토리얼 하이라이트 대상을 유지한 채 상단 HUD 외형만 재구성합니다.
+        /// 기존 데이터 바인딩을 유지한 채 상단 HUD 외형만 재구성합니다.
         /// </summary>
         private void ApplyVisualRedesign()
         {

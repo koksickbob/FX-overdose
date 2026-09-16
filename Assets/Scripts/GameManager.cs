@@ -475,7 +475,7 @@ public class GameManager : MonoBehaviour
 
     /// <summary>거래가 실제로 일어나는 씬. 이 밖에서는 시계가 멈추고 상태가 Paused가 됩니다.</summary>
     private static bool IsTradingScene(string sceneName)
-        => sceneName == "GameScene" || sceneName == "tutorial" || sceneName == "SampleScene";
+        => sceneName == "GameScene" || sceneName == "SampleScene";
 
     private void HandleSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
@@ -768,7 +768,6 @@ public class GameManager : MonoBehaviour
     // 1일차 오프닝 컷씬과 독백은 제거되었습니다 (2026-08-14).
     // 엔딩 조건이 바뀌고 스토리라인이 개편될 예정이라, 옛 목표("20일 안에 100만 달러")를
     // 선언하던 인트로를 남겨두면 잘못된 목표를 안내하게 됩니다.
-    // 새 인트로를 붙일 때는 튜토리얼 중 재생을 막을 수단(옛 skipCutscenes 인자)도 함께 되살리십시오.
     public void FinishLoadingAndStartPlaying()
     {
         if (currentState == GameState.Loading)

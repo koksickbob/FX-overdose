@@ -154,13 +154,13 @@ namespace FXOverdose.DatingSim.UI
             modal.SetActive(false);
 
             BuildVerticalStatusCards(canvas.transform);
-            BuildDialoguePanel(canvas.transform);
+            BuildDialoguePanel(canvas.transform, new Vector2(0.5f, 0.02f), new Vector2(0.992f, 0.98f), true);
 
             // 채팅 패널이 화면 우측에 나중에 생성되므로 모달을 마지막 형제로 올려 항상 화면 전체 위에 표시합니다.
             modal.transform.SetAsLastSibling();
         }
 
-        private static void BuildVerticalStatusCards(Transform parent)
+        internal static void BuildVerticalStatusCards(Transform parent)
         {
             const float minX = 0.008f;
             const float maxX = 0.092f;
@@ -219,9 +219,10 @@ namespace FXOverdose.DatingSim.UI
             status.Configure(values[0], values[1], values[2], values[3], fills[0], fills[2], fills[3], timePips);
         }
 
-        private static void BuildDialoguePanel(Transform parent)
+        /// <param name="withSettingsButton">false면 설정 버튼을 패널 안에 만들지 않습니다. 패널을 숨길 수 있는 포인트 앤 클릭 방용.</param>
+        internal static YomiRoomDialogueUI BuildDialoguePanel(Transform parent, Vector2 min, Vector2 max, bool withSettingsButton)
         {
-            // 채팅 패널은 화면 오른쪽 절반을 정확히 사용합니다.
+            // 탑다운 방에서는 화면 오른쪽 절반, 포인트 앤 클릭 방에서는 우측 오버레이 영역을 씁니다.
             Sprite chatFrame = LoadUISprite("DatingSim/YomiRoom/UI/Chat/ChatFrame", new Vector4(34f, 34f, 34f, 34f));
             Sprite yomiBubble = LoadUISprite("DatingSim/YomiRoom/UI/Chat/YomiBubble", new Vector4(34f, 34f, 34f, 34f));
             Sprite masterBubble = LoadUISprite("DatingSim/YomiRoom/UI/Chat/MasterBubble", new Vector4(34f, 34f, 34f, 34f));
@@ -230,7 +231,7 @@ namespace FXOverdose.DatingSim.UI
             Sprite avatarFrame = LoadUISprite("DatingSim/YomiRoom/UI/Chat/AvatarFrame", new Vector4(25f, 25f, 25f, 25f));
             Sprite portrait = LoadUISprite("DatingSim/YomiRoom/UI/Chat/YomiPortrait");
 
-            RectTransform panel = CreatePanel(parent, "DialoguePanel", new Vector2(0.5f, 0.02f), new Vector2(0.992f, 0.98f), Color.white);
+            RectTransform panel = CreatePanel(parent, "DialoguePanel", min, max, Color.white);
             Image panelImage = panel.GetComponent<Image>();
             panelImage.sprite = chatFrame;
             panelImage.type = Image.Type.Sliced;
@@ -239,7 +240,7 @@ namespace FXOverdose.DatingSim.UI
             title.fontStyle = FontStyles.Bold;
             TextMeshProUGUI subtitle = CreateText(panel, "Subtitle", "요미와 자유롭게 대화하세요", 16f, new Vector2(0.06f, 0.855f), new Vector2(0.94f, 0.905f), Cyan);
 
-            BuildRoomSettingsButton(panel);
+            if (withSettingsButton) BuildRoomSettingsButton(panel, new Vector2(0.9f, 0.9f), new Vector2(0.965f, 0.968f));
 
             RectTransform historySurface = CreatePanel(panel, "HistorySurface", new Vector2(0.055f, 0.2f), new Vector2(0.945f, 0.84f), new Color32(2, 9, 20, 210));
             historySurface.GetComponent<Outline>().effectColor = new Color32(28, 70, 101, 255);
@@ -318,11 +319,12 @@ namespace FXOverdose.DatingSim.UI
             YomiRoomDialogueUI dialogue = panel.gameObject.AddComponent<YomiRoomDialogueUI>();
             dialogue.Configure(history, input, send, scroll, yomiBubble, masterBubble, avatarFrame, portrait,
                 choices, talkToggle);
+            return dialogue;
         }
 
-        private static void BuildRoomSettingsButton(Transform parent)
+        internal static void BuildRoomSettingsButton(Transform parent, Vector2 min, Vector2 max)
         {
-            RectTransform rect = CreatePanel(parent, "SettingsButton", new Vector2(0.9f, 0.9f), new Vector2(0.965f, 0.968f), new Color32(12, 27, 47, 255));
+            RectTransform rect = CreatePanel(parent, "SettingsButton", min, max, new Color32(12, 27, 47, 255));
             rect.GetComponent<Outline>().effectColor = Cyan;
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = rect.GetComponent<Image>();
@@ -351,7 +353,7 @@ namespace FXOverdose.DatingSim.UI
         /// 이미지가 없으면 단색 임시 UI로 그대로 동작하며, PNG를 넣는 즉시 교체됩니다.
         /// 자세한 규격은 docs/P2_05_UI_and_Art/P2_05_YomiRoom_Modal_UI_Spec.md 참고.
         /// </summary>
-        private static GameObject CreateModal(Transform parent, out TextMeshProUGUI title, out TextMeshProUGUI body,
+        internal static GameObject CreateModal(Transform parent, out TextMeshProUGUI title, out TextMeshProUGUI body,
             out Button confirm, out Button secondary, out Button cancel)
         {
             Sprite dimSprite = LoadUISprite("DatingSim/YomiRoom/UI/Modal/Dim");

@@ -170,7 +170,6 @@ MonoBehaviour:
   gameModePanel: {fileID: 0}
   loadGamePanel: {fileID: 1672103195}
   settingsPanel: {fileID: 191536838}
-  tutorialPromptPanel: {fileID: 0}
 --- !u!1 &48467299
 GameObject:
   m_ObjectHideFlags: 0

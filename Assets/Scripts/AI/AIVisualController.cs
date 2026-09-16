@@ -81,8 +81,6 @@ namespace FXOverdose.AI
         [SerializeField] private float balloonDisplayDuration = 4.0f; // 기존 6.0초에서 빠른 8분 인게임 속도에 맞춰 4.0초로 단축
 #pragma warning restore 0414
         public float BalloonDisplayDuration => balloonDisplayDuration;
-        
-        public bool SuppressNormalDialogues { get; set; } = false;
 
         [Header("현재 상태 (읽기 전용)")]
         [SerializeField] private TraderEmotion currentEmotion = TraderEmotion.Focused;
@@ -803,11 +801,6 @@ namespace FXOverdose.AI
 
         public void DisplayDialogueBalloon(string text, DialoguePriority priority, EventCategory category)
         {
-            if (SuppressNormalDialogues && category != EventCategory.Tutorial)
-            {
-                return;
-            }
-
             if (string.IsNullOrEmpty(text) || dialogueBalloonPanel == null || dialogueText == null) return;
 
             // 🚀 [고속 스킵 중 대사 제한] 시간이 빠르게 스킵 중일 때는 중요(High 이상) 대사만 수용하고, 나머지는 무시하여 밀림 방지

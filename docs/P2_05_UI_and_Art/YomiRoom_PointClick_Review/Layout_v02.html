@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>요미의 방 — 침대 높이 검토 v02</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111927;color:#ecf1fa;font:15px/1.65 "Malgun Gothic",sans-serif}
+main{max-width:1440px;margin:auto;padding:22px 24px 32px}h1{font-size:25px;margin:0 0 3px}p{margin:4px 0 12px;color:#c2cddd}.warning{background:#492d36;padding:9px 14px;border-left:4px solid #f4a3ab;border-radius:5px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}.card{background:#1d283b;border:1px solid #566177;border-radius:8px;overflow:hidden}
+h2{font-size:19px;margin:11px 15px 3px}.caption{font-size:13px;margin:0 15px 10px}.scene{display:block;width:100%;aspect-ratio:850/910;background:#344152}
+.metrics{padding:10px 15px;display:flex;flex-wrap:wrap;gap:5px 20px;font-size:14px}.red{color:#ffabb0}.mint{color:#a5e6ce}
+.controls{padding:15px 0 8px;display:flex;gap:18px;flex-wrap:wrap;align-items:center}.controls label{display:flex;gap:10px;align-items:center}
+input{accent-color:#baa0e2}button{border:1px solid #718399;background:#24374b;color:#eef5fd;border-radius:5px;padding:8px 12px;cursor:pointer;font:inherit}
+.note{font-size:13px;color:#b5c4d8;margin-top:10px}.scene text{font-family:"Malgun Gothic",sans-serif;font-weight:700;paint-order:stroke;stroke:#192234;stroke-width:5px;stroke-linejoin:round;fill:white}
+section{margin-top:22px}a{color:#acebd4}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:7px 12px;border-bottom:1px solid #4d5b70}
+.capture main{padding-top:14px}.capture .controls,.capture section{display:none}.capture h1{font-size:23px}.capture .compare{margin-top:10px}.capture .caption{min-height:40px}
+@media(max-width:720px){.compare{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>침대 높이를 포함한 문 가림 검토 · v02</h1>
+<p>채택 배경에 입체 블록을 투영한 오른쪽 벽 확대도입니다. 침대는 매트리스·머리판·베개의 높이까지 포함합니다.</p>
+<div class="warning">v01의 “66px 간격이면 문과 침대가 분리된다”는 결론을 철회합니다. 바닥 자리만으로 실제 가림을 판단할 수 없습니다.</div>
+<div class="controls">
+<label>머리판 높이 <input id="height" type="range" min="0.5" max="1.2" step="0.05" value="0.7"><output id="heightValue"></output></label>
+<label>머리맡 거리 <input id="depth" type="range" min="2.05" max="3.1" step="0.01" value="2.2"><output id="depthValue"></output></label>
+<button id="normal">앞으로 당긴 안</button><button id="low">낮은 침대·완전 분리 검토</button>
+</div>
+<div class="compare">
+<div class="card"><h2>기존 뒤쪽 자리 + 높이 반영</h2><p class="caption">머리판 1.00m / 매트리스 상단 0.48m / 베개 상단 0.63m</p><svg id="old" class="scene" viewBox="1120 80 850 910" xmlns="http://www.w3.org/2000/svg"></svg><div id="oldMetrics" class="metrics"></div></div>
+<div class="card"><h2 id="newTitle">앞으로 당긴 안 · 일부 가림 유지</h2><p id="newCaption" class="caption"></p><svg id="new" class="scene" viewBox="1120 80 850 910" xmlns="http://www.w3.org/2000/svg"></svg><div id="newMetrics" class="metrics"></div></div>
+</div>
+<div class="note">보라색·남색: 침대 입체 블록 / 붉은 사선: 침대의 보수적 외곽이 문과 겹치는 영역 / 노란 세로 화살표: 바닥부터 머리판까지 높이</div>
+<div class="note">수치는 검토용 투시 모델의 결과이며 실제 에셋의 가림 비율이 아닙니다. 바닥의 출입 공간이 남아 있어도 화면에서는 앞 가구가 문을 가릴 수 있습니다.</div>
+<section>
+<h2>검토 기준과 조절 방법</h2>
+<p>머리맡 거리는 카메라에서 침대 머리맡까지의 거리입니다. 줄이면 침대를 앞으로 당깁니다. 침대 길이는 2m로 유지하므로 발치가 더 많이 화면 밖으로 나갑니다.</p>
+<table><tr><th>항목</th><th>가정</th></tr><tr><td>침대</td><td>폭 1m × 길이 2m, 프레임 상단 0.28m, 매트리스 상단 0.48m, 베개 상단 0.63m</td></tr><tr><td>문</td><td>폭 0.9m × 높이 2m, 오른쪽 벽. 손잡이 높이 1m</td></tr><tr><td>카메라</td><td>눈높이 1.35m, 소실점 (960,300). 채택 배경의 벽·바닥 경계와 요미의 크기에 대략 맞춘 검토용 보정</td></tr><tr><td>가림 계산</td><td>침대 구성 요소의 모든 꼭짓점을 투영하고 이를 감싸는 외곽을 문과 비교. 실제 틈새보다 보수적으로 계산</td></tr></table>
+<p>“낮은 침대·완전 분리 검토”는 머리판 0.50m, 머리맡 거리 2.08m로 둡니다. 이 모델에서는 겹침이 없어지지만 침대가 낮아지고 발치 대부분이 잘립니다. 아직 채택한 가구 디자인은 아닙니다.</p>
+<p><a href="Layout_v02.md">검토 결과와 한계</a> · <a href="README.md">에셋 작업 기록</a></p>
+</section>
+</main><script>
+
+const camera = {cx:960,cy:300,f:1000,eye:1.35,rightWall:2.16,back:4.5};
+function project(p){return [camera.cx+camera.f*p[0]/p[2],camera.cy+camera.f*(camera.eye-p[1])/p[2]];}
+function signedArea(p){let a=0;for(let i=0;i<p.length;i++){let j=(i+1)%p.length;a+=p[i][0]*p[j][1]-p[j][0]*p[i][1];}return a/2;}
+function area(p){return Math.abs(signedArea(p));}
+function intersect(subject,clip){let out=subject.slice();const sign=signedArea(clip)>=0?1:-1;for(let i=0;i<clip.length;i++){const a=clip[i],b=clip[(i+1)%clip.length];const cross=p=>sign*((b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]));const input=out;out=[];if(!input.length)break;let prev=input[input.length-1],pv=cross(prev);for(const cur of input){const cv=cross(cur);if((cv>=-1e-7)!=(pv>=-1e-7)){const t=pv/(pv-cv);out.push([prev[0]+t*(cur[0]-prev[0]),prev[1]+t*(cur[1]-prev[1])]);}if(cv>=-1e-7)out.push(cur);prev=cur;pv=cv;}}return out;}
+function hull(points){const pts=points.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);const lower=[];for(const p of pts){while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop();lower.push(p);}const upper=[];for(const p of pts.slice().reverse()){while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop();upper.push(p);}return lower.slice(0,-1).concat(upper.slice(0,-1));}
+function box(x0,x1,y0,y1,z0,z1){return [[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];}
+const door={near:3.5,far:4.4,height:2};
+const doorPoly=[[camera.rightWall,0,door.far],[camera.rightWall,0,door.near],[camera.rightWall,door.height,door.near],[camera.rightWall,door.height,door.far]].map(project);
+const handle=project([camera.rightWall,1.0,4.18]);
+const handleZone=[[handle[0]-30,handle[1]-30],[handle[0]+30,handle[1]-30],[handle[0]+30,handle[1]+30],[handle[0]-30,handle[1]+30]];
+function bedModel(headZ,headH){const front=headZ-2;const x0=camera.rightWall-1;const x1=camera.rightWall;
+const parts=[
+{name:"프레임",color:"#55496f",points:box(x0,x1,.13,.28,front,headZ)},
+{name:"매트리스",color:"#aa94c3",points:box(x0+.025,x1-.025,.28,.48,front+.03,headZ-.08)},
+{name:"머리판",color:"#36425b",points:box(x0,x1,.13,headH,headZ-.07,headZ)},
+{name:"베개",color:"#d8c5e0",points:box(x0+.1,x1-.1,.48,.63,headZ-.52,headZ-.15)}
+];const envelope=hull(parts.flatMap(p=>p.points.map(project)));const overlap=intersect(envelope,doorPoly);return {headZ,headH,front,parts,envelope,overlap,overlapRatio:area(overlap)/area(doorPoly),handleOverlap:area(intersect(envelope,handleZone)),clearance:door.near-headZ,headFloor:project([x0,0,headZ]),headTop:project([x0,headH,headZ])};}
+
+const pointText = p => p.map(v=>v.toFixed(2)).join(",");
+const polyText = p => p.map(pointText).join(" ");
+function render(id,model){
+ const svg=document.getElementById(id);const patternId="occlusion-"+id,arrowId="height-"+id;
+ let drawing='<defs><pattern id="'+patternId+'" width="13" height="13" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="13" height="13" fill="#ef6674" fill-opacity=".28"/><line x1="0" y1="0" x2="0" y2="13" stroke="#ff9a9f" stroke-width="5"/></pattern><marker id="'+arrowId+'" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#ffe5a0"/></marker></defs>';
+ drawing+='<image href="B1_Morning_v02.png" width="1920" height="1080" preserveAspectRatio="none"/>';
+ drawing+='<polygon points="'+polyText(doorPoly)+'" fill="#56987e" fill-opacity=".78" stroke="#baf5da" stroke-width="3"/>';
+ drawing+='<circle cx="'+handle[0]+'" cy="'+handle[1]+'" r="7" fill="#f0cf7d"/><rect x="'+(handle[0]-30)+'" y="'+(handle[1]-30)+'" width="60" height="60" fill="none" stroke="#cffbe7" stroke-width="2" stroke-dasharray="5 4"/>';
+ drawing+='<text x="1510" y="250" font-size="30" text-anchor="middle">문</text><text x="1424" y="'+(handle[1]-14)+'" font-size="21" text-anchor="end">손잡이</text>';
+ const x0=camera.rightWall-1,front=model.headZ-2;
+ const footprint=[[x0,0,model.headZ],[camera.rightWall,0,model.headZ],[camera.rightWall,0,front],[x0,0,front]].map(project);
+ drawing+='<polygon points="'+polyText(footprint)+'" fill="none" stroke="#f3d988" stroke-width="3" stroke-dasharray="9 8"/>';
+ const faces=[];
+ for(const part of model.parts){
+  for(const face of [{idx:[0,1,2,3],shade:.80},{idx:[0,3,7,4],shade:.90},{idx:[3,2,6,7],shade:1.15}]){
+   const points=face.idx.map(i=>part.points[i]);
+   faces.push({points:points.map(project),z:points.reduce((s,p)=>s+p[2],0)/4,color:part.color,shade:face.shade});
+  }
+ }
+ faces.sort((a,b)=>b.z-a.z);
+ for(const face of faces){
+  const rgb=face.color.match(/[0-9a-f]{2}/gi).map(v=>Math.min(255,Math.round(parseInt(v,16)*face.shade)));
+  drawing+='<polygon points="'+polyText(face.points)+'" fill="rgb('+rgb.join(",")+')" stroke="#d6c5eb" stroke-width="1.8"/>';
+ }
+ drawing+='<polygon points="'+polyText(model.overlap)+'" fill="url(#'+patternId+')" stroke="#ff9a9f" stroke-width="2"/>';
+ const axisX=model.headFloor[0]-42;
+ drawing+='<line x1="'+axisX+'" y1="'+model.headFloor[1]+'" x2="'+axisX+'" y2="'+model.headTop[1]+'" stroke="#ffe5a0" stroke-width="3" marker-start="url(#'+arrowId+')" marker-end="url(#'+arrowId+')"/>';
+ drawing+='<line x1="'+axisX+'" y1="'+model.headFloor[1]+'" x2="'+model.headFloor[0]+'" y2="'+model.headFloor[1]+'" stroke="#ffe5a0" stroke-width="2" stroke-dasharray="4 4"/>';
+ drawing+='<text x="'+(axisX-15)+'" y="'+((model.headFloor[1]+model.headTop[1])/2)+'" text-anchor="end" font-size="25">Y 높이 '+model.headH.toFixed(2)+'m</text>';
+ drawing+='<text x="'+(axisX-15)+'" y="'+(model.headTop[1]-12)+'" text-anchor="end" font-size="21">위끝 y'+Math.round(model.headTop[1])+'</text>';
+ drawing+='<text x="'+(axisX-15)+'" y="'+(model.headFloor[1]+29)+'" text-anchor="end" font-size="21">바닥 y'+Math.round(model.headFloor[1])+'</text>';
+ svg.innerHTML=drawing;
+ const ratio=model.overlapRatio*100;
+ document.getElementById(id+"Metrics").innerHTML='<span class="'+(ratio>.01?'red':'mint')+'">문과 겹치는 검토 외곽 '+ratio.toFixed(1)+'%</span><span>문·침대 바닥 간격 '+model.clearance.toFixed(2)+'m</span><span class="'+(model.handleOverlap>0?'red':'mint')+'">손잡이 주변 '+(model.handleOverlap>0?'가림 발생':'가림 없음')+'</span>';
+}
+function refresh(){
+ const height=Number(document.getElementById("height").value),depth=Number(document.getElementById("depth").value);
+ document.getElementById("heightValue").textContent=height.toFixed(2)+"m";
+ document.getElementById("depthValue").textContent=depth.toFixed(2)+"m";
+ const model=bedModel(depth,height);
+ document.getElementById("newTitle").textContent=model.overlapRatio<1e-8?"낮은 침대 · 외곽 분리됨":"앞으로 당긴 안 · 일부 가림 유지";
+ document.getElementById("newCaption").textContent="머리판 "+height.toFixed(2)+"m / 매트리스 상단 0.48m / 베개 상단 0.63m";
+ render("new",model);
+}
+render("old",bedModel(1350/460,1.0));
+document.getElementById("height").addEventListener("input",refresh);
+document.getElementById("depth").addEventListener("input",refresh);
+document.getElementById("normal").addEventListener("click",()=>{document.getElementById("height").value=.7;document.getElementById("depth").value=2.2;refresh();});
+document.getElementById("low").addEventListener("click",()=>{document.getElementById("height").value=.5;document.getElementById("depth").value=2.08;refresh();});
+if(new URLSearchParams(location.search).has("capture"))document.body.classList.add("capture");
+refresh();
+window.layoutHeightReview={project,intersect,area,bedModel};
+</script></body></html>
+

@@ -7,7 +7,6 @@
 - `TitleScene`
 - `LoadingScene`
 - `GameScene`
-- `tutorial`
 - `YomiRoomScene`
 - `WorldMapScene`
 - 업적, 설정, 보스, 스킬, 일일 정산, 게임 오버, 컷씬 등 공통 UI
@@ -46,7 +45,6 @@ flowchart TD
 | TitleScene | `Canvas_MainMenu` | 씬 + `TitleScreenBuilder` 보강 | 시작, 불러오기, 설정, 업적, 모드 선택 |
 | LoadingScene | `Canvas_LoadingScreen` | `LoadingScreenBuilder` 자동 생성 | 로딩 이미지, 진행 바, 상태 문구 |
 | GameScene | `TradingViewCanvas` | 씬 직렬화 + 다수 Bootstrap | 차트, 주문, PnL, 상점, 인벤토리, 스킬, 보스 |
-| tutorial | `TradingViewCanvas` | GameScene 구조 + TutorialManager | 트레이딩 UI, 하이라이트, 만화 컷씬 |
 | YomiRoomScene | `Canvas_YomiRoomTopDown` | `DatingSimSceneBuilder` 자동 생성 | 탑다운 방, 상태 카드, 대화, 설정 |
 | WorldMapScene | `Canvas_WorldMap` | 씬 + `DatingSimSceneBuilder` 보장 | 알바, 데이트, 방 복귀, 상태 표시 |
 
@@ -86,7 +84,7 @@ Canvas_MainMenu
 ├── 메인 메뉴 버튼
 ├── Btn_Achievements
 ├── GameModePanel
-├── TutorialPromptPanel
+├── DifficultyPanel
 ├── OverwritePromptPanel
 ├── LoadGamePanel
 └── SettingsPanel
@@ -169,40 +167,20 @@ GameScene 메인 Canvas에는 다음 Bootstrap이 UI를 추가한다.
 
 | 기능 | Bootstrap/Controller | 비고 |
 |---|---|---|
-| 캐릭터 레벨 | `TraderLevelUIBootstrap` | GameScene/tutorial |
-| 스킬 HUD | `ActiveSkillHUDBootstrap` | GameScene/tutorial |
+| 캐릭터 레벨 | `TraderLevelUIBootstrap` | GameScene 전용 |
+| 스킬 HUD | `ActiveSkillHUDBootstrap` | GameScene 전용 |
 | 보스 HUD | `BossBattleUIBootstrap` | GameScene 전용 |
 | 일일 정산 | `DailySettlementUIBootstrap` | GameScene 전용 |
 | 게임 오버 | `GameOverUIBootstrap` | GameScene 전용 |
 
 Bootstrap은 `TradingViewCanvas`를 우선 검색하고 없으면 Root Canvas를 fallback으로 사용한다.
 
-## 8. tutorial 씬
+## 8. tutorial 씬 (제거됨)
 
-튜토리얼 씬은 GameScene과 거의 동일한 트레이딩 UI 구조를 사용한다. `TutorialManager`가 입력 차단, 대상 하이라이트, 안내 대사와 만화 컷씬 호출을 추가한다.
+> [!NOTE]
+> **[2026-09-15 변경]** 독립 튜토리얼(`tutorial` 씬, `TutorialManager`, 타이틀의 튜토리얼 진행 확인창)은 제거되었습니다. 튜토리얼은 메인 스토리에 녹여 넣을 예정입니다. 새 게임은 난이도 선택 후 바로 `YomiRoomScene`으로 진입합니다.
 
-### 8.1 하이라이트
-
-- 차단 Canvas: `TutorialBlockerCanvas`
-- 차단 Canvas Sorting Order: `999`
-- 강조 대상 임시 Canvas Sorting Order: `1000`
-- 대상 버튼은 원래 부모와 레이아웃 정보를 보존한 상태로 강조한다.
-
-롱, 숏, 포지션 매도 버튼 등은 `TutorialManager`가 단계별 대상으로 지정한다.
-
-### 8.2 만화 컷씬
-
-튜토리얼 씬에는 스토리용 Canvas가 없을 수 있으므로 `ComicCutsceneController.CreateRuntime()`가 `ComicCutsceneCanvas_Runtime`을 생성한다.
-
-- Sorting Order: `1200`
-- 구성: ComicImage, NextPanelButton, SkipButton, Caption Panel
-- 튜토리얼 대사를 끝까지 출력하고 다음 입력을 받은 뒤 컷씬을 호출한다.
-
-담당 코드:
-
-- `Assets/Scripts/System/TutorialManager.cs`
-- `Assets/Scripts/UI/ComicCutsceneController.cs`
-- `Assets/Scripts/AI/AIVisualController.cs`
+캔버스가 없는 씬에서 만화 컷씬이 필요하면 `ComicCutsceneController.GetOrCreateRuntime()`이 `ComicCutsceneCanvas_Runtime`(Sorting Order `1200`)을 생성한다.
 
 ## 9. YomiRoomScene
 
@@ -319,7 +297,7 @@ GameScene에서는 설정 버튼 아래에 AUTO/USER 모드 버튼도 생성한�
 
 담당 코드: `Assets/Scripts/UI/ActiveSkillHUDController.cs`
 
-`ActiveSkillHUDBootstrap`은 GameScene과 tutorial의 메인 Canvas에 설치한다.
+`ActiveSkillHUDBootstrap`은 GameScene의 메인 Canvas에 설치한다.
 
 - 숍 버튼 위에 동일 규격의 메인 스킬 버튼 생성
 - 클릭 시 3개 스킬의 상세 정보와 업그레이드 버튼을 한 페이지에 표시
@@ -366,8 +344,6 @@ GameScene에서는 설정 버튼 아래에 AUTO/USER 모드 버튼도 생성한�
 | 스킬 시간 전환 | 360 |
 | 업적 목록 | 900 |
 | 업적 토스트 | 950 |
-| 튜토리얼 차단 | 999 |
-| 튜토리얼 강조 | 1000 |
 | 일일 정산 | 1000 이상 |
 | 만화 컷씬 | 1200 |
 | 게임 오버 | 2000 |
@@ -406,7 +382,6 @@ Resources.Load<Texture2D>("DatingSim/YomiRoom/UI/Chat/ChatFrame");
 | 스킬 | `ActiveSkillHUDController.cs` |
 | 보스 | `BossBattleUIController.cs` |
 | 업적 | `AchievementUIController.cs`, `AchievementToastUI.cs` |
-| 튜토리얼 강조 | `TutorialManager.cs` |
 | 만화 컷씬 | `ComicCutsceneController.cs` |
 | 일일 정산 | `DailySettlementUIController.cs` |
 | 게임 오버 | `GameOverUIController.cs` |
@@ -426,12 +401,11 @@ Resources.Load<Texture2D>("DatingSim/YomiRoom/UI/Chat/ChatFrame");
 - 닫힌 Overlay가 Raycast를 계속 막지 않는가
 - 한글 장문이 패널 밖으로 나오지 않는가
 
-### GameScene/tutorial
+### GameScene
 
 - 상단 바, 차트, 주문 패널의 좌우 여백이 일치하는가
 - 상점과 인벤토리의 동적 아이템 수가 레이아웃을 깨지 않는가
 - 스킬, 설정, 업적, 보스 UI가 서로 겹치지 않는가
-- 튜토리얼 차단 중 강조 대상만 클릭 가능한가
 - 만화 컷씬이 대사 종료 후 정상 호출되는가
 
 ### YomiRoom/WorldMap
@@ -448,4 +422,4 @@ Resources.Load<Texture2D>("DatingSim/YomiRoom/UI/Chat/ChatFrame");
 3. 기존 Canvas와 런타임 Canvas가 같은 기능을 만들면 UI가 두 겹으로 생성될 수 있다.
 4. Overlay를 추가할 때 Sorting Order뿐 아니라 `blocksRaycasts`와 `interactable`도 함께 관리해야 한다.
 5. UI 이미지 경로 변경 시 모든 `Resources.Load` 문자열을 함께 변경해야 한다.
-6. GameScene과 tutorial은 구조가 비슷하지만 보스·정산·게임 오버 Bootstrap의 적용 씬 조건이 다르다.
+6. 트레이딩 HUD Bootstrap은 모두 씬 이름 `GameScene`으로 판정한다. 트레이딩 UI를 쓰는 씬을 새로 만들면 각 Bootstrap의 조건도 함께 넓혀야 한다.

@@ -112,7 +112,7 @@ namespace FXOverdose.UI
                 SceneManager.SetActiveScene(gameScene);
 
             // 씬 로드가 끝난 후, 대상에 맞는 준비를 대기
-            if (targetSceneName == "GameScene" || targetSceneName == "tutorial")
+            if (targetSceneName == "GameScene")
             {
                 while (!AreChartSystemsPresent())
                 {
@@ -145,7 +145,7 @@ namespace FXOverdose.UI
             // 정지 구간이 끝난 다음 게임 시간과 시장을 시작합니다.
             yield return null;
             // 매 진입마다 현재 GameScene의 매니저와 시장을 명시적으로 개장해 Loading 상태 고착을 방지합니다.
-            if (targetSceneName == "GameScene" || targetSceneName == "tutorial")
+            if (targetSceneName == "GameScene")
             {
                 GameManager gameManager = GameManager.Instance;
                 gameManager?.FinishLoadingAndStartPlaying();

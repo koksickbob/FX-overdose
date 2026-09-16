@@ -49,14 +49,15 @@ namespace FXOverdose.DatingSim.UI
                 return;
             }
 
-            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && scene.name != "ConvenienceStoreScene") return;
+            bool pointClickTest = scene.name == YomiRoomPointClickBuilder.TestSceneName;
+            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && scene.name != "ConvenienceStoreScene" && !pointClickTest) return;
 
             EnsureCamera(scene);
             EnsureEventSystem(scene);
             EnsureTimeManager(scene);
 
             if (scene.name == "ConvenienceStoreScene") ConvenienceStorePrototype.Build(scene);
-            else if (scene.name == "YomiRoomScene") BuildYomiRoom(scene);
+            else if (scene.name == "YomiRoomScene" || pointClickTest) BuildYomiRoom(scene);
             else BuildWorldMap(scene);
         }
 
@@ -64,6 +65,13 @@ namespace FXOverdose.DatingSim.UI
         {
             if (FindInScene<YomiRoomManager>(scene) == null)
                 CreateInScene<YomiRoomManager>(scene, "YomiRoomManager");
+
+            // 포인트 앤 클릭 방은 Phase 1~2 동안 테스트 씬에서만 조립합니다. 본 씬 교체는 계획서 Phase 3.
+            if (scene.name == YomiRoomPointClickBuilder.TestSceneName)
+            {
+                YomiRoomPointClickBuilder.Build(scene);
+                return;
+            }
 
             // P2_03: 버튼 메뉴 대신 실제로 걸어 다니는 탑다운 방 프로토타입을 우선 사용합니다.
             YomiRoomTopDownPrototype.Build(scene);

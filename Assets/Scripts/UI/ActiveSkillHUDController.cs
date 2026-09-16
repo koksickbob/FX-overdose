@@ -36,9 +36,6 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     private bool isUpgradeSequencePlaying;
     private FXOverdose.AI.AIVisualController activeUpgradeVisual;
 
-    /// <summary>튜토리얼에서 통합 SKILL 버튼을 강조하기 위한 안정적인 타겟입니다.</summary>
-    public RectTransform TutorialSkillHUDHighlightTarget => skillRow;
-
     private sealed class SkillCardView
     {
         public TMP_Text Level;
@@ -558,7 +555,7 @@ public sealed class ActiveSkillHUDController : MonoBehaviour
     }
 }
 
-/// <summary>게임 및 튜토리얼 씬의 메인 Canvas에 액티브 스킬 HUD를 자동 설치합니다.</summary>
+/// <summary>게임 씬의 메인 Canvas에 액티브 스킬 HUD를 자동 설치합니다.</summary>
 public static class ActiveSkillHUDBootstrap
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -571,11 +568,7 @@ public static class ActiveSkillHUDBootstrap
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (FXOverdose.P2P.Infrastructure.P2PNetworkSessionManager.Instance?.IsRunning == true) return;
-        if (scene.name != "GameScene" &&
-            !string.Equals(scene.name, "tutorial", System.StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
+        if (scene.name != "GameScene") return;
 
         Install(scene);
     }
