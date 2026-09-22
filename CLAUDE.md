@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `FX OVERDOSE` — a Unity 6 (6000.5.3f1, URP 2D) Korean-language game. Two single-player halves share one save file, and a third multiplayer part reuses the trading screen:
 
-- **Trading part** (`GameScene`): a real-time leverage-trading sim with a simulated market, HP/mental vitals, boss traders, items/shop, choice events, achievements. Uses an on-device local LLM (LLMUnity + Bllossom 3B GGUF) for choice-event text and the daily diary.
+- **Trading part** (`GameScene`): a real-time leverage-trading sim with a simulated market, HP/mental vitals, boss traders, items/shop, choice events, achievements. Its choice-event text and 요미 reactions are **hand-authored assets only** — the on-device LLM was removed on 2026-09-22.
 - **DatingSim part** (Phase 2, `YomiRoom` / `WorldMap`): slot-based (non-realtime) dating loop with the character 요미. Its LLM free-chat system was **removed on 2026-08-12**; dialogue now goes through a placeholder provider awaiting a replacement design.
 - **P2P multiplayer part** (`Assets/Scripts/P2P/`, added 2026-08-14): Steam-lobby trading competition that keeps the existing `GameScene` visuals and swaps only input and displayed data for authoritative network state. Does **not** use the save file. See the assembly note below — its `Core` is engine-free and unit-tested.
 
@@ -79,7 +79,7 @@ Managers hold logic and data and expose `event Action<...>`; UI controllers subs
 
 Several of these files are very large (`TradingController.cs` ~88KB, `TradingPanelUIController.cs` ~74KB, `MarketSimulationEngine.cs` ~69KB). Grep for the region/method before reading whole files.
 
-### DatingSim dialogue (자유 채팅 LLM 제거됨 — 2026-08-12)
+### Dialogue & choice-event text (LLM 전면 제거됨)
 The local-LLM free-chat system was removed from the DatingSim half. The removal record is [DatingSim_FreeChat_Removal_Plan.md](docs/P2_03_LLM_Architecture/DatingSim_FreeChat_Removal_Plan.md); the superseded design docs sit in `docs/P2_03_LLM_Architecture/_Deprecated/` and **do not describe current code**.
 
 What remains:
@@ -88,7 +88,9 @@ What remains:
 - `YomiRoomState` is `Idle` / `Chatting` / `Responding` / `Resting` / `Transitioning`. Chat currently consumes **no** time slot and grants **no** affection (both marked `TODO(P2)` — deliberate, so a placeholder reply can't be farmed).
 - `FXOverdose.DatingSim.Scenario` (`Assets/Scripts/DatingSim/Scenario/`) survived the removal because its matching logic never depended on the LLM, but **nothing calls it** — `StartNewScenario`/`IncrementTurn` have no callers. Its zero-allocation constraint (`for` loops only, no LINQ, in `ScenarioMatcher`) still applies if it gets rewired.
 
-The **trading** half still uses a local LLM: `LLMSafeGenerator` (`Assets/Scripts/AI/LLM/`) generates choice-event text and the daily diary, hosted on the `LLM_Manager` object in `TitleScene` (`DontDestroyOnLoad`) and backed by the **Bllossom 3B** model — not the 7B. Leave it alone.
+The **trading** half's LLM was removed on **2026-09-22** ([Trading_LLM_Removal_Plan.md](docs/P2_03_LLM_Architecture/Trading_LLM_Removal_Plan.md)). `Assets/Scripts/AI/LLM/`, the `LLM_Manager` object in `TitleScene`, the `ai.undream.llm` package and all of `Assets/StreamingAssets/` are gone — **there is no LLM anywhere in this project now.**
+
+Choice-event popups (`ChoiceEventController`) read title, body and 요미 reaction straight from the 242 `EventLogicTemplateSO` assets in `Assets/Resources/Events/Templates/` (`FallbackTitle` / `FallbackDescription` / `FallbackMonologues`, all filled). `Assets/Scripts/Editor/GenerateTemplateFallbackText.cs` regenerates empty fields from a deterministic combination table. The 30 fully hand-written `Assets/Resources/Events/EVENT_*.asset` events remain as a separate pool, used only when the template pool is empty.
 
 `WorldMapManager` links the two halves' economy by calling `GameManager.ChangeBalance` / `TrySpendBalance` directly for part-time-job rewards and date costs.
 
@@ -117,4 +119,4 @@ It resets itself once loading starts. Scene load counts as 65% of the bar; `Game
   - `python nai_generate.py` — generates prologue cutscene CG via NovelAI, parsing prompts from `docs/P2_05_UI_and_Art/P2_05_Prologue_Cutscene_NovelAI_Prompt_Sheet.md` (the sheet is the source of truth; don't copy prompts into the script). `--dry-run` needs no token; real runs read `NOVELAI_TOKEN` from gitignored `.env.local`.
 - Story/scenario prose lives in `docs/P2_Story/` (e.g. `scenario_ingame.md`); P2P design docs are in `docs/06_P2P/`.
 - `AGENTS.md` at the root is a near-verbatim copy of this file for Codex — keep the two in sync when editing either.
-- `.gguf` model files under `Assets/StreamingAssets/Models/` are gitignored (too large); a fresh clone will not have them, and the trading part's choice-event text generation falls back to dummy data until the Bllossom 3B model is placed there. The Qwen2.5-7B model is no longer used by any code path.
+- There is no `Assets/StreamingAssets/` folder any more — it held only the LLM runtime (LlamaLib, 3.8GB tracked) and the Bllossom 3B `.gguf`, both removed on 2026-09-22. No code reads `Application.streamingAssetsPath`.

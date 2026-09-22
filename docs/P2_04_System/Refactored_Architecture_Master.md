@@ -597,5 +597,42 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 - **알파 클릭 판정은 텍스처가 Read/Write일 때만 켠다.** 꺼진 텍스처에 `alphaHitTestMinimumThreshold`를 걸면 레이캐스트마다 예외가 난다.
 - `YomiRoomTopDownPrototype`의 `BuildVerticalStatusCards`·`BuildDialoguePanel`·`BuildRoomSettingsButton`·`CreateModal`을 `internal`로 열고 배치 인자를 받게 했다. 대화 패널이 숨겨질 수 있으므로 포인트 앤 클릭 방에서는 **설정 버튼을 패널 밖**에 둔다.
 
+## 14. 투자 파트 LLM 제거 — 하드코딩 이벤트 단일화 (2026-09-22)
+
+계획서: [Trading_LLM_Removal_Plan.md](../P2_03_LLM_Architecture/Trading_LLM_Removal_Plan.md)
+
+2026-08-12 데이팅 파트 자유 채팅 제거에 이어 **투자 파트의 로컬 LLM도 걷어냈다. 이제 프로젝트 어디에도 LLM이 없다.**
+
+전제는 "LLM이 이미 잉여였다"는 것이다. 템플릿 242개 전부에 `FallbackTitle` / `FallbackDescription` / `FallbackMonologues`가 채워져 있었으므로, 이 작업은 새 시스템 구축이 아니라 **분기 삭제**였다.
+
+**돌발 선택 이벤트의 새 텍스트 경로** — 전부 `EventLogicTemplateSO` 자산에서 읽는다.
+
+| 요소 | 1순위 | 최후 폴백 |
+| --- | --- | --- |
+| 제목 | `FallbackTitle` | `"긴급 시장 속보"` |
+| 본문 | `FallbackDescription` | `ThemeTag` 서술 기반 자동 문구 |
+| 요미 반응 | `FallbackMonologues` 중 랜덤 | 고정 1줄 |
+
+**삭제**
+- `Assets/Scripts/AI/LLM/` 전체 — `LLMSafeGenerator`(371줄), `LLMOutputSanitizer`(383줄), `GeneratedChoiceEventData`, `LLMGenerationStats`
+- `ChoiceEventController`의 프리페치 기구 일체: `cachedLLMData`, `isFetchingLLM`, `preFetchCts`/`preFetchGeneration`/`preFetchAttempted`/`preFetchDeferrals`/`preFetchMinuteOfDay`, `CancelPendingPreFetch`, `StartPreFetchingLLMEvent`, `PreFetchRoutineAsync`, 그리고 **생성 대기용 10분 연기 루프**
+- `activeTemplate` 필드 — 프리페치가 사라지자 읽는 곳이 없어졌다
+- `ChoiceEventPopupUIController.WarnIfPromptResidue` — 생성 텍스트가 없으면 프롬프트 잔재도 없다
+- `ChoiceEventDebugMenu`의 생성 검증 메뉴 2종(`x20` / `x3`)
+- `TitleScene`의 `LLM_Manager` 오브젝트, `ai.undream.llm` 패키지, `Assets/StreamingAssets/` 폴더 전체(LlamaLib 3.8GB + Bllossom 3B `.gguf` 1.9GB)
+
+**대체**
+- `ShowRandomTemplateEvent()` 신설. 예정 시각에 템플릿 풀에서 즉시 하나 뽑아 띄운다. 풀이 비어 있을 때만 하드코딩 이벤트(`Resources/Events/EVENT_*`)로 대체한다.
+- `LLMOutputSanitizer.TruncateForDisplay` → `ChoiceEventPopupUIController.TruncateForDisplay` private 헬퍼로 축소 이관. 레이아웃 붕괴 방지 상한만 남았다.
+
+**주의할 동작 변화**
+- **이벤트가 예정 시각에 정확히 뜬다.** 종전에는 생성이 안 끝나면 10분씩 최대 6회(인게임 60분) 미뤘다. 체감 페이싱이 달라질 수 있다.
+- `ForceTriggerTemplateEvent()`는 이제 호출할 때마다 템플릿을 새로 뽑는다. 종전에는 `activeTemplate`이 남아 있으면 같은 것을 반복했다.
+- **세이브 형식 변경 없음.** 프리페치 상태는 애초에 직렬화되지 않았다.
+
+**남은 부채**
+- 템플릿 요미 대사 726줄은 `GenerateTemplateFallbackText`가 조합표로 찍어낸 초안이라 실질 문구 다양성이 약 40종이다. 집필로 다듬어야 한다.
+- `YomiDialogueDatabase`(810줄)에는 `ChoiceEvent_*` 카테고리가 하나도 없다. 제거 이전에도 이 조회는 항상 빈손이었고, 이번에 조회 자체를 들어냈다. DB로 일원화하려면 카테고리 신설이 먼저다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

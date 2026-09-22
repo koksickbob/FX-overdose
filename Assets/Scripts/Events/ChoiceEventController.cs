@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEngine;
 using FXOverdose.Core;
 using FXOverdose.Trading;
-using FXOverdose.AI.LLM;
 
 namespace FXOverdose.Events
 {
@@ -39,34 +37,11 @@ namespace FXOverdose.Events
 
         [Header("이벤트 데이터 풀")]
         [SerializeField] private List<ChoiceEventSO> allEvents = new();
-        [Header("LLM 이벤트 논리 템플릿 풀")]
+        [Header("이벤트 논리 템플릿 풀")]
         [SerializeField] private List<EventLogicTemplateSO> logicTemplates = new();
-
-        [Header("요미 대사 소스 (Phase 4 하이브리드)")]
-        [Tooltip("이벤트 팝업의 요미 대사를 YomiDialogueDatabase에서 먼저 찾습니다. 없으면 템플릿 사전 대사 → LLM 순으로 폴백합니다.")]
-        [SerializeField] private bool preferYomiDialogueDatabase = true;
 
         private ChoiceEventSO currentActiveEvent; // 하드코딩 Fallback용 및 동적 생성용 공용
         private ChoiceEventSO dynamicEventInstance; // 메모리 릭 방지용 추적
-        private EventLogicTemplateSO activeTemplate; // LLM 템플릿용
-        private GeneratedChoiceEventData cachedLLMData;
-
-        // ── 프리페치 동시성 제어 (R1) ─────────────────────────────────────
-        // 과거에는 async void 프리페치가 진행 중인데 ResetDailySchedule/ScheduleNextRandomTrigger가
-        // isFetchingLLM = false로 되돌려 2차 프리페치가 동시 진입했고, activeTemplate은 await 이전에
-        // 덮어써지는데 cachedLLMData는 나중에 끝난 쪽이 써서 텍스트/로직 짝이 어긋났습니다.
-        //
-        // 해결: 일정이 초기화되면 진행 중 작업을 취소하고, 완료된 작업은 자신이 최신 세대인지
-        //       확인한 뒤에만 캐시에 기록합니다.
-        private CancellationTokenSource preFetchCts;
-        private int preFetchGeneration;
-
-        /// <summary>이번 예정 이벤트에 대해 사전 생성을 이미 한 번 시도했는지.</summary>
-        private bool preFetchAttempted;
-
-        /// <summary>생성이 늦어질 때 이벤트 발생을 미룬 횟수. 상한을 넘기면 사전 텍스트로 진행합니다.</summary>
-        private int preFetchDeferrals;
-        private const int MaxPreFetchDeferrals = 6; // 인게임 60분
 
         public bool IsEventActive => (uiController != null && uiController.IsShowing) || currentActiveEvent != null;
         public ChoiceEventSO CurrentActiveEvent => currentActiveEvent;
@@ -78,8 +53,6 @@ namespace FXOverdose.Events
         // 저장하지 않습니다 — 씬에 들어올 때마다 다시 검사해야 하는 값입니다.
         private bool scheduleValidatedThisSession = false;
         private int nextRandomTriggerMinuteOfDay = -1;
-        private int preFetchMinuteOfDay = -1;
-        private bool isFetchingLLM = false;
         private long lastEventTriggerGameMinutes = -999999L;
         private int eventsTriggeredToday = 0;
         private int lowMentalEventsTriggeredToday = 0;
@@ -138,11 +111,6 @@ namespace FXOverdose.Events
             {
                 gameManager.OnGameMinuteAdvanced -= OnGameMinuteAdvanced;
             }
-
-            // R4: 씬 언로드/게임 종료 시 진행 중인 생성 작업을 취소해 파괴된 오브젝트에 기록하지 않도록 합니다.
-            CancelPendingPreFetch();
-            preFetchCts?.Dispose();
-            preFetchCts = null;
         }
 
         /// <summary>
@@ -173,25 +141,6 @@ namespace FXOverdose.Events
 
             // 되돌린 스케줄이 지금 시각과 맞는지는 첫 분 진행 때 검사합니다.
             scheduleValidatedThisSession = false;
-        }
-
-        /// <summary>
-        /// 진행 중인 사전 생성을 취소하고 세대를 올립니다. 세대가 올라가면 이미 진행 중이던
-        /// 작업이 나중에 끝나더라도 자신이 구세대임을 알고 결과를 폐기합니다. (R1)
-        /// </summary>
-        private void CancelPendingPreFetch()
-        {
-            preFetchGeneration++;
-
-            if (preFetchCts != null)
-            {
-                try { preFetchCts.Cancel(); }
-                catch (ObjectDisposedException) { /* 이미 정리됨 */ }
-                preFetchCts.Dispose();
-                preFetchCts = null;
-            }
-
-            isFetchingLLM = false;
         }
 
         public void Initialize(GameManager gm, MarketSimulationEngine market, TradingController trading, TraderStatus status)
@@ -257,13 +206,7 @@ namespace FXOverdose.Events
             if (maxStartMinute <= minStartMinute) maxStartMinute = minStartMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minStartMinute, maxStartMinute);
-            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 60; // 60분 전 미리 캐싱 (시간적 여유 확보)
-            CancelPendingPreFetch(); // R1: 진행 중 생성이 있으면 취소하고 세대를 올린 뒤 캐시를 비웁니다.
-            preFetchAttempted = false;
-            preFetchDeferrals = 0;
-            cachedLLMData = null;
-            activeTemplate = null;
-            Debug.Log($"[ChoiceEventController] 📅 {day}일차 첫 돌발 선택 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2} (사전 생성: {preFetchMinuteOfDay / 60:D2}:{preFetchMinuteOfDay % 60:D2})");
+            Debug.Log($"[ChoiceEventController] 📅 {day}일차 첫 돌발 선택 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2}");
         }
 
         private void ScheduleNextRandomTrigger(int currentDayMinutes)
@@ -274,12 +217,6 @@ namespace FXOverdose.Events
             if (maxNextMinute <= minNextMinute) maxNextMinute = minNextMinute + 60;
 
             nextRandomTriggerMinuteOfDay = UnityEngine.Random.Range(minNextMinute, maxNextMinute);
-            preFetchMinuteOfDay = nextRandomTriggerMinuteOfDay - 60; // 60분 전 미리 캐싱
-            CancelPendingPreFetch(); // R1
-            preFetchAttempted = false;
-            preFetchDeferrals = 0;
-            cachedLLMData = null;
-            activeTemplate = null;
             Debug.Log($"[ChoiceEventController] 📅 다음 랜덤 이벤트 예정 시간: {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2} (최소 1시간 쿨다운 적용)");
         }
 
@@ -351,42 +288,12 @@ namespace FXOverdose.Events
                 return;
             }
 
-            // 2.5. 이벤트 발생 60분 전 사전 텍스트 생성 시작
-            //      ⚠️ preFetchAttempted로 1회만 시도합니다. 생성이 실패해 cachedLLMData가 null로
-            //         남는 것은 정상 결과이므로, 이것만 조건으로 삼으면 매 분 재시도하게 됩니다.
-            if (eventsTriggeredToday < DailyEventCap() && !preFetchAttempted &&
-                currentDayMinutes >= preFetchMinuteOfDay && currentDayMinutes < nextRandomTriggerMinuteOfDay)
-            {
-                StartPreFetchingLLMEvent();
-            }
-
             // 3. 일일 랜덤 발생 (하루 2회 한도 & 예정된 랜덤 시간 도달 시)
             if (eventsTriggeredToday < DailyEventCap() && currentDayMinutes >= nextRandomTriggerMinuteOfDay)
             {
-                // 💡 텍스트 생성이 아직 안 끝났다면 게임을 멈추지 않고 10분씩 미뤄서 기다려 줍니다.
-                //    단 무한정 미루지 않습니다. 상한을 넘기면 템플릿 사전 텍스트로 그냥 띄웁니다.
-                //    (Phase 4 이후로는 생성 성공이 이벤트 표시의 전제 조건이 아닙니다.)
-                if (isFetchingLLM && preFetchDeferrals < MaxPreFetchDeferrals)
-                {
-                    preFetchDeferrals++;
-                    nextRandomTriggerMinuteOfDay += 10;
-                    Debug.Log($"[ChoiceEventController] ⏳ 텍스트 생성 대기 중({preFetchDeferrals}/{MaxPreFetchDeferrals}). 이벤트 발생을 {nextRandomTriggerMinuteOfDay / 60:D2}:{nextRandomTriggerMinuteOfDay % 60:D2}으로 미룹니다.");
-                    return;
-                }
-
-                if (isFetchingLLM)
-                {
-                    Debug.LogWarning($"[ChoiceEventController] ⏱️ 텍스트 생성이 {MaxPreFetchDeferrals}회 연기 한도를 넘겨 사전 작성 텍스트로 진행합니다.");
-                    CancelPendingPreFetch();
-                }
-
-                // ⭐ Phase 4 하이브리드
-                // 템플릿이 잡혀 있으면 LLM 텍스트 생성 성공 여부와 무관하게 템플릿 로직으로 띄웁니다.
-                // (과거에는 LLM이 실패하면 템플릿을 버리고 완전히 다른 하드코딩 이벤트로 폴백해서
-                //  폴백 자체가 로직 일관성을 깨뜨렸습니다.)
-                bool shown = activeTemplate != null
-                    ? ShowTemplateEvent(activeTemplate, cachedLLMData)
-                    : TriggerRandomEvent(EventTriggerCondition.TimeOfDay);
+                // 텍스트가 전부 사전 작성 자산이므로 예정 시각에 그대로 띄웁니다.
+                // (생성 대기용 10분 연기 루프는 LLM 제거와 함께 사라졌습니다.)
+                bool shown = ShowRandomTemplateEvent();
 
                 if (!shown)
                 {
@@ -487,30 +394,29 @@ namespace FXOverdose.Events
         }
 
         /// <summary>
-        /// 템플릿 기반 돌발 이벤트를 즉시 1회 발생시킵니다. 디버그 메뉴와 검증 절차용 진입점입니다.
-        /// 캐시된 생성 텍스트가 있으면 쓰고, 없으면 템플릿 사전 텍스트로 즉시 띄웁니다.
-        /// (기존의 호출자 없는 TriggerPrefetchedEvent를 대체합니다 — M2)
+        /// 템플릿 풀에서 하나를 뽑아 돌발 이벤트를 띄웁니다.
+        /// 풀이 비어 있을 때만 하드코딩 이벤트(Resources/Events/EVENT_*)로 대체합니다.
         /// </summary>
-        public bool ForceTriggerTemplateEvent(EventLogicTemplateSO template = null)
+        private bool ShowRandomTemplateEvent()
         {
             EnsureTemplatesLoaded();
 
-            EventLogicTemplateSO target = template ?? activeTemplate;
-            if (target == null && logicTemplates.Count > 0)
-            {
-                target = logicTemplates[UnityEngine.Random.Range(0, logicTemplates.Count)];
-            }
-
-            if (target == null)
+            if (logicTemplates.Count == 0)
             {
                 Debug.LogWarning("[ChoiceEventController] 사용할 수 있는 로직 템플릿이 없어 하드코딩 이벤트로 대체합니다.");
                 return TriggerRandomEvent(EventTriggerCondition.Any);
             }
 
-            // 캐시는 이 템플릿을 위해 생성된 것일 때만 유효합니다.
-            var textData = (target == activeTemplate) ? cachedLLMData : null;
-            activeTemplate = target;
-            return ShowTemplateEvent(target, textData);
+            return ShowTemplateEvent(logicTemplates[UnityEngine.Random.Range(0, logicTemplates.Count)]);
+        }
+
+        /// <summary>
+        /// 템플릿 기반 돌발 이벤트를 즉시 1회 발생시킵니다. 디버그 메뉴와 검증 절차용 진입점입니다.
+        /// 템플릿을 지정하지 않으면 풀에서 무작위로 하나 뽑습니다.
+        /// </summary>
+        public bool ForceTriggerTemplateEvent(EventLogicTemplateSO template = null)
+        {
+            return template != null ? ShowTemplateEvent(template) : ShowRandomTemplateEvent();
         }
 
 
@@ -542,83 +448,10 @@ namespace FXOverdose.Events
             Debug.Log($"[ChoiceEventController] 로직 템플릿 {logicTemplates.Count}개 로드 완료" + (rejected > 0 ? $" (부적합 {rejected}개 제외)" : ""));
         }
 
-        /// <summary>
-        /// 이벤트 발생 예정 시각 이전에 텍스트를 미리 생성해 둡니다.
-        /// 호출부(OnGameMinuteAdvanced)는 동기 메서드이므로 fire-and-forget으로 시작하되,
-        /// 내부에서 세대 확인과 취소 토큰으로 경쟁 상태를 막습니다. (R1/R4)
-        /// </summary>
-        public void StartPreFetchingLLMEvent()
-        {
-            EnsureTemplatesLoaded();
-            if (logicTemplates.Count == 0) return; // 템플릿이 없으면 하드코딩 이벤트 경로로 넘어갑니다.
-
-            // 이전 작업이 남아 있으면 정리하고 새 세대를 엽니다.
-            CancelPendingPreFetch();
-
-            preFetchCts = new CancellationTokenSource();
-            int generation = ++preFetchGeneration;
-            preFetchAttempted = true;
-
-            // ⭐ 템플릿은 await 이전에 확정합니다. 생성이 늦어져도 로직은 이미 정해져 있으므로
-            //    사전 텍스트로 즉시 이벤트를 띄울 수 있습니다.
-            activeTemplate = logicTemplates[UnityEngine.Random.Range(0, logicTemplates.Count)];
-            cachedLLMData = null;
-            isFetchingLLM = true;
-
-            _ = PreFetchRoutineAsync(activeTemplate, generation, preFetchCts.Token);
-        }
-
-        private async System.Threading.Tasks.Task PreFetchRoutineAsync(
-            EventLogicTemplateSO template, int generation, CancellationToken token)
-        {
-            string marketContext = marketEngine != null
-                ? $"주가 ${marketEngine.CurrentPrice:F1} (24시간 최고 ${marketEngine.Current24hHigh:F1} / 최저 ${marketEngine.Current24hLow:F1}), 국면: {marketEngine.CurrentRegime}"
-                : "시장 지표를 읽을 수 없음";
-
-            GeneratedChoiceEventData result = null;
-
-            var generator = LLMSafeGenerator.Instance;
-            if (generator == null)
-            {
-                // R8: LLM_Manager는 TitleScene에만 있습니다. 에디터에서 GameScene을 직접 재생하면 없는 것이 정상이고,
-                //     이때는 템플릿 사전 텍스트로 이벤트가 그대로 표시되므로 빌드와 동작이 갈리지 않습니다.
-                Debug.Log("[ChoiceEventController] LLM 생성기가 없어 템플릿 사전 텍스트로 이벤트를 구성합니다.");
-            }
-            else
-            {
-                try
-                {
-                    result = await generator.GenerateChoiceEventAsync(template, marketContext, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    Debug.Log("[ChoiceEventController] 사전 텍스트 생성이 취소되었습니다.");
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[ChoiceEventController] 사전 텍스트 생성 실패: {e.Message}");
-                }
-            }
-
-            // ⭐ R1 핵심: 자신이 최신 세대인지 확인한 뒤에만 캐시에 기록합니다.
-            //    일자 전환 등으로 세대가 바뀌었다면 이 결과는 다른 템플릿용이므로 폐기합니다.
-            if (generation != preFetchGeneration || token.IsCancellationRequested)
-            {
-                Debug.Log($"[ChoiceEventController] 구세대(gen {generation} ≠ {preFetchGeneration}) 생성 결과를 폐기합니다.");
-                return;
-            }
-
-            if (this == null) return; // 씬 언로드로 파괴된 경우
-
-            cachedLLMData = result;
-            isFetchingLLM = false;
-        }
-
         private bool ShowChoiceDialog(ChoiceEventSO eventData)
         {
             if (eventData == null || uiController == null) return false;
             currentActiveEvent = eventData;
-            activeTemplate = null; // 템플릿 경로가 아님
 
             PrepareGamePause();
             AudioManager.Play(AudioCue.EventAppear, true);
@@ -627,13 +460,10 @@ namespace FXOverdose.Events
         }
 
         /// <summary>
-        /// 로직 템플릿으로 돌발 이벤트를 띄웁니다. (Phase 4 하이브리드의 핵심)
-        ///
-        /// 텍스트 출처는 "LLM 생성 성공 → 생성분 / 실패 → 템플릿 사전 텍스트" 로 분기하지만,
-        /// <b>선택지 로직(LogicOptions)은 어느 쪽이든 그대로 유지</b>됩니다.
-        /// 과거처럼 텍스트 생성 실패가 곧 다른 이벤트로의 교체를 의미하지 않습니다.
+        /// 로직 템플릿으로 돌발 이벤트를 띄웁니다. 표시 텍스트와 선택지 로직 모두
+        /// 템플릿 자산에 사전 작성된 값만 씁니다.
         /// </summary>
-        private bool ShowTemplateEvent(EventLogicTemplateSO template, GeneratedChoiceEventData generatedText)
+        private bool ShowTemplateEvent(EventLogicTemplateSO template)
         {
             if (template == null || uiController == null) return false;
 
@@ -644,13 +474,12 @@ namespace FXOverdose.Events
                 return TriggerRandomEvent(EventTriggerCondition.Any);
             }
 
-            if (!TryResolveEventText(template, generatedText, out string title, out string description, out string monologue))
+            if (!TryResolveEventText(template, out string title, out string description, out string monologue))
             {
                 Debug.LogError($"[ChoiceEventController] 템플릿 '{template.name}'의 표시 텍스트를 확보하지 못했습니다. 하드코딩 이벤트로 대체합니다.");
                 return TriggerRandomEvent(EventTriggerCondition.Any);
             }
 
-            activeTemplate = template;
             PrepareGamePause();
 
             // 기존에 만들었던 동적 인스턴스가 있다면 삭제
@@ -675,36 +504,25 @@ namespace FXOverdose.Events
             currentActiveEvent = dynamicEventInstance;
             AudioManager.Play(AudioCue.EventAppear, true);
             uiController.Show(dynamicEventInstance, OnOptionSelected);
-
-            cachedLLMData = null; // 소비 완료
             return true;
         }
 
         /// <summary>
-        /// 표시할 텍스트 3요소를 결정합니다.
+        /// 표시할 텍스트 3요소를 템플릿 자산에서 결정합니다.
         ///
-        /// 제목/본문 : LLM 생성분 → 템플릿 사전 텍스트 → 테마 서술 기반 자동 문구
-        /// 요미 대사 : YomiDialogueDatabase → LLM 생성분 → 템플릿 사전 대사 → 기본 문구
+        /// 제목/본문   : 템플릿 사전 텍스트 → 테마 서술 기반 자동 문구
+        /// 요미 대사   : 템플릿 사전 대사 후보 → 기본 문구
         ///
-        /// 요미 대사만 DB를 최우선으로 두는 이유는, 810개 검수된 대사 자산이 이미 있고
-        /// 게임 내 12곳에서 쓰이는데 가장 눈에 띄는 이벤트 팝업만 검증 불가능한 생성 텍스트를
-        /// 쓰고 있었기 때문입니다. (R9 / 5.3)
+        /// 자동 문구는 사전 텍스트를 아직 채우지 않은 템플릿이 들어와도 빈 팝업이 뜨지 않도록
+        /// 남겨 둔 최후의 방어선입니다. 현재 자산 242개는 모두 사전 텍스트가 채워져 있습니다.
         /// </summary>
         private bool TryResolveEventText(
             EventLogicTemplateSO template,
-            GeneratedChoiceEventData generatedText,
             out string title, out string description, out string monologue)
         {
-            bool usedLLM = generatedText != null;
+            title = template.FallbackTitle;
+            description = template.FallbackDescription;
 
-            title = usedLLM ? generatedText.ScenarioTitle : null;
-            description = usedLLM ? generatedText.ScenarioDescription : null;
-
-            if (string.IsNullOrWhiteSpace(title)) title = template.FallbackTitle;
-            if (string.IsNullOrWhiteSpace(description)) description = template.FallbackDescription;
-
-            // 사전 텍스트조차 비어 있으면 테마 서술로 최소한의 기사를 만듭니다.
-            // (아직 사전 텍스트를 채우지 않은 템플릿에서도 프롬프트가 노출되지 않도록 보장)
             string theme = template.GetThemeDescription();
             if (string.IsNullOrWhiteSpace(title)) title = "긴급 시장 속보";
             if (string.IsNullOrWhiteSpace(description))
@@ -712,37 +530,22 @@ namespace FXOverdose.Events
                 description = $"{theme} 시장 참여자들이 대응 방향을 두고 극심하게 갈리고 있습니다.";
             }
 
-            monologue = ResolveYomiLine(template, usedLLM ? generatedText.AIMonologue : null);
-
-            Debug.Log($"[ChoiceEventController] 📰 텍스트 출처: 기사={(usedLLM ? "LLM 생성" : "사전 작성")} / 템플릿={template.TemplateID}");
+            monologue = ResolveYomiLine(template);
 
             return !string.IsNullOrWhiteSpace(title)
                 && !string.IsNullOrWhiteSpace(description)
                 && !string.IsNullOrWhiteSpace(monologue);
         }
 
-        private string ResolveYomiLine(EventLogicTemplateSO template, string generatedLine)
+        /// <summary>
+        /// 이벤트 팝업에 띄울 요미 반응을 템플릿의 사전 대사 후보에서 고릅니다.
+        /// 후보가 비어 있을 때만 기본 문구로 떨어집니다.
+        /// </summary>
+        private string ResolveYomiLine(EventLogicTemplateSO template)
         {
-            // 1순위: 검수된 요미 대사 DB
-            if (preferYomiDialogueDatabase)
+            var pool = template.FallbackMonologues;
+            if (pool != null && pool.Length > 0)
             {
-                var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
-                if (matcher != null)
-                {
-                    string category = BuildYomiEventCategory(template);
-                    string dbLine = matcher.GetEventDialogue(category);
-                    if (string.IsNullOrWhiteSpace(dbLine)) dbLine = matcher.GetEventDialogue("ChoiceEvent_Generic");
-                    if (!string.IsNullOrWhiteSpace(dbLine)) return dbLine;
-                }
-            }
-
-            // 2순위: LLM 생성분
-            if (!string.IsNullOrWhiteSpace(generatedLine)) return generatedLine;
-
-            // 3순위: 템플릿 사전 대사 후보
-            if (template.FallbackMonologues != null && template.FallbackMonologues.Length > 0)
-            {
-                var pool = template.FallbackMonologues;
                 for (int attempt = 0; attempt < pool.Length; attempt++)
                 {
                     string candidate = pool[UnityEngine.Random.Range(0, pool.Length)];
@@ -750,22 +553,7 @@ namespace FXOverdose.Events
                 }
             }
 
-            // 4순위: 기본 문구
             return "오빠...! 이거 지금 어떻게 할지 빨리 정해줘!";
-        }
-
-        /// <summary>
-        /// 템플릿 ID의 카테고리·흐름 부분으로 요미 대사 DB 조회 키를 만듭니다.
-        /// 예: "Whale_Crash_High_AsiaSession" → "ChoiceEvent_Whale_Crash"
-        /// </summary>
-        private static string BuildYomiEventCategory(EventLogicTemplateSO template)
-        {
-            string id = template.TemplateID;
-            if (string.IsNullOrWhiteSpace(id)) return "ChoiceEvent_Generic";
-
-            string[] parts = id.Split('_');
-            if (parts.Length >= 2) return $"ChoiceEvent_{parts[0]}_{parts[1]}";
-            return $"ChoiceEvent_{parts[0]}";
         }
 
         private ChoiceOptionData ConvertTemplateOption(EventLogicOptionData logicOption)

@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "ai.undream.llm": "https://github.com/undreamai/LLMUnity.git",
     "com.community.netcode.transport.steamnetworkingsockets": "https://github.com/Unity-Technologies/multiplayer-community-contributions.git?path=/Transports/com.community.netcode.transport.steamnetworkingsockets",
     "com.unity.2d.animation": "15.1.0",
     "com.unity.2d.aseprite": "5.0.3",
