@@ -385,8 +385,8 @@ ROE(%)      = 미실현손익 / margin × 100
 
 | 상태 | 멘탈 | 진입 시 동작 |
 |---|---|---|
-| `Stable` | > 50 | — |
-| `Anxious` | ≤ 50 | — |
+| `Stable` | > 50 | 불안·위험·오버도즈에서 회복할 때 요미 회복 대사 (거래 중·20초 쿨다운, DEAD-2) |
+| `Anxious` | ≤ 50 | 안정에서 내려올 때 요미 불안 대사 (거래 중·20초 쿨다운, DEAD-2) |
 | `Danger` | ≤ 25 | **40% 확률로 100배 뇌동매매** (`TriggerImpulsiveTrade(100)`) |
 | `Overdose` | ≤ 0 | 슬로우모션 + **`TriggerOverdoseTrade()`** (최초 진입 시 1회만) |
 
@@ -965,7 +965,9 @@ visual?.DisplayDialogueBalloon(line, DialoguePriority.High, EventCategory.Mental
 
 > ⚠️ 새 한국어 리터럴을 넣으므로 `Tools/Prebake All Scripts Text into Font` 재실행이 필요합니다(§18).
 
-#### 🅰 멘탈 상태 전이 대사 (Anxious / Stable) — 구현만 비어 있음
+#### 🅰 멘탈 상태 전이 대사 (Anxious / Stable) — 구현만 비어 있음 → ✅ 채움 (2026-10-06, DEAD-2)
+
+> 처리 결과: 두 빈 블록에 악화(안정→불안)·회복(→안정) 대사를 넣었습니다. 멘탈이 50 근처에서 오르내리면 반복되므로 **실시간 20초 쿨다운**을 두고, 다음 날 정산 중 멘탈이 최대로 회복될 때 대사가 튀지 않도록 **`Playing` 상태에서만** 말합니다. 새 글자는 모두 아틀라스에 있어 프리베이크 불필요. 아래는 처리 전 기록입니다.
 
 [TraderStatus.cs:545-558](../../Assets/Scripts/TraderStatus.cs#L545) — 위와 같은 형태의 빈 블록 2개입니다.
 

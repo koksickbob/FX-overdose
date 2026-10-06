@@ -523,6 +523,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Anxious;
                 if (lastTrackedMentalState == MentalState.Stable)
                 {
+                    SayMentalTransition("으음... 요미 슬슬 불안해지기 시작했어... 오빠, 우리 무리하지 말자 응...?");
                 }
             }
         }
@@ -533,6 +534,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Stable;
                 if (lastTrackedMentalState != MentalState.Stable)
                 {
+                    SayMentalTransition("후우~ 이제 좀 살 것 같아! 요미 다시 집중할 수 있어, 오빠!");
                 }
             }
         }
@@ -550,6 +552,25 @@ public class TraderStatus : MonoBehaviour
             OnMentalStateChanged?.Invoke(currentMentalState);
         }
         lastTrackedMentalState = currentMentalState;
+    }
+
+    // 멘탈 상태 전이 대사의 마지막 출력 시각(실시간). 멘탈이 50 근처에서 오르내릴 때 같은 말을 반복하지 않게 합니다.
+    private float lastMentalTransitionLineTime = -999f;
+    private const float MentalTransitionLineCooldown = 20f;
+
+    /// <summary>
+    /// 안정 ↔ 불안 전이를 요미가 말합니다. (DEAD-2)
+    /// 거래 중(Playing)에만 말합니다 — 다음 날로 넘어갈 때 정산 화면에서 멘탈이 최대로 회복되며
+    /// "회복" 대사가 튀어나오는 것을 막습니다.
+    /// </summary>
+    private void SayMentalTransition(string line)
+    {
+        if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing) return;
+        if (Time.unscaledTime - lastMentalTransitionLineTime < MentalTransitionLineCooldown) return;
+        lastMentalTransitionLineTime = Time.unscaledTime;
+
+        var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+        visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.MentalChange);
     }
 
     // --- 돌발 선택 이벤트 연동 메서드 ---
