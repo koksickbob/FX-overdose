@@ -457,6 +457,12 @@ namespace FXOverdose.Trading
 
         private const long MinutesPerDay = 1440;
 
+        // GARCH 풍 변동성 군집 (REAL-5). 분산 공간의 분당 회귀율·반응률과, 국면 목표 대비 상·하한.
+        private const float VolMeanReversionPerMinute = 0.1f;  // 반감기 약 7분
+        private const float VolShockWeightPerMinute = 0.1f;
+        private const float MinVolToTarget = 0.5f;
+        private const float MaxVolToTarget = 4f;
+
         // 점프 항 (REAL-4). 거래일(09~24시 = 900분)당 평균 3회, 크기는 로그정규 중앙값 1.2% (0.5~3%).
         private const float JumpsPerMinute = 3f / 900f;
         private const float JumpMedianPct = 1.2f;
@@ -801,8 +807,16 @@ namespace FXOverdose.Trading
 
             drift += waveDrift + macroDrift;
 
-            // 2. GARCH 스타일 변동성 군집 (TargetVol로 서서히 수렴하거나 스파이크 후 유지)
-            currentVolatility = Mathf.Lerp(currentVolatility, targetVol, dtFraction * 5f);
+            // 2. GARCH 풍 변동성 군집 (REAL-5) — ① 국면 목표로 서서히 회귀
+            // 예전 Lerp(…, dtFraction × 5)는 1~5일차 틱(dtFraction 0.2)에서 계수가 정확히 1이라 매 틱 목표로 즉시 덮어썼습니다.
+            // 그래서 "스파이크 후 유지"가 없었고 유동성 사냥 ×2·이벤트 빔 ×1.8/×3.0·점프 ×1.5가 다음 틱에 지워졌습니다.
+            // 이제 분산 공간에서 분당 VolMeanReversionPerMinute만큼만 회귀합니다(반감기 약 7분). ② 실현 변동 반응은 틱 끝에서.
+            {
+                float v = currentVolatility * currentVolatility;
+                float vTarget = targetVol * targetVol;
+                v += (vTarget - v) * Mathf.Min(1f, VolMeanReversionPerMinute * dtFraction);
+                currentVolatility = Mathf.Sqrt(Mathf.Max(0f, v));
+            }
 
             // 3. OU (Ornstein-Uhlenbeck) 평균 회귀 항
             float ouTerm = ouTheta * (ouCenterPrice - currentPrice) / currentPrice;
@@ -997,6 +1011,16 @@ namespace FXOverdose.Trading
                     }
                     }
                 }
+            }
+
+            // GARCH 풍 변동성 군집 (REAL-5) — ② 실현 변동에 반응
+            // 이번 틱의 실현 분산(분 단위로 환산)을 향해 조금 움직입니다. 정규 노이즈에서는 기댓값이 현재 분산과 같아
+            // 평균 수준은 그대로이고, 큰 움직임 뒤에는 변동성이 커진 채 한동안 남습니다(변동성 군집).
+            {
+                float realizedVar = totalReturn * totalReturn / Mathf.Max(1e-6f, dtFraction);
+                float v = currentVolatility * currentVolatility;
+                v += (realizedVar - v) * Mathf.Min(1f, VolShockWeightPerMinute * dtFraction);
+                currentVolatility = Mathf.Clamp(Mathf.Sqrt(Mathf.Max(0f, v)), targetVol * MinVolToTarget, targetVol * MaxVolToTarget);
             }
 
             // 6. 가격 변동 적용

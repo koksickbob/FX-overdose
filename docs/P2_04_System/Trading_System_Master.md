@@ -102,7 +102,10 @@ totalReturn = (drift × dtFraction) + (ouTerm × dtFraction) + stochasticNoise (
 drift        = 국면 드리프트 + 파동(사인 3중첩, 주기·위상은 하루마다 추첨) + 일일 거시 드리프트 (+ 신호 구간 보정)
 ouTerm       = ouTheta × (ouCenterPrice - currentPrice) / currentPrice     ← 평균 회귀
 stochasticNoise = currentVolatility × √dtFraction × N(0,1)                ← Box-Muller
-currentVolatility = Lerp(현재, targetVol, dtFraction × 5)                  ← GARCH 풍 군집
+분산 v = currentVolatility²                                               ← GARCH 풍 군집 (REAL-5)
+  틱 시작: v += (targetVol² − v) × 0.1 × dtFraction        (국면 목표로 회귀, 반감기 ≈ 7분)
+  틱 끝:   v += (실현수익률²/dtFraction − v) × 0.1 × dtFraction  (큰 움직임 뒤 변동성이 남음)
+  currentVolatility = clamp(√v, 0.5 × targetVol, 4 × targetVol)
 ```
 
 최저가 방어는 `if (!(currentPrice >= 10f)) currentPrice = 10f;` — **긍정 조건을 부정하는 형태여야 NaN도 걸립니다.** 이 패턴은 코드 전역의 관례입니다.
@@ -1322,7 +1325,7 @@ Box-Muller로 `N(0,1)`을 씁니다. 실제 BTC 로그수익률은 첨도가 매
 
 게임에서는 **변동성 자체를 키워야만 큰 움직임이 나옵니다.** "평온하던 차트가 예고 없이 2% 점프"가 구조적으로 불가능하고, 큰 움직임은 전부 신호 시스템이 사전에 예고합니다. 점프-확산 항이나 Student-t 분포 하나로 해결됩니다.
 
-**⑤ 변동성 군집이 가짜 (GARCH가 아님)**
+**⑤ 변동성 군집이 가짜 (GARCH가 아님)** — ✅ 해소 (2026-10-06, REAL-5). 확인해 보니 기존 `Lerp(…, dtFraction × 5)`는 1~5일차 틱(dtFraction 0.2)에서 계수가 정확히 1이라 **매 틱 목표값으로 즉시 덮어썼고**, 유동성 사냥 ×2·이벤트 빔 ×1.8/×3.0 같은 순간 변동성 증폭이 다음 틱에 지워지고 있었습니다. 분산 공간의 느린 회귀(분당 0.1) + 실현 변동 반응(분당 0.1)으로 바꿔(§2.1), 시뮬레이션에서 분당 |수익률| 자기상관이 0 → lag1 +0.11 / lag15 +0.04로 바뀌었습니다. 평균 실현 변동은 점프 여진만큼 약 8% 올랐습니다(REAL-7에서 재조정).
 
 ```csharp
 currentVolatility = Mathf.Lerp(currentVolatility, targetVol, dtFraction * 5f);
