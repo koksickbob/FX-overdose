@@ -457,6 +457,10 @@ namespace FXOverdose.Trading
 
         private const long MinutesPerDay = 1440;
 
+        // 점프 항 (REAL-4). 거래일(09~24시 = 900분)당 평균 3회, 크기는 로그정규 중앙값 1.2% (0.5~3%).
+        private const float JumpsPerMinute = 3f / 900f;
+        private const float JumpMedianPct = 1.2f;
+
         // GraceWindow 막바지(경과 60% 이후)에 유인 방향으로 기우는 분당 드리프트 (SIG-B6). 노이즈보다 작아 "기운다" 정도입니다.
         private const float GraceLeanPerMinute = 0.0005f;
 
@@ -918,6 +922,18 @@ namespace FXOverdose.Trading
 
             // 5. 최종 수익률 
             float totalReturn = (drift * dtFraction) + (ouTerm * dtFraction) + stochasticNoise;
+
+            // 점프 항 (REAL-4) — 정규분포 노이즈만으로는 꼬리가 얇아 "평온하던 차트가 예고 없이 튀는" 일이
+            // 구조적으로 불가능했습니다. 평시 구간에만 낮은 확률로 무작위 점프를 넣고, 점프 직후엔 변동성이 남게 합니다.
+            // 신호 구간(예고·확정)·오버도즈 함정·고속 스킵에서는 끕니다 — 기획된 궤적과 연출을 방해하지 않도록.
+            if (!IsOverridingTrend && !isOverdoseTrapOverride && !IsFastForwarding
+                && UnityEngine.Random.value < JumpsPerMinute * dtFraction)
+            {
+                float jumpPct = Mathf.Clamp(JumpMedianPct * Mathf.Exp(0.4f * GaussianSample()), 0.5f, 3f);
+                totalReturn += (UnityEngine.Random.value < 0.5f ? jumpPct : -jumpPct) / 100f;
+                currentVolatility *= 1.5f;
+                Debug.Log($"[MarketEngine] ⚡ 가격 점프 {jumpPct:F2}% (예고 없음)");
+            }
 
             // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어 (자연스러운 스프링 꼬리 효과)]
             // 주의: 오버도즈 폭주(isOverdoseTrapOverride) 발동 중에는 어떠한 가드도 무시하고 청산(-100%)을 우선시합니다.

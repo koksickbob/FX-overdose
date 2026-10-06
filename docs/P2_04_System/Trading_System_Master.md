@@ -97,7 +97,7 @@ GameManager (시계·잔고·상태머신·정산·엔딩)
 한 틱의 수익률:
 
 ```
-totalReturn = (drift × dtFraction) + (ouTerm × dtFraction) + stochasticNoise
+totalReturn = (drift × dtFraction) + (ouTerm × dtFraction) + stochasticNoise (+ 점프)
 
 drift        = 국면 드리프트 + 파동(사인 3중첩, 주기·위상은 하루마다 추첨) + 일일 거시 드리프트 (+ 신호 구간 보정)
 ouTerm       = ouTheta × (ouCenterPrice - currentPrice) / currentPrice     ← 평균 회귀
@@ -1316,7 +1316,7 @@ targetVol *= dayVolatilityMultiplier;   // ← 추가
 - 슬리피지가 주문 규모가 아니라 **일차(day)에만** 연동됩니다 (`price × 0.0005 × slippageRange`)
 - 호가 벽·스푸핑·아이스버그 같은 "읽을 거리"가 없습니다
 
-**④ 수익률 분포가 정규분포 → 꼬리가 얇음**
+**④ 수익률 분포가 정규분포 → 꼬리가 얇음** — ✅ 해소 (2026-10-06, REAL-4: 평시 구간에 분당 3/900 확률의 무작위 점프, 크기 로그정규 중앙값 1.2%(0.5~3%), 방향 무작위, 점프 직후 순간 변동성 ×1.5. 신호 예고·확정 구간·오버도즈 함정·고속 스킵에서는 끔 — 실제 빈도는 평시 비율만큼 거래일당 대략 1.5~2회)
 
 Box-Muller로 `N(0,1)`을 씁니다. 실제 BTC 로그수익률은 첨도가 매우 높아 5~10σ 사건이 드물지 않습니다.
 
