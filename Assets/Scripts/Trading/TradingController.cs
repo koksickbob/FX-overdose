@@ -17,6 +17,10 @@ namespace FXOverdose.Trading
         // 진입·청산 수수료율 (포지션 규모 = 증거금 × 레버리지 기준). 밸런스 조정에서 자주 건드리는 값이라 한 곳에 둡니다.
         private const float TradeFeeRate = 0.0006f;
 
+        // 손절 강도(가격 비율, TraderLevelSystem.GetStopLossTightness)를 이벤트·고속 스킵 강제 손절의 ROE(%)로 바꾸는 배수.
+        // 레버리지와 무관한 고정 환산이라 LV.1(9%) → -30%, LV.10(1.5%) → -5%가 됩니다.
+        private const float StopLossTightnessToROE = 333f;
+
         private bool p2pExternalMode;
         private float p2pUnrealizedPnL;
         public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
@@ -513,7 +517,7 @@ namespace FXOverdose.Trading
 
                 case EventPositionHandlingMode.InstantStopLoss:
                     float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
-                    float dynamicStopLoss = -stopLossTightness * 3.33f * 100f; // -30% ~ -5%
+                    float dynamicStopLoss = -stopLossTightness * StopLossTightnessToROE; // 책읽기 LV.1 -30% ~ LV.10 -5%
                     float targetStopLossROE = eventStopLossROELimit < 0f ? eventStopLossROELimit : dynamicStopLoss;
                     if (roe <= targetStopLossROE)
                     {
@@ -732,7 +736,7 @@ namespace FXOverdose.Trading
                 float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
 
                 float dynamicTakeProfitRoe = 50f * takeProfitMultiplier;
-                float dynamicStopLossRoe = -stopLossTightness * 3.33f * 100f;
+                float dynamicStopLossRoe = -stopLossTightness * StopLossTightnessToROE;
 
                 if (skipRoe >= dynamicTakeProfitRoe)
                 {
