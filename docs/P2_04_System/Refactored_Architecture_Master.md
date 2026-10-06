@@ -12,7 +12,7 @@
 #### GameManager.cs
 * **하드코딩 제거 (데이터화):** 
   * 기존 코드에 하드코딩되었던 스토리 컷씬/독백용 텍스트(`day1Monologue` 등)를 `[SerializeField]` 리스트로 추출하여 외부 노출.
-  * 하드코딩된 일차별 페널티/지출 조건(`CalculateExpectedDeduction()`)을 `[System.Serializable] struct RegularDeductionEvent` 구조로 분리하고 인스펙터 리스트(`regularDeductions`)로 데이터 연동.
+  * ~~하드코딩된 일차별 페널티/지출 조건(`CalculateExpectedDeduction()`)을 `[System.Serializable] struct RegularDeductionEvent` 구조로 분리하고 인스펙터 리스트(`regularDeductions`)로 데이터 연동.~~ *(철회 2026-10-06: 정기 지출 자체가 삭제되어 데이터화할 대상이 없음 — §15.2)*
   * 보스 등장 및 패배 시 나오는 하드코딩 스트링 대사들을 배열(Format string)로 추출.
 * **이벤트 기반 최적화:** 
   * 인게임 타이머와 정산 구조에서 기존 이벤트(`Action`) 구조가 온전히 작동하도록 코드 흐름 정리.
@@ -377,7 +377,7 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 ### 8.5 날짜 점프의 함정
 
-`AdvanceDate(days)`를 넣었으나 **날짜만 옮긴다** — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋은 하지 않는다. 건너뛴 날의 정기 지출 정책도 미정이라 실제로 점프를 쓰는 스토리 작업에서 정해야 한다.
+`AdvanceDate(days)`를 넣었으나 **날짜만 옮긴다** — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋은 하지 않는다. 건너뛴 날에 하루 전환 처리를 할지는 실제로 점프를 쓰는 스토리 작업에서 정해야 한다. *(정기 지출 정책 쟁점은 2026-10-06 정기 지출 삭제로 소멸 — §15.2)*
 
 예약 일차(보스·스토리 이벤트·`StoryLastDay`)는 넘지 못하고 그 날에서 멈추며 경고를 남긴다. 특히 **최종일 판정이 등호 비교(`CurrentDay == StoryLastDay`)라 뛰어넘으면 엔딩이 영영 발생하지 않는다.**
 
@@ -659,6 +659,26 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 **검증 자산**: `SaveRoundTripTester`의 SV-A1(`IsLeverageAddicted`) 항목을 SV-A3(`CurrentLosingStreak == 3`) 왕복 검사로 교체. 항목만 빼면 그 회귀 가드가 사라진다.
 
 **세이브**: 구버전 세이브의 중독 필드는 `JsonUtility`가 무시한다. 마이그레이션 불필요. 멘탈 예산(`verify_mental_balance.py`)은 이 기믹이 멘탈을 직접 깎지 않으므로 무관.
+
+### 15.2 DEL-2 — 정기 지출 + 요미 지출 예고 삭제
+
+메인스토리 편입으로 지출 예고 기믹의 존재 의미가 사라졌고, 자산 압박은 추후 일괄 재설계하기로 해 정기 지출째 걷어냈다.
+
+**삭제**
+- `GameManager.CalculateExpectedDeduction()` — 3·7·11·15·18일차 금액표와 엔드리스 `150,000 × 1.3^사이클`
+- `TodayRegularDeduction` / `TodayRegularDeductionReason` 프로퍼티와 그 세이브(`Capture`/`RestoreSettlementContext`)·리셋(`StartNewGame`/`FinalizeProceedToNextDay`) 경로
+- `ProcessDailySettlementWithStory()`의 정기 지출 차감 블록
+- 요미 지출 예고 기믹: `AnnounceTodayExpenses()`, `expenseAnnouncedForDay`, `AdvanceOneMinute()`의 호출부. 위약금이 이미 꺼져 있어 정기 지출만 빼도 항상 조기 반환하는 빈 껍데기였으므로 통째로 제거
+- `DailySettlementUIController`의 `SYSTEM EXPENSE CHARGED` 반응 분기
+- `SaveData.TodayRegularDeduction` / `TodayRegularDeductionReason`
+
+**유지**: 스토리 위약금 경로 전체(`StoryPenaltiesEnabled` 스위치로 되살릴 수 있도록) — 24:00 파산 예정 판정도 위약금 항만 남겨 유지했다. 상점·스킬 인플레이션은 별도 압박 축이라 그대로.
+
+**주석 삭제**: `StoryDayLimitEnabled` doc의 "정기 지출로 압박 유지" 문단, `StoryPenaltiesEnabled` doc의 "정기 지출은 위약금이 아니다" 문단, `DisableStoryPenaltiesIfNeeded` 로그의 괄호, `AdvanceDate`의 정기 지출 정책 문장, `RoomSettlementUIBootstrap`의 근거 주석. **마지막 것은 주석만 지우고 `GameOverUIController` 설치 코드는 유지했다** — 방에서도 `WorldMapManager`의 데이트 비용·알바 경로로 파산할 수 있다.
+
+**세이브**: 구버전 세이브의 2필드는 `JsonUtility`가 무시. 마이그레이션 불필요.
+
+**남은 공백**: 엔드리스 21일차 이후 자산을 깎는 요소가 없다. 대체 후보는 펀딩비(백로그 REAL-1).
 
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

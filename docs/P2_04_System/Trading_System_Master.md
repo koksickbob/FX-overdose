@@ -7,7 +7,7 @@
 - **§1~18**은 현재 동작의 기술(記述), **§19는 고쳐야 할 결함·불일치**, **§20은 실제 BTC 선물 시장과의 격차**, **§21은 신호 시스템(§3)의 다양성 개선 후보**, **§22~23은 삭제 계획**입니다. §20과 §21은 성격이 다릅니다 — 전자는 *현실성*, 후자는 *플레이 체감*이며 겹치는 항목은 서로 참조만 합니다.
 - **삭제 결정 진행 상황**
   - ✅ **기믹 4 (고배율 중독 금단현상)** 삭제 — 2026-10-06 완료 (§22)
-  - 🗑️ **정기 지출 전면** 삭제 — 2026-10-06 결정 / 미실행 (§23)
+  - ✅ **정기 지출 + 요미 지출 예고** 삭제 — 2026-10-06 완료 (§23)
 
 > **▶ 할 일을 찾는다면 [Trading_System_Refactor_Backlog.md](Trading_System_Refactor_Backlog.md)로 가십시오.** 이 문서의 §17.2·§19~§23에 흩어진 개선·삭제 항목을 ID·의존성·실행 순서로 정리한 백로그입니다. **근거와 수치는 이 문서에, 순서와 상태는 그쪽에** 둡니다 — 중복 기재하지 않습니다.
 >
@@ -48,7 +48,7 @@ GameManager (시계·잔고·상태머신·정산·엔딩)
 | 날짜 | `startDate` = 2026-06-26, `CurrentDay = (currentDate - startDate).Days + 1` | [GameCalendar.cs](../../Assets/Scripts/System/GameCalendar.cs), [GameManager.cs:228](../../Assets/Scripts/GameManager.cs#L228) |
 | 1분 진행 | `timeAccumulator`가 `secondsPerGameMinute`를 넘을 때마다 `AdvanceOneMinute()` | [GameManager.cs:832](../../Assets/Scripts/GameManager.cs#L832) |
 
-`AdvanceOneMinute()`의 실행 순서가 중요합니다 — ① 분 증가 → ② `OnGameMinuteAdvanced` 발행 → ③ 자산 표본 기록 → ④ 당일 지출 예고(하루 1회) → ⑤ 24시 도달 시 정산 진입. 구독자가 그 분의 손익을 반영한 뒤에 표본을 찍기 위해 순서를 바꾸면 한 틱 밀린 값이 기록됩니다.
+`AdvanceOneMinute()`의 실행 순서가 중요합니다 — ① 분 증가 → ② `OnGameMinuteAdvanced` 발행 → ③ 자산 표본 기록 → ④ 24시 도달 시 정산 진입. 구독자가 그 분의 손익을 반영한 뒤에 표본을 찍기 위해 순서를 바꾸면 한 틱 밀린 값이 기록됩니다.
 
 ### 1.2 GameState
 
@@ -767,26 +767,13 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 
 1. 열려 있는 포지션 **전량 강제 청산** (당일 손익 확정)
 2. 강제 청산으로 게임오버 발생 시 정산·저장 중단
-3. 예정 페널티·정기 지출을 미리 계산해 **파산 예정 여부** 판정 — 🗑️ §23 삭제 후에는 두 값이 모두 항상 0이라 이 분기가 사실상 죽습니다
+3. 예정 위약금을 미리 계산해 **파산 예정 여부** 판정 — 위약금이 `StoryPenaltiesEnabled = false`로 0인 동안은 사실상 항상 "파산 예정 아님"
 4. 파산 예정이 아니면 **자동 저장** (정산 화면을 보고 꺼도 진행 상황 유지). 파산 확정이면 저장 생략 → 아침 09:00부터 재시작 가능
-5. `ProcessDailySettlementWithStory()` → `Settlement` 상태, 페널티·정기 지출 차감, 컷씬 재생, `OnDayEnded` 발행
+5. `ProcessDailySettlementWithStory()` → `Settlement` 상태, 위약금 차감(현재 0), 컷씬 재생, `OnDayEnded` 발행
 
-### 11.2 정기 지출 (인플레이션형) 🗑️ 삭제 예정
+### 11.2 정기 지출 — 삭제됨
 
-> **2026-10-06 전면 삭제 결정.** 아래는 삭제 전 현재 동작이며, 범위·절차·영향은 **§23**에 있습니다. 이 절은 작업 완료 후 함께 제거합니다.
-
-| 일차 | 금액 | 사유 |
-|---|---|---|
-| 3 | $5,000 | 트레이딩 플랫폼 프리미엄 구독료 |
-| 7 | $12,000 | 불법 거래소 단속 회피 로비 자금 |
-| 11 | $20,000 | 의문의 해킹 공격 복구 비용 |
-| 15 | $60,000 | 최종 결전 장비 오버클럭 세팅비 |
-| 18 | $150,000 | 작전 세력 정보 수수료 |
-| 21+ (3일 주기) | `150,000 × 1.3^사이클` | 시스템 유지보수 비용 (엔드리스) |
-
-**요미의 지출 예고**: 그날 트레이딩이 실제로 시작된 뒤 첫 분에 하루 1회 말풍선으로 미리 알립니다. 16일차는 아침에 이미 차감되므로 예고 대상에서 제외 ([GameManager.cs:958](../../Assets/Scripts/GameManager.cs#L958)).
-
-> 🗑️ **이 기믹은 메인스토리 편입으로 존재 의미가 사라져 폐기 확정입니다 (2026-10-06).** 정기 지출과 함께 메서드째 제거합니다 — §23.2.
+일차별 강제 차감(3·7·11·15·18일차 + 엔드리스 21일차 이후 3일 주기)과 요미의 지출 예고 대사는 **2026-10-06 삭제되었습니다** (§23, 백로그 DEL-2). 현재 하루 마감 시 잔고를 깎는 경로는 스토리 위약금(꺼져 있음)뿐입니다. 자산 압박 설계는 메인스토리 편입과 함께 재설계 예정입니다.
 
 ### 11.3 다음 날 진입 (FinalizeProceedToNextDay)
 
@@ -872,7 +859,6 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 | 보스 | **OFF** (스위치) | ✅ | ✅ | 미사용 |
 | 시작 자본 | 난이도별 | 7,000 | 7,000 | 호스트 규칙 |
 | 돌발 이벤트 하루 상한 | 거래 시간에 따라 0~2 | 2 | 2 | 미사용 |
-| 정기 지출 | 일차표 | 21일차부터 3일 주기 | 일차표 | 미사용 |
 
 **난이도 (Story 전용)** — [StoryDifficulty.cs](../../Assets/Scripts/System/StoryDifficulty.cs)
 
@@ -898,7 +884,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 
 | 소유자 | 저장 항목 |
 |---|---|
-`GameManager` | 잔고, 날짜/시각, `StartOfDayEquity`, 정산 컨텍스트(지출 금액·사유 2필드는 §23에서 삭제 예정), 자산 스파크라인 |
+`GameManager` | 잔고, 날짜/시각, `StartOfDayEquity`, 정산 컨텍스트, 자산 스파크라인 |
 `TradingController` | 거래 모드, AI 성향, **이벤트 포지션 계약**(모드/목표ROE/손절ROE/플레이어선택/진위), 포지션 전체 |
 `MarketSimulationEngine` | 현재가, 24h 고저/거래량, 국면, 일일 국면, **국면 갱신 일차**, 국면 유지 시간, 누적 분, 전체 캔들 히스토리(평탄화) |
 `TraderStatus` | HP, 멘탈, 멘탈 상태, 최대 멘탈, **연패 카운터** |
@@ -931,6 +917,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 | 수면 부족 연쇄 / 횡보 지루함 / 드로다운 트라우마 | 기획에서 제외, 분 단위 핸들러째 제거 | 핸들러 + `OnGameMinuteAdvanced` 구독을 함께 복구 |
 | LLM 전반 | **2026-09-22 전면 제거.** 프로젝트에 LLM이 존재하지 않음 | 되살릴 계획 없음 |
 | 고배율 중독 금단현상 (구 기믹 4) | **2026-10-06 완전 제거.** 상태·세이브 필드·치료 아이템 경로·영구 수동 락 API까지 함께 삭제 (§22) | 되살릴 계획 없음 |
+| 정기 지출 + 요미 지출 예고 | **2026-10-06 완전 제거.** 금액표·예고 대사·정산 UI 분기·세이브 2필드까지 함께 삭제 (§23). 엔드리스 장기 압박은 공백 — 재설계 대상 | 되살릴 계획 없음 |
 
 ### 17.2 죽은 코드 — 의도 판정과 개선안
 
@@ -1576,158 +1563,14 @@ Tier 1 네 개만으로 체감이 가장 크게 바뀝니다. 특히 **B3와 B5�
 
 ---
 
-## 23. 정기 지출 전면 삭제 계획
+## 23. 정기 지출 전면 삭제 — ✅ 완료
 
-- **결정일**: 2026-10-06
-- **상태**: 계획 수립 완료 / **미실행**
-- **대상**: §11.2 정기 지출 전체 (3·7·11·15·18일차 + 엔드리스 21일차 이후 3일 주기)와 그에만 종속된 상태·UI·세이브 필드
+**2026-10-06 완료** (백로그 DEL-2). 계획서 본문은 작업 완료와 함께 걷어냈습니다 — 상세 diff는 git 기록, 변경 요약은 [Refactored_Architecture_Master.md](Refactored_Architecture_Master.md)에 있습니다.
 
-### 23.1 삭제 범위 (파일별 체크리스트)
-
-전수 조사 결과 **4개 파일**이 영향을 받습니다. 파일 수는 적지만 **주석·문서 정합성 작업이 많습니다.**
-
-#### ① `Assets/Scripts/GameManager.cs` — 본체
-
-- [ ] `CalculateExpectedDeduction(int day, out string deductionReason)` 메서드 전체 (927~946행)
-- [ ] 프로퍼티 `TodayRegularDeduction` / `TodayRegularDeductionReason` (145~146행)
-- [ ] `CaptureSettlementContext`의 2줄 (248~249행) / `RestoreSettlementContext`의 2줄 (262~263행)
-- [ ] `StartNewGame()`의 초기화 2줄 (612~613행)
-- [ ] `FinalizeProceedToNextDay()`의 리셋 2줄 (1154~1155행)
-- [ ] `ProcessDailySettlementWithStory()`의 차감 블록 (1024~1033행) — `deduction` 계산·차감·로그 전부
-- [ ] `AdvanceOneMinute()` 24:00 블록의 `expectedDeduction` (901행)과 `projectedEquity`/`projectedBalance` 계산식 (905~906행) 정리
-- [ ] **`AnnounceTodayExpenses()` 메서드 전체 (952~996행)** — 요미의 지출 예고 기믹. 메인스토리 편입으로 폐기 확정 (§23.2)
-- [ ] `expenseAnnouncedForDay` 필드 (950행)
-- [ ] `AdvanceOneMinute()`의 예고 호출부 (867~871행)
-- [ ] **주석 3곳 삭제** — 아래 §23.2 참조
-
-#### ② `Assets/Scripts/System/SaveData.cs`
-
-- [ ] `TodayRegularDeduction` / `TodayRegularDeductionReason` (217~218행)
-
-> 세이브 호환 문제없습니다. `JsonUtility`가 모르는 필드를 무시하므로 구버전 세이브가 그대로 열리고, `SaveDataMigrator`는 이 두 필드를 참조하지 않아 **수정 불필요**합니다.
-
-#### ③ `Assets/Scripts/UI/DailySettlementUIController.cs`
-
-- [ ] `else if (gameManager.TodayRegularDeduction > 0f)` 분기 전체 (272~277행) — `"SYSTEM EXPENSE CHARGED"` 상태 문구와 강제 출금 대사 포함
-- [ ] 분기가 빠지면 위약금 분기 → 일반 요약(`GetImmediateReaction`)의 2단 구조가 됩니다
-
-#### ④ `Assets/Scripts/UI/RoomSettlementUIBootstrap.cs`
-
-- [ ] 54행 주석 "정기 지출만으로도 파산할 수 있으므로 엔딩 UI도 방에 있어야 합니다" — **근거만 교체, 코드는 유지** (§23.2)
-
-#### ⑤ 문서
-
-- [ ] 이 문서 §11.2 삭제, §11.1 3단계 문구 정리, §16 표의 "지출 금액·사유" 제거
-- [ ] [Goal_Text_Update_And_Expense_Forecast_Plan.md](Goal_Text_Update_And_Expense_Forecast_Plan.md) — **B 항목(지출 예고 대사 `AnnounceTodayExpenses()` 신설)이 이 삭제로 무효화**되므로 해당 문서 상단에 일부 철회 표기
-- [ ] §23을 §17(비활성·죽은 기믹) 한 줄로 축약 후 삭제
-
----
-
-### 23.2 함께 폐기하는 것 / 남겨야 하는 것
-
-#### 🗑️ `AnnounceTodayExpenses()` — 기믹째 폐기 (확정)
-
-**메인스토리 편입으로 요미의 지출 예고 기믹은 존재 의미가 사라졌습니다 (2026-10-06 결정).** 정기 지출과 함께 **통째로 삭제**합니다 — 메서드 본체, `expenseAnnouncedForDay` 필드, `AdvanceOneMinute()`의 호출부 전부.
-
-> 참고: 위약금은 `StoryPenaltiesEnabled = false`로 이미 전부 0이므로(`DisableStoryPenaltiesIfNeeded()`가 런타임 사본의 `penaltyAmount`를 0으로 만듭니다), 정기 지출만 빼도 이 메서드는 어차피 항상 조기 반환하는 빈 껍데기였습니다. 위약금 예고가 다시 필요해지면 그때 스토리 연출에 맞춰 새로 만듭니다.
-
-#### 🗑️ 주석 3곳 — 삭제 (확정)
-
-근거가 거짓이 되므로 **문구를 고치지 않고 해당 문단을 삭제**합니다.
-
-| 위치 | 삭제 대상 |
-|---|---|
-| `GameManager.cs:166~167` (`StoryDayLimitEnabled` doc) | "정기 지출은 21일차부터 3일마다 1.3배씩 불어나므로 압박 자체는 유지됩니다" 문단 |
-| `GameManager.cs:359~360` (`StoryPenaltiesEnabled` doc) | "⚠️ 정기 지출은 위약금이 아닙니다 …" 문단 전체 |
-| `GameManager.cs:471` (`DisableStoryPenaltiesIfNeeded` 로그) | 로그 문자열 끝의 `"(정기 지출은 그대로 유지)"` |
-
-#### 🗑️ `RoomSettlementUIBootstrap.cs:54` 주석 — 삭제 (확정)
-
-"정기 지출만으로도 파산할 수 있으므로 엔딩 UI도 방에 있어야 합니다" 주석을 삭제합니다.
-
-> ⚠️ **주석만 지우고 `EnsureInstalled` 호출은 반드시 유지하십시오.** 방에서도 파산은 여전히 발생할 수 있습니다 — `WorldMapManager`가 데이트 비용·알바로 `TrySpendBalance`/`ChangeBalance`를 직접 호출하고, 이미 파산 상태로 방에 진입하는 경로도 있습니다. 설치 코드까지 함께 지우면 그 경우 엔딩이 뜨지 않습니다.
-
-#### 🔸 건드리지 않는 것
-
-| 대상 | 이유 |
-|---|---|
-| 스토리 위약금(`StoryEvent.penaltyAmount`) 경로 | 별개 시스템. 지금은 꺼져 있을 뿐 스위치로 되살릴 수 있어야 함 |
-| 상점 인플레이션 (`1.2^((일차−1)/2)`) | **정기 지출과 무관한 별도 압박 축.** `StoryDifficultyTable.InflationScale`은 상점 가격에만 적용되므로 난이도 설계가 유지됩니다 |
-| 스킬 비용 인플레이션 (`1.15^(일차−1)`) | 동일 |
-| `isSettlementProcessing` / `IsSettlementProcessing` | 파산 판정 유예용. 지출과 무관 |
-| `DailyEquityHistory` 등 나머지 정산 컨텍스트 | 무관 |
-
----
-
-### 23.3 삭제로 생기는 변화
-
-> **밸런스 영향은 이번 작업의 블로커가 아닙니다 (2026-10-06 결정).** 자산 압박 설계는 메인스토리 편입과 함께 **추후 일괄 재설계**합니다. 아래는 그때 참고할 기록입니다.
-
-**① 스토리 모드 난이도 하향 — 5개 지점의 스파이크 소멸**
-
-3·7·11·15·18일차에 걸려 있던 누적 $247,000의 강제 차감이 사라집니다. 특히 18일차 $150,000은 최종 보스 직전 최대 압박 구간이었습니다.
-
-**② 엔드리스 모드의 장기 압박 공백** — 추후 재설계 대상
-
-현재 엔드리스의 장기 밸런스는 **정기 지출의 지수 증가(`150,000 × 1.3^사이클`)가 유일하게 떠받치고 있습니다.** 삭제하면:
-
-- 21일차 이후 자산을 깎는 요소가 **하나도 남지 않습니다** (보스전 패배는 즉시 엔딩이라 압박이 아닙니다)
-- 수익은 복리로 늘어나는데 지출은 상점 구매(선택적)뿐이라 **사실상 무한 성장**합니다
-- `StoryDayLimitEnabled = false`(§12)와 겹쳐 **종료 조건 없이 계속 진행**됩니다
-
-재설계 시 §20.1-①의 **펀딩비**가 가장 자연스러운 후보입니다 — 보유 포지션에 지속 비용을 붙이는 방식이라 "날짜가 되면 뜯긴다"보다 트레이딩 게임의 문법에 맞고, 플레이어가 통제할 수 있습니다.
-
-**③ 요미의 지출 예고 기믹 소멸** — 의도된 폐기
-
-메인스토리 편입으로 존재 의미가 사라져 기믹째 제거합니다(§23.2). 하루를 여는 연출 하나가 비므로, 스토리 쪽에서 대체 연출을 넣을지는 그쪽 작업에서 판단합니다.
-
-**④ 정산 화면의 "SYSTEM EXPENSE CHARGED" 상태 소멸**
-
-정산 반응이 위약금(현재 꺼짐) → 일반 손익 요약 2단이 되어, **사실상 항상 일반 요약**이 나옵니다.
-
-**⑤ 24:00 파산 예정 판정이 무의미해짐**
-
-`expectedDeduction`과 `expectedPenalty`가 모두 0이면 `projectedEquity == totalEquity`가 되어 `willGameOver` 분기가 죽습니다. **기능 손실은 없습니다** — 실제 파산 판정은 `CheckEnding()`이 따로 수행합니다. 자동저장 생략 로직만 사실상 항상 "저장함"으로 고정됩니다. 분기를 단순화할지 남길지는 선택 사항입니다.
-
-**⑥ 스토리 소재 5건 소실**
-
-구독료 · 로비 자금 · 해킹 복구비 · 장비 세팅비 · 정보 수수료. 세계관 설정을 지탱하던 문구였으므로, 스토리 쪽에서 재활용할 계획이 있으면 삭제 전에 따로 옮겨 두십시오. (현재 이 문자열들은 `CalculateExpectedDeduction` 안에만 있고 대사 자산에는 없습니다)
-
-**⑦ 멘탈 밸런스 — 영향 없음 ✅**
-
-정기 지출은 잔고만 건드리고 멘탈·체력에는 관여하지 않습니다. §4.4 곡선과 `verify_mental_balance.py`는 **재검증 불필요**합니다.
-
----
-
-### 23.4 실행 순서
-
-소비자 → 생산자 순으로 내려가야 중간 단계에서도 컴파일이 깨지지 않습니다.
-
-1. **③ DailySettlementUIController** — UI 분기 제거
-2. **① GameManager** — 차감 블록 → 프로퍼티 → `CalculateExpectedDeduction` 순. `AnnounceTodayExpenses()`는 §23.2 방침에 따라 처리
-3. **① GameManager 주석 3곳** 수정 (§23.2)
-4. **② SaveData** 2필드 제거
-5. **④ RoomSettlementUIBootstrap** 주석 근거 교체
-6. 컴파일 확인:
-   ```
-   dotnet build "Assembly-CSharp.csproj" -v:m
-   dotnet build "Assembly-CSharp-Editor.csproj" -v:m
-   ```
-7. 동작 확인 — **3일차를 넘겨 정산 화면이 정상 표시되는지**, 세이브 저장/로드 왕복, 요미의 방 정산(`TrySettleFromRoom`) 경로
-8. **⑤ 문서** 정리
-
-> **폰트 프리베이크 불필요** — 한국어 문자열이 제거되는 방향입니다.
->
-> `verify_mental_balance.py` **수정 불필요** (§23.3-⑦).
-
----
-
-### 23.5 삭제 후 문서 정리
-
-작업 완료 시 이 장(§23)은 삭제하고 §17(현재 비활성·죽은 기믹) 표에 한 줄만 남깁니다.
-
-| 대상 | 상태 | 위치 |
-|---|---|---|
-| 정기 지출 (일차별 강제 차감) | **2026-10-XX 완전 제거.** 금액표·예고 대사·정산 UI 분기·세이브 2필드까지 함께 삭제. 엔드리스 장기 압박 수단은 공백 상태 | — |
-
-구조 변경이므로 [Refactored_Architecture_Master.md](Refactored_Architecture_Master.md)에도 append 하십시오.
+**결과 요약**
+- 제거: `CalculateExpectedDeduction()`, `TodayRegularDeduction`/`TodayRegularDeductionReason`과 그 세이브·리셋 경로, 정산 시 차감 블록, 요미 지출 예고 기믹(`AnnounceTodayExpenses()`·`expenseAnnouncedForDay`·호출부), 정산 UI의 `SYSTEM EXPENSE CHARGED` 분기, `SaveData` 2필드
+- 정리: 24:00 파산 예정 판정에서 정기 지출 항을 빼고 위약금 경로만 유지 (`StoryPenaltiesEnabled`로 되살릴 수 있도록)
+- 주석 삭제: `StoryDayLimitEnabled`·`StoryPenaltiesEnabled` doc의 정기 지출 문단, `DisableStoryPenaltiesIfNeeded` 로그 괄호, `AdvanceDate`의 "정기 지출 정책 미정" 문장, `RoomSettlementUIBootstrap`의 근거 주석 (**`GameOverUIController` 설치 코드는 유지** — 방에서도 데이트 비용 등으로 파산 가능)
+- 유지: 스토리 위약금 경로, 상점·스킬 인플레이션, `isSettlementProcessing`
+- 세이브: 구버전 세이브의 2필드는 `JsonUtility`가 무시 — 마이그레이션 불필요. 멘탈 예산 무관
+- 남은 영향(재설계 대상): 스토리 3·7·11·15·18일차 압박 소멸, **엔드리스 21일차 이후 자산 압박 공백** (대체 후보: 펀딩비 §20.1-① / 백로그 REAL-1)

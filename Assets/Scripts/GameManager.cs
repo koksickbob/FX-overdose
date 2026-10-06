@@ -142,8 +142,6 @@ public class GameManager : MonoBehaviour
     [SerializeField] private System.Collections.Generic.List<Sprite> bankruptcyEndingComic;
     [SerializeField] private System.Collections.Generic.List<Sprite> overdoseEndingComic;
     public StoryEvent TodayEvent { get; private set; } // DailySettlementUIController 접근용
-    public float TodayRegularDeduction { get; private set; } // 일일 정산 UI 접근용 (정기 지출)
-    public string TodayRegularDeductionReason { get; private set; } // 일일 정산 UI 접근용 (정기 지출 사유)
     public bool isSettlementProcessing = false;
 
     [Header("시간 설정")]
@@ -163,8 +161,7 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// 20일차 강제 종료 스위치. <b>스토리 개편 기간 동안 꺼 둡니다 (2026-08-15).</b>
     ///
-    /// 끄면 20일차를 넘겨 계속 진행합니다. 정기 지출은 21일차부터 3일마다 1.3배씩 불어나므로
-    /// (<see cref="CalculateExpectedDeduction"/>) 압박 자체는 유지됩니다.
+    /// 끄면 20일차를 넘겨 계속 진행합니다.
     ///
     /// ⚠️ <b>보스와 함께 꺼져 있으면 성공 엔딩에 도달할 수 없습니다.</b> 성공 판정이
     ///    「최종 보스 격파」와 「20일차 백업 판정」 둘뿐인데 양쪽이 다 닫히기 때문입니다.
@@ -245,8 +242,6 @@ public class GameManager : MonoBehaviour
     internal void CaptureSettlementContext(FXOverdose.Core.SaveData data)
     {
         if (data == null) return;
-        data.TodayRegularDeduction = TodayRegularDeduction;
-        data.TodayRegularDeductionReason = TodayRegularDeductionReason ?? "";
         data.IsSettlementProcessing = isSettlementProcessing;
 
         // 당일 P&L 스파크라인 궤적. 베이스 데이터를 재사용하므로 비우고 다시 채웁니다.
@@ -255,12 +250,10 @@ public class GameManager : MonoBehaviour
         data.DailyEquityHistory.AddRange(dailyEquityHistory);
     }
 
-    /// <summary>세이브에서 일일 정산 문맥을 되돌립니다. 정산 창의 지출 사유가 유지됩니다.</summary>
+    /// <summary>세이브에서 일일 정산 문맥을 되돌립니다.</summary>
     internal void RestoreSettlementContext(FXOverdose.Core.SaveData data)
     {
         if (data == null) return;
-        TodayRegularDeduction = data.TodayRegularDeduction;
-        TodayRegularDeductionReason = data.TodayRegularDeductionReason ?? "";
         isSettlementProcessing = data.IsSettlementProcessing;
 
         // 저장된 궤적을 되돌립니다. 구버전 세이브나 방에서 저장된 세이브는 비어 있으므로
@@ -313,8 +306,8 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// 스토리 연출용 날짜 점프. <b>날짜만 옮깁니다</b> — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋 같은
-    /// 하루 전환 처리는 하지 않습니다. 건너뛴 날의 정기 지출을 어떻게 할지도 정해진 바 없습니다.
-    /// 그 정책은 실제로 점프를 쓰는 스토리 작업에서 정하십시오.
+    /// 하루 전환 처리는 하지 않습니다. 건너뛴 날에 그 처리를 할지는 실제로 점프를 쓰는
+    /// 스토리 작업에서 정하십시오.
     ///
     /// 보스·스토리 이벤트·최종일이 예약된 일차는 넘지 못하고 그 날에서 멈춥니다.
     /// 특히 최종일 판정이 등호 비교라, 뛰어넘으면 엔딩이 영영 발생하지 않습니다.
@@ -355,9 +348,6 @@ public class GameManager : MonoBehaviour
     /// 함께 사라집니다.
     ///
     /// 씬 에셋은 건드리지 않습니다. 런타임 사본만 0이 되므로 true로 되돌리면 원값이 그대로 돌아옵니다.
-    ///
-    /// ⚠️ <b>정기 지출(CalculateExpectedDeduction)은 위약금이 아닙니다.</b> 3·7·11·15·18일차의
-    ///    구독료·로비 자금 등은 이 스위치와 무관하게 계속 빠져나갑니다.
     /// </summary>
     public static readonly bool StoryPenaltiesEnabled = false;
 
@@ -468,7 +458,7 @@ public class GameManager : MonoBehaviour
         }
 
         if (cleared > 0)
-            Debug.Log($"[GameManager] ⚠️ 스토리 위약금 비활성화 상태입니다. 위약금 {cleared}건을 0으로, 위약금 만화 {comicsCleared}건을 비웠습니다. (정기 지출은 그대로 유지)");
+            Debug.Log($"[GameManager] ⚠️ 스토리 위약금 비활성화 상태입니다. 위약금 {cleared}건을 0으로, 위약금 만화 {comicsCleared}건을 비웠습니다.");
     }
 
     public bool IsGameLoaded { get; private set; }
@@ -608,9 +598,6 @@ public class GameManager : MonoBehaviour
         StartOfDayEquity = startingBalance;
         IsDailyPnlPartial = false;
         ResetDailyEquityHistory(startingBalance);
-
-        TodayRegularDeduction = 0f;
-        TodayRegularDeductionReason = "";
 
         // 시간 누적값 초기화
         timeAccumulator = 0f;
@@ -860,16 +847,6 @@ public class GameManager : MonoBehaviour
         // 구독자들이 이 분의 손익을 반영한 뒤에 자산을 표본으로 남깁니다. 순서를 앞당기면 한 틱 밀린 값이 찍힙니다.
         SampleDailyEquityIfDue();
 
-        // 오늘 나갈 돈을 요미가 미리 알려줍니다.
-        // Playing 전이 지점이 6곳(보스 연출·스토리 컷씬·로드·취침 복귀 등)에 흩어져 있어 그 전부에 걸면 취약합니다.
-        // 여기는 아침 연출이 모두 끝나고 시간이 실제로 흐르기 시작한 뒤에만 도달하므로
-        // 말풍선이 등장 연출과 겹치지 않고, 하루 1회가 보장됩니다.
-        if (expenseAnnouncedForDay != CurrentDay)
-        {
-            expenseAnnouncedForDay = CurrentDay;
-            AnnounceTodayExpenses();
-        }
-
         // 24시가 되면 마지막 1분 데이터 반영 이후 일일 정산 모드 진입
         if (currentHour >= 24 && currentState == GameState.Playing)
         {
@@ -887,7 +864,7 @@ public class GameManager : MonoBehaviour
                 return;
             }
 
-            // 곧 적용될 페널티와 정기 지출을 계산하여 파산 예정인지 미리 확인 (게임 오버 루프 방지)
+            // 곧 적용될 위약금을 계산하여 파산 예정인지 미리 확인 (게임 오버 루프 방지)
             float expectedPenalty = 0f;
             if (FXOverdose.Core.SaveLoadManager.Instance != null && FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode == FXOverdose.Core.GameMode.Story)
             {
@@ -898,12 +875,10 @@ public class GameManager : MonoBehaviour
                 }
             }
 
-            float expectedDeduction = CalculateExpectedDeduction(CurrentDay, out string _);
-            
             var status = TraderStatus.CanonicalInstance;
             float totalEquity = status != null ? status.GetTotalEquity() : currentBalance;
-            float projectedEquity = totalEquity - expectedDeduction - expectedPenalty;
-            float projectedBalance = currentBalance - expectedDeduction - expectedPenalty;
+            float projectedEquity = totalEquity - expectedPenalty;
+            float projectedBalance = currentBalance - expectedPenalty;
 
             bool willGameOver = projectedEquity <= 0f && projectedBalance <= 0f;
 
@@ -917,82 +892,11 @@ public class GameManager : MonoBehaviour
             }
             else if (willGameOver)
             {
-                Debug.Log("[GameManager] 정기 지출/페널티 적용 후 파산이 확정되어 자동 저장을 생략합니다.");
+                Debug.Log("[GameManager] 위약금 적용 후 파산이 확정되어 자동 저장을 생략합니다.");
             }
 
             ProcessDailySettlementWithStory();
         }
-    }
-
-    private float CalculateExpectedDeduction(int day, out string deductionReason)
-    {
-        float deduction = 0f;
-        deductionReason = "";
-
-        if (day == 3) { deduction = 5000f; deductionReason = "트레이딩 플랫폼 프리미엄 구독료"; }
-        else if (day == 7) { deduction = 12000f; deductionReason = "불법 거래소 단속 회피를 위한 로비 자금"; }
-        else if (day == 11) { deduction = 20000f; deductionReason = "의문의 해킹 공격 복구 비용"; }
-        else if (day == 15) { deduction = 60000f; deductionReason = "최종 결전을 앞둔 장비 오버클럭 세팅비"; }
-        else if (day == 18) { deduction = 150000f; deductionReason = "작전 세력에게 지불할 정보 수수료"; }
-        else if (day >= 21 && (day - 21) % 3 == 0)
-        {
-            // Endless 모드: 21일부터 3일마다 1.3배씩 증가 (18일차 금액인 150,000 기준)
-            int cycles = (day - 21) / 3 + 1;
-            deduction = 150000f * Mathf.Pow(1.3f, cycles);
-            deductionReason = "시스템 유지보수 비용 지속 청구";
-        }
-        
-        return deduction;
-    }
-
-    // 오늘 지출을 예고한 일차. 하루 1회만 알리기 위한 표식입니다.
-    // 저장하지 않으므로 중간에 다시 접속하면 한 번 더 알려줍니다 — 리마인더로 유용합니다.
-    private int expenseAnnouncedForDay = -1;
-
-    /// <summary>
-    /// 오늘 빠져나갈 돈을 트레이딩 시작 시점에 요미가 미리 알려줍니다.
-    ///
-    /// 16일차는 대상이 아닙니다. 그날 위약금은 아침 컷씬 직후에 이미 차감되므로
-    /// "오늘 밤 나갈 거야"라고 하면 거짓말이 됩니다. (day16Monologue가 사후 반응을 담당합니다)
-    /// </summary>
-    private void AnnounceTodayExpenses()
-    {
-        if (FXOverdose.Core.SaveLoadManager.Instance == null
-            || FXOverdose.Core.SaveLoadManager.Instance.CurrentGameMode != FXOverdose.Core.GameMode.Story)
-        {
-            return;
-        }
-
-        float deduction = CalculateExpectedDeduction(CurrentDay, out string reason);
-
-        // 아침에 이미 차감되는 16일차 위약금은 예고에서 제외합니다.
-        float penalty = 0f;
-        if (CurrentDay != 16)
-        {
-            var evt = storyEvents.Find(e => e.triggerDay == CurrentDay);
-            if (evt != null && evt.isPenalty && evt.penaltyAmount > 0f) penalty = evt.penaltyAmount;
-        }
-
-        if (deduction <= 0f && penalty <= 0f) return;
-
-        string line;
-        if (deduction > 0f && penalty > 0f)
-        {
-            line = $"오빠, 오늘 최악이야... {reason} ${deduction:N0}에 위약금 ${penalty:N0}까지, "
-                 + $"합쳐서 ${deduction + penalty:N0}이 밤에 빠져나가!";
-        }
-        else if (deduction > 0f)
-        {
-            line = $"오빠, 오늘 밤에 {reason}로 ${deduction:N0} 빠져나가. 그 전에 벌어놔야 해!";
-        }
-        else
-        {
-            line = $"오늘 밤 위약금 ${penalty:N0} 나가는 날이야... 각오하고 시작하자.";
-        }
-
-        var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-        visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.General);
-        Debug.Log($"[GameManager] 💸 {CurrentDay}일차 지출 예고: 정기 {deduction:N0} / 위약금 {penalty:N0}");
     }
 
     private void ProcessDailySettlementWithStory()
@@ -1018,18 +922,6 @@ public class GameManager : MonoBehaviour
                 currentBalance -= TodayEvent.penaltyAmount;
                 Debug.Log($"[GameManager] 스토리 이벤트 위약금 강제 차감: -{TodayEvent.penaltyAmount:N0} (잔고: {currentBalance:N0})");
             }
-        }
-
-        // 💡 [새 기능] 특정 일차 정기 지출 시스템 (인플레이션형)
-        float deduction = CalculateExpectedDeduction(CurrentDay, out string deductionReason);
-
-        TodayRegularDeduction = deduction;
-        TodayRegularDeductionReason = deductionReason;
-
-        if (deduction > 0f)
-        {
-            currentBalance -= deduction;
-            Debug.Log($"[GameManager] 정기 지출 발생: {deductionReason} (-${deduction:N0}) -> 남은 잔고: ${currentBalance:N0}");
         }
 
         // 컷툰 재생 또는 바로 정산
@@ -1150,9 +1042,6 @@ public class GameManager : MonoBehaviour
         // OnDayEnded(24:00)가 아니라 여기여야 합니다 — 그쪽은 정산 화면이 뜨기 전이라
         // 거기서 비우면 정산 화면이 그날 그래프를 보여주는 도중에 그래프가 사라집니다.
         ResetDailyEquityHistory(StartOfDayEquity);
-
-        TodayRegularDeduction = 0f;
-        TodayRegularDeductionReason = "";
 
         // 다음 날로 넘어갈 때 체력과 멘탈을 모두 최대로 회복
         if (status != null)

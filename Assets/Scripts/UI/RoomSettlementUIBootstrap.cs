@@ -51,8 +51,6 @@ namespace FXOverdose.UI
                 Debug.Log("[RoomSettlementUI] 요미의 방 Canvas에 일일 정산 UI 설치 완료");
             }
 
-            // 정기 지출만으로도 파산할 수 있으므로 엔딩 UI도 방에 있어야 합니다.
-            // 없으면 파산이 판정돼도 화면에 아무것도 뜨지 않습니다.
             if (target.GetComponent<GameOverUIController>() == null)
             {
                 target.gameObject.AddComponent<GameOverUIController>();

@@ -213,8 +213,7 @@ namespace FXOverdose.Core
         public bool IsEventTrueSignal = true;
 
         // --- 일일 정산 문맥 (SV-B6, SV-B9) ---
-        public float TodayRegularDeduction = 0f;
-        public string TodayRegularDeductionReason = "";
+        // 정기 지출 금액·사유 2필드는 정기 지출 삭제와 함께 제거되었습니다(구버전 세이브는 JsonUtility가 무시).
         public bool IsSettlementProcessing = false;
 
         // --- 요미 선택형 대화 (P4) ---
