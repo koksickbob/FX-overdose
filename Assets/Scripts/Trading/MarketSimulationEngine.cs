@@ -457,6 +457,39 @@ namespace FXOverdose.Trading
 
         private const long MinutesPerDay = 1440;
 
+        // GraceWindow 막바지(경과 60% 이후)에 유인 방향으로 기우는 분당 드리프트 (SIG-B6). 노이즈보다 작아 "기운다" 정도입니다.
+        private const float GraceLeanPerMinute = 0.0005f;
+
+        /// <summary>
+        /// GraceWindow의 노이즈·드리프트·거래량을 셋업에 맞춰 만듭니다. (SIG-B6)
+        /// 기본: 노이즈 0.6 → 0.15로 조이고 거래량도 0.8 → 0.4로 마르며, 막바지에 유인 방향으로 살짝 기웁니다.
+        ///  · 변동성 수축 돌파: 0.4 → 0.05로 극단적으로 조입니다
+        ///  · 스탑 사냥: 조용합니다(노이즈 0.3 고정, 기울기 없음) — 스윕은 예고 없이 옵니다
+        ///  · 추세 지속: 막바지에 유인 반대로 살짝 눌립니다(얕은 되돌림)
+        ///  · 뉴스 스파이크: 아무 전조도 없습니다(평시 그대로)
+        /// </summary>
+        private void ApplyGraceShape(ref float stochasticNoise, ref float drift, ref float volumeScale)
+        {
+            SignalSetup setup = activeSignal.Setup;
+            if (setup == SignalSetup.NewsSpike) return; // 평시 노이즈·드리프트 유지 — 전조 없음
+            drift = 0f;
+
+            float graceTotal = Mathf.Max(1f, activeSignal.GraceMinutes);
+            float g = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / graceTotal);
+
+            float noiseScale = setup == SignalSetup.VolatilitySqueeze ? Mathf.Lerp(0.4f, 0.05f, g)
+                             : setup == SignalSetup.StopRun ? 0.3f
+                             : Mathf.Lerp(0.6f, 0.15f, g);
+            stochasticNoise *= noiseScale;
+            volumeScale = Mathf.Lerp(0.8f, 0.4f, g);
+
+            if (g < 0.6f || setup == SignalSetup.StopRun) return;
+            float lure = activeSignal.LureDirection == TradingController.PositionType.Long ? 1f
+                       : activeSignal.LureDirection == TradingController.PositionType.Short ? -1f : 0f;
+            if (setup == SignalSetup.TrendContinuation) lure = -lure * 0.8f; // 얕은 되돌림
+            drift = lure * GraceLeanPerMinute;
+        }
+
         /// <summary>기본 파동 3개의 주기(기준 350/130/15초 ±20%)와 위상을 새로 뽑습니다. 하루 단위. (SIG-B4)</summary>
         private void RollBaseWaveShape()
         {
@@ -774,6 +807,7 @@ namespace FXOverdose.Trading
             float randNormal = GaussianSample();
 
             float stochasticNoise = currentVolatility * Mathf.Sqrt(dtFraction) * randNormal;
+            float graceVolumeScale = 1f; // GraceWindow의 거래량 마름 (SIG-B6)
 
             // ⭐ [Overdose 폭주 죽음의 차트 빔 주입] 오버도즈 상태일 때 주인공 포지션과 반대 방향으로 휩소(중간 반등) 없이 확실하고 가파르게 주가를 이동시켜 0원 청산을 유도!
             if (isOverdoseTrapOverride && Time.time < overdoseTrapEndTime)
@@ -793,9 +827,10 @@ namespace FXOverdose.Trading
             }
             else if (currentSignalPhase == SignalPhase.GraceWindow)
             {
-                // 1단계 판단 여유 시간: 너무 굳어있지 않게 노이즈를 40% 수준으로 살리고 횡보 유지 (골든타임 예고 방송 및 대기)
-                stochasticNoise *= 0.40f;
-                drift = 0f;
+                // 1단계 판단 여유 시간 = 돌파 직전의 변동성 수축 (SIG-B6)
+                // 예전엔 노이즈 ×0.4 + 횡보로 단조로웠습니다. 실제 돌파 직전처럼 캔들이 점점 작아지고 거래량이 마르다가,
+                // 막바지에 유인 방향으로 살짝 기웁니다 — 진짜 신호면 예고, 가짜 신호면 미끼입니다.
+                ApplyGraceShape(ref stochasticNoise, ref drift, ref graceVolumeScale);
             }
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
@@ -950,7 +985,7 @@ namespace FXOverdose.Trading
 
             // 6. 가격 변동 적용
             float priceDelta = currentPrice * totalReturn;
-            float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
+            float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f) * graceVolumeScale;
 
             // 확정 신호 구간의 거래량은 신호의 진위를 드러냅니다. (SIG-B5)
             // 기준을 이번 틱의 가격 변화가 아니라 "이 국면의 평시 틱 변동폭"으로 잡습니다. 진짜 신호 구간은
