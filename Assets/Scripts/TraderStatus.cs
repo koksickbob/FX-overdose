@@ -32,9 +32,13 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private float maxMental = 100f;     // 최대 멘탈
     [SerializeField] private float currentMental = 100f; // 현재 멘탈
 
-    [Header("시간에 따른 감소량 (게임 8시간 = 100 소모 속도)")]
-    [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
-    [SerializeField] private float healthDecreasePerSecond = 0.05f;
+    [Header("시간에 따른 체력 감소 (인게임 분 단위)")]
+    [Tooltip("1일차 인게임 1분당 체력 감소량. 0.078이면 아이템 없이 하루(09~24시, 900분)에 약 70%를 씁니다.")]
+    [SerializeField] private float healthDrainPerGameMinuteDay1 = 0.078f;
+    [Tooltip("일차가 하루 오를 때마다 늘어나는 감소 비율. 0.111이면 20일차에 약 3.1배.")]
+    [SerializeField] private float healthDrainGrowthPerDay = 0.111f;
+    [Tooltip("일차에 따른 감소 배율의 상한.")]
+    [SerializeField] private float maxHealthDrainDayFactor = 3.33f;
 
     [Header("상시 멘탈 기믹 상태")]
     [SerializeField] private int currentLosingStreak = 0; // 연속 손절 카운터
@@ -306,15 +310,17 @@ public class TraderStatus : MonoBehaviour
     // 시간에 따라 상태를 감소시키는 함수
     private void DecreaseStatusOverTime()
     {
-        // 인게임 1분 속도(SecondsPerGameMinute)에 동기화하여 체력/멘탈 감소 속도 자동 조절
-        float speedScale = 5.0f / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
-
+        // 자연 체력 감소는 인게임 분 단위로 정의합니다. (FIX-6)
+        // 예전 식(초당 감소량 × 1.5 × 5/SecondsPerGameMinute)은 배수가 겹쳐 1일차에 아이템 없이 실시간 약 198초
+        // (인게임 약 5시간)면 체력이 바닥났습니다 — 하루 거래 시간 900분을 버틸 수 없었습니다.
+        // 인게임 분으로 정의하면 슬로우모션·배달 음식 배속에도 "게임 시간당 소모"가 그대로 유지됩니다.
         float healthGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.HealthDrainReduction : 0f;
         float mentalGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.MentalDrainReduction : 0f;
 
         float currentDay = gameManager != null ? gameManager.CurrentDay : 1f;
-        float currentHealthDecrease = Mathf.Min(0.15f, healthDecreasePerSecond + (currentDay * 0.005f));
-        float healthDrainThisFrame = currentHealthDecrease * 1.5f * (1f - healthGuard) * speedScale * Time.deltaTime;
+        float dayFactor = Mathf.Min(maxHealthDrainDayFactor, 1f + (currentDay - 1f) * healthDrainGrowthPerDay);
+        float gameMinutesThisFrame = Time.deltaTime / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
+        float healthDrainThisFrame = healthDrainPerGameMinuteDay1 * dayFactor * (1f - healthGuard) * gameMinutesThisFrame;
 
         ChangeHealth(-healthDrainThisFrame);
 
