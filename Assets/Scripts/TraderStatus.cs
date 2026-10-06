@@ -352,17 +352,29 @@ public class TraderStatus : MonoBehaviour
             OnHealthChanged?.Invoke(appliedHealthDelta);
         }
 
-        // 체력 임계치 돌파 시 유동적 대사 호출
+        // 체력 임계치 돌파 시 요미가 자기 상태 변화를 알립니다. (DEAD-1)
+        // 각 경계는 실제로 동작이 바뀌는 지점입니다.
+        //  · 50% — 이후 체력 감소가 같은 양만큼 멘탈로 번지기 시작
+        //  · 40% — AI가 강한 함정 신호를 대박 자리로 오인 (AITradingBrain Tier 3)
+        //  · 15% — 다음 신호에서 반대 방향 125배 폭주 매매 (Tier 4)
+        // 한 번에 여러 경계를 넘으면 가장 심각한 것 하나만 말합니다.
         if (amount < 0f && MaxHealth > 0f)
         {
             float prevRatio = prevHealth / MaxHealth;
             float currRatio = currentHealth / MaxHealth;
 
-            if (prevRatio > 0.5f && currRatio <= 0.5f)
+            string line = null;
+            if (prevRatio > 0.15f && currRatio <= 0.15f)
+                line = "더는 못 버텨... 요미 지금 제정신 아니야!! 오빠, 빨리 뭐라도 먹여줘...!";
+            else if (prevRatio > 0.40f && currRatio <= 0.40f)
+                line = "오빠... 눈이 자꾸 감겨... 지금 요미 판단 믿으면 큰일 날지도 몰라!!";
+            else if (prevRatio > 0.5f && currRatio <= 0.5f)
+                line = "하아... 머리가 핑 돌아... 이제부터 지치면 멘탈도 같이 깎여, 오빠...";
+
+            if (line != null)
             {
-            }
-            else if (prevRatio > 0.2f && currRatio <= 0.2f)
-            {
+                var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
             }
         }
 
