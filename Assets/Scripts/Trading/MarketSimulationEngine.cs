@@ -149,6 +149,10 @@ namespace FXOverdose.Trading
         // 국면에 따라 경로 추종력이 15배까지 달라지기 때문입니다. 0.1이면 편차의 표준편차가 노이즈의 약 2배 수준에서 안정됩니다.
         private const float SignalPathOuTheta = 0.1f;
 
+        // 확정 신호 구간의 거래량 배수 (평시 틱 변동폭 기준). 거래량 막대로 신호 진위를 읽을 수 있게 합니다. (SIG-B5)
+        private const float TrueSignalVolumeMultiplier = 2.5f;
+        private const float FalseSignalVolumeMultiplier = 0.7f;
+
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
         public bool IsDataPrepared { get; private set; } = false;
@@ -942,6 +946,21 @@ namespace FXOverdose.Trading
             // 6. 가격 변동 적용
             float priceDelta = currentPrice * totalReturn;
             float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
+
+            // 확정 신호 구간의 거래량은 신호의 진위를 드러냅니다. (SIG-B5)
+            // 기준을 이번 틱의 가격 변화가 아니라 "이 국면의 평시 틱 변동폭"으로 잡습니다. 진짜 신호 구간은
+            // 노이즈를 ×0.15로 억제하므로 틱당 변화가 평시보다 작아, 가격 변화에 배수를 곱하면 오히려 평시만 못합니다.
+            //  · 진짜: 평시의 2.5배 — 돌파에 거래량이 실림
+            //  · 가짜: 평시의 0.7배 — 가격은 크게 움직여도 거래량이 마름
+            // 오버도즈 함정은 AI가 확실한 기회로 착각하게 만드는 연출이라 제외합니다.
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride)
+            {
+                float typicalTickMove = currentPrice * targetVol * Mathf.Sqrt(dtFraction);
+                float volumeBasis = activeSignal.IsTrueSignal
+                    ? Mathf.Max(Mathf.Abs(priceDelta), typicalTickMove) * TrueSignalVolumeMultiplier
+                    : typicalTickMove * FalseSignalVolumeMultiplier;
+                tickVolume = volumeBasis * UnityEngine.Random.Range(2f, 10f);
+            }
 
             if (isServerLagging)
             {
