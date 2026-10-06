@@ -35,7 +35,7 @@
 - [x] FIX-8 — `CustomTargetROELimit` / `CustomStopLossROELimit` 주석 교정 (2026-10-06) — 모드별 실제 사용 필드로 주석 교체, 816개 선택지 전부 0이라 자산 수정 불필요
 - [x] DEAD-3 — `HandlePositionClosed` 죽은 연산 제거 (2026-10-06) — 빈 리액션 메서드와 구독을 통째로 제거 (계획의 '구독 유지' 근거가 틀렸음을 확인·정정)
 - [x] DEAD-6 — `gimmickContext` 인자 제거 (2026-10-06) — 인자 제거 + fallbackDialogue→dialogue 개명, 호출부 6곳 (DEL-1로 3곳 선감소)
-- [ ] SIG-B2 — 궤적 구간 분할 지터
+- [x] SIG-B2 — 궤적 구간 분할 지터 (2026-10-06) — RollTrapSplits() 신설, 분모도 실제 구간 길이로 바꿔 총 이동량 보존 (10만 회 불변식 검증)
 
 **Wave 2 — 결함 수정**
 - [ ] FIX-1 — 날짜 간 가격 연속성 복구

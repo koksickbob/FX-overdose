@@ -140,6 +140,11 @@ namespace FXOverdose.Trading
         private int currentOverdriveWaveStyle = 0; // 0: 자잘한 요동, 1: 큰 눌림목
         private int currentOverdriveTrapType = 0;  // 0: Classic V-Shape, 1: W-Shape Double Trap, 2: Slow Bleed + Flash Spike
 
+        // 트랩 궤적의 구간 분할 지점(경과 비율). GuaranteedOverride 진입 시 RollTrapSplits()가 1회 추첨합니다.
+        // 고정값이면 같은 패턴을 두 번 본 플레이어가 다음 꺾임 시점을 압니다.
+        // 각 구간의 드리프트 분모도 이 값으로 계산하므로 구간별 총 이동량은 지터와 무관하게 보존됩니다.
+        private float trapSplitA = 0.7f, trapSplitB = 0.6f, trapSplitC = 0.85f;
+
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
         public bool IsDataPrepared { get; private set; } = false;
@@ -728,33 +733,33 @@ namespace FXOverdose.Trading
 
                     if (currentOverdriveTrapType == 0) // Classic V-Shape
                     {
-                        if (elapsedRatio < 0.7f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * 0.7f);
+                        if (elapsedRatio < trapSplitA)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA);
                         else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.3f);
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitA));
                     }
                     else if (currentOverdriveTrapType == 1) // W-Shape Double Trap
                     {
-                        if (elapsedRatio < 0.4f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.5f) / 100f) / Mathf.Max(1f, totalDuration * 0.4f); // 1차 급락
-                        else if (elapsedRatio < 0.6f)
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.8f) / 100f) / Mathf.Max(1f, totalDuration * 0.2f); // 페이크 반등
-                        else if (elapsedRatio < 0.85f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.2f) / 100f) / Mathf.Max(1f, totalDuration * 0.25f); // 2차 급락 (개미털기)
+                        if (elapsedRatio < trapSplitA)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.5f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA); // 1차 급락
+                        else if (elapsedRatio < trapSplitB)
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.8f) / 100f) / Mathf.Max(1f, totalDuration * (trapSplitB - trapSplitA)); // 페이크 반등
+                        else if (elapsedRatio < trapSplitC)
+                            drift = ((activeSignal.TargetPercentageDelta * 1.2f) / 100f) / Mathf.Max(1f, totalDuration * (trapSplitC - trapSplitB)); // 2차 급락 (개미털기)
                         else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.6f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f); // 최종 탈출 빔
+                            drift = ((-activeSignal.TargetPercentageDelta * 0.6f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitC)); // 최종 탈출 빔
                     }
                     else // 2: Slow Bleed + Flash Spike
                     {
-                        if (elapsedRatio < 0.85f)
+                        if (elapsedRatio < trapSplitA)
                         {
                             stochasticNoise *= 0.3f; // 말려죽이는 피말림 연출
-                            drift = ((activeSignal.TargetPercentageDelta * 0.9f) / 100f) / Mathf.Max(1f, totalDuration * 0.85f);
+                            drift = ((activeSignal.TargetPercentageDelta * 0.9f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA);
                         }
                         else
                         {
                             stochasticNoise *= 2.0f; // 극적 빔
-                            drift = ((activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f);
+                            drift = ((activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitA));
                         }
                     }
                 }
@@ -1282,8 +1287,9 @@ namespace FXOverdose.Trading
                         // 오버드라이브 연출 패턴 무작위 설정
                         currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
                         currentOverdriveTrapType = UnityEngine.Random.Range(0, 3);
-                        
-                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, Trap: {currentOverdriveTrapType})");
+                        RollTrapSplits();
+
+                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, Trap: {currentOverdriveTrapType}, 분할: {trapSplitA:F2}/{trapSplitB:F2}/{trapSplitC:F2})");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
                     break;
@@ -1337,6 +1343,28 @@ namespace FXOverdose.Trading
                             if (signalPhaseTimerMinutes > 3) signalPhaseTimerMinutes = 3;
                         }
                     }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 현재 트랩 타입의 구간 분할 지점을 추첨합니다. 기준값 ±0.1 범위이며, W-Shape는 세 경계의
+        /// 순서를 보장하고 마지막 탈출 구간이 경과 비율 0.1 이상 남도록 상한을 둡니다.
+        /// </summary>
+        private void RollTrapSplits()
+        {
+            switch (currentOverdriveTrapType)
+            {
+                case 0: // V-Shape: 반전 시점 (기준 0.7)
+                    trapSplitA = UnityEngine.Random.Range(0.6f, 0.8f);
+                    break;
+                case 1: // W-Shape: 1차 급락 / 페이크 반등 / 2차 급락 경계 (기준 0.4 / 0.6 / 0.85)
+                    trapSplitA = UnityEngine.Random.Range(0.35f, 0.45f);
+                    trapSplitB = trapSplitA + UnityEngine.Random.Range(0.15f, 0.25f);
+                    trapSplitC = Mathf.Min(0.9f, trapSplitB + UnityEngine.Random.Range(0.2f, 0.25f));
+                    break;
+                default: // Slow Bleed: 플래시 스파이크 시점 (기준 0.85)
+                    trapSplitA = UnityEngine.Random.Range(0.8f, 0.9f);
                     break;
             }
         }
