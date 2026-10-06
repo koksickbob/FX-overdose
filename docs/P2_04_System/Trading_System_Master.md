@@ -296,7 +296,7 @@ None ──(카운트다운)──► GraceWindow ──► GuaranteedOverride �
 진입 시 파동 스타일 `currentOverdriveWaveStyle`(0~1)과 **궤적 프로필**(`TrajectoryProfile`) 하나, 그리고 그 프로필의 **시간 비틀림 지수**를 추첨합니다.
 
 **노이즈 기본 배수**
-- 일반 스킬(AI) 진짜 신호 (`!isExternalEventOverride && IsTrueSignal`): **×0.15** — 좁은 손절선이 노이즈에 터지지 않도록 보호
+- 일반 스킬(AI) 진짜 신호 (`!isExternalEventOverride && IsTrueSignal`): **×0.6** (2026-10-06 SIG-B8 이전 ×0.15) — 매끄러움으로 진위가 드러나지 않을 만큼만 줄이고, 좁은 손절선 보호는 −25% 스프링 꼬리 가드(§3.4)가 맡음
 - 그 외 — Wave 0: ×1.5 + 짧은 주기 사인 (자잘하게 요동) / Wave 1: ×0.8 + 20~30초 주기 큰 역추세 파동 (눌림목)
 
 **궤적 프로필** ([TrajectoryProfile.cs](../../Assets/Scripts/Trading/TrajectoryProfile.cs)) — `progress` 커브(경과 비율 → 목표 변동률의 몇 배 지점), `noise` 커브(노이즈 배수), `timeWarpJitter`, `trackPathWithOu`, `weight`. `MarketSimulationEngine`의 `trapTrajectories` / `pathTrajectories` 목록에 에셋(`Create → FX Overdose → Trading → Trajectory Profile`)을 넣으면 가중 추첨되고, 비어 있으면 `TrajectoryLibrary` 내장 궤적을 씁니다.
@@ -1655,7 +1655,9 @@ Grace 동안 노이즈 배수를 0.6 → 0.15로 점진 감소 (조이는 느낌
 
 **비용** 작음 / **효과** 중 — 단 **§19.1-2(꼬리가 청산을 유발하지 않음)를 먼저 정리해야** 의도대로 작동합니다. 그것을 고친 뒤 넣으면 난이도가 꽤 오릅니다.
 
-#### B8. 진짜 신호의 노이즈 억제 완화 — 밸런스 리스크 있음
+#### B8. 진짜 신호의 노이즈 억제 완화 — ✅ 완료 (2026-10-06)
+
+> 처리 결과: `stochasticNoise *= 0.15f` → `0.6f`. 손절선 보호는 −25% 스프링 가드에 맡겼습니다. 선행 조건이던 B3(경로 OU)가 이미 들어가 있어 노이즈가 커져도 가격이 경로 중심선으로 끌려 돌아옵니다. REAL-7(배경 변동성 ×0.5) 이후라 진짜 신호 구간의 실제 노이즈는 REAL-7 이전 평시의 약 0.3배 — 예전 억제(0.15배)의 2배 수준입니다. 대략 계산으로 경로 이탈 폭은 0.1~0.2%대라 LV.10 칼손절(가격 −1.5%)도 노이즈만으로는 거의 닿지 않습니다. 거래량(B5)은 `max(|Δ|, 평시폭)` 기준이라 영향 없습니다.
 
 **문제** — `stochasticNoise *= 0.15f` 때문에 진짜 신호 구간이 부자연스럽게 매끈합니다. 더 큰 문제는 **메타 정보 유출**입니다 — 플레이어가 차트의 매끄러움만 보고 "이건 진짜다"를 역추론할 수 있습니다. 신호의 진위를 숨기는 것이 게임의 핵심인데 렌더링이 답을 흘립니다.
 

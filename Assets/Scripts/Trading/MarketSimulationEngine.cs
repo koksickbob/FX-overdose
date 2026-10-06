@@ -868,8 +868,10 @@ namespace FXOverdose.Trading
                 
                 if (!isExternalEventOverride && activeSignal.IsTrueSignal)
                 {
-                    // 일반 스킬(AI) 확정 수익 구간: 노이즈를 대폭 억제하여 좁은 스탑로스가 터지지 않게 보호
-                    stochasticNoise *= 0.15f; 
+                    // 진짜 신호 구간: 노이즈를 평시의 0.6배로만 줄입니다. (SIG-B8)
+                    // 예전 0.15배는 구간이 눈에 띄게 매끈해 "매끄러우면 진짜"라는 답을 차트가 흘렸습니다.
+                    // 좁은 손절선 보호는 아래 -25% 스프링 꼬리 가드가 맡습니다.
+                    stochasticNoise *= 0.6f;
                 }
                 else
                 {
