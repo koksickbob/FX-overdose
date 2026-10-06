@@ -285,12 +285,9 @@ namespace FXOverdose.AI
                          return;
                     }
 
-                    TradingController.PositionType trapPos = signal.Type switch
-                    {
-                        MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                        MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                        _ => TradingController.PositionType.Long
-                    };
+                    // 유도 방향 그대로 들어가 속습니다. 예전 switch는 가짜 하락 돌파가 기본값(Long)으로 떨어져
+                    // 실제 가격 방향(상승)에 올라타 오히려 이겼습니다. (SIG-0)
+                    TradingController.PositionType trapPos = signal.LureDirection;
 
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float marginRatio = levelSystem != null ? levelSystem.GetStopLossTightness() * 10f : 0.8f;
@@ -351,14 +348,7 @@ namespace FXOverdose.AI
                          return;
                     }
 
-                    TradingController.PositionType weakPos = signal.Type switch
-                    {
-                        MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
-                        MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
-                        MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                        MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                        _ => TradingController.PositionType.Long
-                    };
+                    TradingController.PositionType weakPos = signal.LureDirection;
 
                     float marginRatio = 0.15f;
                     if (aiStyle == TradingController.AITradingStyle.Aggressive) marginRatio = 0.40f;
@@ -513,14 +503,8 @@ namespace FXOverdose.AI
                     float counterTrapProb = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.75f;
                     if (UnityEngine.Random.value < counterTrapProb)
                     {
-                        TradingController.PositionType counterPos = signal.Type switch
-                        {
-                            MarketSignalType.BullTrap => TradingController.PositionType.Short, // 롱 유도 함정이므로 숏 진입
-                            MarketSignalType.BearTrap => TradingController.PositionType.Long,  // 숏 유도 함정이므로 롱 진입
-                            MarketSignalType.BullishBreakout => TradingController.PositionType.Short,
-                            MarketSignalType.BearishBreakout => TradingController.PositionType.Long,
-                            _ => TradingController.PositionType.Short
-                        };
+                        // 함정을 간파했으므로 유도 방향의 반대로 진입합니다.
+                        TradingController.PositionType counterPos = Opposite(signal.LureDirection);
 
                         float margin = availableBalance * tradeMarginRatio;
                         int leverage = defaultLeverage * 2;
@@ -567,20 +551,18 @@ namespace FXOverdose.AI
             }
         }
 
+        private static TradingController.PositionType Opposite(TradingController.PositionType pos) =>
+            pos == TradingController.PositionType.Long ? TradingController.PositionType.Short
+            : pos == TradingController.PositionType.Short ? TradingController.PositionType.Long
+            : TradingController.PositionType.None;
+
         // 정상/확실한 진입
         private void OpenNormalPosition(MarketSignal signal, float balance, float ratio, int leverage)
         {
             TradingController.AITradingStyle aiStyle = tradingController != null ? tradingController.CurrentAITradingStyle : TradingController.AITradingStyle.Balanced;
             ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
 
-            TradingController.PositionType posType = signal.Type switch
-            {
-                MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
-                MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
-                MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                _ => TradingController.PositionType.Long
-            };
+            TradingController.PositionType posType = signal.LureDirection;
 
             // 💡 [차트 공부 귀속] 정확도 검증: 차트 공부 레벨이 낮아 오판 시 정상 신호에서도 반대 방향으로 역진입(Error Entry)
             // 단, 선택 이벤트 등 확정적 신호(IsExternalEventOverride) 진행 중에는 요미가 완벽하게 맞추도록 오판 로직을 무시합니다.

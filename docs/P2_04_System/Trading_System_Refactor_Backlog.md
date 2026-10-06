@@ -51,7 +51,7 @@
 - [x] DEAD-2 — 멘탈 Anxious/Stable 전이 대사 (2026-10-06) — 악화·회복 대사, 20초 쿨다운 + Playing에서만 (다음 날 리셋 시 오발 방지)
 
 **Wave 4 — 구조 확장**
-- [ ] SIG-0 — `MarketSignal.Direction` 필드 분리
+- [x] SIG-0 — `MarketSignal.Direction` 필드 분리 (2026-10-06) — Direction/LureDirection 도입, AI의 Type 의존 0 — Tier 3 가짜 하락 돌파 방향 버그 동시 해소
 - [ ] SIG-B1 — 궤적 `AnimationCurve` 외부화
 - [ ] SIG-A4 — 셋업 카탈로그 확장
 - [ ] SIG-A3 — 차트 컨텍스트 기반 신호

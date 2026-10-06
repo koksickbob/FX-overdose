@@ -1338,7 +1338,11 @@ tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
 >
 > **용어** — 이 장의 "AI"는 전부 **`AITradingBrain`, 즉 요미의 규칙 기반 자동매매**를 가리킵니다. 이 프로젝트에 LLM은 존재하지 않으며(§17), `AITradingBrain`에는 `async`/`await`/네트워크 호출이 하나도 없는 완전 동기 `switch` + 난수 임계값 로직입니다.
 
-### 21.0 선행 작업 — 신호 종류 추가를 싸게 만들기
+### 21.0 선행 작업 — 신호 종류 추가를 싸게 만들기 — ✅ 완료 (2026-10-06, SIG-0)
+
+> 처리 결과: `MarketSignal.Direction`(유도 방향)과 `LureDirection`(비어 있으면 Type에서 유도하는 폴백)을 추가하고, AI의 switch 4개를 `signal.LureDirection` / `Opposite(...)`로 치환했습니다. **`AITradingBrain`은 이제 `signal.Type`을 전혀 읽지 않습니다.** 신호를 만드는 3곳(`GenerateMarketSignal`/`ForceInjectSignal`/`TriggerOverdoseTrapSignal`)과 테스트 주입(`TriggerSignalForTest`)이 Direction을 채웁니다.
+>
+> **동작 변화 1건 (버그 수정)**: Tier 3("강한 가짜 신호를 대박으로 오인해 진입")의 switch에 가짜 하락 돌파(`BearishBreakout`)가 없어 기본값 Long으로 떨어졌습니다. 가짜 하락 돌파는 실제로 오르므로 "속아야 할" AI가 오히려 이기는 방향으로 진입하고 있었습니다. 이제 유도 방향(Short)으로 들어가 의도대로 속습니다.
 
 `MarketSignalType`은 **30곳**에서 참조됩니다 (`AITradingBrain` 14행 = switch 식 4개 / `MarketSimulationEngine` 16행). 그런데 소비 패턴을 보면 전부 둘 중 하나입니다:
 

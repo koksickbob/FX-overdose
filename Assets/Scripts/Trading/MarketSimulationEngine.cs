@@ -194,6 +194,7 @@ namespace FXOverdose.Trading
         // 테스트 및 디버그용 수동 신호 발행 Helper
         public void TriggerSignalForTest(MarketSignal signal)
         {
+            if (signal.Direction == TradingController.PositionType.None) signal.Direction = MarketSignal.AdvertisedDirectionOf(signal.Type);
             activeSignal = signal;
             currentSignalPhase = SignalPhase.GraceWindow;
             // 💡 [타이머 정상화] 신호 주입 시 여유 시간(GraceWindow)을 정상 반영하여 즉시 GuaranteedOverride로 건너뛰지 않도록 보호
@@ -1555,6 +1556,7 @@ namespace FXOverdose.Trading
             activeSignal = new MarketSignal
             {
                 Type = type,
+                Direction = MarketSignal.AdvertisedDirectionOf(type),
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1577,6 +1579,7 @@ namespace FXOverdose.Trading
             activeSignal = new MarketSignal
             {
                 Type = type,
+                Direction = MarketSignal.AdvertisedDirectionOf(type),
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1609,6 +1612,7 @@ namespace FXOverdose.Trading
             activeSignal = new MarketSignal
             {
                 Type = trapSigType,
+                Direction = trapPosType,
                 Strength = SignalStrength.Strong,
                 IsTrueSignal = false,
                 TargetPercentageDelta = trapTargetDelta,

@@ -38,6 +38,27 @@ namespace FXOverdose.Trading
         public int GraceMinutes;           // 판단 여유 시간 (분)
         public float SignalStartPrice;     // 신호 발생 시점 주가
 
+        /// <summary>
+        /// 이 신호가 진입을 <b>유도하는</b> 방향입니다. 진위와 무관합니다 — 가짜 신호면 실제 가격은 반대로 갑니다.
+        /// AI(AITradingBrain)는 신호 종류(Type)가 아니라 이 값으로 방향을 정하므로, 신호 종류를 새로 추가해도
+        /// AI 코드를 고칠 필요가 없습니다. (SIG-0)
+        /// </summary>
+        public TradingController.PositionType Direction;
+
+        /// <summary>기존 4종 신호의 유도 방향. 신호를 만드는 쪽이 Direction을 채울 때 씁니다.</summary>
+        public static TradingController.PositionType AdvertisedDirectionOf(MarketSignalType type) => type switch
+        {
+            MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
+            MarketSignalType.BullTrap => TradingController.PositionType.Long,
+            MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
+            MarketSignalType.BearTrap => TradingController.PositionType.Short,
+            _ => TradingController.PositionType.None
+        };
+
+        /// <summary>Direction이 비어 있으면(구 경로) 신호 종류에서 유도합니다.</summary>
+        public TradingController.PositionType LureDirection =>
+            Direction != TradingController.PositionType.None ? Direction : AdvertisedDirectionOf(Type);
+
         public string GetSignalDescription()
         {
             string strengthText = Strength == SignalStrength.Strong ? "[강한 확정 신호]" : "[약한 단타 신호]";

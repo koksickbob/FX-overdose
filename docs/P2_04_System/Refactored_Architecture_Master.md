@@ -778,5 +778,13 @@ AI 경로는 손대지 않았다. 고배율 올인(오버도즈 강제 진입 �
 
 멘탈 4단계 중 `Danger`(뇌동매매 40%)와 `Overdose`(폭주)는 동작하는데, 중간 두 단계의 전이 블록이 비어 있어 무음이었다. `SayMentalTransition()`을 두고 악화(안정 → 불안)·회복(→ 안정) 대사를 넣었다. 두 가지 오작동을 막았다 — ① 멘탈이 50 근처에서 오르내리면 같은 말이 반복되므로 실시간 20초 쿨다운, ② 다음 날 넘어갈 때 정산 화면에서 멘탈이 최대로 회복되며 회복 대사가 튀므로 `Playing` 상태에서만 말한다. 새 글자는 모두 아틀라스에 있어 프리베이크 불필요.
 
+### 15.17 SIG-0 — `MarketSignal.Direction` 분리
+
+`AITradingBrain`은 신호에서 방향만 뽑으려고 `signal.Type`을 switch 4곳에서 읽었다. 그래서 신호 종류를 하나 추가할 때마다 AI 코드를 함께 고쳐야 했다(셋업 확장 SIG-A4의 병목).
+
+**변경**: `MarketSignal.Direction`(신호가 진입을 유도하는 방향, 진위와 무관) + `AdvertisedDirectionOf(type)` + `LureDirection`(Direction이 비면 Type에서 유도하는 폴백). 신호를 만드는 3곳과 테스트 주입이 Direction을 채운다. AI의 switch 4개는 `signal.LureDirection` / `Opposite(...)`로 치환 — `AITradingBrain`은 더 이상 `signal.Type`을 읽지 않는다.
+
+**동작 변화 (버그 수정)**: Tier 3의 trap 방향 switch에 `BearishBreakout`이 없어 기본값 Long으로 떨어졌다. 이 분기는 "강한 **가짜** 신호"만 타므로 가짜 하락 돌파(실제로는 상승)에 Long으로 들어가 오히려 이겼다. 이제 유도 방향(Short)으로 들어가 Tier 3의 의도("함정을 대박으로 오인")대로 속는다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*
