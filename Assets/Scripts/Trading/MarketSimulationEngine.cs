@@ -325,17 +325,7 @@ namespace FXOverdose.Trading
             currentTotalMinutes = data.MarketTotalMinutes;
 
             // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
-            currentSignalPhase = SignalPhase.None;
-            signalPhaseTimerMinutes = 0;
-            isExternalEventOverride = false;
-            isOverdoseTrapOverride = false;
-            // 두 초기화 경로(ResetEngine/여기)의 목록을 일치시킵니다.
-            // 특히 서버 렉을 남겨 두면 불러오기 직후 차트가 몇 초간 멈춘 채 시작합니다.
-            overdoseTrapEndTime = -1f;
-            isServerLagging = false;
-            serverLagTimer = 0f;
-            accumulatedLagPriceDelta = 0f;
-            accumulatedLagVolume = 0f;
+            ResetTransientMarketState();
 
             candleHistories.Clear();
             liveAggregatedCandles.Clear();
@@ -377,11 +367,20 @@ namespace FXOverdose.Trading
                 }
             }
             
-            if (candleHistories.TryGetValue(Timeframe.M1, out var m1List) && m1List.Count > 0)
+            liveAggregatedCandles.TryGetValue(Timeframe.M1, out liveM1Candle);
+
+            // 요미의 방에서 하루를 넘기면 이 엔진이 없는 채로 일차만 바뀝니다. 그 세이브는 어제 차트를
+            // 그대로 들고 있으므로 여기서 다음 날로 넘깁니다. GameScene에서 넘긴 경우는 RollOverToNewDay가
+            // 이미 MarketLastUpdatedDay를 새 일차로 맞춰 저장했으므로 이 조건에 걸리지 않습니다.
+            if (data.MarketLastUpdatedDay > 0 && data.MarketLastUpdatedDay < data.CurrentDay)
             {
-                liveM1Candle = liveAggregatedCandles[Timeframe.M1];
+                RollOverToNewDay(data.CurrentDay);
             }
-            
+            else if (liveM1Candle == null)
+            {
+                StartNewLiveCandle(currentPrice);
+            }
+
             Debug.Log("[MarketSimulationEngine] 차트 히스토리 및 현재 가격 복구 완료.");
         }
 
@@ -436,6 +435,75 @@ namespace FXOverdose.Trading
             }
         }
 
+        private const long MinutesPerDay = 1440;
+
+        /// <summary>
+        /// 진행 중이던 신호·오버라이드·오버도즈 함정·서버 렉 같은 일시 상태를 비웁니다.
+        /// 새 게임(ResetEngine)·불러오기(RestoreFromSaveData)·하루 넘김(RollOverToNewDay) 세 경로가 공유합니다.
+        /// 예전에는 경로마다 목록을 따로 들고 있어 한쪽에만 빠진 항목이 버그가 됐습니다
+        /// (서버 렉을 남기면 불러오기 직후 차트가 몇 초간 멈춘 채 시작합니다).
+        /// </summary>
+        private void ResetTransientMarketState()
+        {
+            currentSignalPhase = SignalPhase.None;
+            signalPhaseTimerMinutes = 0;
+            isExternalEventOverride = false;
+            isOverdoseTrapOverride = false;
+            overdoseTrapEndTime = -1f;
+            isServerLagging = false;
+            serverLagTimer = 0f;
+            accumulatedLagPriceDelta = 0f;
+            accumulatedLagVolume = 0f;
+        }
+
+        /// <summary>
+        /// 하루가 넘어갈 때 차트를 <b>이어 붙입니다</b>. 가격과 캔들 히스토리는 그대로 두고,
+        /// 거래가 있었던 진행 중 캔들을 마감한 뒤 시간축을 다음 1440분 경계로 옮깁니다.
+        /// 그래서 어제 종가가 오늘 시가가 되고, D1 캔들이 하루에 하나씩 쌓입니다.
+        ///
+        /// 밤사이(24:00~09:00)는 시뮬레이션하지 않으므로 가격 공백 없이 그대로 이어집니다.
+        /// GameScene에서 정산하면 GameManager가, 요미의 방에서 정산하면 다음 GameScene 진입 시
+        /// RestoreFromSaveData가 호출합니다.
+        /// </summary>
+        public void RollOverToNewDay(int newDay)
+        {
+            if (p2pExternalMode) return;
+            EnsureCandleHistoriesInitialized();
+
+            // 24:00 마지막 분에 새로 열린 빈 캔들(거래량 0)은 버리고, 거래가 있었던 캔들만 마감합니다.
+            if (liveM1Candle != null && liveM1Candle.volume > 0f) FinalizeCandle(Timeframe.M1, liveM1Candle);
+            foreach (Timeframe tf in Enum.GetValues(typeof(Timeframe)))
+            {
+                if (tf == Timeframe.M1) continue;
+                if (liveAggregatedCandles.TryGetValue(tf, out CandleData live) && live != null && live.volume > 0f)
+                {
+                    FinalizeCandle(tf, live);
+                }
+            }
+            liveAggregatedCandles.Clear();
+
+            // 이미 경계 위에 있어도 반드시 한 칸 넘깁니다. 그대로 두면 같은 타임스탬프의 D1이 두 번 생깁니다.
+            currentTotalMinutes = (currentTotalMinutes / MinutesPerDay + 1) * MinutesPerDay;
+
+            IsMarketOpen = false;   // GameManager가 OpenMarketAfterLoading으로 다시 엽니다
+            tickTimer = 0f;
+            ResetTransientMarketState();
+            minutesUntilNextSignal = 3;
+            ouCenterPrice = currentPrice;
+            current24hHigh = currentPrice;
+            current24hLow = currentPrice;
+            current24hVolume = 0f;
+
+            // 새 날의 거시 기조를 지금 확정합니다. 이래야 직후 저장되는 MarketLastUpdatedDay가 새 일차를 가리켜
+            // 다음 불러오기에서 하루를 한 번 더 넘기지 않습니다.
+            UpdateDailyDifficulty(newDay);
+
+            StartNewLiveCandle(currentPrice);
+            IsDataPrepared = true;
+            Debug.Log($"[MarketEngine] 📅 {newDay}일차로 차트를 이어 붙였습니다. 시가 ${currentPrice:N1} (시간축 {currentTotalMinutes}분)");
+            OnEngineReset?.Invoke();
+        }
+
         public void ResetEngine(float startPrice)
         {
             EnsureCandleHistoriesInitialized();
@@ -448,17 +516,7 @@ namespace FXOverdose.Trading
             current24hVolume = 0f;
             currentTotalMinutes = 0;
             tickTimer = 0f;
-            currentSignalPhase = SignalPhase.None;
-            signalPhaseTimerMinutes = 0;
-            isExternalEventOverride = false;
-            // 아래 5개는 RestoreFromSaveData에서는 초기화하면서 여기서만 빠져 있었습니다.
-            // 일차 전환이 오버도즈 함정이나 서버 렉 도중에 일어나면 그 상태가 새 날로 넘어옵니다.
-            isOverdoseTrapOverride = false;
-            overdoseTrapEndTime = -1f;
-            isServerLagging = false;
-            serverLagTimer = 0f;
-            accumulatedLagPriceDelta = 0f;
-            accumulatedLagVolume = 0f;
+            ResetTransientMarketState();
             // 💡 [AI 매매 실시간 검증 최적화] 게임 시작 후 단 3초(3분봉) 만에 첫 매매 신호가 발생하여 주인공 AI가 즉시 판단 및 매매를 개시하도록 설정
             minutesUntilNextSignal = 3;
 
@@ -469,7 +527,7 @@ namespace FXOverdose.Trading
             liveAggregatedCandles.Clear();
 
             // 게임 시작 전 과거 150분(2시간 반) 데이터 Pre-warm 생성 및 최종 시뮬레이션 마감 종가를 현재 주가로 동기화
-            float prewarmedEndPrice = PrewarmHistoricalCandles(150);
+            float prewarmedEndPrice = PrewarmHistoricalCandles(150, startPrice);
             currentPrice = prewarmedEndPrice;
             ouCenterPrice = prewarmedEndPrice;
 
@@ -1180,9 +1238,10 @@ namespace FXOverdose.Trading
         }
 
         // 게임 시작 시 초기 과거 데이터(Pre-warm) 생성 및 최종 종가 반환
-        private float PrewarmHistoricalCandles(int minutesCount)
+        private float PrewarmHistoricalCandles(int minutesCount, float startPrice)
         {
-            float tempPrice = initialPrice;
+            // 예전에는 인자 없이 initialPrice에서 출발해, ResetEngine(startPrice)의 startPrice가 통째로 버려졌습니다.
+            float tempPrice = startPrice;
             long startTimestamp = -minutesCount;
 
             for (int i = 0; i < minutesCount; i++)

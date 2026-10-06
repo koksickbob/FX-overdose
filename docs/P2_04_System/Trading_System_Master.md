@@ -783,7 +783,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 2. 09:00으로 시각 리셋, 날짜 +1일
 3. `StartOfDayEquity` 갱신, 자산 스파크라인 리셋
 4. **체력·멘탈 모두 최대로 회복**
-5. 저장된 차트 무효화 → 새 날은 새 캔들로 시작
+5. 차트를 **이어 붙임** — `MarketSimulationEngine.RollOverToNewDay()`가 진행 중 캔들을 마감하고 시간축을 다음 1440분 경계로 옮깁니다. 어제 종가가 오늘 시가가 되고 D1 캔들이 하루에 하나씩 쌓입니다. 요미의 방에서 넘긴 경우는 다음 GameScene 진입 시 엔진이 세이브의 `MarketLastUpdatedDay < CurrentDay`를 보고 스스로 넘깁니다. (FIX-1, 2026-10-06)
 
 ### 11.4 자산 스파크라인
 
@@ -799,7 +799,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 
 ### 11.6 요미의 방 정산
 
-`RoomSettlementEnabled = true`. 요미의 방에서 취침하면 **씬 전환 없이** 그 자리에서 `AdvanceClockWithoutSimulation(24h)` → `ProcessDailySettlementWithStory()`. 남은 시간을 1분씩 시뮬레이션하지 않는 이유: 취침 시점에 열린 포지션이 있을 수 없고(방 → GameScene은 단방향), 체력·멘탈은 다음 날 어차피 최대로 회복되며, 캔들은 하루가 바뀌면 리셋됩니다. [GameManager.cs:1385](../../Assets/Scripts/GameManager.cs#L1385)
+`RoomSettlementEnabled = true`. 요미의 방에서 취침하면 **씬 전환 없이** 그 자리에서 `AdvanceClockWithoutSimulation(24h)` → `ProcessDailySettlementWithStory()`. 남은 시간을 1분씩 시뮬레이션하지 않는 이유: 취침 시점에 열린 포지션이 있을 수 없고(방 → GameScene은 단방향), 체력·멘탈은 다음 날 어차피 최대로 회복되며, 차트는 다음 GameScene 진입 시 엔진이 이어 붙입니다. [GameManager.cs:1385](../../Assets/Scripts/GameManager.cs#L1385)
 
 ---
 
@@ -1057,7 +1057,13 @@ private void TriggerGimmickDialogue(string gimmickContext, string fallbackDialog
 
 ### 19.1 구현 결함 — 의도는 명확한데 동작하지 않음
 
-**1. 날짜 간 가격 연속성이 끊깁니다** ⚠️
+**1. 날짜 간 가격 연속성이 끊깁니다** — ✅ 해소 (2026-10-06, FIX-1)
+
+> **처리 결과**: 아래 개선안(프리웜 출발점 교체)이 아니라 **하루 넘김을 엔진의 `RollOverToNewDay()` 하나로 통일**했습니다. 작업 중 하루 전환 경로가 두 갈래였고 서로 다르게 깨져 있다는 사실이 드러났기 때문입니다.
+> - **GameScene에서 정산**: `ResetEngine(어제 종가)` → 프리웜이 인자를 무시해 ~$67,842로 리셋 → 직후 자동저장이 리셋된 차트를 저장 (아래 서술대로)
+> - **요미의 방에서 정산**: `InvalidateSavedChartForNewDay()`가 **레거시 `ChartHistories`만** 비우고 실제 복원에 쓰이는 `FlatChartHistories`·`CurrentChartPrice`는 남긴 채 `MarketTotalMinutes`만 0으로 → 다음 날 어제 가격·캔들이 복원되면서 시간축만 0으로 되돌아가는 어긋난 상태. 주석의 "새로 프리웜"도 사실과 달랐음
+>
+> 지금은 두 경로 모두 가격·캔들을 그대로 이어 갑니다. `InvalidateSavedChartForNewDay()`는 삭제했고, 세 초기화 경로(새 게임/불러오기/하루 넘김)가 따로 들고 있던 일시 상태 목록은 `ResetTransientMarketState()`로 합쳤습니다. `ResetEngine(startPrice)`가 인자를 버리던 문제도 함께 고쳤습니다(현재 호출은 새 게임의 `initialPrice` 하나뿐이라 동작은 동일). 가격 수준이 날짜를 넘어 복리로 떠도는 영향은 Wave 5(REAL-7 변동성 재조정)에서 다룹니다.
 
 [GameManager.cs:1178](../../Assets/Scripts/GameManager.cs#L1178)은 어제 종가를 명시적으로 넘깁니다:
 ```csharp

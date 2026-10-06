@@ -700,5 +700,28 @@ LLM에 넘기던 상황 설명 프롬프트였던 첫 인자가 본문에서 전
 
 외부 이벤트 트랩 3종의 꺾임 시점이 항상 같았다(V 0.7 / W 0.4·0.6·0.85 / Slow Bleed 0.85). `GuaranteedOverride` 진입 시 `RollTrapSplits()`가 트랩 타입에 맞춰 기준값 ±0.1 범위에서 1회 추첨한다. W-Shape는 세 경계의 순서를 보장하고 탈출 구간이 0.1 이상 남도록 상한을 둔다. **각 구간 드리프트의 분모를 고정 상수가 아닌 실제 구간 길이로 바꿔** 구간별 총 이동량(예: W는 1.3Δ)이 분할과 무관하게 보존된다 — 분모를 그대로 두면 지터가 곧 빔 위력 변동이 된다.
 
+### 15.8 FIX-1 — 날짜 간 가격·차트 연속성
+
+계획은 "프리웜 출발점을 어제 종가로"였지만, 손대 보니 하루 전환 경로가 두 갈래이고 각각 다르게 깨져 있었다.
+
+| 경로 | 이전 동작 |
+|---|---|
+| GameScene에서 정산 | `ResetEngine(어제 종가)` → 프리웜이 인자를 무시하고 `initialPrice`(67,842)에서 출발 → 직후 자동저장이 리셋된 차트를 저장 |
+| 요미의 방에서 정산 | `InvalidateSavedChartForNewDay()`가 레거시 `ChartHistories`만 비우고 `FlatChartHistories`·가격은 남긴 채 `MarketTotalMinutes = 0` → 다음 날 어제 차트가 복원되면서 시간축만 0으로 |
+
+**변경**
+- `MarketSimulationEngine.RollOverToNewDay(int newDay)` 신설: 거래가 있었던 진행 중 캔들만 마감(24:00에 새로 열린 거래량 0 캔들은 버림) → 시간축을 다음 1440분 경계로(경계 위에 있어도 반드시 한 칸) → 일시 상태 초기화 → `UpdateDailyDifficulty(newDay)`로 새 날 국면 확정 → 새 라이브 캔들. 가격·히스토리는 유지. 밤사이는 시뮬레이션하지 않아 가격 공백이 없다.
+- GameScene 경로: `ResetEngine` 대신 `RollOverToNewDay` 호출.
+- 방 경로: `InvalidateSavedChartForNewDay()` 삭제. 다음 GameScene 진입 시 `RestoreFromSaveData`가 `MarketLastUpdatedDay < CurrentDay`를 보고 스스로 넘긴다. GameScene 경로는 롤오버가 `MarketLastUpdatedDay`를 새 일차로 맞춘 뒤 저장하므로 불러오기에서 두 번 넘기지 않는다.
+- `ResetTransientMarketState()`: 새 게임·불러오기·하루 넘김이 따로 들고 있던 일시 상태 초기화 목록을 하나로. 예전에도 목록 불일치가 버그였다(서버 렉 잔존).
+- `RestoreFromSaveData`: 라이브 M1 캔들이 없을 때 `KeyNotFoundException` 대신 새 캔들을 연다.
+- `PrewarmHistoricalCandles(int, float startPrice)`: `ResetEngine(startPrice)`의 인자가 버려지던 함정 제거. 현재 호출은 새 게임(`initialPrice`)뿐이라 동작 동일.
+
+**안전성**: 복원 중 국면 확정이 `DailyMarketOutlook.Persist()`로 저장을 시도하지만, GameScene 로딩 중에는 `GameState.Loading`이라 `SaveGame`이 거부한다. 롤오버는 `p2pExternalMode`에서 즉시 반환한다. 차트 UI는 캔들을 인덱스 순으로 그려 시간축 점프가 시각적 공백을 만들지 않는다.
+
+**구버전 세이브**: 예전 방 경로가 남긴 `MarketLastUpdatedDay = -1` 세이브는 롤오버 조건에 걸리지 않아 예전처럼 복원된다(1회성).
+
+**남은 영향**: 가격이 날짜를 넘어 복리로 이어지므로 20일 뒤 가격 수준이 초기값과 크게 벌어질 수 있다 — Wave 5 REAL-7(변동성 재조정)에서 다룬다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

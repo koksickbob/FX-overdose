@@ -38,7 +38,7 @@
 - [x] SIG-B2 — 궤적 구간 분할 지터 (2026-10-06) — RollTrapSplits() 신설, 분모도 실제 구간 길이로 바꿔 총 이동량 보존 (10만 회 불변식 검증)
 
 **Wave 2 — 결함 수정**
-- [ ] FIX-1 — 날짜 간 가격 연속성 복구
+- [x] FIX-1 — 날짜 간 가격 연속성 복구 (2026-10-06) — 하루 넘김을 RollOverToNewDay()로 통일 — 두 갈래 경로(GameScene 리셋 / 방의 부분 무효화)가 서로 다르게 깨져 있던 것 함께 해소
 - [ ] FIX-4 — H4·D1 타임프레임 처리
 - [ ] FIX-2 — 유동성 사냥 꼬리에 청산 판정 연동
 - [ ] FIX-7 — 수동 진입 수수료 + `TradeFeeRate` 상수 통합
@@ -310,7 +310,7 @@ REAL-7 ──╌╌─► FIX-3(a) (점선: 변동성 재조정 전에는 일차
 
 `TradingController` / `MarketSimulationEngine` / `TraderStatus` / `GameManager`에는 `p2pExternalMode` 분기가 있습니다. **시뮬레이션 로직을 건드리는 항목(FIX-1, FIX-2, SIG-*, REAL-*)은 P2P 슬레이브 경로를 깨지 않는지 확인**하십시오. 특히:
 
-- `PrepareP2PChartHistory()`는 `PrewarmHistoricalCandles()`와 **별도 구현**입니다 → FIX-1에서 한쪽만 고치면 어긋납니다
+- `PrepareP2PChartHistory()`는 `PrewarmHistoricalCandles()`와 **별도 구현**입니다 → FIX-1은 프리웜이 아니라 하루 넘김(`RollOverToNewDay`, `p2pExternalMode`에서 즉시 반환)을 고쳐 P2P 경로를 건드리지 않았습니다
 - `CheckLiquidationSweep()`은 이미 `p2pExternalMode`에서 차단됩니다 → FIX-2는 P2P 무영향
 
 ---

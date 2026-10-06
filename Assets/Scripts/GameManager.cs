@@ -1060,19 +1060,13 @@ public class GameManager : MonoBehaviour
         // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행
         FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(CurrentDay);
 
-        // 💡 [차트 리셋] 다음 날로 넘어갈 때 새로운 하루가 시작되도록 차트를 새로 고침(프리웜)합니다.
+        // 차트는 리셋하지 않고 다음 날로 이어 붙입니다 — 어제 종가가 오늘 시가가 됩니다. (FIX-1)
+        // 엔진이 없는 씬(요미의 방)에서 넘긴 경우는 다음 GameScene 진입 시 엔진이 세이브를 보고 스스로 넘깁니다.
         var marketEngine = FindAnyObjectByType<FXOverdose.Trading.MarketSimulationEngine>();
         if (marketEngine != null)
         {
-            marketEngine.ResetEngine(marketEngine.CurrentPrice);
-            Debug.Log("[GameManager] 다음 날로 넘어감에 따라 차트 엔진(과거 기록)을 리셋 및 새로운 차트 프리웜 완료.");
-            
-            // 💡 리셋된 엔진의 마켓을 다시 개장합니다.
+            marketEngine.RollOverToNewDay(CurrentDay);
             marketEngine.OpenMarketAfterLoading();
-        }
-        else
-        {
-            InvalidateSavedChartForNewDay();
         }
 
         var bossManager = FXOverdose.Core.BossManager.Instance;
@@ -1183,17 +1177,6 @@ public class GameManager : MonoBehaviour
     ///
     /// 세이브 쪽을 비워 두면 다음 진입에서 새 하루의 차트를 프리웜합니다.
     /// </summary>
-    private void InvalidateSavedChartForNewDay()
-    {
-        var data = FXOverdose.Core.SaveLoadManager.Instance?.CurrentData;
-        if (data == null) return;
-
-        data.ChartHistories?.Clear();
-        data.MarketLastUpdatedDay = -1;   // 복원 측이 CurrentDay 기준으로 다시 판정합니다.
-        data.MarketTotalMinutes = 0;
-        Debug.Log("[GameManager] 차트 엔진이 없는 씬에서 하루가 넘어가 세이브의 차트 기록을 비웠습니다. (다음 거래 진입 시 새로 프리웜)");
-    }
-
     /// <summary>
     /// 다음 날 아침을 요미의 방에서 시작하도록 씬을 전환합니다. (SV-B11)
     ///
