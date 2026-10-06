@@ -1368,10 +1368,11 @@ namespace FXOverdose.Trading
                         
                         // 오버드라이브 연출 패턴 무작위 설정
                         currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
+                        // 이벤트 빔은 트랩/정상 경로 목록에서, 시장 신호는 셋업별 궤적에서 고릅니다. (SIG-A4)
                         bool trapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
-                        activeTrajectory = TrajectoryLibrary.Pick(
-                            trapPath ? trapTrajectories : pathTrajectories,
-                            trapPath ? TrajectoryLibrary.Traps : TrajectoryLibrary.Paths);
+                        if (trapPath) activeTrajectory = TrajectoryLibrary.Pick(trapTrajectories, TrajectoryLibrary.Traps);
+                        else if (isExternalEventOverride) activeTrajectory = TrajectoryLibrary.Pick(pathTrajectories, TrajectoryLibrary.Paths);
+                        else activeTrajectory = TrajectoryLibrary.PickForSetup(pathTrajectories, activeSignal.Setup);
                         activeTrajectoryWarp = activeTrajectory.RollWarp();
 
                         Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, 궤적: {activeTrajectory.name}, 시간 비틀림 {activeTrajectoryWarp:F2})");
@@ -1432,6 +1433,61 @@ namespace FXOverdose.Trading
             }
         }
 
+        // 셋업 가중치 표 (SIG-A4). 신호 종류·진위·기조 조합마다 하나씩입니다.
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueSqueeze =
+            { (SignalSetup.VolatilitySqueeze, 50f), (SignalSetup.Breakout, 35f), (SignalSetup.NewsSpike, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueWithTrend =
+            { (SignalSetup.TrendContinuation, 40f), (SignalSetup.Breakout, 45f), (SignalSetup.NewsSpike, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueOther =
+            { (SignalSetup.Breakout, 80f), (SignalSetup.NewsSpike, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsFalseBreakout =
+            { (SignalSetup.FalseBreakout, 50f), (SignalSetup.StopRun, 30f), (SignalSetup.LiquidityGrab, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBullTrapRange =
+            { (SignalSetup.RangeRejection, 45f), (SignalSetup.FalseBreakout, 25f), (SignalSetup.LiquidityGrab, 15f), (SignalSetup.Distribution, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBearTrapRange =
+            { (SignalSetup.RangeRejection, 45f), (SignalSetup.FalseBreakout, 25f), (SignalSetup.LiquidityGrab, 15f), (SignalSetup.Capitulation, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBullTrap =
+            { (SignalSetup.Distribution, 35f), (SignalSetup.FalseBreakout, 30f), (SignalSetup.StopRun, 15f), (SignalSetup.LiquidityGrab, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBearTrap =
+            { (SignalSetup.Capitulation, 35f), (SignalSetup.FalseBreakout, 30f), (SignalSetup.StopRun, 15f), (SignalSetup.LiquidityGrab, 20f) };
+
+        /// <summary>
+        /// 신호 종류·진위·그날 기조에서 연출 계열(셋업)을 고릅니다. (SIG-A4)
+        /// 롱을 꼬시는 트랩은 고점 분산, 숏을 꼬시는 트랩은 투매 후 V반등이 전형이고, 횡보장 트랩은 박스권 반락이 많습니다.
+        /// </summary>
+        private SignalSetup ChooseSetup(MarketSignalType type, bool isTrue)
+        {
+            bool breakout = type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout;
+            (SignalSetup setup, float weight)[] table;
+            if (breakout && isTrue)
+            {
+                table = currentDailyRegime == MarketRegime.Squeeze ? SetupsTrueSqueeze
+                      : TrendAlignmentBonus(type) > 0f ? SetupsTrueWithTrend
+                      : SetupsTrueOther;
+            }
+            else if (breakout)
+            {
+                table = SetupsFalseBreakout;
+            }
+            else
+            {
+                bool range = currentDailyRegime == MarketRegime.Sideways;
+                bool lureLong = type == MarketSignalType.BullTrap;
+                table = range ? (lureLong ? SetupsBullTrapRange : SetupsBearTrapRange)
+                              : (lureLong ? SetupsBullTrap : SetupsBearTrap);
+            }
+
+            float total = 0f;
+            for (int i = 0; i < table.Length; i++) total += table[i].weight;
+            float r = UnityEngine.Random.value * total;
+            for (int i = 0; i < table.Length; i++)
+            {
+                r -= table[i].weight;
+                if (r <= 0f) return table[i].setup;
+            }
+            return table[table.Length - 1].setup;
+        }
+
         // 일일 기조별 신호 종류 가중치 [상승 돌파, 하락 돌파, 불트랩, 베어트랩] (SIG-A1)
         // 추세장에서는 추세 방향 돌파와 "역추세 쪽을 꼬신 뒤 추세 방향으로 가는" 트랩(상승장의 베어트랩)이 많고,
         // 박스권은 양 끝단의 가짜 돌파가 지배적입니다.
@@ -1489,6 +1545,14 @@ namespace FXOverdose.Trading
             int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);
             int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
 
+            // 연출 계열(셋업) — 궤적 모양과 예고 시간만 바꿉니다. AI가 읽는 종류·진위·방향은 위에서 이미 정해졌습니다. (SIG-A4)
+            SignalSetup setup = ChooseSetup(type, isTrue);
+            if (setup == SignalSetup.NewsSpike)
+            {
+                duration = UnityEngine.Random.Range(5, 11); // 짧고 굵게
+                grace = 1;                                  // 예고가 거의 없습니다
+            }
+
             // 확정 변동률(TargetPercentageDelta) 연산
             float targetDelta = 0f;
             if (strength == SignalStrength.Strong)
@@ -1514,6 +1578,7 @@ namespace FXOverdose.Trading
             {
                 Type = type,
                 Direction = MarketSignal.AdvertisedDirectionOf(type),
+                Setup = setup,
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1537,6 +1602,7 @@ namespace FXOverdose.Trading
             {
                 Type = type,
                 Direction = MarketSignal.AdvertisedDirectionOf(type),
+                Setup = isTrue ? SignalSetup.Breakout : SignalSetup.FalseBreakout,
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1570,6 +1636,7 @@ namespace FXOverdose.Trading
             {
                 Type = trapSigType,
                 Direction = trapPosType,
+                Setup = SignalSetup.FalseBreakout,
                 Strength = SignalStrength.Strong,
                 IsTrueSignal = false,
                 TargetPercentageDelta = trapTargetDelta,

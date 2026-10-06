@@ -18,6 +18,25 @@ namespace FXOverdose.Trading
         Weak    // 약한 단타/미끼 신호 (+5%~+15% ROE 또는 가벼운 -8% 손절 휩소, 5~10분 지속)
     }
 
+    /// <summary>
+    /// 신호의 연출 계열(셋업)입니다. (SIG-A4)
+    /// AI가 읽는 요약(종류·강도·진위·방향)은 그대로 두고, 차트 궤적 모양과 예고 시간만 셋업이 정합니다.
+    /// 그래서 셋업을 늘려도 AITradingBrain은 바뀌지 않습니다.
+    /// </summary>
+    public enum SignalSetup
+    {
+        Breakout,           // 추세 돌파 — 일방향 (직선/초반 급등/계단식)
+        FalseBreakout,      // 가짜 돌파 — 유인 방향으로 찌른 뒤 반전
+        TrendContinuation,  // 추세 지속 — 얕은 눌림 후 재개 (기조 순방향 진짜 돌파)
+        RangeRejection,     // 박스권 반락 — 끝단을 건드리고 반대편으로 왕복 (횡보장 트랩)
+        StopRun,            // 스탑 사냥 — 짧고 깊은 역방향 스윕 후 본 방향
+        Capitulation,       // 투매 후 V반등 — 가속 하락으로 숏을 꼬신 뒤 급반등 (숏 유인 트랩)
+        Distribution,       // 고점 분산 — 고점 횡보로 롱을 꼬신 뒤 느린 붕괴 (롱 유인 트랩)
+        NewsSpike,          // 뉴스 스파이크 — 예고 1분, 즉시 과잉 점프 후 되돌림
+        VolatilitySqueeze,  // 변동성 수축 돌파 — 느리게 조이다 막판 폭발 (광기 기조)
+        LiquidityGrab       // 양방향 유동성 사냥 — 양쪽 스탑을 차례로 턴 뒤 본 방향
+    }
+
     // 신호 진행 단계
     public enum SignalPhase
     {
@@ -55,6 +74,9 @@ namespace FXOverdose.Trading
             _ => TradingController.PositionType.None
         };
 
+        /// <summary>연출 계열. 궤적 모양과 예고 시간만 바꿉니다. (SIG-A4)</summary>
+        public SignalSetup Setup;
+
         /// <summary>Direction이 비어 있으면(구 경로) 신호 종류에서 유도합니다.</summary>
         public TradingController.PositionType LureDirection =>
             Direction != TradingController.PositionType.None ? Direction : AdvertisedDirectionOf(Type);
@@ -70,7 +92,21 @@ namespace FXOverdose.Trading
                 MarketSignalType.BearTrap => "숏 꼬시기 휩소 (Bear Trap) ⚠️",
                 _ => "알 수 없음"
             };
-            return $"{strengthText} {typeText} (여유: {GraceMinutes}분, 보장: {DurationMinutes}분, 예상 변동: {TargetPercentageDelta:+0.00;-0.00}%)";
+            string setupText = Setup switch
+            {
+                SignalSetup.Breakout => "추세 돌파",
+                SignalSetup.FalseBreakout => "가짜 돌파",
+                SignalSetup.TrendContinuation => "추세 지속",
+                SignalSetup.RangeRejection => "박스권 반락",
+                SignalSetup.StopRun => "스탑 사냥",
+                SignalSetup.Capitulation => "투매 후 V반등",
+                SignalSetup.Distribution => "고점 분산",
+                SignalSetup.NewsSpike => "뉴스 스파이크",
+                SignalSetup.VolatilitySqueeze => "변동성 수축 돌파",
+                SignalSetup.LiquidityGrab => "양방향 유동성 사냥",
+                _ => "알 수 없음"
+            };
+            return $"{strengthText} {typeText} / {setupText} (여유: {GraceMinutes}분, 보장: {DurationMinutes}분, 예상 변동: {TargetPercentageDelta:+0.00;-0.00}%)";
         }
     }
 }

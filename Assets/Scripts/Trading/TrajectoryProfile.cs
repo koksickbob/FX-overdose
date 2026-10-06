@@ -33,6 +33,9 @@ namespace FXOverdose.Trading
         [Tooltip("같은 목록 안에서의 추첨 가중치.")]
         [Min(0f)] public float weight = 1f;
 
+        [Tooltip("시장 신호에서 이 궤적을 쓸 셋업. 정상 경로 목록에 넣으면 같은 셋업 신호에서만 추첨됩니다. 이벤트 빔에서는 무시됩니다. (SIG-A4)")]
+        public SignalSetup setup = SignalSetup.Breakout;
+
         /// <summary>신호마다 1회 추첨하는 시간 비틀림 지수. 1보다 크면 늦게, 작으면 일찍 꺾입니다.</summary>
         public float RollWarp()
         {
@@ -73,6 +76,63 @@ namespace FXOverdose.Trading
             Make("Squeeze (ease-in)", Piecewise((0f, 0f), (0.7f, 0.35f), (1f, 1f)), null, 0.15f, true),
             Make("Staircase", Piecewise((0f, 0f), (0.25f, 0.4f), (0.4f, 0.33f), (0.65f, 0.75f), (0.78f, 0.68f), (1f, 1f)), null, 0.1f, true),
         };
+
+        private static Dictionary<SignalSetup, List<TrajectoryProfile>> bySetup;
+
+        /// <summary>
+        /// 시장 신호 셋업별 내장 궤적 (SIG-A4). 가짜 계열은 진행률이 먼저 음수로 내려가 <b>유인 방향으로 찌른 뒤</b>
+        /// 목표(반대) 방향으로 반전합니다. 모든 궤적은 progress(1) = 1이라 총 이동량은 목표 변동률 그대로입니다.
+        /// </summary>
+        public static IReadOnlyList<TrajectoryProfile> ForSetup(SignalSetup setup)
+        {
+            bySetup ??= new Dictionary<SignalSetup, List<TrajectoryProfile>>
+            {
+                [SignalSetup.Breakout] = new List<TrajectoryProfile> { Paths[0], Paths[1], Paths[3] },
+                [SignalSetup.VolatilitySqueeze] = new List<TrajectoryProfile> { Paths[2] },
+                [SignalSetup.TrendContinuation] = One(Make("Trend Continuation", Piecewise((0f, 0f), (0.2f, -0.15f), (1f, 1f)), null, 0.15f, true), SignalSetup.TrendContinuation),
+                [SignalSetup.FalseBreakout] = One(Make("False Breakout", Piecewise((0f, 0f), (0.25f, -0.3f), (1f, 1f)), null, 0.2f, true), SignalSetup.FalseBreakout),
+                [SignalSetup.StopRun] = One(Make("Stop Run", Piecewise((0f, 0f), (0.1f, -0.45f), (0.25f, 0.25f), (1f, 1f)), null, 0.15f, true), SignalSetup.StopRun),
+                [SignalSetup.LiquidityGrab] = One(Make("Liquidity Grab", Piecewise((0f, 0f), (0.15f, -0.35f), (0.3f, 0.3f), (0.45f, -0.15f), (1f, 1f)), null, 0.15f, true), SignalSetup.LiquidityGrab),
+                [SignalSetup.RangeRejection] = One(Make("Range Rejection", Piecewise((0f, 0f), (0.3f, -0.2f), (0.55f, 0.55f), (0.7f, 0.45f), (1f, 1f)), null, 0.15f, true), SignalSetup.RangeRejection),
+                [SignalSetup.Capitulation] = One(Make("Capitulation", Piecewise((0f, 0f), (0.2f, -0.15f), (0.35f, -0.6f), (1f, 1f)), null, 0.15f, true), SignalSetup.Capitulation),
+                [SignalSetup.Distribution] = One(Make("Distribution", Piecewise((0f, 0f), (0.2f, -0.08f), (0.4f, 0.04f), (0.55f, -0.04f), (1f, 1f)), null, 0.15f, true), SignalSetup.Distribution),
+                [SignalSetup.NewsSpike] = One(Make("News Spike", Piecewise((0f, 0f), (0.06f, 2f), (1f, 1f)), null, 0.1f, true), SignalSetup.NewsSpike),
+            };
+            return bySetup.TryGetValue(setup, out List<TrajectoryProfile> list) ? list : Paths;
+        }
+
+        /// <summary>지정 목록에서 이 셋업으로 태그된 궤적을 가중 추첨하고, 없으면 셋업의 내장 궤적에서 고릅니다.</summary>
+        public static TrajectoryProfile PickForSetup(IReadOnlyList<TrajectoryProfile> custom, SignalSetup setup)
+        {
+            float total = 0f;
+            if (custom != null)
+            {
+                for (int i = 0; i < custom.Count; i++)
+                {
+                    TrajectoryProfile p = custom[i];
+                    if (p != null && p.weight > 0f && p.setup == setup) total += p.weight;
+                }
+            }
+            if (total <= 0f) return Pick(null, ForSetup(setup));
+
+            float r = Random.value * total;
+            TrajectoryProfile last = null;
+            for (int i = 0; i < custom.Count; i++)
+            {
+                TrajectoryProfile p = custom[i];
+                if (p == null || p.weight <= 0f || p.setup != setup) continue;
+                last = p;
+                r -= p.weight;
+                if (r <= 0f) return p;
+            }
+            return last;
+        }
+
+        private static List<TrajectoryProfile> One(TrajectoryProfile p, SignalSetup setup)
+        {
+            p.setup = setup;
+            return new List<TrajectoryProfile> { p };
+        }
 
         /// <summary>지정 목록에 쓸 만한 프로필이 있으면 거기서, 없으면 내장 목록에서 가중 추첨합니다.</summary>
         public static TrajectoryProfile Pick(IReadOnlyList<TrajectoryProfile> custom, IReadOnlyList<TrajectoryProfile> builtIn)
