@@ -786,5 +786,19 @@ AI 경로는 손대지 않았다. 고배율 올인(오버도즈 강제 진입 �
 
 **동작 변화 (버그 수정)**: Tier 3의 trap 방향 switch에 `BearishBreakout`이 없어 기본값 Long으로 떨어졌다. 이 분기는 "강한 **가짜** 신호"만 타므로 가짜 하락 돌파(실제로는 상승)에 Long으로 들어가 오히려 이겼다. 이제 유도 방향(Short)으로 들어가 Tier 3의 의도("함정을 대박으로 오인")대로 속는다.
 
+### 15.18 SIG-B1 — 확정 구간 궤적을 진행률 커브 데이터로
+
+트랩 3종(V/W/Slow Bleed)이 엔진 안에 구간별 if/else로 하드코딩돼 있었고 정상 신호는 직선 하나뿐이라, 새 패턴은 코드 수정이 필요했고 AI 신호가 실제로 쓰는 궤적은 사실상 1개였다.
+
+**신설 `TrajectoryProfile`** (`ScriptableObject`, 새 파일 `Assets/Scripts/Trading/TrajectoryProfile.cs` + `.meta`): `progress` 커브(경과 비율 → 목표 변동률의 몇 배), `noise` 커브, `timeWarpJitter`, `trackPathWithOu`, `weight`. `CreateAssetMenu`로 기획자가 에셋을 만들어 엔진의 `trapTrajectories` / `pathTrajectories`에 넣으면 가중 추첨된다. 비어 있으면 **`TrajectoryLibrary` 내장 궤적**을 쓴다 — 트랩 3종(예전 패턴과 모양·총 이동량 동일)과 정상 경로 4종(Linear / Breakout ease-out / Squeeze ease-in / Staircase). 내장 인스턴스는 `HideFlags.HideAndDontSave`로 씬 전환 시 회수되지 않게 했다.
+
+**드리프트 계산**: 계획은 커브 기울기였지만, 수치 미분 × 분 단위 진행은 꺾인 지점과 시간 비틀림(t^0.8은 0 근처 기울기 발산)에서 총 이동량이 최대 38% 어긋났다. 매 분 **그 1분의 진행률 변화량** `P(t+1/D) − P(t)`를 쓰도록 바꿔, 합이 망원급수가 되어 D=5~30분·비틀림 0.8~1.25 전 조합에서 오차 0이다. 예전 하드코딩도 구간 경계가 분 단위와 어긋나면 이동량이 틀어졌는데 함께 사라졌다. 경로 OU 중심과 노이즈 배수는 분 중간 지점에서 평가한다.
+
+**SIG-B2 대체**: `currentOverdriveTrapType` / `trapSplitA·B·C` / `RollTrapSplits()`를 제거하고, 커브 전체에 적용되는 시간 비틀림 `t^e`로 지터를 일반화했다.
+
+**SIG-B3 일반화**: 경로 OU 적용 여부를 "트랩이냐"가 아니라 프로필의 `trackPathWithOu`로 정한다. 중심선은 직선이 아니라 커브 위의 지점이다.
+
+새 파일은 Unity 배치모드(`RiderScriptEditor.SyncSolution`)로 `.meta`·csproj를 생성한 뒤 컴파일을 확인했다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

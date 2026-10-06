@@ -138,12 +138,16 @@ namespace FXOverdose.Trading
 
         // 오버드라이브 연출 상태 변수
         private int currentOverdriveWaveStyle = 0; // 0: 자잘한 요동, 1: 큰 눌림목
-        private int currentOverdriveTrapType = 0;  // 0: Classic V-Shape, 1: W-Shape Double Trap, 2: Slow Bleed + Flash Spike
 
-        // 트랩 궤적의 구간 분할 지점(경과 비율). GuaranteedOverride 진입 시 RollTrapSplits()가 1회 추첨합니다.
-        // 고정값이면 같은 패턴을 두 번 본 플레이어가 다음 꺾임 시점을 압니다.
-        // 각 구간의 드리프트 분모도 이 값으로 계산하므로 구간별 총 이동량은 지터와 무관하게 보존됩니다.
-        private float trapSplitA = 0.7f, trapSplitB = 0.6f, trapSplitC = 0.85f;
+        [Header("확정 신호 궤적 (SIG-B1) — 비워 두면 내장 궤적(TrajectoryLibrary)을 씁니다")]
+        [Tooltip("가짜 이벤트 빔(트랩)용 궤적")]
+        [SerializeField] private List<TrajectoryProfile> trapTrajectories = new List<TrajectoryProfile>();
+        [Tooltip("정상 확정 경로용 궤적 (진짜 신호·AI 신호 전반)")]
+        [SerializeField] private List<TrajectoryProfile> pathTrajectories = new List<TrajectoryProfile>();
+
+        // GuaranteedOverride 진입 시 1회 추첨합니다. 시간 비틀림이 예전 트랩 분할 지점 지터(SIG-B2)를 일반화합니다.
+        private TrajectoryProfile activeTrajectory;
+        private float activeTrajectoryWarp = 1f;
 
         // 확정 신호 경로를 따라가게 하는 평균 회귀 강도 (SIG-B3). 국면별 ouTheta(0.01~0.15)를 쓰지 않는 이유는
         // 국면에 따라 경로 추종력이 15배까지 달라지기 때문입니다. 0.1이면 편차의 표준편차가 노이즈의 약 2배 수준에서 안정됩니다.
@@ -793,65 +797,37 @@ namespace FXOverdose.Trading
                     }
                 }
 
-                if (isExternalEventOverride && !activeSignal.IsTrueSignal)
-                {
-                    float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
-                    float elapsedRatio = 1f - ((float)signalPhaseTimerMinutes / totalDuration);
+                // 궤적 (SIG-B1): 이번 1분 동안의 진행률 변화량이 드리프트, 노이즈 커브가 흔들림 배수입니다.
+                // 분마다 P(t+1/D) − P(t)를 쓰면 합이 망원급수라 총 이동량이 "목표 변동률 × progress(1)"로 정확히 보존됩니다.
+                TrajectoryProfile trajectory = activeTrajectory != null ? activeTrajectory : TrajectoryLibrary.Paths[0];
+                float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
+                float minuteStep = 1f / totalDuration;
+                float elapsedRatio = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / totalDuration);
+                float midMinuteRatio = Mathf.Min(1f, elapsedRatio + minuteStep * 0.5f); // 이번 1분의 중간 지점
+                float pathDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f)
+                    * (trajectory.ProgressAt(Mathf.Min(1f, elapsedRatio + minuteStep), activeTrajectoryWarp)
+                       - trajectory.ProgressAt(elapsedRatio, activeTrajectoryWarp));
+                stochasticNoise *= trajectory.NoiseAt(midMinuteRatio, activeTrajectoryWarp);
 
-                    if (currentOverdriveTrapType == 0) // Classic V-Shape
-                    {
-                        if (elapsedRatio < trapSplitA)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA);
-                        else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitA));
-                    }
-                    else if (currentOverdriveTrapType == 1) // W-Shape Double Trap
-                    {
-                        if (elapsedRatio < trapSplitA)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.5f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA); // 1차 급락
-                        else if (elapsedRatio < trapSplitB)
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.8f) / 100f) / Mathf.Max(1f, totalDuration * (trapSplitB - trapSplitA)); // 페이크 반등
-                        else if (elapsedRatio < trapSplitC)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.2f) / 100f) / Mathf.Max(1f, totalDuration * (trapSplitC - trapSplitB)); // 2차 급락 (개미털기)
-                        else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.6f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitC)); // 최종 탈출 빔
-                    }
-                    else // 2: Slow Bleed + Flash Spike
-                    {
-                        if (elapsedRatio < trapSplitA)
-                        {
-                            stochasticNoise *= 0.3f; // 말려죽이는 피말림 연출
-                            drift = ((activeSignal.TargetPercentageDelta * 0.9f) / 100f) / Mathf.Max(1f, totalDuration * trapSplitA);
-                        }
-                        else
-                        {
-                            stochasticNoise *= 2.0f; // 극적 빔
-                            drift = ((activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * (1f - trapSplitA));
-                        }
-                    }
-                }
-                else
-                {
-                    // 정상 확정 구간: 목표 변동률을 남은 보장 시간 동안 분할 반영하여 부드러운 드리프트 생성
-                    float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
-                    drift += targetDriftPerMinute; // 파동(drift)에 목표 상승분 누적
-                }
+                // 트랩은 파동 드리프트를 덮어쓰고(패턴이 그대로 보이도록), 정상 경로는 파동 위에 얹습니다. 예전 동작과 같습니다.
+                bool isTrapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
+                if (isTrapPath) drift = pathDriftPerMinute;
+                else drift += pathDriftPerMinute;
 
                 // OU 처리 (SIG-B3)
-                //  · 트랩 3종: 일부러 비선형으로 꺾이는 궤적이라 직선 중심선으로 당기면 패턴이 뭉개집니다 → OU 무력화
-                //  · 정상 경로: OU를 끄지 않고 중심선을 "시작가 → 목표가" 경로 위로 옮깁니다. 가격이 경로보다 앞서면
-                //    당기고 뒤처지면 밀어 눌림목·되돌림이 저절로 생깁니다. 예전엔 OU를 꺼서 추세가 끌려가듯 움직였고
-                //    노이즈 편차가 쌓여 목표가에 못 미치기도 했습니다.
+                //  · 꺾임이 핵심인 궤적(내장 트랩 3종 등, trackPathWithOu = false): OU 무력화 — 당기면 패턴이 뭉개집니다
+                //  · 그 외: OU를 끄지 않고 중심선을 궤적 위의 현재 지점으로 옮깁니다. 가격이 경로보다 앞서면 당기고
+                //    뒤처지면 밀어 눌림목·되돌림이 저절로 생기고, 노이즈 편차가 쌓이지 않아 목표 도달이 안정됩니다.
                 //    전역 ouCenterPrice는 건드리지 않습니다 — 신호가 끝난 뒤 평시 회귀의 기준이 어긋나기 때문입니다.
-                bool isTrapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
-                if (isTrapPath || activeSignal.SignalStartPrice <= 0f)
+                if (!trajectory.trackPathWithOu || activeSignal.SignalStartPrice <= 0f)
                 {
                     ouTerm = 0f;
                 }
                 else
                 {
-                    float pathProgress = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / Mathf.Max(1f, activeSignal.DurationMinutes));
-                    float pathCenter = activeSignal.SignalStartPrice * (1f + activeSignal.TargetPercentageDelta / 100f * pathProgress);
+                    // 가격은 이 1분 동안 P(t) → P(t+1/D)로 움직이므로 중심은 분 중간 지점에 둡니다(평균 지연 0).
+                    float pathCenter = activeSignal.SignalStartPrice
+                                       * (1f + activeSignal.TargetPercentageDelta / 100f * trajectory.ProgressAt(midMinuteRatio, activeTrajectoryWarp));
                     ouTerm = SignalPathOuTheta * (pathCenter - currentPrice) / currentPrice;
                 }
             }
@@ -1392,10 +1368,13 @@ namespace FXOverdose.Trading
                         
                         // 오버드라이브 연출 패턴 무작위 설정
                         currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
-                        currentOverdriveTrapType = UnityEngine.Random.Range(0, 3);
-                        RollTrapSplits();
+                        bool trapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
+                        activeTrajectory = TrajectoryLibrary.Pick(
+                            trapPath ? trapTrajectories : pathTrajectories,
+                            trapPath ? TrajectoryLibrary.Traps : TrajectoryLibrary.Paths);
+                        activeTrajectoryWarp = activeTrajectory.RollWarp();
 
-                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, Trap: {currentOverdriveTrapType}, 분할: {trapSplitA:F2}/{trapSplitB:F2}/{trapSplitC:F2})");
+                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, 궤적: {activeTrajectory.name}, 시간 비틀림 {activeTrajectoryWarp:F2})");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
                     break;
@@ -1449,28 +1428,6 @@ namespace FXOverdose.Trading
                             if (signalPhaseTimerMinutes > 3) signalPhaseTimerMinutes = 3;
                         }
                     }
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// 현재 트랩 타입의 구간 분할 지점을 추첨합니다. 기준값 ±0.1 범위이며, W-Shape는 세 경계의
-        /// 순서를 보장하고 마지막 탈출 구간이 경과 비율 0.1 이상 남도록 상한을 둡니다.
-        /// </summary>
-        private void RollTrapSplits()
-        {
-            switch (currentOverdriveTrapType)
-            {
-                case 0: // V-Shape: 반전 시점 (기준 0.7)
-                    trapSplitA = UnityEngine.Random.Range(0.6f, 0.8f);
-                    break;
-                case 1: // W-Shape: 1차 급락 / 페이크 반등 / 2차 급락 경계 (기준 0.4 / 0.6 / 0.85)
-                    trapSplitA = UnityEngine.Random.Range(0.35f, 0.45f);
-                    trapSplitB = trapSplitA + UnityEngine.Random.Range(0.15f, 0.25f);
-                    trapSplitC = Mathf.Min(0.9f, trapSplitB + UnityEngine.Random.Range(0.2f, 0.25f));
-                    break;
-                default: // Slow Bleed: 플래시 스파이크 시점 (기준 0.85)
-                    trapSplitA = UnityEngine.Random.Range(0.8f, 0.9f);
                     break;
             }
         }
