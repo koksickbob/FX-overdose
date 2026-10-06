@@ -51,7 +51,9 @@ namespace FXOverdose.Trading
     {
         public MarketSignalType Type;
         public SignalStrength Strength;
-        public bool IsTrueSignal;          // true: 방향 일치(수익 보장) / false: 반대 방향 빔(청산/손절 유도)
+        // true: 방향 일치(수익 보장) / false: 반대 방향 빔(청산/손절 유도).
+        // 요미(AI)가 읽는 판정입니다. 트랩은 항상 false지만 15%는 실제로 유인 방향으로 갑니다 — 실제 방향은 TargetPercentageDelta의 부호입니다. (SIG-A6)
+        public bool IsTrueSignal;
         public float TargetPercentageDelta;// 목표 주가 변동률 (%) (예: +4.5% 또는 -1.2%)
         public int DurationMinutes;        // 확정 구간 지속 시간 (분)
         public int GraceMinutes;           // 판단 여유 시간 (분)

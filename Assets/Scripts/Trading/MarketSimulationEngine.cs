@@ -1744,6 +1744,9 @@ namespace FXOverdose.Trading
             return table[table.Length - 1].setup;
         }
 
+        // 트랩이 "트랩인 줄 알았는데 진짜"로 유인 방향을 따라가는 확률. (SIG-A6)
+        private const float TrapFollowThroughProbability = 0.15f;
+
         // 일일 기조별 신호 종류 가중치 [상승 돌파, 하락 돌파, 불트랩, 베어트랩] (SIG-A1)
         // 추세장에서는 추세 방향 돌파와 "역추세 쪽을 꼬신 뒤 추세 방향으로 가는" 트랩(상승장의 베어트랩)이 많고,
         // 박스권은 양 끝단의 가짜 돌파가 지배적입니다.
@@ -1801,11 +1804,15 @@ namespace FXOverdose.Trading
             if (hasLastSignal && lastSignalWasWeak) strongProb = Mathf.Min(0.95f, strongProb + 0.15f); // 약한 신호 뒤 에너지 축적 (SIG-A2)
             SignalStrength strength = UnityEngine.Random.value < strongProb ? SignalStrength.Strong : SignalStrength.Weak;
 
-            // IsTrueSignal 결정: Breakout은 기본 60% 확률로 진짜, Trap은 100% 가짜 속임수.
+            // IsTrueSignal 결정: Breakout은 기본 60% 확률로 진짜, Trap은 항상 가짜 판정(단 15%는 반전 — 아래 SIG-A6).
             // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가 — fakeoutProbability 0.5면 0.35.
             // 기조와 같은 방향의 돌파는 +20%p, 반대 방향은 -20%p (SIG-A1).
             float trueSignalProb = Mathf.Clamp(0.60f - (fakeoutProbability * 0.5f) + TrendAlignmentBonus(type) + MemoryTruthBonus(type), 0.05f, 0.95f);
-            bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
+            bool breakoutType = type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout;
+            bool isTrue = breakoutType && UnityEngine.Random.value < trueSignalProb;
+            // 트랩의 15%는 유인 방향으로 갑니다. IsTrueSignal(요미가 읽는 판정)은 false 그대로라 요미의 간파(역진입)도 15%는 틀립니다.
+            // 셋업도 트랩 계열 그대로라, 궤적이 반대로 한 번 찔러 "역시 트랩"처럼 보인 뒤 유인 방향으로 터집니다. (SIG-A6)
+            bool trapFollowsThrough = !breakoutType && UnityEngine.Random.value < TrapFollowThroughProbability;
 
             // 광기 기조는 움직임 자체도 큽니다.
             float magnitudeScale = currentDailyRegime == MarketRegime.Squeeze ? 1.25f : 1.0f;
@@ -1822,25 +1829,12 @@ namespace FXOverdose.Trading
             }
 
             // 확정 변동률(TargetPercentageDelta) 연산
-            float targetDelta = 0f;
-            if (strength == SignalStrength.Strong)
-            {
-                // 강한 신호: 로그정규 중앙값 4.1% (평균 ≈ 4.5%, 90%가 1.9~8.6%, 상한 11%) — 10배 기준 ROE 약 ±20~85%
-                float mag = LogNormalMagnitude(4.1f, 1.5f, 11f) * magnitudeScale;
-                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
-                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
-                else if (type == MarketSignalType.BullTrap) targetDelta = -mag; // 롱 유도 후 급락 빔
-                else if (type == MarketSignalType.BearTrap) targetDelta = mag;  // 숏 유도 후 급등 빔
-            }
-            else
-            {
-                // 약한 신호(단타/미끼): 로그정규 중앙값 0.95% (평균 ≈ 1.05%, 90%가 0.45~2.0%, 상한 2.6%)
-                float mag = LogNormalMagnitude(0.95f, 0.35f, 2.6f) * magnitudeScale;
-                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
-                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
-                else if (type == MarketSignalType.BullTrap) targetDelta = -mag;
-                else if (type == MarketSignalType.BearTrap) targetDelta = mag;
-            }
+            // 강한 신호: 로그정규 중앙값 4.1% (평균 ≈ 4.5%, 90%가 1.9~8.6%, 상한 11%) — 10배 기준 ROE 약 ±20~85%
+            // 약한 신호(단타/미끼): 로그정규 중앙값 0.95% (평균 ≈ 1.05%, 90%가 0.45~2.0%, 상한 2.6%)
+            float mag = (strength == SignalStrength.Strong ? LogNormalMagnitude(4.1f, 1.5f, 11f) : LogNormalMagnitude(0.95f, 0.35f, 2.6f)) * magnitudeScale;
+            // 진짜면 유인 방향, 가짜(트랩 포함)면 반대 방향 빔입니다.
+            float lureSign = MarketSignal.AdvertisedDirectionOf(type) == TradingController.PositionType.Long ? 1f : -1f;
+            float targetDelta = isTrue || trapFollowsThrough ? lureSign * mag : -lureSign * mag;
 
             activeSignal = new MarketSignal
             {
@@ -1859,7 +1853,7 @@ namespace FXOverdose.Trading
             signalPhaseTimerMinutes = grace;
             RememberSignal(activeSignal, ctx);
 
-            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()} (차트: 고점근접 {ctx.NearHigh} / 저점근접 {ctx.NearLow} / 라운드 {ctx.NearRound} / 좁은박스 {ctx.NarrowRange})");
+            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()}{(trapFollowsThrough ? " [트랩 반전: 유인 방향 진행]" : "")} (차트: 고점근접 {ctx.NearHigh} / 저점근접 {ctx.NearLow} / 라운드 {ctx.NearRound} / 좁은박스 {ctx.NarrowRange})");
             OnMarketSignalGenerated?.Invoke(activeSignal);
             OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
         }

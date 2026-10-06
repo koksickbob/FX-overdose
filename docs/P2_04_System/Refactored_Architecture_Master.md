@@ -912,5 +912,13 @@ LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddM
 
 **규모**: 100배 시간당 증거금 1%(스퀴즈 2%), 10배 0.1%. 추세를 거스른 100배 포지션을 하루 종일 들면 증거금의 약 15%가 빠진다. 세이브 필드 변경 없음, 새 대사 글자는 폰트 아틀라스에 모두 있음.
 
+### 15.34 SIG-A6 — 트랩 불확실성 (15% 반전)
+
+트랩은 가격이 100% 유인 반대로 가서, 요미가 간파하면(Tier 1 역진입) 무조건 이겼다.
+
+**변경**: `MarketSimulationEngine`에 `TrapFollowThroughProbability = 0.15`. 트랩 신호의 15%는 `TargetPercentageDelta`를 유인 방향으로 정한다. `IsTrueSignal`은 요미(AI)가 읽는 판정이므로 false로 유지 — 별도 플래그 없이 Tier 1 역진입이 15% 틀리고 Tier 3 오인 진입이 15% 맞는다. 셋업은 트랩 계열 그대로라 궤적이 반대로 한 번 찌른 뒤 유인 방향으로 간다. 목표 변동률 계산을 `lureSign × mag` 한 줄로 묶어 신호 종류 × 강도 8분기를 없앴다. `MarketSignal.IsTrueSignal` 주석에 "실제 방향은 TargetPercentageDelta 부호" 명시.
+
+**영향**: 실제 방향을 쓰는 곳(신호 기억 `RememberSignal`, 고속 스킵 강제 방향, 정답 방향 판정)은 이미 `TargetPercentageDelta` 부호를 써서 그대로 맞다. 반전 트랩은 `IsTrueSignal = false`라 진짜 신호용 노이즈 억제·거래량 2.5배를 받지 않는다(트랩다운 겉모습 유지). 세이브 변경 없음.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*
