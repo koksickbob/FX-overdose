@@ -688,5 +688,9 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 `ChoiceOptionData.CustomTargetROELimit`/`CustomStopLossROELimit`의 주석이 존재하지 않는 기본값(`StandardAuto: +300% / -60%`, `GreedyHold: +3000%`, `HoldToMitigateLoss: -85%`)을 적고 있었다. 모드별로 **실제로 읽는 필드와 기본 동작**(트레일링 배율, -88%, -65% 고정 등)으로 교체하고, 베팅 선택지의 `StandardAuto` 승격 규칙도 함께 적었다. `EventLogicOptionData`에는 같은 규칙을 가리키는 한 줄을 달았다. 템플릿 726 + 수작업 90개 선택지 전부 두 필드가 0이라 데이터 수정은 없었다.
 
+### 15.5 DEAD-3 — `AITradingBrain.HandlePositionClosed` 제거
+
+`roe`·`baseMargin`을 계산한 뒤 분기 4개가 전부 비어 있던 청산 리액션 메서드다. 계획 단계에서는 "구독은 `isProcessingSignal` 관리에 필요하니 유지"로 적었으나, 확인해 보니 이 메서드는 그 플래그를 건드리지 않는다(관리는 `HandlePositionLiquidated`·`HandleSignalPhaseChanged`). 남은 호출도 부작용 없는 조회뿐이라 메서드와 `OnPositionClosed` 구독/해제를 함께 걷어냈다. 동작 변화 없음. 청산 대사는 이미 `TradingController.ClosePosition()`이 출력한다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

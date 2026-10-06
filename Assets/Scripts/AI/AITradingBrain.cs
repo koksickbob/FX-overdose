@@ -63,7 +63,6 @@ namespace FXOverdose.AI
             // 구독하면 플레이어가 강제청산될 때 보스의 isProcessingSignal이 리셋되는 등 상태가 섞입니다.
             if (!IsBossAI && tradingController != null)
             {
-                tradingController.OnPositionClosed += HandlePositionClosed;
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
             }
 
@@ -93,7 +92,6 @@ namespace FXOverdose.AI
 
             if (tradingController != null)
             {
-                tradingController.OnPositionClosed -= HandlePositionClosed;
                 tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
             }
         }
@@ -679,36 +677,6 @@ namespace FXOverdose.AI
             else
             {
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
-            }
-        }
-
-        // 포지션 종료 시 리액션 (약한 손해 구간/적당히 속았을 때의 반응 등)
-        private void HandlePositionClosed(float returnedAmount, float pnl)
-        {
-            float balance = GetAvailableBalance();
-            float baseMargin = tradingController != null 
-                ? (tradingController.MarginAmount > 0f ? tradingController.MarginAmount : tradingController.LastMarginAmount) 
-                : 0f;
-            float roe = baseMargin > 0f ? (pnl / baseMargin) * 100f : 0f;
-
-            if (pnl < 0f)
-            {
-                if (currentActiveSignal.Strength == SignalStrength.Weak)
-                {
-
-                }
-                else
-                {
-
-                }
-            }
-            else if (pnl > 0f)
-            {
-
-            }
-            else
-            {
-
             }
         }
 

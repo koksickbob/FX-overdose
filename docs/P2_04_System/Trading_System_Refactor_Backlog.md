@@ -33,7 +33,7 @@
 **Wave 1 — 공짜 정리**
 - [x] FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier` 리네임 (안 b) (2026-10-06) — 필드 리네임 + 두 노브의 실제 의미를 선언부 주석으로 명시, 씬 직렬화 값 없음 확인
 - [x] FIX-8 — `CustomTargetROELimit` / `CustomStopLossROELimit` 주석 교정 (2026-10-06) — 모드별 실제 사용 필드로 주석 교체, 816개 선택지 전부 0이라 자산 수정 불필요
-- [ ] DEAD-3 — `HandlePositionClosed` 죽은 연산 제거
+- [x] DEAD-3 — `HandlePositionClosed` 죽은 연산 제거 (2026-10-06) — 빈 리액션 메서드와 구독을 통째로 제거 (계획의 '구독 유지' 근거가 틀렸음을 확인·정정)
 - [ ] DEAD-6 — `gimmickContext` 인자 제거
 - [ ] SIG-B2 — 궤적 구간 분할 지터
 
@@ -169,7 +169,7 @@ FIX-2  ─────► SIG-B7   (꼬리가 청산을 유발해야 shakeout이
 
 SIG-B3 ─────► SIG-B8   (되돌림이 자연스러워진 뒤라야 노이즈 완화 충격이 줄어듦)
 
-DEAD-3 ─────► SIG-A4   (죽은 연산을 비워 두고, 셋업별 반성 대사로 부활)
+DEAD-3 ─────► SIG-A4   (빈 리액션을 걷어 두고, 필요하면 셋업별 반성 대사로 새로 구독)
 
 DEL-2  ─────► REAL-1   (정기 지출이 비운 장기 압박을 펀딩비로 대체)
 
@@ -203,7 +203,7 @@ REAL-7 ──╌╌─► FIX-3(a) (점선: 변동성 재조정 전에는 일차
 |---|---|
 | FIX-3(b) | `dayVolatilityMultiplier` → `sweepIntensityMultiplier` 리네임 + §2.4 표 열 이름 수정 |
 | FIX-8 | `CustomTargetROELimit` 주석 교체 (+ 242개 템플릿 중 0이 아닌 자산 개수 확인) |
-| DEAD-3 | `HandlePositionClosed`의 `roe`·`baseMargin` 죽은 연산 제거 (구독은 유지) |
+| DEAD-3 | `HandlePositionClosed` 메서드와 `OnPositionClosed` 구독 제거 (재확인 결과 `isProcessingSignal`과 무관 — 통째로 제거) |
 | DEAD-6 | `gimmickContext` 인자 제거 (호출부 9곳) — 폰트 아틀라스에서 죽은 문자열 9개 제거 |
 | SIG-B2 | 궤적 구간 분할 지점에 지터 |
 

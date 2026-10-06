@@ -978,7 +978,9 @@ else { }
 - **채운다** — "약한 신호에 속아서 잃었다 / 강한 신호였는데도 잃었다"를 구분하는 **신호 종류별 사후 반성 대사**는 §21의 셋업 확장과 맞물려 가치가 큽니다. AI가 자기 판단을 되짚는 유일한 지점입니다.
 - **지운다** — `TradingController.ClosePosition()`이 이미 `OutputYomiDialogue(PositionClosed)`로 청산 대사를 내보내므로, 채우면 **대사가 겹칠 수 있습니다.** 겹침을 피하려면 우선순위 조정이 필요합니다.
 
-**권장**: 당장은 **메서드 본문을 비우고 `roe`/`baseMargin` 계산만 제거**해 죽은 연산을 없앱니다(구독 자체는 유지 — `isProcessingSignal` 관리에 필요). §21-A4(셋업 카탈로그)를 진행할 때 셋업별 반성 대사로 되살리는 쪽이 중복 없이 깔끔합니다. **비용** 삭제 5줄 / 복원은 A4와 함께.
+**권장**: 당장은 죽은 연산을 없애고, §21-A4(셋업 카탈로그)를 진행할 때 셋업별 반성 대사로 되살리는 쪽이 중복 없이 깔끔합니다.
+
+> ✅ **2026-10-06 처리 (DEAD-3)** — 메서드와 `OnPositionClosed` 구독을 **통째로** 제거했습니다. 위 권장안은 "구독은 `isProcessingSignal` 관리에 필요하니 유지"라고 적었지만 재확인 결과 **이 메서드는 `isProcessingSignal`을 건드리지 않습니다** (그 관리는 `HandlePositionLiquidated`와 `HandleSignalPhaseChanged`가 합니다). 남은 호출 `GetAvailableBalance()`도 부작용 없는 조회라 동작 변화는 0입니다. 반성 대사가 필요해지면 그때 구독을 새로 겁니다.
 
 #### 🅱 `TraderMemoryManager` — 완전한 쓰기 전용 저장소
 
