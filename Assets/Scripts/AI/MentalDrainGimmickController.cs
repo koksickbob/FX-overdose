@@ -66,11 +66,11 @@ namespace FXOverdose.AI
         private bool isInitialized = false;
         
 
-        private void TriggerGimmickDialogue(string gimmickContext, string fallbackDialogue = "")
+        private void TriggerGimmickDialogue(string dialogue)
         {
-            if (visualController != null && !string.IsNullOrEmpty(fallbackDialogue))
+            if (visualController != null && !string.IsNullOrEmpty(dialogue))
             {
-                visualController.DisplayDialogueBalloon(fallbackDialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
+                visualController.DisplayDialogueBalloon(dialogue, DialoguePriority.Normal, FXOverdose.AI.EventCategory.GimmickTriggered);
             }
         }
 
@@ -241,7 +241,7 @@ namespace FXOverdose.AI
                 if (panicDialogueTimer >= 25.0f)
                 {
                     panicDialogueTimer = 0f;
-                    TriggerGimmickDialogue($"미실현 손실 공포 기믹 (ROE {roe:0.0}% 손실 진행 중, 극도의 공포와 패닉)", "안돼 안돼 안돼!! 내 시드가... 갈려 나간다!! 물타기 해야 해, 아니 손절해야 해?!");
+                    TriggerGimmickDialogue("안돼 안돼 안돼!! 내 시드가... 갈려 나간다!! 물타기 해야 해, 아니 손절해야 해?!");
                 }
             }
             else
@@ -283,16 +283,16 @@ namespace FXOverdose.AI
                         break;
                     case 2:
                         penalty = 9.0f;
-                        TriggerGimmickDialogue("2연속 손절 휩소 자책 기믹 발동 (손실 스트레스)", "아씨, 꼬리만 털고 왜 반대로 가는데?!");
+                        TriggerGimmickDialogue("아씨, 꼬리만 털고 왜 반대로 가는데?!");
                         break;
                     case 3:
                         penalty = 16.0f;
-                        TriggerGimmickDialogue("3연속 손절 피해망상 기믹 발동 (세력 조롱 피해의식 심화)", "차트가 날 감시하고 조롱하는 게 분명해...!");
+                        TriggerGimmickDialogue("차트가 날 감시하고 조롱하는 게 분명해...!");
                         Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x3] 3연속 손절! 극도의 자격지심 발생");
                         break;
                     default: // 4연속 이상
                         penalty = 0.0f; // 4연속은 뇌동매매가 발동하므로 추가 페널티로 오버도즈가 겹치는 것을 방지
-                        TriggerGimmickDialogue("4연속 손절 복수심 100배 뇌동매매 기믹 발동 (극도의 분노와 자제력 상실)", "4연속 손절... 더는 못 참아! 지금 당장 100배로 싹 다 복구한다!!");
+                        TriggerGimmickDialogue("4연속 손절... 더는 못 참아! 지금 당장 100배로 싹 다 복구한다!!");
                         Debug.LogWarning("[MentalDrainGimmickController] 🔴 [LOSE x4+] 4연속 손절 감지! 즉시 100배 뇌동매매 돌입!");
                         pendingImpulsiveTrade = true;
                         break;
@@ -313,7 +313,7 @@ namespace FXOverdose.AI
                         if (!string.IsNullOrEmpty(fetched)) blameDialogue = fetched;
                     }
 
-                    TriggerGimmickDialogue("수동 매매 책임 전가 기믹 발동", blameDialogue);
+                    TriggerGimmickDialogue(blameDialogue);
                     Debug.LogWarning($"[MentalDrainGimmickController] 😡 [책임 전가] 플레이어 수동 매매 손실로 멘탈 페널티 증폭: -{penalty:F1}");
                 }
 
@@ -401,7 +401,7 @@ namespace FXOverdose.AI
                     }
 
                     traderStatus.ChangeMental(fomoPenalty, "수익 타점 놓침(FOMO)");
-                    TriggerGimmickDialogue($"FOMO 놓친 기회 후회 기믹 발동 (놓친 상승 {priceDeltaPct:0.0}%, 멘탈 {fomoPenalty} 감소)", "아씨!! 휩소인 줄 알고 쫄아서 안 들어갔는데 진짜 수익 자리였잖아!! 저거 다 내 돈이었는데...!!");
+                    TriggerGimmickDialogue("아씨!! 휩소인 줄 알고 쫄아서 안 들어갔는데 진짜 수익 자리였잖아!! 저거 다 내 돈이었는데...!!");
 
                     Debug.LogWarning($"[MentalDrainGimmickController] 😭 [FOMO/후회 기믹 발동] 휩소에 속아 수익 타점을 놓친 것에 대한 후회로 멘탈 {fomoPenalty} 감소 (놓친 주가 변동: {priceDeltaPct:F2}%)");
                 }

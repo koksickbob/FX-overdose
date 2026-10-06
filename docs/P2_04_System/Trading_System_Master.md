@@ -1015,7 +1015,9 @@ else { }
 
 **개선안**: 지금 손대지 말고 **미연시 대사 시스템 설계가 확정될 때 함께 결정**합니다. 단 `ScenarioMatcher`의 제로 할당 제약(`for` 루프만, LINQ 금지)은 **되살릴 때 반드시 지켜야 하므로** 그 주석은 보존하십시오.
 
-#### 🅱 `TriggerGimmickDialogue`의 `gimmickContext` 인자 — 미사용
+#### 🅱 `TriggerGimmickDialogue`의 `gimmickContext` 인자 — 미사용 → ✅ 제거 (2026-10-06, DEAD-6)
+
+> 처리 결과: 인자를 제거하고 `fallbackDialogue` → `dialogue`로 개명했습니다. 호출부는 DEL-1에서 3곳이 이미 빠져 **6곳**을 고쳤습니다. 아래는 처리 전 기록입니다.
 
 [MentalDrainGimmickController.cs:69](../../Assets/Scripts/AI/MentalDrainGimmickController.cs#L69) — 첫 인자가 본문에서 전혀 쓰이지 않습니다. LLM에 넘기던 상황 설명 프롬프트였습니다.
 

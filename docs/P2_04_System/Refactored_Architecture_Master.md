@@ -692,5 +692,9 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 `roe`·`baseMargin`을 계산한 뒤 분기 4개가 전부 비어 있던 청산 리액션 메서드다. 계획 단계에서는 "구독은 `isProcessingSignal` 관리에 필요하니 유지"로 적었으나, 확인해 보니 이 메서드는 그 플래그를 건드리지 않는다(관리는 `HandlePositionLiquidated`·`HandleSignalPhaseChanged`). 남은 호출도 부작용 없는 조회뿐이라 메서드와 `OnPositionClosed` 구독/해제를 함께 걷어냈다. 동작 변화 없음. 청산 대사는 이미 `TradingController.ClosePosition()`이 출력한다.
 
+### 15.6 DEAD-6 — `TriggerGimmickDialogue`의 `gimmickContext` 인자 제거
+
+LLM에 넘기던 상황 설명 프롬프트였던 첫 인자가 본문에서 전혀 쓰이지 않았다. 호출부마다 긴 한국어 설명 문자열을 만들어 버리고 있었고, 그 리터럴이 폰트 프리베이크 대상에도 들어가 있었다. 인자를 제거하고 실제 대사인 둘째 인자를 `dialogue`로 개명했다(폴백이 아니라 유일한 경로). 호출부 6곳 수정. 출력 대사는 동일.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*
