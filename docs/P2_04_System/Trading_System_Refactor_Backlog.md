@@ -32,7 +32,7 @@
 
 **Wave 1 — 공짜 정리**
 - [x] FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier` 리네임 (안 b) (2026-10-06) — 필드 리네임 + 두 노브의 실제 의미를 선언부 주석으로 명시, 씬 직렬화 값 없음 확인
-- [ ] FIX-8 — `CustomTargetROELimit` / `CustomStopLossROELimit` 주석 교정
+- [x] FIX-8 — `CustomTargetROELimit` / `CustomStopLossROELimit` 주석 교정 (2026-10-06) — 모드별 실제 사용 필드로 주석 교체, 816개 선택지 전부 0이라 자산 수정 불필요
 - [ ] DEAD-3 — `HandlePositionClosed` 죽은 연산 제거
 - [ ] DEAD-6 — `gimmickContext` 인자 제거
 - [ ] SIG-B2 — 궤적 구간 분할 지터

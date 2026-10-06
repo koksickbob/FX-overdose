@@ -684,5 +684,9 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 이름은 "일차별 변동성 배수"였지만 `targetVol`에는 곱해지지 않고 유동성 사냥 꼬리의 길이·확률에만 쓰였다. 동작은 그대로 두고 이름을 실제 용도에 맞췄다. 선언부에 `tickInstability`가 분산 중립인 연출 노브라는 점도 함께 적었다(틱 주기를 1/I로 줄이면 틱당 분산도 1/I로 줄어 분당 σ가 상쇄된다). 씬에 직렬화된 값이 없어 `FormerlySerializedAs`는 불필요했다 — 값은 매 프레임 `UpdateDailyDifficulty`가 덮어쓴다.
 
+### 15.4 FIX-8 — 이벤트 선택지 ROE 한계값 주석 교정
+
+`ChoiceOptionData.CustomTargetROELimit`/`CustomStopLossROELimit`의 주석이 존재하지 않는 기본값(`StandardAuto: +300% / -60%`, `GreedyHold: +3000%`, `HoldToMitigateLoss: -85%`)을 적고 있었다. 모드별로 **실제로 읽는 필드와 기본 동작**(트레일링 배율, -88%, -65% 고정 등)으로 교체하고, 베팅 선택지의 `StandardAuto` 승격 규칙도 함께 적었다. `EventLogicOptionData`에는 같은 규칙을 가리키는 한 줄을 달았다. 템플릿 726 + 수작업 90개 선택지 전부 두 필드가 0이라 데이터 수정은 없었다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

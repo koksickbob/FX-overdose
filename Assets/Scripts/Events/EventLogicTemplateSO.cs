@@ -30,6 +30,7 @@ namespace FXOverdose.Events
         public TradingController.PositionType ForcePosition;
         public TradingController.EventPositionHandlingMode PositionHandlingMode;
         
+        // 0이면 모드별 기본 동작. 모드마다 읽는 필드가 다릅니다 — 규칙은 ChoiceOptionData 주석 참고.
         public float CustomTargetROELimit;
         public float CustomStopLossROELimit;
     }

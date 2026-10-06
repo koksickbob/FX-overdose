@@ -63,7 +63,19 @@ namespace FXOverdose.Events
 
         [Header("이벤트 결과에 따른 포지션 관리 로직 (익절/손절/버티기)")]
         public TradingController.EventPositionHandlingMode PositionHandlingMode = TradingController.EventPositionHandlingMode.StandardAuto;
-        public float CustomTargetROELimit = 0f;     // 0이면 기본값(InstantTakeProfit: +100%, GreedyHold: +3000%, StandardAuto: +300%)
-        public float CustomStopLossROELimit = 0f;   // 0이면 기본값(InstantStopLoss: -30%, HoldToMitigateLoss: -85%, StandardAuto: -60%)
+        // 0이면 모드별 기본 동작을 씁니다. 각 모드가 실제로 읽는 쪽만 적었습니다 (TradingController.ProcessEventPositionReaction).
+        //  · CustomTargetROELimit (양수일 때만 유효)
+        //      InstantTakeProfit : 지정값 또는 (빔% × 레버리지, 빔 없으면 100%) × 익절배율(큐브 LV) 도달 시 익절
+        //      GreedyHold        : 지정값 도달 시 익절. 없으면 3단 트레일링 (고점 150/80/45%↑ → 0.75/0.80/0.82배, 차트 LV마다 +0.015)
+        //      StandardAuto      : 지정값 도달 시 익절. 없으면 고점 40%↑부터 트레일링 (0.75배, 차트 LV마다 +0.015)
+        //      InstantStopLoss / HoldToMitigateLoss : 읽지 않음
+        //  · CustomStopLossROELimit (음수일 때만 유효)
+        //      InstantStopLoss    : 지정값 또는 -손절강도(책읽기 LV) × 333% 도달 시 손절
+        //      HoldToMitigateLoss : 지정값 또는 -88% 도달 시 비상 정리
+        //      StandardAuto       : 읽지 않음 — 진입 5초 뒤 -65% 고정 손절
+        //      InstantTakeProfit / GreedyHold : 읽지 않음
+        // ⚠️ 베팅 선택지의 StandardAuto는 ChoiceEventController가 성공 시 GreedyHold, 실패 시 HoldToMitigateLoss로 승격합니다.
+        public float CustomTargetROELimit = 0f;
+        public float CustomStopLossROELimit = 0f;
     }
 }
