@@ -457,6 +457,9 @@ namespace FXOverdose.Trading
 
         private const long MinutesPerDay = 1440;
 
+        // 배경 시장 스케일 (REAL-7). 1이면 예전 수준(실제 BTC의 3~8배), 0.5면 Sideways 일간 약 4~6%.
+        private const float MarketVolatilityScale = 0.5f;
+
         // GARCH 풍 변동성 군집 (REAL-5). 분산 공간의 분당 회귀율·반응률과, 국면 목표 대비 상·하한.
         private const float VolMeanReversionPerMinute = 0.1f;  // 반감기 약 7분
         private const float VolShockWeightPerMinute = 0.1f;
@@ -497,7 +500,7 @@ namespace FXOverdose.Trading
             float lure = activeSignal.LureDirection == TradingController.PositionType.Long ? 1f
                        : activeSignal.LureDirection == TradingController.PositionType.Short ? -1f : 0f;
             if (setup == SignalSetup.TrendContinuation) lure = -lure * 0.8f; // 얕은 되돌림
-            drift = lure * GraceLeanPerMinute;
+            drift = lure * GraceLeanPerMinute * MarketVolatilityScale; // 노이즈 대비 "살짝"이 유지되도록 배경과 같은 배율
         }
 
         /// <summary>기본 파동 3개의 주기(기준 350/130/15초 ±20%)와 위상을 새로 뽑습니다. 하루 단위. (SIG-B4)</summary>
@@ -805,7 +808,12 @@ namespace FXOverdose.Trading
             }
             targetVol *= sessionVolMultiplier;
 
-            drift += waveDrift + macroDrift;
+            // 배경 시장 스케일 (REAL-7): 국면 목표 변동성·국면 드리프트·거시 드리프트·기본 파동을 한 배율로 줄입니다.
+            // 예전 수준은 일간 변동성이 실제 BTC(2~4%)의 3~8배였습니다. 신호 목표 변동률·점프·유동성 사냥 같은
+            // "사건"은 그대로 두므로 배경이 차분해지는 만큼 사건이 또렷해집니다.
+            targetVol *= MarketVolatilityScale;
+
+            drift = (drift + waveDrift + macroDrift) * MarketVolatilityScale;
 
             // 2. GARCH 풍 변동성 군집 (REAL-5) — ① 국면 목표로 서서히 회귀
             // 예전 Lerp(…, dtFraction × 5)는 1~5일차 틱(dtFraction 0.2)에서 계수가 정확히 1이라 매 틱 목표로 즉시 덮어썼습니다.
