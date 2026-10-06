@@ -1474,23 +1474,59 @@ namespace FXOverdose.Trading
             }
         }
 
+        // 일일 기조별 신호 종류 가중치 [상승 돌파, 하락 돌파, 불트랩, 베어트랩] (SIG-A1)
+        // 추세장에서는 추세 방향 돌파와 "역추세 쪽을 꼬신 뒤 추세 방향으로 가는" 트랩(상승장의 베어트랩)이 많고,
+        // 박스권은 양 끝단의 가짜 돌파가 지배적입니다.
+        private static readonly float[] BullSignalWeights     = { 0.45f, 0.15f, 0.15f, 0.25f };
+        private static readonly float[] BearSignalWeights     = { 0.15f, 0.45f, 0.25f, 0.15f };
+        private static readonly float[] SidewaysSignalWeights = { 0.20f, 0.20f, 0.30f, 0.30f };
+        private static readonly float[] SqueezeSignalWeights  = { 0.30f, 0.30f, 0.20f, 0.20f };
+
+        private static float[] SignalTypeWeights(MarketRegime dailyRegime)
+        {
+            switch (dailyRegime)
+            {
+                case MarketRegime.Bull: return BullSignalWeights;
+                case MarketRegime.Bear: return BearSignalWeights;
+                case MarketRegime.Squeeze: return SqueezeSignalWeights;
+                default: return SidewaysSignalWeights;
+            }
+        }
+
+        /// <summary>돌파 신호가 그날 기조와 같은 방향이면 +0.2, 반대면 -0.2, 그 외(트랩·횡보·광기) 0.</summary>
+        private float TrendAlignmentBonus(MarketSignalType type)
+        {
+            int trend = currentDailyRegime == MarketRegime.Bull ? 1 : currentDailyRegime == MarketRegime.Bear ? -1 : 0;
+            int dir = type == MarketSignalType.BullishBreakout ? 1 : type == MarketSignalType.BearishBreakout ? -1 : 0;
+            return trend * dir * 0.20f;
+        }
+
         // 새 차트 신호 생성 및 방송
         public void GenerateMarketSignal()
         {
+            // 신호 종류는 그날의 거시 기조를 따릅니다. (SIG-A1)
+            // 예전엔 기조와 무관하게 35/35/15/15라, 하락 기조인 날에도 상승 돌파가 똑같이 나와
+            // 요미의 일일 방향 힌트가 매매 판단에 거의 쓸모가 없었습니다.
+            float[] w = SignalTypeWeights(currentDailyRegime);
             float rand = UnityEngine.Random.value;
             MarketSignalType type;
-            if (rand < 0.35f) type = MarketSignalType.BullishBreakout;
-            else if (rand < 0.70f) type = MarketSignalType.BearishBreakout;
-            else if (rand < 0.85f) type = MarketSignalType.BullTrap;
+            if (rand < w[0]) type = MarketSignalType.BullishBreakout;
+            else if (rand < w[0] + w[1]) type = MarketSignalType.BearishBreakout;
+            else if (rand < w[0] + w[1] + w[2]) type = MarketSignalType.BullTrap;
             else type = MarketSignalType.BearTrap;
 
-            // 강도 설정 (65% 확률로 Strong, 35% 확률로 Weak)
-            SignalStrength strength = UnityEngine.Random.value < 0.65f ? SignalStrength.Strong : SignalStrength.Weak;
+            // 강도 설정 (기본 65% Strong, 광기 기조는 80%)
+            float strongProb = currentDailyRegime == MarketRegime.Squeeze ? 0.80f : 0.65f;
+            SignalStrength strength = UnityEngine.Random.value < strongProb ? SignalStrength.Strong : SignalStrength.Weak;
 
-            // IsTrueSignal 결정: Breakout은 60% 확률로 진짜, Trap은 100% 가짜 속임수. 
-            // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가
-            float trueSignalProb = 0.60f - (fakeoutProbability * 0.5f); // fakeoutProbability가 0.5면 trueSignalProb은 0.35가 됨
+            // IsTrueSignal 결정: Breakout은 기본 60% 확률로 진짜, Trap은 100% 가짜 속임수.
+            // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가 — fakeoutProbability 0.5면 0.35.
+            // 기조와 같은 방향의 돌파는 +20%p, 반대 방향은 -20%p (SIG-A1).
+            float trueSignalProb = Mathf.Clamp(0.60f - (fakeoutProbability * 0.5f) + TrendAlignmentBonus(type), 0.05f, 0.95f);
             bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
+
+            // 광기 기조는 움직임 자체도 큽니다.
+            float magnitudeScale = currentDailyRegime == MarketRegime.Squeeze ? 1.25f : 1.0f;
 
             int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);
             int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
@@ -1500,7 +1536,7 @@ namespace FXOverdose.Trading
             if (strength == SignalStrength.Strong)
             {
                 // 강한 신호: ±3.0% ~ ±6.0% (10배 레버리지 기준 ±30%~±60% ROE)
-                float mag = UnityEngine.Random.Range(3.0f, 6.0f);
+                float mag = UnityEngine.Random.Range(3.0f, 6.0f) * magnitudeScale;
                 if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
                 else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
                 else if (type == MarketSignalType.BullTrap) targetDelta = -mag; // 롱 유도 후 급락 빔
@@ -1509,7 +1545,7 @@ namespace FXOverdose.Trading
             else
             {
                 // 약한 신호(단타/미끼): ±0.6% ~ ±1.5% (10배 레버리지 기준 ±6%~±15% ROE)
-                float mag = UnityEngine.Random.Range(0.6f, 1.5f);
+                float mag = UnityEngine.Random.Range(0.6f, 1.5f) * magnitudeScale;
                 if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
                 else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
                 else if (type == MarketSignalType.BullTrap) targetDelta = -mag;
