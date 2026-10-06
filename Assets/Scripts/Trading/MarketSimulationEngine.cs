@@ -742,10 +742,7 @@ namespace FXOverdose.Trading
             float ouTerm = ouTheta * (ouCenterPrice - currentPrice) / currentPrice;
 
             // 4. 확률적 위너 과정 (Brownian Motion Noise)
-            // Box-Muller 변환으로 정규 분포 난수 생성
-            float u1 = UnityEngine.Random.value;
-            float u2 = UnityEngine.Random.value;
-            float randNormal = Mathf.Sqrt(-2f * Mathf.Log(Mathf.Max(1e-6f, u1))) * Mathf.Sin(2f * Mathf.PI * u2);
+            float randNormal = GaussianSample();
 
             float stochasticNoise = currentVolatility * Mathf.Sqrt(dtFraction) * randNormal;
 
@@ -1433,6 +1430,27 @@ namespace FXOverdose.Trading
             }
         }
 
+        /// <summary>표준정규 난수 (Box-Muller).</summary>
+        private static float GaussianSample()
+        {
+            float u1 = UnityEngine.Random.value;
+            float u2 = UnityEngine.Random.value;
+            return Mathf.Sqrt(-2f * Mathf.Log(Mathf.Max(1e-6f, u1))) * Mathf.Sin(2f * Mathf.PI * u2);
+        }
+
+        // 신호 목표 변동률의 로그 표준편차 (SIG-A5). 0.45면 중앙값 대비 90% 구간이 약 ×0.48~×2.1입니다.
+        private const float SignalMagnitudeLogSigma = 0.45f;
+
+        /// <summary>
+        /// 신호 목표 변동률(%)을 로그정규로 뽑습니다. (SIG-A5)
+        /// 예전 균등분포는 "항상 중간쯤"이라 평범한 움직임과 가끔 터지는 큰 움직임의 대비가 없었습니다.
+        /// 중앙값을 평균보다 낮게 두고 오른쪽 꼬리를 길게 해, 평균은 예전과 거의 같습니다.
+        /// </summary>
+        private static float LogNormalMagnitude(float median, float min, float max)
+        {
+            return Mathf.Clamp(median * Mathf.Exp(SignalMagnitudeLogSigma * GaussianSample()), min, max);
+        }
+
         // 직전 신호 기억 (SIG-A2) ------------------------------------------------------------------
         // 시장이 만든 신호만 기억합니다(이벤트 빔·오버도즈 함정 제외). 저장하지 않으므로 불러오면 기억 없이 시작합니다.
         private bool hasLastSignal;
@@ -1666,8 +1684,8 @@ namespace FXOverdose.Trading
             float targetDelta = 0f;
             if (strength == SignalStrength.Strong)
             {
-                // 강한 신호: ±3.0% ~ ±6.0% (10배 레버리지 기준 ±30%~±60% ROE)
-                float mag = UnityEngine.Random.Range(3.0f, 6.0f) * magnitudeScale;
+                // 강한 신호: 로그정규 중앙값 4.1% (평균 ≈ 4.5%, 90%가 1.9~8.6%, 상한 11%) — 10배 기준 ROE 약 ±20~85%
+                float mag = LogNormalMagnitude(4.1f, 1.5f, 11f) * magnitudeScale;
                 if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
                 else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
                 else if (type == MarketSignalType.BullTrap) targetDelta = -mag; // 롱 유도 후 급락 빔
@@ -1675,8 +1693,8 @@ namespace FXOverdose.Trading
             }
             else
             {
-                // 약한 신호(단타/미끼): ±0.6% ~ ±1.5% (10배 레버리지 기준 ±6%~±15% ROE)
-                float mag = UnityEngine.Random.Range(0.6f, 1.5f) * magnitudeScale;
+                // 약한 신호(단타/미끼): 로그정규 중앙값 0.95% (평균 ≈ 1.05%, 90%가 0.45~2.0%, 상한 2.6%)
+                float mag = LogNormalMagnitude(0.95f, 0.35f, 2.6f) * magnitudeScale;
                 if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
                 else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
                 else if (type == MarketSignalType.BullTrap) targetDelta = -mag;
