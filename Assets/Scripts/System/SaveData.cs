@@ -140,12 +140,8 @@ namespace FXOverdose.Core
         public int CubePatienceLevel;
         public int BookJudgmentLevel;
 
-        // --- AI 기억 데이터 (TraderMemoryManager) ---
-        public List<string> ShortTermDialogues = new List<string>();
-        public List<MemoryEntry> LongTermMemories = new List<MemoryEntry>();
-        // Dictionary는 Serializable되지 않으므로 키와 값을 분리하거나 구조체 배열로 변환
-        public List<int> DailySummaryKeys = new List<int>();
-        public List<string> DailySummaryValues = new List<string>();
+        // AI 기억 데이터 4필드(ShortTermDialogues/LongTermMemories/DailySummaryKeys/Values)는 TraderMemoryManager와 함께
+        // 제거되었습니다(2026-10-06). 읽는 곳이 없던 LLM 프롬프트 맥락용이었습니다. 구버전 세이브는 JsonUtility가 무시합니다.
 
         // CurrentEmotion 제거(SV-D1): 수집부에도 주입부에도 쓰이지 않는 데드 필드였습니다.
         // 감정은 매 순간 상황에서 재계산되므로 복원할 이유가 없습니다.

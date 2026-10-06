@@ -726,9 +726,6 @@ namespace FXOverdose.AI
             {
                 visual.DisplayDialogueBalloon(hintText, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.ChartMovement);
             }
-
-            // 기억 시스템에 저장
-            FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(FXOverdose.AI.EventCategory.ChartMovement, hintText, 6);
         }
 
     }

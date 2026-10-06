@@ -823,5 +823,13 @@ AI 경로는 손대지 않았다. 고배율 올인(오버도즈 강제 진입 �
 
 예: 횡보 기조·1시간 고점 근접 → 불트랩 34% / 상승 돌파 26% / 베어트랩 24% / 하락 돌파 16%. "직전 고점 돌파 실패 → 더블탑"은 신호 이력이 필요해 SIG-A2로 넘겼다.
 
+### 15.21 DEAD-4 — `TraderMemoryManager` 삭제
+
+LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddMemory`, 차트 힌트 1곳)·압축(`OnDayAdvanced`)·저장(Reflection)은 하는데, 유일한 읽기 메서드 `GetShortTermDialoguesText()`와 `RecordDialogue()`는 호출자가 0이었다 — LLM 제거(2026-09-22)로 소비자가 사라진 쓰기 전용 저장소.
+
+**삭제**: `TraderMemoryManager.cs`·`MemoryEntry.cs`(+ `.meta`), `AITradingBrain.ProvideChartHintToPlayer`의 `AddMemory` 호출, `GameManager`의 `ResetAll`(새 게임)·`OnDayAdvanced`(하루 넘김) 호출, `SaveLoadManager`의 `ExtractMemoryData`/`RestoreMemoryData`(private 필드 Reflection 접근)와 호출부, `SaveData`의 `ShortTermDialogues`/`LongTermMemories`/`DailySummaryKeys`/`DailySummaryValues`.
+
+**확인**: 씬·프리팹·에셋이 두 스크립트의 GUID를 참조하지 않는다. 다른 곳에서 쓰는 `EventCategory`/`DialoguePriority`는 `AIVisualController.cs`에 정의돼 있어 영향 없다. 구버전 세이브의 기억 필드는 `JsonUtility`가 무시한다. csproj는 Unity를 띄우지 않고 삭제된 두 `<Compile>` 항목만 뺀 뒤 빌드를 확인했다(Unity가 다음 실행 때 재생성하는 gitignore 파일).
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

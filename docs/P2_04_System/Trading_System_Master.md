@@ -1050,7 +1050,9 @@ else { }
 
 > ✅ **2026-10-06 처리 (DEAD-3)** — 메서드와 `OnPositionClosed` 구독을 **통째로** 제거했습니다. 위 권장안은 "구독은 `isProcessingSignal` 관리에 필요하니 유지"라고 적었지만 재확인 결과 **이 메서드는 `isProcessingSignal`을 건드리지 않습니다** (그 관리는 `HandlePositionLiquidated`와 `HandleSignalPhaseChanged`가 합니다). 남은 호출 `GetAvailableBalance()`도 부작용 없는 조회라 동작 변화는 0입니다. 반성 대사가 필요해지면 그때 구독을 새로 겁니다.
 
-#### 🅱 `TraderMemoryManager` — 완전한 쓰기 전용 저장소
+#### 🅱 `TraderMemoryManager` — 완전한 쓰기 전용 저장소 → ✅ 삭제 (2026-10-06, DEAD-4)
+
+> 처리 결과: `TraderMemoryManager.cs`·`MemoryEntry.cs`(+ `.meta`), `AITradingBrain`의 `AddMemory` 호출, `GameManager`의 `ResetAll`/`OnDayAdvanced` 호출, `SaveLoadManager`의 Reflection 추출·복원 메서드 2개와 호출부, `SaveData`의 기억 필드 4개(`ShortTermDialogues`/`LongTermMemories`/`DailySummaryKeys`/`DailySummaryValues`)를 제거했습니다. 씬·프리팹이 이 컴포넌트를 GUID로 참조하지 않음을 확인했습니다. 구버전 세이브의 기억 필드는 `JsonUtility`가 무시합니다. 아래는 처리 전 기록입니다.
 
 **전수 확인 결과입니다.**
 

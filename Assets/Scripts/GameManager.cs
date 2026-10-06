@@ -621,9 +621,6 @@ public class GameManager : MonoBehaviour
         EnsureCostumeManager();
         CostumeManager.Instance?.ResetAll();
 
-        // AI 장기/단기 기억 시스템 초기화
-        FXOverdose.AI.TraderMemoryManager.Instance?.ResetAll();
-
         // 주인공 및 스킬 레벨 시스템 초기화
         FXOverdose.Trading.TraderLevelSystem.Instance?.ResetLevels();
 
@@ -1056,9 +1053,6 @@ public class GameManager : MonoBehaviour
         // 💡 [데이팅 파트 하루 리셋] 일차를 올리는 곳은 여기 하나뿐이므로 시간 슬롯 리필도 여기서 합니다. (SV-A8)
         //    DatingTimeManager의 일차는 이 값의 미러가 됩니다. (S12)
         FXOverdose.DatingSim.Core.DatingTimeManager.Instance?.SyncToNewDay(CurrentDay);
-
-        // ⭐ 전날 기억 압축 및 저중요도 Pruning 실행
-        FXOverdose.AI.TraderMemoryManager.Instance?.OnDayAdvanced(CurrentDay);
 
         // 차트는 리셋하지 않고 다음 날로 이어 붙입니다 — 어제 종가가 오늘 시가가 됩니다. (FIX-1)
         // 엔진이 없는 씬(요미의 방)에서 넘긴 경우는 다음 GameScene 진입 시 엔진이 세이브를 보고 스스로 넘깁니다.
