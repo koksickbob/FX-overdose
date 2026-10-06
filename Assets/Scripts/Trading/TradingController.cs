@@ -21,6 +21,12 @@ namespace FXOverdose.Trading
         // 레버리지와 무관한 고정 환산이라 LV.1(9%) → -30%, LV.10(1.5%) → -5%가 됩니다.
         private const float StopLossTightnessToROE = 333f;
 
+        // 펀딩비: 인게임 매시 정각마다 포지션 규모(증거금 × 레버리지)의 0.01% × 국면 배율을 주고받습니다. (REAL-1)
+        // 배율이 양수면 롱이 내고 숏이 받습니다. 100배 레버리지면 시간당 증거금의 약 1%입니다.
+        private const float FundingRatePerHour = 0.0001f;
+        // 지불액이 증거금의 이 비율 이상일 때만 요미가 알려줍니다.
+        private const float FundingNoticeMarginRatio = 0.01f;
+
         private bool p2pExternalMode;
         private float p2pUnrealizedPnL;
         public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
@@ -269,6 +275,7 @@ namespace FXOverdose.Trading
             {
                 marketEngine.OnPriceUpdated += HandlePriceUpdated;
             }
+            if (gameManager != null) gameManager.OnGameMinuteAdvanced += SettleHourlyFunding;
         }
 
         /// <summary>
@@ -350,6 +357,41 @@ namespace FXOverdose.Trading
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
             }
+            if (gameManager != null) gameManager.OnGameMinuteAdvanced -= SettleHourlyFunding;
+        }
+
+        /// <summary>
+        /// 무기한 선물의 펀딩비를 정산합니다. (REAL-1)
+        /// 국면이 오르는 쪽으로 쏠려 있으면 롱이, 내리는 쪽이면 숏이 상대에게 냅니다 — 추세를 거스른 포지션은 버티기만 해도 갉힙니다.
+        /// 실제 거래소는 8시간마다지만 하루 거래 시간이 15시간뿐이라 매시 정각(하루 15회)으로 압축했습니다.
+        /// </summary>
+        private void SettleHourlyFunding()
+        {
+            if (p2pExternalMode || marketEngine == null || gameManager.CurrentMinute != 0) return;
+            if (currentPosition == PositionType.None || marginAmount <= 0f) return;
+
+            float regimeFactor = marketEngine.CurrentRegime switch
+            {
+                MarketSimulationEngine.MarketRegime.Bull => 1f,
+                MarketSimulationEngine.MarketRegime.Bear => -1f,
+                MarketSimulationEngine.MarketRegime.Squeeze => 2f,
+                _ => 0.3f, // 횡보장도 실제처럼 롱이 약간 더 냅니다.
+            };
+            float payment = marginAmount * currentLeverage * FundingRatePerHour * regimeFactor;
+            if (currentPosition == PositionType.Short) payment = -payment;
+
+            // ponytail: 현금이 모자라면 있는 만큼만 냅니다(올인 포지션은 사실상 면제). 증거금 차감이 필요해지면 격리 마진 모델로 확장.
+            if (payment > 0f) payment = Mathf.Min(payment, Mathf.Max(0f, gameManager.CurrentBalance));
+            if (payment == 0f) return;
+
+            gameManager.ChangeBalance(-payment);
+
+            if (Mathf.Abs(payment) < marginAmount * FundingNoticeMarginRatio) return;
+            string line = payment > 0f
+                ? $"펀딩비 ${payment:N0} 나갔어... 오래 들고 있으면 계속 새어 나가, 오빠!"
+                : $"펀딩비 ${-payment:N0} 들어왔어! 반대쪽 사람들이 내준 거야, 헤헤~";
+            var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+            visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Low, FXOverdose.AI.EventCategory.ChartMovement);
         }
 
         
