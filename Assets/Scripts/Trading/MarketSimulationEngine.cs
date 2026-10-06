@@ -1401,7 +1401,7 @@ namespace FXOverdose.Trading
                                 {
                                     Debug.Log("[MarketEngine] ⏩ AI 무포지션 상태 10초 경과 감지 -> 장기 관망 방지를 위해 확정 구간 및 쿨다운을 생략하고 즉각 신규 신호 주기를 시작합니다.");
                                     currentSignalPhase = SignalPhase.None;
-                                    minutesUntilNextSignal = UnityEngine.Random.Range(5, 11);
+                                    minutesUntilNextSignal = NextSignalInterval(7.5f, 2); // 예전 균등 5~10분과 같은 평균 (SIG-A7)
                                     OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                                 }
                             }
@@ -1415,7 +1415,7 @@ namespace FXOverdose.Trading
                     {
                         currentSignalPhase = SignalPhase.None;
                         isExternalEventOverride = false;
-                        minutesUntilNextSignal = UnityEngine.Random.Range(8, 16); // 쿨다운 종료 후 8~15분 내 신속 재진입
+                        minutesUntilNextSignal = NextSignalInterval(11.5f, 3); // 쿨다운 종료 후 재진입 — 예전 균등 8~15분과 같은 평균 (SIG-A7)
                     }
                     else
                     {
@@ -1428,6 +1428,30 @@ namespace FXOverdose.Trading
                     }
                     break;
             }
+        }
+
+        /// <summary>
+        /// 다음 신호까지의 인게임 분을 뽑습니다. (SIG-A7)
+        /// 예전 균등분포는 늘 비슷한 간격이었습니다. 최소 간격 위에 지수분포를 얹어 사건이 몰릴 때 몰리고 뜸할 때 뜸하게 하고,
+        /// 평균을 세션별로 둡니다 — 뉴욕장(16~24시)은 기준의 0.7배로 바쁘고, 아시아장(0~8시)은 1.5배로 한산합니다.
+        /// 너무 긴 공백을 막기 위해 기준 평균의 4배에서 자릅니다.
+        /// </summary>
+        private int NextSignalInterval(float baseMeanMinutes, int minGap)
+        {
+            float mean = baseMeanMinutes * SessionSignalIntervalScale();
+            float u = Mathf.Max(1e-6f, 1f - UnityEngine.Random.value); // Random.value는 1을 포함하므로 Log(0)을 피합니다
+            float extra = -Mathf.Log(u) * Mathf.Max(0f, mean - minGap);
+            return Mathf.Clamp(minGap + Mathf.RoundToInt(extra), minGap, Mathf.RoundToInt(baseMeanMinutes * 4f));
+        }
+
+        /// <summary>세션별 신호 간격 배수. 시각 경계는 세션 변동성(§2.5-③)과 같습니다.</summary>
+        private float SessionSignalIntervalScale()
+        {
+            if (gameManager == null) return 1f;
+            int h = gameManager.CurrentHour;
+            if (h < 8) return 1.5f;   // 아시아장
+            if (h < 16) return 1.0f;  // 런던장
+            return 0.7f;              // 뉴욕장
         }
 
         /// <summary>표준정규 난수 (Box-Muller).</summary>
