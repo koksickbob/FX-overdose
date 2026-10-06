@@ -790,19 +790,21 @@ namespace FXOverdose.Trading
             float activeFakeoutProb = fakeoutProbability;
             if (gameManager != null && !isOverdoseTrapOverride && !IsOverridingTrend)
             {
+                // 세션 간 변동성 차이 (REAL-8): 실제 BTC는 세션 간 대략 1.3~1.8배 차이입니다.
+                // 예전 0.5 / 1.2 / 2.0은 최대 4배라 뉴욕장이 과장됐습니다. 이제 최대 1.75배입니다.
                 int h = gameManager.CurrentHour;
                 if (h >= 0 && h < 8) // 아시아장: 거래량/변동성 감소, 횡보 강함
                 {
-                    sessionVolMultiplier = 0.5f;
+                    sessionVolMultiplier = 0.8f;
                     activeFakeoutProb = Mathf.Max(0.05f, fakeoutProbability * 0.5f);
                 }
-                else if (h >= 8 && h < 16) // 런던장: 변동성 증가 시작
+                else if (h >= 8 && h < 16) // 런던장: 기준
                 {
-                    sessionVolMultiplier = 1.2f;
+                    sessionVolMultiplier = 1.0f;
                 }
                 else // 뉴욕장 (16~24): 최고 변동성, 휩쏘 및 돌파 빈도 증가
                 {
-                    sessionVolMultiplier = 2.0f;
+                    sessionVolMultiplier = 1.4f;
                     activeFakeoutProb = Mathf.Min(0.85f, fakeoutProbability * 1.5f);
                 }
             }
