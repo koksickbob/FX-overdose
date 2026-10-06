@@ -192,10 +192,9 @@ namespace FXOverdose.Core
         // 기본값 0이라 구버전 세이브는 마이그레이션 없이 tier 0으로 안전하게 시작합니다.
         public int StoreTotalShifts = 0;
 
-        // --- TraderStatus 중독 / 연패 상태 (SV-A1~A3) ---
-        public bool IsLeverageAddicted = false;
-        public int ConsecutiveHighLevWins = 0;
-        public int ConsecutiveLowLevTrades = 0;
+        // --- TraderStatus 연패 상태 (SV-A3) ---
+        // 고배율 중독 3필드(SV-A1·A2)는 기믹 4 삭제와 함께 제거되었습니다. JsonUtility가 모르는 필드를
+        // 무시하므로 그 필드가 남아 있는 구버전 세이브도 그대로 열립니다.
         public int CurrentLosingStreak = 0;
 
         // --- 돌발 선택 이벤트 일일 스케줄 (SV-A4) ---

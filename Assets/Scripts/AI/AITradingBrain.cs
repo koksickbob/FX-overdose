@@ -8,8 +8,8 @@ namespace FXOverdose.AI
     /// <summary>
     /// 요미의 자동 매매 판단 엔진입니다. 시장 신호를 규칙 기반으로 평가해 진입/청산을 실행합니다.
     /// 이름과 달리 LLM을 사용하지 않습니다(사용한 적도 없습니다). 삭제하면 자동 매매,
-    /// FOMO 후회 기믹(OnSignalEvaluationCompleted 구독), 고배율 중독 폭주(ForceNextTradeHighLeverage),
-    /// 차트 힌트가 함께 죽으므로 "LLM 잔재"로 오인해 제거하지 마십시오.
+    /// FOMO 후회 기믹(OnSignalEvaluationCompleted 구독), 차트 힌트가 함께 죽으므로
+    /// "LLM 잔재"로 오인해 제거하지 마십시오.
     /// </summary>
     public class AITradingBrain : MonoBehaviour
     {
@@ -31,8 +31,6 @@ namespace FXOverdose.AI
         public event Action<MarketSignal, bool> OnSignalEvaluationCompleted; // (신호, 진입여부)
 
         public string LastDecisionLog => lastDecisionLog;
-        
-        public bool ForceNextTradeHighLeverage = false;
 
         private ITraderLevelProvider levelProvider;
         public bool IsBossAI { get; set; } = false;
@@ -257,29 +255,6 @@ namespace FXOverdose.AI
             {
 
                 OnSignalEvaluationCompleted?.Invoke(signal, false);
-                return;
-            }
-
-            // 챌린지에서는 이전 프레임에 예약된 강제 AI 매매까지 폐기합니다.
-            if (SaveLoadManager.Instance != null && !SaveLoadManager.Instance.AllowsAITrading)
-            {
-                ForceNextTradeHighLeverage = false;
-            }
-
-            // 💡 [고배율 중독 강제 매매] 요미가 주도권을 뺏고 강제로 고배율 매매를 실행하는 상태
-            if (ForceNextTradeHighLeverage)
-            {
-                ForceNextTradeHighLeverage = false;
-                tradingController.UnlockManualMode(); // 포지션 진입을 시도하므로 수동 전환 잠금 해제
-
-                var levelSys = levelProvider ?? TraderLevelSystem.Instance;
-                int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
-                int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
-                
-
-                
-                // 정상적인 매매(요미 스킬 및 레벨 스탯 반영)처럼 진입
-                OpenNormalPosition(signal, availableBalance, tradeMarginRatio, forceLev);
                 return;
             }
 

@@ -5,9 +5,9 @@
 - **성격**: 기획서가 아니라 **현재 코드에 실제로 살아 있는 것만** 적은 역공학 레퍼런스입니다. 모든 수치는 소스에서 직접 확인했고 파일·행 번호를 붙였습니다. 코드와 다르면 코드가 맞습니다.
 - **범위**: `GameScene` 트레이딩 루프 전체 (시장 시뮬레이션 / 포지션 / 바이탈 / 기믹 / AI / 성장 / 돌발 이벤트 / 정산 / 엔딩). 미연시 파트와 P2P는 접점만 다룹니다.
 - **§1~18**은 현재 동작의 기술(記述), **§19는 고쳐야 할 결함·불일치**, **§20은 실제 BTC 선물 시장과의 격차**, **§21은 신호 시스템(§3)의 다양성 개선 후보**, **§22~23은 삭제 계획**입니다. §20과 §21은 성격이 다릅니다 — 전자는 *현실성*, 후자는 *플레이 체감*이며 겹치는 항목은 서로 참조만 합니다.
-- **진행 중인 결정** (둘 다 2026-10-06 결정 / **미실행**)
-  - 🗑️ **기믹 4 (고배율 중독 금단현상)** 삭제 — §22
-  - 🗑️ **정기 지출 전면** 삭제 — §23
+- **삭제 결정 진행 상황**
+  - ✅ **기믹 4 (고배율 중독 금단현상)** 삭제 — 2026-10-06 완료 (§22)
+  - 🗑️ **정기 지출 전면** 삭제 — 2026-10-06 결정 / 미실행 (§23)
 
 > **▶ 할 일을 찾는다면 [Trading_System_Refactor_Backlog.md](Trading_System_Refactor_Backlog.md)로 가십시오.** 이 문서의 §17.2·§19~§23에 흩어진 개선·삭제 항목을 ID·의존성·실행 순서로 정리한 백로그입니다. **근거와 수치는 이 문서에, 순서와 상태는 그쪽에** 둡니다 — 중복 기재하지 않습니다.
 >
@@ -26,7 +26,7 @@ GameManager (시계·잔고·상태머신·정산·엔딩)
    │        │                                      └──► ChartUIController (렌더)
    │        └──► TradingController (포지션 생애주기·청산·수수료·멘탈 반영)
    │                 │ OnPositionOpened / OnPositionClosed / OnPositionLiquidated
-   │                 ├──► MentalDrainGimmickController (멘탈 소모 기믹 5종)
+   │                 ├──► MentalDrainGimmickController (멘탈 소모 기믹 4종)
    │                 ├──► TraderLevelSystem (경험치·레벨)
    │                 └──► TraderStatus (HP·멘탈·오버도즈 판정)
    ├──► ChoiceEventController (돌발 선택 이벤트 → 차트 빔 + 강제 포지션)
@@ -321,7 +321,7 @@ ROE(%)      = 미실현손익 / margin × 100
 6. 멘탈·체력·경험치 반영
 7. `OnPositionClosed` 발행 ← 수신자가 증거금/ROE를 읽을 수 있도록 **상태 초기화 직전**
 8. 포지션 상태 초기화 → `EvaluateEndingConditions()`
-9. ⚠️ **`IsManualModeLockedByYomi`는 여기서 지우지 않습니다.** 7번 구독자(고배율 중독 폭주)가 방금 건 락을 같은 콜스택에서 지워버리기 때문입니다. 해제는 AITradingBrain이 강제 고배율 매매를 실제로 실행할 때.
+9. ⚠️ **`IsManualModeLockedByYomi`는 여기서 지우지 않습니다.** 임시 락이 걸린 대기 구간(오버도즈 2초, 뇌동매매 지연 진입) 중에도 `ClosePosition()`은 수동 청산·돌발 이벤트·24시 강제 청산으로 호출됩니다. 여기서 풀면 그 사이 플레이어가 수동 모드로 빠져나가 강제 진입을 피합니다. 해제는 `TemporaryLockRoutine`이 자기 세대를 확인한 뒤 직접 합니다.
 
 ### 4.4 청산 시 멘탈 변화 곡선
 
@@ -348,8 +348,8 @@ ROE(%)      = 미실현손익 / margin × 100
 ### 4.5 수동/자동 모드와 주도권 락
 
 - `TradingMode`: `AI_Auto` / `Player_Manual`. 토글은 **장 개시(Playing) + 시장 개장 + 비(非)오버도즈 + 락 없음**일 때만 허용.
-- `IsManualModeLockedByYomi` — 요미가 주도권을 강탈한 상태. 수동 전환 불가.
-- **락 소유권 세대(`manualLockGeneration`)**: 임시 락이 대기 중에 다른 곳에서 락/언락이 걸리면 세대가 바뀌고, 임시 락은 자기 세대가 아닐 때 해제를 포기합니다. 없으면 2초 임시 락이 끝나면서 그 사이 걸린 영구 락까지 지웁니다. [TradingController.cs:88](../../Assets/Scripts/Trading/TradingController.cs#L88)
+- `IsManualModeLockedByYomi` — 요미가 주도권을 강탈한 상태. 수동 전환 불가. **락은 `LockManualModeTemporarily(초)` 임시 락뿐**이며 오버도즈 폭주(2초)와 뇌동매매 지연 진입(`delayBeforeOpen`)이 겁니다. (영구 락 `LockManualMode`/`UnlockManualMode`는 유일한 사용처였던 고배율 중독 기믹과 함께 2026-10-06 삭제)
+- **락 소유권 세대(`manualLockGeneration`)**: 임시 락이 대기 중에 새 임시 락이 걸리면 세대가 바뀌고, 먼저 건 쪽은 자기 세대가 아닐 때 해제를 포기합니다. 없으면 구간이 겹칠 때 먼저 끝난 쪽이 아직 살아 있어야 할 다른 쪽의 락까지 풉니다. [TradingController.cs:88](../../Assets/Scripts/Trading/TradingController.cs#L88)
 - **챌린지 모드에서는 어떤 기믹도 수동 주도권을 빼앗을 수 없습니다** (`IsAITradingLockedByGameMode`).
 
 ### 4.6 수동 모드 보호
@@ -369,8 +369,8 @@ ROE(%)      = 미실현손익 / margin × 100
 
 씬을 넘나들며 **여러 `TraderStatus`가 동시에 존재**할 수 있습니다. `TraderStatus.CanonicalInstance`(GameManager 오브젝트에 붙은 것)만 권위를 가지며, 나머지는 매 프레임 `SyncFromCanonical()`로 미러링합니다.
 
-- 모든 mutator(`ChangeHealth`/`ChangeMental`/`ResetStatus`/`CureLeverageAddiction`/`IncreaseMaxMental`)는 비정본에서 호출되면 정본에 위임합니다.
-- `CurrentLosingStreak` 등 4개 상태는 **프로퍼티 세터도 정본을 거칩니다** — 그러지 않으면 비정본에 쓴 값이 다음 동기화에서 조용히 되돌려져 기믹이 무음 실패합니다. (§22 삭제 후에는 `CurrentLosingStreak` 1개만 남습니다)
+- 모든 mutator(`ChangeHealth`/`ChangeMental`/`ResetStatus`/`IncreaseMaxMental`)는 비정본에서 호출되면 정본에 위임합니다.
+- 기믹 상태 `CurrentLosingStreak`는 **프로퍼티 세터도 정본을 거칩니다** (`Owner` 프로퍼티) — 그러지 않으면 비정본에 쓴 값이 다음 동기화에서 조용히 되돌려져 기믹이 무음 실패합니다.
 - **`GetComponent<TraderStatus>()`가 정본을 줬다고 가정하지 마십시오.**
 
 ### 5.2 멘탈 상태 4단
@@ -410,11 +410,9 @@ speedScale   = 5.0 / secondsPerGameMinute                 (0.666 기준 ≈ 7.5)
 
 ---
 
-## 6. 상시 멘탈 소모 기믹 5종 (MentalDrainGimmickController)
+## 6. 상시 멘탈 소모 기믹 4종 (MentalDrainGimmickController)
 
-클래스 주석에 명시: 기획에서 **수면 부족 연쇄·횡보 지루함·드로다운 트라우마는 빠졌습니다.** 현재 5종이 살아 있습니다.
-
-> 🗑️ **기믹 4(고배율 중독)는 삭제 결정되었습니다 (2026-10-06).** 삭제 후에는 **4종**이 됩니다. 범위와 절차는 §22.
+클래스 주석에 명시: 기획에서 **수면 부족 연쇄·횡보 지루함·드로다운 트라우마·고배율 중독은 빠졌습니다.** 현재 4종(기믹 1·2·3·5)이 살아 있습니다.
 
 ### 기믹 1 — 미실현 손실 실시간 침식
 
@@ -449,21 +447,9 @@ ROE에 따라 **초당** 멘탈을 깎습니다. 1초 단위로 묶어서 차감
 
 진입/물타기 **1회당 고정 멘탈 −5** (`PositionOpenMentalCost`). 방향·배율 무관.
 
-### 기믹 4 — 고배율 중독 금단현상 🗑️ 삭제 예정
+### 기믹 4 — (결번)
 
-> **2026-10-06 삭제 결정.** 아래는 삭제 전 현재 동작이며, 삭제 범위·절차·영향은 **§22**에 있습니다. 이 절은 삭제 작업이 끝나면 함께 제거합니다.
-
-[MentalDrainGimmickController.cs:267](../../Assets/Scripts/AI/MentalDrainGimmickController.cs#L267) — **수동 모드에서만** 판정.
-
-1. **중독 발동**: 레벨 해금 50배 이상 + 50배 이상으로 **연속 3회 익절** → `IsLeverageAddicted = true`
-2. **금단 1회**: 중독 상태에서 50배 이하 매매 → 경고 대사
-3. **금단 2회 누적** → **요미가 매매 주도권 강탈**:
-   - `LockManualMode()` + `SetTradingMode(AI_Auto)`
-   - `CureLeverageAddiction()` (중독 해제)
-   - `aiBrain.ForceNextTradeHighLeverage = true` → 다음 판단에서 **최소 50배** 강제 매매
-4. 진정제·수면제·멘탈회복량 20 이상 아이템으로 치료 가능 (멘탈 만땅이어도 치료는 됩니다)
-
-> `FindPlayerBrain()`이 `IsBossAI == false`인 브레인을 찾는 이유: 보스가 스폰되면 `[RequireComponent]`로 두 번째 `AITradingBrain`이 생기고, `FindAnyObjectByType`은 어느 쪽을 줄지 보장하지 않습니다.
+고배율 중독 금단현상은 **2026-10-06 삭제되었습니다** (백로그 DEL-1). 다른 문서·백로그가 "기믹 5(FOMO)"로 참조하므로 번호는 당기지 않습니다.
 
 ### 기믹 5 — FOMO 놓친 기회 후회
 
@@ -471,6 +457,8 @@ ROE에 따라 **초당** 멘탈을 깎습니다. 1초 단위로 묶어서 차감
 2. 8초 경과 후 판정: 신호가 실제로 진짜였거나, 주가가 **5% 이상** 움직였거나, 목표 변동률이 5% 이상이었으면 → **멘탈 −15** (차트 공부 LV.9+면 −7.5)
 3. 60초간 큰 변동 없이 지나가면 "관망 성공"으로 보고 추적 종료
 4. 수동 모드에서는 추적하지 않습니다
+
+> `FindPlayerBrain()`이 `IsBossAI == false`인 브레인을 찾는 이유: 보스가 스폰되면 `[RequireComponent]`로 두 번째 `AITradingBrain`이 생기고, `FindAnyObjectByType`은 어느 쪽을 줄지 보장하지 않습니다. 보스 브레인을 잡으면 FOMO 추적이 엉뚱한 대상에 걸립니다.
 
 ---
 
@@ -539,7 +527,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 
 ## 8. AI 자동매매 (AITradingBrain)
 
-> ⚠️ 이름과 달리 **LLM을 사용하지 않습니다(사용한 적도 없습니다)**. 규칙 기반입니다. 삭제하면 자동매매·FOMO 기믹·고배율 중독 폭주·차트 힌트가 함께 죽으므로 "LLM 잔재"로 오인해 제거하지 마십시오.
+> ⚠️ 이름과 달리 **LLM을 사용하지 않습니다(사용한 적도 없습니다)**. 규칙 기반입니다. 삭제하면 자동매매·FOMO 기믹·차트 힌트가 함께 죽으므로 "LLM 잔재"로 오인해 제거하지 마십시오.
 
 ### 8.1 4단계 기만 티어 (Deception Tier)
 
@@ -664,7 +652,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 | 종류 | 효과 |
 |---|---|
 | 체력 회복형 | 체력 +효과량. 만땅이면 사용 실패 |
-| 멘탈 회복형 | 멘탈 +효과량 + **멘탈 기믹 1회성 치료**. 진정/수면/효과량 20+ 이면 **고배율 중독 치료** (멘탈 만땅이어도 치료는 됨) — 🗑️ 중독 치료는 §22에서 삭제 예정이며, 그 뒤로는 **멘탈 만땅일 때 사용 실패**로 바뀝니다 |
+| 멘탈 회복형 | 멘탈 +효과량 + **멘탈 기믹 1회성 치료**. 멘탈이 가득 차 있으면 사용 실패 |
 | 마라탕 | HP +25 / 멘탈 +50 |
 | 초밥 | HP +30 / 멘탈 +55 |
 | 떡볶이 | HP +30 / 멘탈 +60 |
@@ -898,7 +886,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 - `Awake`에서 `Player_Manual` 고정
 - `SetTradingMode(AI_Auto)` 거부
 - `OpenPosition`에서 AI 진입 차단 — 단 **플레이어가 돌발 이벤트에서 직접 방향을 선택한 결과(`isEmergencyTrade && isPlayerDirectedTrade`)만 플레이어 입력으로 인정**
-- `TriggerOverdoseTrade` 스킵, `ForceNextTradeHighLeverage` 폐기, 모든 기믹의 주도권 강탈 무효
+- `TriggerOverdoseTrade` 스킵, 모든 기믹의 주도권 강탈 무효 (`LockManualModeTemporarily`가 챌린지에서 즉시 반환)
 
 **P2P 모드**: `TradingController` / `MarketSimulationEngine` / `TraderStatus` / `GameManager`가 각각 `EnableP2PExternalMode()`로 **표시 전용 슬레이브**가 됩니다. 로컬 시뮬레이션·기믹·엔딩 판정을 전부 멈추고 호스트 스냅샷만 반영합니다. 캔들 꼬리는 호스트가 집계한 고가/저가를 보존해야 클라이언트마다 차트가 달라지지 않습니다.
 
@@ -913,7 +901,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 `GameManager` | 잔고, 날짜/시각, `StartOfDayEquity`, 정산 컨텍스트(지출 금액·사유 2필드는 §23에서 삭제 예정), 자산 스파크라인 |
 `TradingController` | 거래 모드, AI 성향, **이벤트 포지션 계약**(모드/목표ROE/손절ROE/플레이어선택/진위), 포지션 전체 |
 `MarketSimulationEngine` | 현재가, 24h 고저/거래량, 국면, 일일 국면, **국면 갱신 일차**, 국면 유지 시간, 누적 분, 전체 캔들 히스토리(평탄화) |
-`TraderStatus` | HP, 멘탈, 멘탈 상태, 최대 멘탈, **중독·연패 카운터** (중독 3필드는 §22에서 삭제 예정) |
+`TraderStatus` | HP, 멘탈, 멘탈 상태, 최대 멘탈, **연패 카운터** |
 `ChoiceEventController` | 일일 이벤트 스케줄·발생 횟수·쿨다운 |
 `DailyMarketOutlook` | 일차, 방향성, 공개 여부 |
 기타 | 액티브 아이템 레벨, 의상 보유/착용, 스킬·주인공 레벨, 인벤토리, 보스 자산 |
@@ -942,6 +930,7 @@ drift = (포지션 반대방향 ±0.015) / max(15, 남은초) × secondsPerGameM
 | 스토리 위약금 | OFF (`StoryPenaltiesEnabled = false`) | `true` 한 글자. 런타임 사본만 0이라 원값이 그대로 돌아옴 |
 | 수면 부족 연쇄 / 횡보 지루함 / 드로다운 트라우마 | 기획에서 제외, 분 단위 핸들러째 제거 | 핸들러 + `OnGameMinuteAdvanced` 구독을 함께 복구 |
 | LLM 전반 | **2026-09-22 전면 제거.** 프로젝트에 LLM이 존재하지 않음 | 되살릴 계획 없음 |
+| 고배율 중독 금단현상 (구 기믹 4) | **2026-10-06 완전 제거.** 상태·세이브 필드·치료 아이템 경로·영구 수동 락 API까지 함께 삭제 (§22) | 되살릴 계획 없음 |
 
 ### 17.2 죽은 코드 — 의도 판정과 개선안
 
@@ -1573,158 +1562,17 @@ Tier 1 네 개만으로 체감이 가장 크게 바뀝니다. 특히 **B3와 B5�
 
 ---
 
-## 22. 기믹 4 (고배율 중독 금단현상) 삭제 계획
+## 22. 기믹 4 (고배율 중독 금단현상) 삭제 — ✅ 완료
 
-- **결정일**: 2026-10-06
-- **상태**: 계획 수립 완료 / **미실행**
-- **대상**: §6 기믹 4 전체와 그에만 종속된 상태·API
+**2026-10-06 완료** (백로그 DEL-1). 계획서 본문은 작업 완료와 함께 걷어냈습니다 — 상세 diff는 git 기록, 변경 요약은 [Refactored_Architecture_Master.md](Refactored_Architecture_Master.md)에 있습니다.
 
-### 22.1 삭제 범위 (파일별 체크리스트)
-
-전수 조사 결과 **8개 파일**이 영향을 받습니다.
-
-#### ① `Assets/Scripts/AI/MentalDrainGimmickController.cs` — 본체
-
-- [ ] `OnPositionClosed`의 `if (isManualMode) { ... }` 중독 블록 전체 (약 264~317행)
-- [ ] 지역 변수 `closedLeverage`, `isManualMode` — 중독 블록에서만 쓰이므로 함께 사망
-- [ ] **손실 청산 경로의 `traderStatus.ConsecutiveHighLevWins = 0;` (330행)** ← 기믹 2 블록 안에 섞여 있어 놓치기 쉬움
-- [ ] 클래스 주석의 "기믹 **5종**" → "4종", 기믹 목록에서 고배율 중독 제거
-- [ ] `Initialize()`의 초기화 로그 문자열 "기믹 5종 코어 엔진" → 4종
-- [ ] `FindPlayerBrain()` doc 주석에서 `ForceNextTradeHighLeverage` 언급 제거
-
-#### ② `Assets/Scripts/AI/AITradingBrain.cs`
-
-- [ ] `public bool ForceNextTradeHighLeverage` 필드 (35행)
-- [ ] 챌린지 모드 폐기 분기 (266행 `ForceNextTradeHighLeverage = false;`)
-- [ ] **강제 고배율 매매 블록 전체** (270~284행) — `UnlockManualMode()` 호출과 `forceLev = Mathf.Max(50, maxLev)` 포함
-- [ ] 클래스 주석에서 "고배율 중독 폭주(ForceNextTradeHighLeverage)" 제거
-
-#### ③ `Assets/Scripts/Items/ItemUser.cs`
-
-- [ ] `RestoreMental()`의 `curesAddiction` 지역 변수와 판정식 (178행)
-- [ ] `if (curesAddiction) traderStatus.CureLeverageAddiction();` (206행)
-- [ ] `mentalFull && !curesAddiction` 가드를 `mentalFull`로 되돌리기
-- [ ] 관련 주석("기획서 4.4장 부합 … 진정제 투여 시 고배율 중독 상태 치료") 제거
-
-#### ④ `Assets/Scripts/TraderStatus.cs`
-
-- [ ] 필드 3개: `isLeverageAddicted`, `consecutiveHighLevWins`, `consecutiveLowLevTrades` (41~43행)
-- [ ] 프로퍼티 3개: `IsLeverageAddicted`, `ConsecutiveHighLevWins`, `ConsecutiveLowLevTrades` (110~124행)
-- [ ] `CureLeverageAddiction()` 메서드 전체 (597~610행)
-- [ ] `CaptureSaveData` 3줄 (178~180행) / `RestoreFromSaveData` 3줄 (199~201행)
-- [ ] `SyncFromCanonical` 3줄 (243~245행) / `SyncAllInstances` 3줄 (270~272행)
-- [ ] `ResetStatus` 3줄 (327~329행)
-
-#### ⑤ `Assets/Scripts/System/SaveData.cs`
-
-- [ ] `IsLeverageAddicted`, `ConsecutiveHighLevWins`, `ConsecutiveLowLevTrades` (196~198행)
-
-> 세이브 호환은 **문제없습니다.** `JsonUtility`는 JSON에 있고 클래스에 없는 필드를 조용히 무시하므로 구버전 세이브가 그대로 열립니다. `SaveDataMigrator`는 이 필드들을 참조하지 않으므로 **수정 불필요**합니다.
-
-#### ⑥ `Assets/Editor/SaveRoundTripTester.cs` — 놓치기 쉬움 ⚠️
-
-- [ ] `baseline`의 `IsLeverageAddicted = true,` (110행)
-- [ ] `Expect(revived.IsLeverageAddicted, "IsLeverageAddicted 직렬화 (SV-A1)")` (122행)
-- [ ] SV-A1 검증 대상을 **살아남는 다른 필드로 교체** (예: `CurrentLosingStreak`) — 검증 항목만 빼면 SV-A1 회귀 가드가 사라집니다
-
-#### ⑦ `Assets/Scripts/Trading/TradingController.cs` — 죽은 API + 주석
-
-- [ ] `LockManualMode()` — **삭제 후 호출자 0** (유일한 호출자가 기믹 4였음)
-- [ ] `UnlockManualMode()` — **삭제 후 호출자 0** (유일한 호출자가 ②의 강제 고배율 블록)
-- [ ] `ClosePosition()`의 1210~1213행 주석 **전면 재작성** — 아래 §22.2 참고
-
-#### ⑧ 이 문서
-
-- [ ] §6 기믹 4 절 삭제, 제목을 "기믹 4종"으로
-- [ ] §5.1의 "4개 상태" → "1개"
-- [ ] §9.5 소모 아이템 표의 중독 치료 문구 삭제
-- [ ] §16 저장 항목 표에서 "중독·" 제거
-- [ ] §22를 §17(비활성·죽은 기믹) 한 줄로 축약 후 삭제
-
----
-
-### 22.2 남겨야 하는 것 (오삭제 주의) ⚠️
-
-**이름이 비슷해서 함께 지우기 쉬운데, 전부 다른 기능이 쓰고 있습니다.**
-
-| 대상 | 남기는 이유 |
-|---|---|
-| `LockManualModeTemporarily(float)` | **오버도즈 폭주**(`DelayedOverdoseRoutine`, 2초)와 **이벤트 지연 진입**(`DelayedEmergencyTradeRoutine`)이 사용 |
-| `IsManualModeLockedByYomi` | 위 임시 락이 세우는 플래그. `SetTradingMode`의 수동 전환 차단에 필요 |
-| `manualLockGeneration` | 임시 락의 세대 관리(§4.5). 임시 락이 남으므로 함께 유지 |
-| `FindPlayerBrain()` | **기믹 5(FOMO)**가 `OnSignalEvaluationCompleted` 구독을 위해 `aiBrain`을 필요로 함 |
-| `aiBrain` 필드 / 구독·해제 | 동일 |
-| `CurrentLosingStreak` | **기믹 2(연속 손절 콤보)** 소유 |
-| `AITradingBrain` 전체 | 자동매매 본체. §8 서두 경고 참조 |
-
-**`ClosePosition()` 주석 재작성이 특히 중요합니다.** 현재 주석은 이렇게 적혀 있습니다:
-
-> ⚠️ 여기서 `IsManualModeLockedByYomi`를 지우면 안 됩니다. 바로 위 `OnPositionClosed` 구독자(**MentalDrainGimmickController의 고배율 중독 폭주**)가 `LockManualMode()`로 요미의 주도권 강탈을 거는데 …
-
-기믹 4가 사라지면 **이 근거는 사실이 아니게 됩니다.** 그런데 **결론은 여전히 유효합니다** — `ExecuteEmergencyTrade`가 `delayBeforeOpen` 임시 락을 건 상태에서 기존 포지션을 정리하려고 `ClosePosition()`을 호출하므로, 여기서 락을 지우면 그 임시 락이 똑같이 무효화됩니다.
-
-**근거만 바꾸고 코드는 그대로 두어야 합니다.** 주석을 통째로 지우면 다음 사람이 "이제 지워도 되겠네"라고 판단해 버그가 재발합니다.
-
----
-
-### 22.3 삭제로 생기는 변화
-
-**① 멘탈 밸런스 — 영향 없음 ✅**
-
-기믹 4는 **멘탈을 직접 깎지 않습니다.** 대사 출력과 주도권 강탈만 합니다. 따라서 §4.4의 청산 멘탈 곡선과 `verify_mental_balance.py`의 예산 제약(진입 −5 / 손실 청산 / 연패 4·9·16)은 **그대로입니다. 재검증·상수 수정이 필요 없습니다.**
-
-**② 진정제·수면제의 가치 하락**
-
-현재는 `curesAddiction`이 true면 **멘탈이 가득 차 있어도 아이템이 소비되며 중독이 풀립니다.** 삭제 후에는 멘탈 만땅일 때 `RestoreMental`이 곧바로 실패를 반환하므로, 진정제의 용도가 "멘탈 회복 + 기믹 1회성 치료"로 축소됩니다.
-
-**③ 고배율 수동 플레이의 유일한 억제 장치 소멸** ⚠️ 기획 확인 필요
-
-현재 50배 이상 수동 매매에 붙는 페널티는 기믹 4가 유일합니다. 삭제하면 **레벨 상한만 지키면 고배율 수동 플레이에 아무 대가가 없습니다.** 의도한 방향이면 그대로 두고, 아니라면 대체 장치(예: 레버리지 비례 진입 멘탈 비용, §21-A 계열 신호 난이도)를 함께 검토해야 합니다.
-
-**④ 요미의 주도권 강탈 연출 빈도 감소**
-
-강탈이 **오버도즈 폭주**와 **이벤트 지연 진입** 두 경로에만 남습니다. 수동 플레이 중 요미가 끼어드는 장면이 눈에 띄게 줄어듭니다.
-
-**⑤ 강제 고배율 매매(최소 50배) 경로 소멸**
-
-`ForceNextTradeHighLeverage`가 사라지면 AI가 레벨 상한을 넘겨 50배 이상으로 진입하는 경로는 **오버도즈(125배)만** 남습니다.
-
----
-
-### 22.4 실행 순서
-
-호출부 → 피호출부 순으로 내려가야 중간 단계에서도 컴파일이 깨지지 않습니다.
-
-1. **① MentalDrainGimmickController** — 기믹이 즉시 비활성화됨
-2. **② AITradingBrain** — `ForceNextTradeHighLeverage` 생산자가 없어진 뒤 소비자 제거
-3. **③ ItemUser** — 중독 치료 경로 제거
-4. **④ TraderStatus** — 위 셋이 모두 빠진 뒤에야 상태를 안전하게 제거
-5. **⑤ SaveData** → **⑥ SaveRoundTripTester** (검증 항목 교체)
-6. **⑦ TradingController** — 죽은 메서드 2개 제거 + 주석 재작성
-7. 컴파일 확인:
-   ```
-   dotnet build "Assembly-CSharp.csproj" -v:m
-   dotnet build "Assembly-CSharp-Editor.csproj" -v:m
-   ```
-8. 동작 확인: `Window → General → Test Runner → EditMode`, 그리고 `FXOverdose/Debug/AI Trading System Integration Test`
-9. 회귀 확인 3종 — **오버도즈 2초 임시 락**, **이벤트 지연 진입 락**, **기믹 5(FOMO) 추적**이 정상 작동하는지 (§22.2에서 남긴 것들)
-10. **⑧ 이 문서** 정리
-
-> **폰트 프리베이크는 불필요합니다.** 한국어 문자열이 추가되는 게 아니라 제거되는 방향이므로 아틀라스 재베이크가 필요 없습니다.
-
-> `verify_mental_balance.py`도 **수정 불필요**합니다 (§22.3-①).
-
----
-
-### 22.5 삭제 후 문서 정리
-
-작업 완료 시 이 장(§22)은 삭제하고, §17(현재 비활성·죽은 기믹) 표에 한 줄만 남깁니다.
-
-| 대상 | 상태 | 위치 |
-|---|---|---|
-| 고배율 중독 금단현상 (구 기믹 4) | **2026-10-XX 완전 제거.** 상태·세이브 필드·치료 아이템 경로까지 함께 삭제 | — |
-
-구조 변경이므로 [Refactored_Architecture_Master.md](Refactored_Architecture_Master.md)에도 append 하십시오.
+**결과 요약**
+- 제거: 기믹 본체(`MentalDrainGimmickController`), `AITradingBrain.ForceNextTradeHighLeverage`와 강제 고배율 블록, `ItemUser`의 중독 치료 경로, `TraderStatus` 중독 3필드·프로퍼티·`CureLeverageAddiction()`, `SaveData` 3필드, 호출자가 0이 된 `TradingController.LockManualMode()`/`UnlockManualMode()`
+- 유지: `LockManualModeTemporarily`·`IsManualModeLockedByYomi`·`manualLockGeneration`(오버도즈·지연 진입이 사용), `FindPlayerBrain()`과 `aiBrain` 구독(FOMO가 사용), `CurrentLosingStreak`(기믹 2)
+- 재작성: `ClosePosition()`의 락 보존 주석 — 근거를 "임시 락 대기 구간 중 청산 호출"로 교체 (§4.3-9)
+- 검증 자산: `SaveRoundTripTester`의 SV-A1 항목을 `CurrentLosingStreak`(SV-A3) 왕복 검사로 교체
+- 세이브: 구버전 세이브의 중독 필드는 `JsonUtility`가 무시 — 마이그레이션 불필요
+- 남은 영향(재설계 대상): 50배 이상 수동 고배율 플레이에 대한 억제 장치가 없어졌습니다. 진정제는 멘탈 만땅일 때 사용 실패로 바뀌었습니다.
 
 ---
 
@@ -1736,7 +1584,7 @@ Tier 1 네 개만으로 체감이 가장 크게 바뀝니다. 특히 **B3와 B5�
 
 ### 23.1 삭제 범위 (파일별 체크리스트)
 
-전수 조사 결과 **4개 파일**이 영향을 받습니다. 기믹 4(§22)보다 파일 수는 적지만 **주석·문서 정합성 작업이 더 많습니다.**
+전수 조사 결과 **4개 파일**이 영향을 받습니다. 파일 수는 적지만 **주석·문서 정합성 작업이 많습니다.**
 
 #### ① `Assets/Scripts/GameManager.cs` — 본체
 

@@ -172,14 +172,7 @@ public class ItemUser : MonoBehaviour
     // 멘탈이 가득 차 있지 않을 때 멘탈 회복 효과를 적용합니다.
     private bool RestoreMental(ItemData item)
     {
-        // [기획서 4.4장 부합] 진정제나 멘탈 회복제 투여 시 고배율 중독 상태 치료.
-        // 고배율 중독은 멘탈 수치와 독립된 상태라, 만땅 가드보다 먼저 판정해야 합니다.
-        // 예전에는 가드가 앞에 있어 멘탈이 가득 차면 진정제를 먹어도 중독이 풀리지 않았습니다.
-        bool curesAddiction = traderStatus.IsLeverageAddicted &&
-            (item.ItemName.Contains("진정") || item.ItemName.Contains("수면") || item.EffectAmount >= 20f);
-
-        bool mentalFull = traderStatus.CurrentMental >= traderStatus.MaxMental;
-        if (mentalFull && !curesAddiction)
+        if (traderStatus.CurrentMental >= traderStatus.MaxMental)
         {
             Debug.Log("[ItemUser] 멘탈이 이미 최대치까지 가득 찼습니다.");
             return false;
@@ -202,8 +195,7 @@ public class ItemUser : MonoBehaviour
             finalEffectAmount *= 1.15f;
         }
 
-        if (!mentalFull) traderStatus.ChangeMental(finalEffectAmount);
-        if (curesAddiction) traderStatus.CureLeverageAddiction();
+        traderStatus.ChangeMental(finalEffectAmount);
 
         TriggerItemDialogue(item);
         Debug.Log($"[ItemUser] {item.ItemName} 사용: 멘탈 +{item.EffectAmount} 회복");

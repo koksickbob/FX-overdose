@@ -310,7 +310,7 @@
 
 ### 7.7 `AITradingBrain`은 LLM 잔재가 아니다
 
-이름 때문에 폐기된 LLM 자동매매의 잔재로 오인되기 쉬우나, **파일 전체에 `LLM` 문자열이 0건인 규칙 기반 판정 엔진이며 현재 자동 매매의 실행 주체다.** 삭제하면 자동 매매·FOMO 후회 기믹(`OnSignalEvaluationCompleted` 구독)·고배율 중독 폭주·차트 힌트가 함께 죽는다. 클래스 요약 주석에 이 경고를 박아 뒀다.
+이름 때문에 폐기된 LLM 자동매매의 잔재로 오인되기 쉬우나, **파일 전체에 `LLM` 문자열이 0건인 규칙 기반 판정 엔진이며 현재 자동 매매의 실행 주체다.** 삭제하면 자동 매매·FOMO 후회 기믹(`OnSignalEvaluationCompleted` 구독)·차트 힌트가 함께 죽는다. (고배율 중독 폭주는 2026-10-06 기믹째 삭제 — §15.1) 클래스 요약 주석에 이 경고를 박아 뒀다.
 
 실제로 사장돼 있던 건 `TriggerDialogue`(본문 없음)와 `TriggerDialogueWithCategory`(호출자 0건) 두 메서드이며, 후자가 이 파일에서 멘탈을 건드리는 유일한 코드였다. 둘 다 제거했다.
 
@@ -526,7 +526,7 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 ### 11.4 P2에서 바뀐 소유권
 
-- **`TraderStatus`의 기믹 카운터 4종에 `Owner` 프로퍼티 도입.** `CurrentLosingStreak` / `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`는 다른 mutator와 달리 정본 위임 가드가 없어, 미러 인스턴스에 쓰면 다음 동기화가 조용히 삼켰다. **읽기·쓰기 양쪽**을 `Owner`(정본이 있으면 정본)로 통과시킨다 — 쓰기만 위임하면 미러에서 쓴 직후 읽을 때 한 프레임 낡은 값이 나온다.
+- **`TraderStatus`의 기믹 카운터 4종에 `Owner` 프로퍼티 도입.** *(2026-10-06: 중독 관련 3종은 기믹 4 삭제로 제거되어 현재는 `CurrentLosingStreak` 1종만 남음 — §15.1)* `CurrentLosingStreak` / `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`는 다른 mutator와 달리 정본 위임 가드가 없어, 미러 인스턴스에 쓰면 다음 동기화가 조용히 삼켰다. **읽기·쓰기 양쪽**을 `Owner`(정본이 있으면 정본)로 통과시킨다 — 쓰기만 위임하면 미러에서 쓴 직후 읽을 때 한 프레임 낡은 값이 나온다.
 - **`MentalDrainGimmickController.FindPlayerBrain()`.** 보스가 스폰되면 `[RequireComponent]` 때문에 두 번째 `AITradingBrain`이 생기고 `FindAnyObjectByType`은 어느 쪽을 줄지 보장하지 않는다. `!IsBossAI` 필터를 한곳에 모았다. 짝으로 `AITradingBrain`의 `TradingController` 구독도 `!IsBossAI`로 막았다 — 보스 브레인이 플레이어의 청산 이벤트를 받고 있었다.
 - **인벤토리 복원 루프를 `SaveLoadManager.ApplySavedInventoryItems()`로 분리.** 새 게임 첫 진입 분기가 저장 목록을 통째로 버려, 1일차에 편의점 알바를 먼저 하면 선물이 사라졌다. 두 분기가 같은 헬퍼를 쓰게 해 시작 지급분 위에 얹는다.
 - **`ShopManager.GetPurchasePrice`가 최종가의 유일한 답이 되었다** (11.1 참조). 표시 경로도 이쪽으로 통일.
@@ -633,6 +633,32 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 **남은 부채**
 - 템플릿 요미 대사 726줄은 `GenerateTemplateFallbackText`가 조합표로 찍어낸 초안이라 실질 문구 다양성이 약 40종이다. 집필로 다듬어야 한다.
 - `YomiDialogueDatabase`(810줄)에는 `ChoiceEvent_*` 카테고리가 하나도 없다. 제거 이전에도 이 조회는 항상 빈손이었고, 이번에 조회 자체를 들어냈다. DB로 일원화하려면 카테고리 신설이 먼저다.
+
+## 15. 트레이딩 리팩토링 백로그 실행 (2026-10-06~)
+
+[Trading_System_Refactor_Backlog.md](Trading_System_Refactor_Backlog.md)의 항목을 Wave 순서로 처리한 기록입니다. **작업 1건 = 커밋 1건**이며 커밋 제목은 `[백로그 ID] 제목` 형식입니다. 근거·수치는 [Trading_System_Master.md](Trading_System_Master.md)에 있습니다.
+
+### 15.1 DEL-1 — 기믹 4 (고배율 중독 금단현상) 삭제
+
+**삭제**
+- `MentalDrainGimmickController.OnPositionClosed`의 중독 블록 전체와 손실 경로의 `ConsecutiveHighLevWins = 0` (기믹 2 블록 안에 섞여 있었음)
+- `AITradingBrain.ForceNextTradeHighLeverage` 필드, 챌린지 폐기 분기, 강제 고배율(최소 50배) 진입 블록
+- `ItemUser.RestoreMental`의 `curesAddiction` 경로 — 진정제는 이제 멘탈 만땅이면 사용 실패
+- `TraderStatus`: 중독 3필드·프로퍼티 3개·`CureLeverageAddiction()`과 그 동기화(`SyncFromCanonical`/`SyncAllInstances`)·세이브(`Capture`/`Restore`)·리셋 경로
+- `SaveData`: `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`
+- `TradingController.LockManualMode()` / `UnlockManualMode()` — 유일한 호출자가 기믹 4와 그 짝 블록이었음
+
+**유지 (이름이 비슷해 함께 지우기 쉬운 것)**
+- `LockManualModeTemporarily` / `IsManualModeLockedByYomi` / `manualLockGeneration` — 오버도즈 2초 락과 뇌동매매 지연 진입이 사용
+- `FindPlayerBrain()`과 `aiBrain` 구독 — FOMO 기믹이 사용
+
+**재작성**
+- `ClosePosition()`의 "여기서 락을 지우면 안 된다" 주석: 근거(중독 폭주가 같은 콜스택에서 락을 건다)가 사라졌지만 결론은 여전히 참이라 근거만 교체했다 — 임시 락 대기 구간 중에도 수동 청산·돌발 이벤트·24시 강제 청산이 이 메서드를 부른다.
+- `manualLockGeneration` 문서 주석: "영구 락까지 지운다" → "겹치는 임시 락끼리 서로 풀지 않게 한다".
+
+**검증 자산**: `SaveRoundTripTester`의 SV-A1(`IsLeverageAddicted`) 항목을 SV-A3(`CurrentLosingStreak == 3`) 왕복 검사로 교체. 항목만 빼면 그 회귀 가드가 사라진다.
+
+**세이브**: 구버전 세이브의 중독 필드는 `JsonUtility`가 무시한다. 마이그레이션 불필요. 멘탈 예산(`verify_mental_balance.py`)은 이 기믹이 멘탈을 직접 깎지 않으므로 무관.
 
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

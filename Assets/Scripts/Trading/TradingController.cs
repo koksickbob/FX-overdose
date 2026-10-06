@@ -86,27 +86,16 @@ namespace FXOverdose.Trading
         public bool IsManualModeLockedByYomi { get; private set; } = false;
 
         /// <summary>
-        /// 락 소유권 세대. 임시 락(<see cref="TemporaryLockRoutine"/>)이 대기하는 동안 다른 곳에서
-        /// 락/언락이 걸리면 세대가 바뀌고, 임시 락은 자기 세대가 아닐 때 해제를 포기합니다.
-        /// 이게 없으면 2초짜리 임시 락이 끝나면서 그 사이 걸린 영구 락(요미 주도권 강탈)까지 지웁니다.
+        /// 락 소유권 세대. 임시 락(<see cref="TemporaryLockRoutine"/>)이 대기하는 동안 새 임시 락이
+        /// 걸리면 세대가 바뀌고, 먼저 건 임시 락은 자기 세대가 아닐 때 해제를 포기합니다.
+        /// 이게 없으면 오버도즈 2초 락과 이벤트 지연 진입 락처럼 구간이 겹칠 때,
+        /// 먼저 끝난 쪽이 아직 살아 있어야 할 다른 쪽의 락까지 풀어 버립니다.
         /// </summary>
         private int manualLockGeneration;
 
-        public void LockManualMode()
-        {
-            // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
-            if (IsAITradingLockedByGameMode) return;
-            manualLockGeneration++;
-            IsManualModeLockedByYomi = true;
-        }
-        public void UnlockManualMode()
-        {
-            manualLockGeneration++;
-            IsManualModeLockedByYomi = false;
-        }
-
         public void LockManualModeTemporarily(float seconds)
         {
+            // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
             if (IsAITradingLockedByGameMode) return;
             StartCoroutine(TemporaryLockRoutine(seconds));
         }
@@ -119,7 +108,7 @@ namespace FXOverdose.Trading
 
             yield return new WaitForSecondsRealtime(seconds);
 
-            // 대기 중에 다른 곳이 락/언락을 걸었다면 그쪽이 주인입니다. 덮어쓰지 않습니다.
+            // 대기 중에 다른 임시 락이 걸렸다면 그쪽이 주인입니다. 덮어쓰지 않습니다.
             if (manualLockGeneration == myGeneration) IsManualModeLockedByYomi = false;
         }
 
@@ -1208,9 +1197,10 @@ namespace FXOverdose.Trading
             isEventPlayerChoice = false;
             isEventTrueSignal = true;
             // ⚠️ 여기서 IsManualModeLockedByYomi를 지우면 안 됩니다.
-            //    바로 위 OnPositionClosed 구독자(MentalDrainGimmickController의 고배율 중독 폭주)가
-            //    LockManualMode()로 요미의 주도권 강탈을 거는데, 같은 콜스택이라 몇 μs 만에 지워졌습니다.
-            //    락 해제는 AITradingBrain이 강제 고배율 매매를 실제로 실행할 때(UnlockManualMode) 일어납니다.
+            //    임시 락이 걸린 대기 구간(오버도즈 2초, 뇌동매매 지연 진입) 중에도 이 메서드는
+            //    수동 청산·돌발 이벤트·24시 강제 청산으로 호출될 수 있습니다. 여기서 락을 풀면 그 사이에
+            //    플레이어가 수동 모드로 빠져나가 강제 진입을 피합니다. 해제는 TemporaryLockRoutine이
+            //    자기 세대를 확인한 뒤 직접 합니다.
             maxObservedEventROE = 0f;
             lastReportedROEBasket = 0;
             // 두 슬로우모션 연출은 포지션 단위 이벤트입니다. 되돌리는 곳이 없어

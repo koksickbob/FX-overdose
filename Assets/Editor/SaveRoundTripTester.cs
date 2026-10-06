@@ -107,7 +107,7 @@ namespace FXOverdose.EditorTools
                 DatingStamina = 42,
                 Balance = 123456f,
                 CurrentDay = 9,
-                IsLeverageAddicted = true,
+                CurrentLosingStreak = 3,
                 EventsTriggeredToday = 2,
                 DailyEquityHistory = new System.Collections.Generic.List<float> { 7000f, 7150f, 6980f },
             };
@@ -119,7 +119,7 @@ namespace FXOverdose.EditorTools
             failures += Expect(revived.DatingAffection == 37, "DatingAffection 직렬화");
             failures += Expect(revived.DatingStamina == 42, "DatingStamina 직렬화");
             failures += Expect(Mathf.Approximately(revived.Balance, 123456f), "Balance 직렬화");
-            failures += Expect(revived.IsLeverageAddicted, "IsLeverageAddicted 직렬화 (SV-A1)");
+            failures += Expect(revived.CurrentLosingStreak == 3, "CurrentLosingStreak 직렬화 (SV-A3)");
             failures += Expect(revived.EventsTriggeredToday == 2, "EventsTriggeredToday 직렬화 (SV-A4)");
 
             // P&L 스파크라인 궤적. 이게 깨지면 불러오기 후 그래프가 직선으로 표시됩니다.

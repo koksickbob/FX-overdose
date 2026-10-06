@@ -38,9 +38,6 @@ public class TraderStatus : MonoBehaviour
 
     [Header("상시 멘탈 기믹 상태")]
     [SerializeField] private int currentLosingStreak = 0; // 연속 손절 카운터
-    [SerializeField] private bool isLeverageAddicted = false; // 고배율 중독 상태
-    [SerializeField] private int consecutiveHighLevWins = 0; // 50배 이상 연속 익절 카운터
-    [SerializeField] private int consecutiveLowLevTrades = 0; // 중독 상태에서 50배 이하 매매 카운터
 
     [Header("지속 멘탈 감소 누적기")]
     [SerializeField] private float healthDropMentalDrainAccumulator = 0f;
@@ -90,7 +87,7 @@ public class TraderStatus : MonoBehaviour
     }
     public MentalState CurrentMentalState => currentMentalState;
 
-    // 아래 네 상태는 ChangeMental/ChangeHealth 같은 mutator와 달리 프로퍼티 세터라
+    // 아래 기믹 상태는 ChangeMental/ChangeHealth 같은 mutator와 달리 프로퍼티 세터라
     // 정본 위임 가드가 빠져 있었습니다. 비정본 인스턴스에 쓰면 다음 SyncFromCanonical이
     // 조용히 되돌려 기믹이 무음 실패하므로, 읽기·쓰기 모두 정본을 거치게 합니다.
     private TraderStatus Owner
@@ -106,21 +103,6 @@ public class TraderStatus : MonoBehaviour
     {
         get => Owner.currentLosingStreak;
         set => Owner.currentLosingStreak = Mathf.Max(0, value);
-    }
-    public bool IsLeverageAddicted
-    {
-        get => Owner.isLeverageAddicted;
-        set => Owner.isLeverageAddicted = value;
-    }
-    public int ConsecutiveHighLevWins
-    {
-        get => Owner.consecutiveHighLevWins;
-        set => Owner.consecutiveHighLevWins = Mathf.Max(0, value);
-    }
-    public int ConsecutiveLowLevTrades
-    {
-        get => Owner.consecutiveLowLevTrades;
-        set => Owner.consecutiveLowLevTrades = Mathf.Max(0, value);
     }
     // 실시간 총 자산 (보유 현금 + 포지션 증거금 + 미실현 손익) 반환
     public float GetTotalEquity()
@@ -163,7 +145,7 @@ public class TraderStatus : MonoBehaviour
     private bool wasLoaded = false;
 
     /// <summary>
-    /// 세이브에 상태를 담습니다. 중독·연패 카운터가 빠져 있어
+    /// 세이브에 상태를 담습니다. 연패 카운터가 빠져 있어
     /// 불러오기 한 번으로 페널티가 해제되던 문제를 막습니다. (SV-A1~A3)
     /// </summary>
     public void CaptureSaveData(FXOverdose.Core.SaveData data)
@@ -175,9 +157,6 @@ public class TraderStatus : MonoBehaviour
         data.CurrentHealth = currentHealth;
         data.MaxMental = maxMental;
 
-        data.IsLeverageAddicted = isLeverageAddicted;
-        data.ConsecutiveHighLevWins = consecutiveHighLevWins;
-        data.ConsecutiveLowLevTrades = consecutiveLowLevTrades;
         data.CurrentLosingStreak = currentLosingStreak;
     }
 
@@ -196,9 +175,6 @@ public class TraderStatus : MonoBehaviour
             maxMental = data.MaxMental;
         }
 
-        isLeverageAddicted = data.IsLeverageAddicted;
-        consecutiveHighLevWins = data.ConsecutiveHighLevWins;
-        consecutiveLowLevTrades = data.ConsecutiveLowLevTrades;
         currentLosingStreak = data.CurrentLosingStreak;
 
         // 복원된 상태를 추적기와 구독자·미러 인스턴스에 반영합니다. 이게 없으면
@@ -240,9 +216,6 @@ public class TraderStatus : MonoBehaviour
             this.currentMental = canonical.currentMental;
             this.maxMental = canonical.maxMental;
             this.currentLosingStreak = canonical.currentLosingStreak;
-            this.isLeverageAddicted = canonical.isLeverageAddicted;
-            this.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
-            this.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
             this.currentMentalState = canonical.currentMentalState;
 
             this.healthDropMentalDrainAccumulator = canonical.healthDropMentalDrainAccumulator;
@@ -267,9 +240,6 @@ public class TraderStatus : MonoBehaviour
                 st.currentMental = canonical.currentMental;
                 st.maxMental = canonical.maxMental;
                 st.currentLosingStreak = canonical.currentLosingStreak;
-                st.isLeverageAddicted = canonical.isLeverageAddicted;
-                st.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
-                st.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
                 st.currentMentalState = canonical.currentMentalState;
             }
         }
@@ -324,9 +294,6 @@ public class TraderStatus : MonoBehaviour
         currentHealth = maxHealth;
         currentMental = maxMental;
         currentLosingStreak = 0;
-        isLeverageAddicted = false;
-        consecutiveHighLevWins = 0;
-        consecutiveLowLevTrades = 0;
         if (gameManager == null) gameManager = GameManager.Instance;
 
         healthDropMentalDrainAccumulator = 0f;
@@ -591,21 +558,6 @@ public class TraderStatus : MonoBehaviour
         maxMental += amount;
         currentMental = Mathf.Min(currentMental + amount, MaxMental);
         UpdateMentalState();
-        SyncAllInstances();
-    }
-
-    public void CureLeverageAddiction()
-    {
-        if (this != CanonicalInstance && CanonicalInstance != null)
-        {
-            CanonicalInstance.CureLeverageAddiction();
-            return;
-        }
-
-        this.isLeverageAddicted = false;
-        this.consecutiveHighLevWins = 0;
-        this.consecutiveLowLevTrades = 0;
-        Debug.Log("[TraderStatus] 💊 고배율 레버리지 중독 상태가 치료/초기화되었습니다.");
         SyncAllInstances();
     }
 

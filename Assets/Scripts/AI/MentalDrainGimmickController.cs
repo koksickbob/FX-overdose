@@ -5,9 +5,9 @@ using FXOverdose.Trading;
 namespace FXOverdose.AI
 {
     /// <summary>
-    /// 상시 멘탈 소모 기믹 <b>5종</b>(미실현 손실 압박, 연속 손절 콤보, 고배율 중독, 포지션 진입, FOMO 후회)을
+    /// 상시 멘탈 소모 기믹 <b>4종</b>(미실현 손실 압박, 연속 손절 콤보, 포지션 진입, FOMO 후회)을
     /// 실시간(Update)과 포지션 이벤트로 제어하는 중앙 컨트롤러입니다.
-    /// (수면 부족 연쇄·횡보 지루함·드로다운 트라우마는 기획에서 빠졌습니다.)
+    /// (수면 부족 연쇄·횡보 지루함·드로다운 트라우마·고배율 중독은 기획에서 빠졌습니다.)
     /// </summary>
     public class MentalDrainGimmickController : MonoBehaviour
     {
@@ -34,7 +34,7 @@ namespace FXOverdose.AI
         /// 보스 전용 브레인이 아닌 <b>플레이어(요미) 브레인</b>을 찾습니다.
         /// <c>BossManager</c>가 보스를 스폰하면 <c>[RequireComponent]</c>로 두 번째 <see cref="AITradingBrain"/>이
         /// 생기는데, <c>FindAnyObjectByType</c>은 어느 쪽을 돌려줄지 보장하지 않습니다. 보스 브레인을 잡으면
-        /// 고배율 강제 매매 지시(<c>ForceNextTradeHighLeverage</c>)와 FOMO 후회 추적이 엉뚱한 대상에게 걸립니다.
+        /// FOMO 후회 추적이 엉뚱한 대상에게 걸립니다.
         /// </summary>
         private static AITradingBrain FindPlayerBrain()
         {
@@ -138,7 +138,7 @@ namespace FXOverdose.AI
             if (!isInitialized)
             {
                 isInitialized = true;
-                Debug.Log("[MentalDrainGimmickController] 🧠 상시 멘탈 소모 기믹 5종 코어 엔진이 초기화되었습니다.");
+                Debug.Log("[MentalDrainGimmickController] 🧠 상시 멘탈 소모 기믹 4종 코어 엔진이 초기화되었습니다.");
             }
         }
 
@@ -252,7 +252,7 @@ namespace FXOverdose.AI
 
 
 
-        // --- [기믹 2: 연속 손절 콤보 (Losing Streak Multiplier) 및 기믹 4 중독 감지] ---
+        // --- [기믹 2: 연속 손절 콤보 (Losing Streak Multiplier)] ---
         private void OnPositionClosed(float returnedAmount, float realizedPnL)
         {
             isUnrealizedPnLCured = false;
@@ -261,61 +261,6 @@ namespace FXOverdose.AI
             if (tradingController == null) tradingController = FindAnyObjectByType<TradingController>();
             if (traderStatus == null || tradingController == null) return;
 
-            int closedLeverage = tradingController.CurrentLeverage;
-            bool isManualMode = tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual;
-
-            // 💡 [기믹 4: 고배율 중독 금단현상 리워크]
-            if (isManualMode)
-            {
-                var levelSystem = FXOverdose.Trading.TraderLevelSystem.Instance;
-                int maxAllowedLev = levelSystem != null ? levelSystem.GetMaxAllowedLeverage() : 10;
-                
-                // 중독 발동: 레벨 해금 50배 이상, 플레이어 직접 조작, 50배 이상으로 연속 3회 익절
-                if (maxAllowedLev >= 50 && closedLeverage >= 50 && realizedPnL > 0f)
-                {
-                    traderStatus.ConsecutiveHighLevWins++;
-                    traderStatus.ConsecutiveLowLevTrades = 0; // 고배율 익절 시 저배율 카운트 초기화
-
-                    if (traderStatus.ConsecutiveHighLevWins >= 3 && !traderStatus.IsLeverageAddicted)
-                    {
-                        traderStatus.IsLeverageAddicted = true;
-                        traderStatus.ConsecutiveHighLevWins = 0;
-                        TriggerGimmickDialogue("50배 이상 고배율 3연승 과몰입 중독 기믹 발동 (도파민 폭주 및 희열)", "그래!! 바로 이 느낌이야!! 호가창의 진동이 온몸에 짜릿하게 감돈다!!");
-                        Debug.LogWarning("[MentalDrainGimmickController] 🎰 [고배율 중독 발동] 50배 이상 3연승으로 고배율에 중독되었습니다!");
-                    }
-                }
-                else if (traderStatus.IsLeverageAddicted && closedLeverage <= 50)
-                {
-                    // 고배율 중독 상태에서 50배 이하의 저배율 매매 진행 시 (수익/손실 무관)
-                    traderStatus.ConsecutiveLowLevTrades++;
-                    
-                    if (traderStatus.ConsecutiveLowLevTrades >= 2)
-                    {
-                        // 2회 누적 시 요미가 강제로 매매 주도권을 뺏음
-                        Debug.LogWarning("[MentalDrainGimmickController] 😡 [고배율 중독 폭주] 요미가 답답함을 못 참고 매매 주도권을 강탈합니다!");
-                        TriggerGimmickDialogue("고배율 중독 폭주 기믹 발동", "아 진짜 답답해 미치겠네!! 장난쳐?! 그딴 푼돈으로 언제 부자 될 건데?! 이리 내, 내가 직접 할 거야!!");
-                        
-                        tradingController.LockManualMode();
-                        tradingController.SetTradingMode(TradingController.TradingMode.AI_Auto);
-                        traderStatus.CureLeverageAddiction(); // 중독 상태 해제
-                        
-                        // AITradingBrain에 다음번 판단에서 강제로 고배율 매매를 진행하도록 지시
-                        if (aiBrain != null)
-                        {
-                            aiBrain.ForceNextTradeHighLeverage = true;
-                        }
-                    }
-                    else
-                    {
-                        TriggerGimmickDialogue("고배율 중독 금단현상 1회 경고 (저배율 답답함)", "야... 배율 너무 낮지 않아...? 아까처럼 고배율로 팍팍 좀 들어가자 응...?");
-                    }
-                }
-                else if (closedLeverage >= 50 && realizedPnL <= 0f)
-                {
-                     traderStatus.ConsecutiveHighLevWins = 0;
-                }
-            }
-
             if (realizedPnL >= 0f)
             {
                 // 수익 청산
@@ -323,11 +268,8 @@ namespace FXOverdose.AI
             }
             else
             {
-
-
                 // 손실 청산
                 traderStatus.CurrentLosingStreak++;
-                traderStatus.ConsecutiveHighLevWins = 0;
 
                 int streak = traderStatus.CurrentLosingStreak;
                 float penalty = 0f;
