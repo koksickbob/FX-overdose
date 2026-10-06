@@ -1146,7 +1146,8 @@ namespace FXOverdose.Trading
         private void CheckLiquidationSweep()
         {
             // 오버도즈 발동 중이거나 고속 스킵 중, 확정 주가 구간일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
-            if (isOverdoseTrapOverride || IsFastForwarding || currentSignalPhase == SignalPhase.GuaranteedOverride) return;
+            // 서버 렉 중에는 차트가 멈춰 있어야 하므로 꼬리 틱도 찍지 않습니다.
+            if (isOverdoseTrapOverride || IsFastForwarding || isServerLagging || currentSignalPhase == SignalPhase.GuaranteedOverride) return;
 
             // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
             float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
@@ -1157,24 +1158,31 @@ namespace FXOverdose.Trading
                 // 일차별 변동성에 맞춰 꼬리(스파이크)의 크기도 증가합니다.
                 float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * sweepIntensityMultiplier; 
                 bool sweepUp = UnityEngine.Random.value > 0.5f;
+                float restorePrice = currentPrice;
+                float spikePrice = currentPrice * (sweepUp ? 1f + sweepMagnitude : 1f - sweepMagnitude);
 
-                if (sweepUp)
-                {
-                    float spikePrice = currentPrice * (1f + sweepMagnitude);
-                    if (liveM1Candle != null && spikePrice > liveM1Candle.high) liveM1Candle.high = spikePrice;
-                }
-                else
-                {
-                    float spikePrice = currentPrice * (1f - sweepMagnitude);
-                    if (liveM1Candle != null && spikePrice < liveM1Candle.low) liveM1Candle.low = spikePrice;
-                }
+                // 꼬리 끝을 실제 시세로 1틱 찍었다가 곧바로 되돌립니다. (FIX-2)
+                // 예전에는 1분봉의 high/low만 늘려 청산·손절 판정이 꼬리를 보지 못했습니다(순수 시각 효과).
+                // 청산은 전달된 가격이 아니라 엔진의 호가(Bid/Ask)로 판정하므로, 이벤트만 쏘지 않고 호가까지 함께 옮깁니다.
+                PrintInstantTick(spikePrice, UnityEngine.Random.Range(50f, 200f)); // 거래량 폭증
+                PrintInstantTick(restorePrice, 0f);
 
-                if (liveM1Candle != null)
-                {
-                    liveM1Candle.volume += UnityEngine.Random.Range(50f, 200f); // 거래량 폭증
-                }
                 currentVolatility *= 2.0f; // 순간 변동성 폭발
             }
+        }
+
+        /// <summary>
+        /// 시뮬레이션 없이 가격 한 틱을 즉시 찍습니다. 호가·진행 캔들(모든 타임프레임)·24h 통계를 갱신하고
+        /// <see cref="OnPriceUpdated"/>를 발행해 청산·익절·손절 판정이 이 가격을 보게 합니다.
+        /// 스프레드는 직전 틱의 값을 그대로 씁니다.
+        /// </summary>
+        private void PrintInstantTick(float price, float volume)
+        {
+            currentPrice = price;
+            currentBidPrice = price - (currentSpread * 0.5f);
+            currentAskPrice = price + (currentSpread * 0.5f);
+            UpdateLiveCandlesWithTick(price, volume);
+            OnPriceUpdated?.Invoke(price);
         }
 
         // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)

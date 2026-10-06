@@ -174,9 +174,9 @@ Bid = price − spread/2,  Ask = price + spread/2
 | 08~16 | 런던 | ×1.2 | — |
 | 16~24 | 뉴욕 | ×2.0 | ×1.5 (최대 85%) |
 
-**④ 유동성 사냥 / 스탑 헌팅** — 매 인게임 분마다 판정. Squeeze 국면 30%, 그 외 5% (+일차 변동성이 1.0 초과면 +10%p). 발동 시 캔들의 위/아래 꼬리를 `0.5%~2% × 일차배수`만큼 늘리고, 거래량 +50~200, 순간 변동성 ×2. **오버도즈·고속스킵·확정 빔 구간에서는 차단.** [MarketSimulationEngine.cs:1079](../../Assets/Scripts/Trading/MarketSimulationEngine.cs#L1079)
+**④ 유동성 사냥 / 스탑 헌팅** — 매 인게임 분마다 판정. Squeeze 국면 30%, 그 외 5% (+일차 변동성이 1.0 초과면 +10%p). 발동 시 `0.5%~2% × 꼬리 강도` 떨어진 가격을 **실제 시세로 1틱 찍고 곧바로 되돌립니다** — 호가(Bid/Ask)까지 옮기므로 청산·AI 익절/손절·이벤트 포지션 판정이 이 꼬리를 봅니다. 꼬리는 모든 타임프레임 진행 캔들에 반영되고 거래량 +50~200, 순간 변동성 ×2. **오버도즈·고속스킵·서버 렉·확정 빔 구간에서는 차단.** 진입 직후 3초 휩소 보호(§4.2)는 그대로 적용됩니다. [MarketSimulationEngine.cs:1079](../../Assets/Scripts/Trading/MarketSimulationEngine.cs#L1079)
 
-> ⚠️ **이름과 달리 실제로 스탑을 헌팅하지는 않습니다.** 캔들의 꼬리만 늘리고 `currentPrice`를 움직이지 않아 청산 판정에 닿지 않습니다 — 순수 시각 효과입니다. 근거는 §19.1-②.
+> 2026-10-06 이전에는 1분봉의 high/low만 늘리는 순수 시각 효과라 스탑을 헌팅하지 못했습니다 (§19.1-②, FIX-2).
 
 ### 2.6 서버 렉 (16일차 이후)
 
@@ -1097,7 +1097,9 @@ private float PrewarmHistoricalCandles(int minutesCount, float startPrice)
 
 3번이면 한 줄 수정 + 검증으로 끝납니다. 체감 변화는 "D1 차트가 의미를 갖는다"와 "어제 번 돈이 오늘 가격에 보인다" 정도입니다.
 
-**2. 유동성 사냥이 실제로 스탑을 헌팅하지 않습니다** ⚠️
+**2. 유동성 사냥이 실제로 스탑을 헌팅하지 않습니다** — ✅ 해소 (2026-10-06, FIX-2)
+
+> **처리 결과**: 아래 개선안(`OnPriceUpdated`를 꼬리 가격으로 한 번 더 발행)은 **동작하지 않습니다.** `TradingController.CheckLiquidation`이 전달된 가격이 아니라 엔진의 `CurrentBidPrice`/`CurrentAskPrice`를 직접 읽기 때문입니다. 그래서 `PrintInstantTick()`을 신설해 꼬리 끝에서 **가격·호가·진행 캔들을 함께** 1틱 찍었다가 원래 가격으로 되돌립니다. AI 목표가/손절가는 전달된 가격으로 판정하므로 꼬리에 걸려 체결됩니다(실제 스탑 헌팅). 부수 효과로, 예전엔 1분봉에만 그려지던 꼬리가 상위 타임프레임 진행 캔들에도 반영됩니다. 서버 렉 중에는 차트가 멈춰 있어야 하므로 꼬리도 찍지 않습니다.
 
 [`CheckLiquidationSweep()`](../../Assets/Scripts/Trading/MarketSimulationEngine.cs#L1079)은 `liveM1Candle.high/low`만 수정하고 **`currentPrice`를 움직이지 않으며 `OnPriceUpdated`도 발행하지 않습니다.** 청산 판정(`CheckLiquidation`)은 `OnPriceUpdated → HandlePriceUpdated` 경로로만 도달하므로, **꼬리가 아무리 길게 뻗어도 플레이어는 청산되지 않습니다.**
 
