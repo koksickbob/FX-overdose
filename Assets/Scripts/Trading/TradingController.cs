@@ -14,6 +14,9 @@ namespace FXOverdose.Trading
         private const float CloseMentalGainCoefficient = 25f;  // 수익률 10% → +7.9
         private const float MaxCloseMentalGain = 15f;          // 수익률 36% 이상에서 상한
 
+        // 진입·청산 수수료율 (포지션 규모 = 증거금 × 레버리지 기준). 밸런스 조정에서 자주 건드리는 값이라 한 곳에 둡니다.
+        private const float TradeFeeRate = 0.0006f;
+
         private bool p2pExternalMode;
         private float p2pUnrealizedPnL;
         public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
@@ -901,7 +904,7 @@ namespace FXOverdose.Trading
             lastReportedROE = 0f;
 
             // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감해야 CheckEnding() 시 TotalEquity에 증거금이 정상 합산됩니다.
-            float entryFee = margin * leverage * 0.0006f;
+            float entryFee = margin * leverage * TradeFeeRate;
             gameManager.ChangeBalance(-(margin + entryFee));
 
             // 유지 증거금률 0.5% 반영한 청산가 연산
@@ -981,12 +984,12 @@ namespace FXOverdose.Trading
                 return false;
             }
 
-            if (margin > gameManager.CurrentBalance)
-            {
-                margin = gameManager.CurrentBalance * 0.95f;
-            }
-
             leverage = Mathf.Clamp(leverage, 1, 125);
+
+            // 진입 수수료까지 잔고 안에서 치를 수 있게 증거금 상한을 둡니다.
+            // 없으면 100% 진입에서 현금 잔고가 음수가 됩니다(125배면 잔고의 -7.5%).
+            float maxMarginWithFee = gameManager.CurrentBalance / (1f + leverage * TradeFeeRate);
+            if (margin > maxMarginWithFee) margin = maxMarginWithFee;
 
             currentPosition = type;
             currentOwner = OwnerType.Player;
@@ -1009,7 +1012,9 @@ namespace FXOverdose.Trading
             lastReportedROE = 0f;
 
             // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감합니다.
-            gameManager.ChangeBalance(-margin);
+            // 진입 수수료는 AI 경로(OpenPosition)와 같은 규칙입니다. 예전에는 수동 진입에만 빠져 있었습니다.
+            float entryFee = margin * leverage * TradeFeeRate;
+            gameManager.ChangeBalance(-(margin + entryFee));
 
             float maintenanceMarginRate = 0.005f;
             if (type == PositionType.Long)
@@ -1061,7 +1066,7 @@ namespace FXOverdose.Trading
             float pnl = CalculateUnrealizedPnL();
 
             // 청산 수수료 적용 (총 포지션 규모의 0.06%)
-            float exitFee = marginAmount * currentLeverage * 0.0006f;
+            float exitFee = marginAmount * currentLeverage * TradeFeeRate;
             pnl -= exitFee;
 
             // 액티브 업그레이드 보정 적용
