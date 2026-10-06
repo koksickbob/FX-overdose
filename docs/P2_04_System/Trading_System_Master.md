@@ -99,7 +99,7 @@ GameManager (시계·잔고·상태머신·정산·엔딩)
 ```
 totalReturn = (drift × dtFraction) + (ouTerm × dtFraction) + stochasticNoise
 
-drift        = 국면 드리프트 + 파동(사인 3중첩) + 일일 거시 드리프트 (+ 신호 구간 보정)
+drift        = 국면 드리프트 + 파동(사인 3중첩, 주기·위상은 하루마다 추첨) + 일일 거시 드리프트 (+ 신호 구간 보정)
 ouTerm       = ouTheta × (ouCenterPrice - currentPrice) / currentPrice     ← 평균 회귀
 stochasticNoise = currentVolatility × √dtFraction × N(0,1)                ← Box-Muller
 currentVolatility = Lerp(현재, targetVol, dtFraction × 5)                  ← GARCH 풍 군집
@@ -1354,7 +1354,7 @@ tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
 
 **세션 차이 과장**: 아시아 ×0.5 → 뉴욕 ×2.0으로 **4배**입니다. 실제 BTC의 세션 간 변동성 차이는 대략 1.3~1.8배 수준입니다.
 
-**결정론적 사인파**: `drift`에 350초 / 130초 / 15초 주기의 사인 3개가 **고정 위상**으로 더해집니다([MarketSimulationEngine.cs:614](../../Assets/Scripts/Trading/MarketSimulationEngine.cs#L614)). 실제 시장에 없는 패턴이며, 숙련 플레이어가 15초 주기를 눈으로 익히면 그대로 읽힙니다. 주기·위상을 일차 시드로 랜덤화하면 비용 없이 해소됩니다.
+**결정론적 사인파**: `drift`에 350초 / 130초 / 15초 주기의 사인 3개가 **고정 위상**으로 더해집니다([MarketSimulationEngine.cs:614](../../Assets/Scripts/Trading/MarketSimulationEngine.cs#L614)). 실제 시장에 없는 패턴이며, 숙련 플레이어가 15초 주기를 눈으로 익히면 그대로 읽힙니다. 주기·위상을 일차 시드로 랜덤화하면 비용 없이 해소됩니다. — ✅ 해소 (2026-10-06, SIG-B4: 기본 파동은 하루마다 주기 ±20%·위상 추첨, 확정 구간 파동 스타일은 신호마다 주파수 ±30%·위상 추첨)
 
 ### 20.3 변동성 절대 수준
 
@@ -1586,7 +1586,9 @@ ouCenterPrice = Mathf.Lerp(activeSignal.SignalStartPrice, 목표가, elapsedRati
 
 > ⚠️ 오버도즈 함정의 `ouTerm = 0f`는 **그대로 두어야 합니다.** 그쪽은 확정 청산 유도가 목적이라 되돌림이 방해가 됩니다.
 
-#### B4. 사인파 주기·위상 랜덤화
+#### B4. 사인파 주기·위상 랜덤화 — ✅ 완료 (2026-10-06)
+
+> 처리 결과: 기본 파동 3개(350/130/15초)는 새 게임·불러오기·하루 넘김 때 주기 ±20%·위상 0~2π를 추첨하고(`RollBaseWaveShape`), 확정 구간 파동 스타일의 사인 2개는 신호마다 주파수 ±30%·위상을 추첨합니다(`RollStyleWaveShape`). 진폭은 그대로라 변동성 크기는 바뀌지 않습니다.
 
 **문제** — `Mathf.Sin(Time.time * 2.5f)`, `Mathf.Cos(Time.time * 5.0f)` 등 **주파수가 상수**입니다. §2.1의 기본 파동(350초/130초/15초)도 마찬가지입니다. 숙련 플레이어가 15초 주기를 눈으로 익히면 그대로 읽힙니다.
 

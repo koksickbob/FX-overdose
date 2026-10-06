@@ -139,6 +139,12 @@ namespace FXOverdose.Trading
         // 오버드라이브 연출 상태 변수
         private int currentOverdriveWaveStyle = 0; // 0: 자잘한 요동, 1: 큰 눌림목
 
+        // 사인파 파동의 주기(초)·위상 (SIG-B4). 고정이면 숙련 플레이어가 15초 주기를 눈으로 익혀 그대로 읽습니다.
+        // 기본 파동은 하루마다(RollBaseWaveShape), 확정 구간 파동 스타일은 신호마다(RollStyleWaveShape) 다시 뽑습니다.
+        private float wavePeriod1 = 350f, wavePeriod2 = 130f, wavePeriod3 = 15f;
+        private float wavePhase1, wavePhase2, wavePhase3;
+        private float styleFreqScaleA = 1f, styleFreqScaleB = 1f, stylePhaseA, stylePhaseB;
+
         [Header("확정 신호 궤적 (SIG-B1) — 비워 두면 내장 궤적(TrajectoryLibrary)을 씁니다")]
         [Tooltip("가짜 이벤트 빔(트랩)용 궤적")]
         [SerializeField] private List<TrajectoryProfile> trapTrajectories = new List<TrajectoryProfile>();
@@ -339,6 +345,7 @@ namespace FXOverdose.Trading
 
             // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
             ResetTransientMarketState();
+            RollBaseWaveShape();
 
             candleHistories.Clear();
             liveAggregatedCandles.Clear();
@@ -450,6 +457,26 @@ namespace FXOverdose.Trading
 
         private const long MinutesPerDay = 1440;
 
+        /// <summary>기본 파동 3개의 주기(기준 350/130/15초 ±20%)와 위상을 새로 뽑습니다. 하루 단위. (SIG-B4)</summary>
+        private void RollBaseWaveShape()
+        {
+            wavePeriod1 = 350f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePeriod2 = 130f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePeriod3 = 15f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePhase1 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            wavePhase2 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            wavePhase3 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+        }
+
+        /// <summary>확정 구간 파동 스타일의 주파수(±30%)와 위상을 새로 뽑습니다. 신호 단위. (SIG-B4)</summary>
+        private void RollStyleWaveShape()
+        {
+            styleFreqScaleA = UnityEngine.Random.Range(0.7f, 1.3f);
+            styleFreqScaleB = UnityEngine.Random.Range(0.7f, 1.3f);
+            stylePhaseA = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            stylePhaseB = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+        }
+
         /// <summary>
         /// 진행 중이던 신호·오버라이드·오버도즈 함정·서버 렉 같은 일시 상태를 비웁니다.
         /// 새 게임(ResetEngine)·불러오기(RestoreFromSaveData)·하루 넘김(RollOverToNewDay) 세 경로가 공유합니다.
@@ -501,6 +528,7 @@ namespace FXOverdose.Trading
             IsMarketOpen = false;   // GameManager가 OpenMarketAfterLoading으로 다시 엽니다
             tickTimer = 0f;
             ResetTransientMarketState();
+            RollBaseWaveShape();
             minutesUntilNextSignal = 3;
             ouCenterPrice = currentPrice;
             current24hHigh = currentPrice;
@@ -530,6 +558,7 @@ namespace FXOverdose.Trading
             currentTotalMinutes = 0;
             tickTimer = 0f;
             ResetTransientMarketState();
+            RollBaseWaveShape();
             // 💡 [AI 매매 실시간 검증 최적화] 게임 시작 후 단 3초(3분봉) 만에 첫 매매 신호가 발생하여 주인공 AI가 즉시 판단 및 매매를 개시하도록 설정
             minutesUntilNextSignal = 3;
 
@@ -693,9 +722,9 @@ namespace FXOverdose.Trading
 
             // 💡 [자연스러운 차트 파동 생성] 고정된 Drift로 인해 차트가 일직선으로 그려지는 것을 방지하기 위해 실시간 단기 파동(Sine Wave)을 결합합니다.
             float timeSec = Time.time;
-            float waveCycle1 = ((currentTotalMinutes * 60f + timeSec) % 350f) / 350f * Mathf.PI * 2f;
-            float waveCycle2 = ((currentTotalMinutes * 60f + timeSec) % 130f) / 130f * Mathf.PI * 2f;
-            float waveCycle3 = (timeSec % 15f) / 15f * Mathf.PI * 2f; // 초단기 미세 파동 추가 (현실감 부여)
+            float waveCycle1 = ((currentTotalMinutes * 60f + timeSec) % wavePeriod1) / wavePeriod1 * Mathf.PI * 2f + wavePhase1;
+            float waveCycle2 = ((currentTotalMinutes * 60f + timeSec) % wavePeriod2) / wavePeriod2 * Mathf.PI * 2f + wavePhase2;
+            float waveCycle3 = (timeSec % wavePeriod3) / wavePeriod3 * Mathf.PI * 2f + wavePhase3; // 초단기 미세 파동 추가 (현실감 부여)
             
             float waveDrift = (Mathf.Sin(waveCycle1) * 0.0004f) + (Mathf.Cos(waveCycle2) * 0.0002f) + (Mathf.Sin(waveCycle3) * 0.00015f);
             
@@ -784,13 +813,15 @@ namespace FXOverdose.Trading
                     if (currentOverdriveWaveStyle == 0)
                     {
                         stochasticNoise *= 1.5f; // 기존 0.35f에서 대폭 상향하여 음봉/양봉 섞임 유도
-                        drift += Mathf.Sin(Time.time * 2.5f) * 0.00015f + Mathf.Cos(Time.time * 5.0f) * 0.0001f;
+                        drift += Mathf.Sin(Time.time * 2.5f * styleFreqScaleA + stylePhaseA) * 0.00015f
+                               + Mathf.Cos(Time.time * 5.0f * styleFreqScaleB + stylePhaseB) * 0.0001f;
                     }
                     else
                     {
                         stochasticNoise *= 0.8f;
                         // 주기 20~30초 가량의 꽤 큰 역추세 파동 형성
-                        drift += Mathf.Sin(Time.time * 0.5f) * 0.0006f + Mathf.Cos(Time.time * 0.2f) * 0.0003f;
+                        drift += Mathf.Sin(Time.time * 0.5f * styleFreqScaleA + stylePhaseA) * 0.0006f
+                               + Mathf.Cos(Time.time * 0.2f * styleFreqScaleB + stylePhaseB) * 0.0003f;
                     }
                 }
 
@@ -1365,6 +1396,7 @@ namespace FXOverdose.Trading
                         
                         // 오버드라이브 연출 패턴 무작위 설정
                         currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
+                        RollStyleWaveShape();
                         // 이벤트 빔은 트랩/정상 경로 목록에서, 시장 신호는 셋업별 궤적에서 고릅니다. (SIG-A4)
                         bool trapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
                         if (trapPath) activeTrajectory = TrajectoryLibrary.Pick(trapTrajectories, TrajectoryLibrary.Traps);
