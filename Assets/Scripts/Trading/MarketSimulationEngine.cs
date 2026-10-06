@@ -1275,9 +1275,11 @@ namespace FXOverdose.Trading
         // 유동성 사냥 (꼬리 휩소 스파이크 발생 - 스탑 헌팅 기믹 강화)
         private void CheckLiquidationSweep()
         {
-            // 오버도즈 발동 중이거나 고속 스킵 중, 확정 주가 구간일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
+            // 오버도즈 발동 중이거나 고속 스킵 중에는 스탑헌팅(무작위 휩쏘)을 방지합니다.
             // 서버 렉 중에는 차트가 멈춰 있어야 하므로 꼬리 틱도 찍지 않습니다.
-            if (isOverdoseTrapOverride || IsFastForwarding || isServerLagging || currentSignalPhase == SignalPhase.GuaranteedOverride) return;
+            if (isOverdoseTrapOverride || IsFastForwarding || isServerLagging) return;
+            // 확정 주가 구간에서는 무작위 휩쏘 대신 추세 반대 방향 개미털기만 넣습니다. (SIG-B7)
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride) { TryShakeout(); return; }
 
             // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
             float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
@@ -1299,6 +1301,27 @@ namespace FXOverdose.Trading
 
                 currentVolatility *= 2.0f; // 순간 변동성 폭발
             }
+        }
+
+        /// <summary>
+        /// 진짜 신호의 확정 구간 중간에 추세 반대 방향으로 짧은 꼬리를 찍고 되돌립니다. (SIG-B7)
+        /// 실제 추세는 중간에 한두 번 털어냅니다 — 신호당 평균 약 1.5회, 첫 2분은 건너뜁니다.
+        /// 꼬리는 실제 호가로 찍히므로 고배율 포지션은 방향이 맞아도 청산·손절될 수 있습니다.
+        /// 이벤트 빔·트랩 궤적은 이미 꺾임이 있어 제외합니다.
+        /// </summary>
+        private void TryShakeout()
+        {
+            if (isExternalEventOverride || !activeSignal.IsTrueSignal) return;
+            int duration = Mathf.Max(1, activeSignal.DurationMinutes);
+            if (duration - signalPhaseTimerMinutes < 2) return;
+            if (UnityEngine.Random.value >= 1.5f / duration) return;
+
+            float against = activeSignal.TargetPercentageDelta >= 0f ? -1f : 1f;
+            float restorePrice = currentPrice;
+            float wickPrice = currentPrice * (1f + against * UnityEngine.Random.Range(0.003f, 0.008f));
+            PrintInstantTick(wickPrice, UnityEngine.Random.Range(50f, 200f));
+            PrintInstantTick(restorePrice, 0f);
+            Debug.Log($"[MarketEngine] 🫨 개미털기 꼬리 {(wickPrice / restorePrice - 1f) * 100f:F2}% (확정 구간 {duration - signalPhaseTimerMinutes}/{duration}분)");
         }
 
         /// <summary>
