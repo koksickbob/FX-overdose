@@ -150,7 +150,11 @@ namespace FXOverdose.Trading
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
 
         [Header("Day-Based Difficulty Scaling (Phase 4)")]
-        [SerializeField] private float dayVolatilityMultiplier = 1.0f;
+        // 유동성 사냥 꼬리의 길이·발생 확률 배수입니다. 예전 이름(dayVolatilityMultiplier)과 달리
+        // 틱 변동성(targetVol)에는 곱해지지 않습니다 — 일차가 올라도 실제 변동성은 그대로입니다.
+        [SerializeField] private float sweepIntensityMultiplier = 1.0f;
+        // 틱 갱신 주기만 촘촘하게 만드는 연출 노브입니다. 틱당 분산도 같은 비율로 줄어
+        // 분당 실현 변동성은 그대로입니다(σ√(0.2/I) × √(5I) = σ). 난이도가 아니라 체감용입니다.
         [SerializeField] private float tickInstability = 1.0f; // 1.0 = normal, 10.0 = extremely shaky
         [SerializeField] private float fakeoutProbability = 0.0f;
         [SerializeField] private int slippageRange = 0; // Number of ticks offset
@@ -537,28 +541,28 @@ namespace FXOverdose.Trading
 
             if (currentDay <= 5)
             {
-                dayVolatilityMultiplier = 1.0f;
+                sweepIntensityMultiplier = 1.0f;
                 tickInstability = 1.0f;
                 fakeoutProbability = 0.0f;
                 slippageRange = 0;
             }
             else if (currentDay <= 10)
             {
-                dayVolatilityMultiplier = 1.2f;
+                sweepIntensityMultiplier = 1.2f;
                 tickInstability = 1.5f;
                 fakeoutProbability = 0.1f;
                 slippageRange = 0;
             }
             else if (currentDay <= 15)
             {
-                dayVolatilityMultiplier = 1.5f;
+                sweepIntensityMultiplier = 1.5f;
                 tickInstability = 3.0f;
                 fakeoutProbability = 0.3f;
                 slippageRange = 3;
             }
             else
             {
-                dayVolatilityMultiplier = 2.0f + (effectiveDay - 16) * 0.15f;
+                sweepIntensityMultiplier = 2.0f + (effectiveDay - 16) * 0.15f;
                 tickInstability = 5.0f + (effectiveDay - 16) * 1.0f;
                 fakeoutProbability = 0.5f;
                 slippageRange = 5;
@@ -1083,12 +1087,12 @@ namespace FXOverdose.Trading
 
             // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
             float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
-            float sweepProb = baseProb + (dayVolatilityMultiplier > 1.0f ? 0.10f : 0.0f); 
+            float sweepProb = baseProb + (sweepIntensityMultiplier > 1.0f ? 0.10f : 0.0f); 
 
             if (UnityEngine.Random.value < sweepProb)
             {
                 // 일차별 변동성에 맞춰 꼬리(스파이크)의 크기도 증가합니다.
-                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * dayVolatilityMultiplier; 
+                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * sweepIntensityMultiplier; 
                 bool sweepUp = UnityEngine.Random.value > 0.5f;
 
                 if (sweepUp)

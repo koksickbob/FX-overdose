@@ -31,7 +31,7 @@
 - [x] DEL-2 — 정기 지출 + 요미 지출 예고 전면 삭제 (2026-10-06) — 5개 소스 파일, 위약금 경로는 유지, 방 엔딩 UI 설치 코드 유지
 
 **Wave 1 — 공짜 정리**
-- [ ] FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier` 리네임 (안 b)
+- [x] FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier` 리네임 (안 b) (2026-10-06) — 필드 리네임 + 두 노브의 실제 의미를 선언부 주석으로 명시, 씬 직렬화 값 없음 확인
 - [ ] FIX-8 — `CustomTargetROELimit` / `CustomStopLossROELimit` 주석 교정
 - [ ] DEAD-3 — `HandlePositionClosed` 죽은 연산 제거
 - [ ] DEAD-6 — `gimmickContext` 인자 제거

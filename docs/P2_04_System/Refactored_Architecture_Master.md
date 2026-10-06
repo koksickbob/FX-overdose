@@ -680,5 +680,9 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 **남은 공백**: 엔드리스 21일차 이후 자산을 깎는 요소가 없다. 대체 후보는 펀딩비(백로그 REAL-1).
 
+### 15.3 FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier`
+
+이름은 "일차별 변동성 배수"였지만 `targetVol`에는 곱해지지 않고 유동성 사냥 꼬리의 길이·확률에만 쓰였다. 동작은 그대로 두고 이름을 실제 용도에 맞췄다. 선언부에 `tickInstability`가 분산 중립인 연출 노브라는 점도 함께 적었다(틱 주기를 1/I로 줄이면 틱당 분산도 1/I로 줄어 분당 σ가 상쇄된다). 씬에 직렬화된 값이 없어 `FormerlySerializedAs`는 불필요했다 — 값은 매 프레임 `UpdateDailyDifficulty`가 덮어쓴다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*
