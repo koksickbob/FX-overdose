@@ -145,6 +145,10 @@ namespace FXOverdose.Trading
         // 각 구간의 드리프트 분모도 이 값으로 계산하므로 구간별 총 이동량은 지터와 무관하게 보존됩니다.
         private float trapSplitA = 0.7f, trapSplitB = 0.6f, trapSplitC = 0.85f;
 
+        // 확정 신호 경로를 따라가게 하는 평균 회귀 강도 (SIG-B3). 국면별 ouTheta(0.01~0.15)를 쓰지 않는 이유는
+        // 국면에 따라 경로 추종력이 15배까지 달라지기 때문입니다. 0.1이면 편차의 표준편차가 노이즈의 약 2배 수준에서 안정됩니다.
+        private const float SignalPathOuTheta = 0.1f;
+
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
         public bool IsDataPrepared { get; private set; } = false;
@@ -828,8 +832,23 @@ namespace FXOverdose.Trading
                     drift += targetDriftPerMinute; // 파동(drift)에 목표 상승분 누적
                 }
 
-                // OU 평균 회귀 항 무력화 (일방향 궤적 보장)
-                ouTerm = 0f;
+                // OU 처리 (SIG-B3)
+                //  · 트랩 3종: 일부러 비선형으로 꺾이는 궤적이라 직선 중심선으로 당기면 패턴이 뭉개집니다 → OU 무력화
+                //  · 정상 경로: OU를 끄지 않고 중심선을 "시작가 → 목표가" 경로 위로 옮깁니다. 가격이 경로보다 앞서면
+                //    당기고 뒤처지면 밀어 눌림목·되돌림이 저절로 생깁니다. 예전엔 OU를 꺼서 추세가 끌려가듯 움직였고
+                //    노이즈 편차가 쌓여 목표가에 못 미치기도 했습니다.
+                //    전역 ouCenterPrice는 건드리지 않습니다 — 신호가 끝난 뒤 평시 회귀의 기준이 어긋나기 때문입니다.
+                bool isTrapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
+                if (isTrapPath || activeSignal.SignalStartPrice <= 0f)
+                {
+                    ouTerm = 0f;
+                }
+                else
+                {
+                    float pathProgress = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / Mathf.Max(1f, activeSignal.DurationMinutes));
+                    float pathCenter = activeSignal.SignalStartPrice * (1f + activeSignal.TargetPercentageDelta / 100f * pathProgress);
+                    ouTerm = SignalPathOuTheta * (pathCenter - currentPrice) / currentPrice;
+                }
             }
 
             // 🌟 [Realistic Feature 2] 눈에 보이지 않는 오더블록(저항/지지선) 로직
