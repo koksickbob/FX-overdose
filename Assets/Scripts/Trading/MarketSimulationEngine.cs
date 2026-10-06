@@ -1433,6 +1433,67 @@ namespace FXOverdose.Trading
             }
         }
 
+        // 직전 신호 기억 (SIG-A2) ------------------------------------------------------------------
+        // 시장이 만든 신호만 기억합니다(이벤트 빔·오버도즈 함정 제외). 저장하지 않으므로 불러오면 기억 없이 시작합니다.
+        private bool hasLastSignal;
+        private bool lastSignalWasTrue;
+        private bool lastSignalWasWeak;
+        private int lastSignalMoveDir;                       // 실제 가격이 간 방향 (+1 상승 / −1 하락)
+        private TradingController.PositionType lastSignalLure;
+        private bool lastSignalAtHigh, lastSignalAtLow;      // 신호가 날 때 1시간 고점/저점 근처였는가
+        private int sameDirectionTrueStreak;                 // 같은 방향 진짜 신호 연속 횟수
+        private int sameDirectionStreakDir;
+
+        private void RememberSignal(MarketSignal signal, ChartContext ctx)
+        {
+            int moveDir = signal.TargetPercentageDelta > 0f ? 1 : signal.TargetPercentageDelta < 0f ? -1 : 0;
+            if (signal.IsTrueSignal && moveDir != 0 && moveDir == sameDirectionStreakDir) sameDirectionTrueStreak++;
+            else if (signal.IsTrueSignal && moveDir != 0) { sameDirectionTrueStreak = 1; sameDirectionStreakDir = moveDir; }
+            else sameDirectionTrueStreak = 0;
+
+            hasLastSignal = true;
+            lastSignalWasTrue = signal.IsTrueSignal;
+            lastSignalWasWeak = signal.Strength == SignalStrength.Weak;
+            lastSignalMoveDir = moveDir;
+            lastSignalLure = signal.LureDirection;
+            lastSignalAtHigh = ctx.NearHigh;
+            lastSignalAtLow = ctx.NearLow;
+        }
+
+        /// <summary>
+        /// 직전 신호의 결과로 이번 신호 종류의 가중치를 조정합니다. 신호마다 독립 추첨이라 "흐름"이 없던 것을 메웁니다.
+        ///  ① 휩소 뒤 진짜 움직임 — 직전 가짜 신호가 실제로 간 방향의 돌파 ×1.5 (진위 보정은 MemoryTruthBonus)
+        ///  ② 과열 — 같은 방향 진짜 신호 2연속 뒤에는 그 방향으로 꼬신 뒤 꺾는 트랩 ×1.6
+        ///  ③ 이중 천장/바닥 — 고점(저점)에서 롱(숏)을 꼬신 가짜 신호 뒤 다시 고점(저점)이면 같은 트랩 ×1.5
+        /// </summary>
+        private void ApplySignalMemory(ChartContext ctx, ref float wBullBreak, ref float wBearBreak, ref float wBullTrap, ref float wBearTrap)
+        {
+            if (!hasLastSignal) return;
+
+            if (!lastSignalWasTrue)
+            {
+                if (lastSignalMoveDir > 0) wBullBreak *= 1.5f;
+                else if (lastSignalMoveDir < 0) wBearBreak *= 1.5f;
+
+                if (lastSignalLure == TradingController.PositionType.Long && lastSignalAtHigh && ctx.NearHigh) wBullTrap *= 1.5f;
+                if (lastSignalLure == TradingController.PositionType.Short && lastSignalAtLow && ctx.NearLow) wBearTrap *= 1.5f;
+            }
+
+            if (sameDirectionTrueStreak >= 2)
+            {
+                if (sameDirectionStreakDir > 0) wBullTrap *= 1.6f;
+                else wBearTrap *= 1.6f;
+            }
+        }
+
+        /// <summary>직전 가짜 신호가 실제로 간 방향의 돌파는 진짜일 확률 +0.15 — 털린 뒤에 나오는 진짜 움직임.</summary>
+        private float MemoryTruthBonus(MarketSignalType type)
+        {
+            if (!hasLastSignal || lastSignalWasTrue) return 0f;
+            int dir = type == MarketSignalType.BullishBreakout ? 1 : type == MarketSignalType.BearishBreakout ? -1 : 0;
+            return dir != 0 && dir == lastSignalMoveDir ? 0.15f : 0f;
+        }
+
         // 차트 컨텍스트 (SIG-A3) ------------------------------------------------------------------
         private const int ChartContextLookbackMinutes = 60;       // 최근 1시간 1분봉
         private const float NearExtremeRatio = 0.003f;            // 고점/저점 0.3% 이내
@@ -1566,6 +1627,7 @@ namespace FXOverdose.Trading
             if (ctx.NearHigh) { wBullBreak *= 1.6f; wBullTrap *= 1.4f; } // 저항선 돌파 시도 — 진짜든 가짜든
             if (ctx.NearLow) { wBearBreak *= 1.6f; wBearTrap *= 1.4f; }  // 지지선 이탈 시도
             if (ctx.NearRound) { wBullTrap *= 1.5f; wBearTrap *= 1.5f; } // 라운드 피겨 = 오더블록 반발 자리
+            ApplySignalMemory(ctx, ref wBullBreak, ref wBearBreak, ref wBullTrap, ref wBearTrap); // SIG-A2
             float wTotal = wBullBreak + wBearBreak + wBullTrap + wBearTrap;
 
             float rand = UnityEngine.Random.value * wTotal;
@@ -1577,12 +1639,13 @@ namespace FXOverdose.Trading
 
             // 강도 설정 (기본 65% Strong, 광기 기조는 80%)
             float strongProb = currentDailyRegime == MarketRegime.Squeeze ? 0.80f : 0.65f;
+            if (hasLastSignal && lastSignalWasWeak) strongProb = Mathf.Min(0.95f, strongProb + 0.15f); // 약한 신호 뒤 에너지 축적 (SIG-A2)
             SignalStrength strength = UnityEngine.Random.value < strongProb ? SignalStrength.Strong : SignalStrength.Weak;
 
             // IsTrueSignal 결정: Breakout은 기본 60% 확률로 진짜, Trap은 100% 가짜 속임수.
             // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가 — fakeoutProbability 0.5면 0.35.
             // 기조와 같은 방향의 돌파는 +20%p, 반대 방향은 -20%p (SIG-A1).
-            float trueSignalProb = Mathf.Clamp(0.60f - (fakeoutProbability * 0.5f) + TrendAlignmentBonus(type), 0.05f, 0.95f);
+            float trueSignalProb = Mathf.Clamp(0.60f - (fakeoutProbability * 0.5f) + TrendAlignmentBonus(type) + MemoryTruthBonus(type), 0.05f, 0.95f);
             bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
 
             // 광기 기조는 움직임 자체도 큽니다.
@@ -1635,6 +1698,7 @@ namespace FXOverdose.Trading
 
             currentSignalPhase = SignalPhase.GraceWindow;
             signalPhaseTimerMinutes = grace;
+            RememberSignal(activeSignal, ctx);
 
             Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()} (차트: 고점근접 {ctx.NearHigh} / 저점근접 {ctx.NearLow} / 라운드 {ctx.NearRound} / 좁은박스 {ctx.NarrowRange})");
             OnMarketSignalGenerated?.Invoke(activeSignal);
