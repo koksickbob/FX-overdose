@@ -1433,6 +1433,41 @@ namespace FXOverdose.Trading
             }
         }
 
+        // 차트 컨텍스트 (SIG-A3) ------------------------------------------------------------------
+        private const int ChartContextLookbackMinutes = 60;       // 최근 1시간 1분봉
+        private const float NearExtremeRatio = 0.003f;            // 고점/저점 0.3% 이내
+        private const float NearRoundRatio = 0.002f;              // 라운드 피겨 0.2% 이내 (오더블록 반발 범위와 같음)
+
+        private struct ChartContext
+        {
+            public bool NearHigh, NearLow, NearRound, NarrowRange;
+        }
+
+        /// <summary>
+        /// 최근 1시간 1분봉으로 지금 가격이 어디에 있는지 읽습니다. 신호 생성 때만(수 분에 한 번) 호출되므로 순회 비용은 무시할 수준입니다.
+        /// 박스 폭은 같은 시간 랜덤워크의 1σ(분당 σ × √분)보다 좁으면 "조여 있다"고 봅니다.
+        /// </summary>
+        private ChartContext ReadChartContext()
+        {
+            var ctx = new ChartContext();
+            if (currentPrice <= 0f || !candleHistories.TryGetValue(Timeframe.M1, out List<CandleData> m1) || m1.Count < 20) return ctx;
+
+            int n = Mathf.Min(ChartContextLookbackMinutes, m1.Count);
+            float hi = currentPrice, lo = currentPrice;
+            for (int i = m1.Count - n; i < m1.Count; i++)
+            {
+                if (m1[i].high > hi) hi = m1[i].high;
+                if (m1[i].low < lo) lo = m1[i].low;
+            }
+
+            ctx.NearHigh = (hi - currentPrice) / currentPrice < NearExtremeRatio;
+            ctx.NearLow = (currentPrice - lo) / currentPrice < NearExtremeRatio;
+            float round = Mathf.Round(currentPrice / 1000f) * 1000f;
+            ctx.NearRound = round > 10f && Mathf.Abs(currentPrice - round) / currentPrice < NearRoundRatio;
+            ctx.NarrowRange = (hi - lo) / currentPrice < currentVolatility * Mathf.Sqrt(n);
+            return ctx;
+        }
+
         // 셋업 가중치 표 (SIG-A4). 신호 종류·진위·기조 조합마다 하나씩입니다.
         private static readonly (SignalSetup setup, float weight)[] SetupsTrueSqueeze =
             { (SignalSetup.VolatilitySqueeze, 50f), (SignalSetup.Breakout, 35f), (SignalSetup.NewsSpike, 15f) };
@@ -1455,13 +1490,14 @@ namespace FXOverdose.Trading
         /// 신호 종류·진위·그날 기조에서 연출 계열(셋업)을 고릅니다. (SIG-A4)
         /// 롱을 꼬시는 트랩은 고점 분산, 숏을 꼬시는 트랩은 투매 후 V반등이 전형이고, 횡보장 트랩은 박스권 반락이 많습니다.
         /// </summary>
-        private SignalSetup ChooseSetup(MarketSignalType type, bool isTrue)
+        private SignalSetup ChooseSetup(MarketSignalType type, bool isTrue, bool narrowRange)
         {
             bool breakout = type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout;
             (SignalSetup setup, float weight)[] table;
             if (breakout && isTrue)
             {
-                table = currentDailyRegime == MarketRegime.Squeeze ? SetupsTrueSqueeze
+                // 박스 폭이 좁게 조여 있었다면(SIG-A3) 기조와 무관하게 변동성 수축 돌파 계열입니다.
+                table = currentDailyRegime == MarketRegime.Squeeze || narrowRange ? SetupsTrueSqueeze
                       : TrendAlignmentBonus(type) > 0f ? SetupsTrueWithTrend
                       : SetupsTrueOther;
             }
@@ -1522,11 +1558,21 @@ namespace FXOverdose.Trading
             // 예전엔 기조와 무관하게 35/35/15/15라, 하락 기조인 날에도 상승 돌파가 똑같이 나와
             // 요미의 일일 방향 힌트가 매매 판단에 거의 쓸모가 없었습니다.
             float[] w = SignalTypeWeights(currentDailyRegime);
-            float rand = UnityEngine.Random.value;
+
+            // 지금 차트 모양도 읽습니다. (SIG-A3) 돌파는 고점/저점에서, 트랩은 라운드 피겨와 고점/저점 위에서 잘 납니다.
+            // 예전엔 신호가 차트와 완전히 무관하게 터져, 차트를 봐도 다음 신호를 짐작할 단서가 없었습니다.
+            ChartContext ctx = ReadChartContext();
+            float wBullBreak = w[0], wBearBreak = w[1], wBullTrap = w[2], wBearTrap = w[3];
+            if (ctx.NearHigh) { wBullBreak *= 1.6f; wBullTrap *= 1.4f; } // 저항선 돌파 시도 — 진짜든 가짜든
+            if (ctx.NearLow) { wBearBreak *= 1.6f; wBearTrap *= 1.4f; }  // 지지선 이탈 시도
+            if (ctx.NearRound) { wBullTrap *= 1.5f; wBearTrap *= 1.5f; } // 라운드 피겨 = 오더블록 반발 자리
+            float wTotal = wBullBreak + wBearBreak + wBullTrap + wBearTrap;
+
+            float rand = UnityEngine.Random.value * wTotal;
             MarketSignalType type;
-            if (rand < w[0]) type = MarketSignalType.BullishBreakout;
-            else if (rand < w[0] + w[1]) type = MarketSignalType.BearishBreakout;
-            else if (rand < w[0] + w[1] + w[2]) type = MarketSignalType.BullTrap;
+            if (rand < wBullBreak) type = MarketSignalType.BullishBreakout;
+            else if (rand < wBullBreak + wBearBreak) type = MarketSignalType.BearishBreakout;
+            else if (rand < wBullBreak + wBearBreak + wBullTrap) type = MarketSignalType.BullTrap;
             else type = MarketSignalType.BearTrap;
 
             // 강도 설정 (기본 65% Strong, 광기 기조는 80%)
@@ -1546,7 +1592,7 @@ namespace FXOverdose.Trading
             int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
 
             // 연출 계열(셋업) — 궤적 모양과 예고 시간만 바꿉니다. AI가 읽는 종류·진위·방향은 위에서 이미 정해졌습니다. (SIG-A4)
-            SignalSetup setup = ChooseSetup(type, isTrue);
+            SignalSetup setup = ChooseSetup(type, isTrue, ctx.NarrowRange);
             if (setup == SignalSetup.NewsSpike)
             {
                 duration = UnityEngine.Random.Range(5, 11); // 짧고 굵게
@@ -1590,7 +1636,7 @@ namespace FXOverdose.Trading
             currentSignalPhase = SignalPhase.GraceWindow;
             signalPhaseTimerMinutes = grace;
 
-            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()}");
+            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()} (차트: 고점근접 {ctx.NearHigh} / 저점근접 {ctx.NearLow} / 라운드 {ctx.NearRound} / 좁은박스 {ctx.NarrowRange})");
             OnMarketSignalGenerated?.Invoke(activeSignal);
             OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
         }

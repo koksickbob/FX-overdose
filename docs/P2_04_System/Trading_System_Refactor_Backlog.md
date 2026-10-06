@@ -54,7 +54,7 @@
 - [x] SIG-0 — `MarketSignal.Direction` 필드 분리 (2026-10-06) — Direction/LureDirection 도입, AI의 Type 의존 0 — Tier 3 가짜 하락 돌파 방향 버그 동시 해소
 - [x] SIG-B1 — 궤적 `AnimationCurve` 외부화 (2026-10-06) — TrajectoryProfile+내장 7종, 분 단위 진행률 변화량 드리프트로 이동량 오차 0 (기울기 방식 38%), B2·B3 일반화
 - [x] SIG-A4 — 셋업 카탈로그 확장 (2026-10-06) — SignalSetup 10종 + 조합별 가중표 + 셋업별 궤적 8종 신설, 가짜 계열은 유인 방향으로 찌른 뒤 반전 — AI 변경 0줄
-- [ ] SIG-A3 — 차트 컨텍스트 기반 신호
+- [x] SIG-A3 — 차트 컨텍스트 기반 신호 (2026-10-06) — 고점/저점·라운드 피겨·좁은 박스로 종류 가중치 배수 + 수축 돌파 셋업 연결 (더블탑은 A2로)
 - [ ] DEAD-4 — `TraderMemoryManager` 삭제
 - [ ] SIG-A2 — 직전 신호 기억 (마르코프)
 - [ ] SIG-A5 — 목표 변동률 로그정규
