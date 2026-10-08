@@ -8,8 +8,8 @@ namespace FXOverdose.AI
     /// <summary>
     /// 요미의 자동 매매 판단 엔진입니다. 시장 신호를 규칙 기반으로 평가해 진입/청산을 실행합니다.
     /// 이름과 달리 LLM을 사용하지 않습니다(사용한 적도 없습니다). 삭제하면 자동 매매,
-    /// FOMO 후회 기믹(OnSignalEvaluationCompleted 구독), 고배율 중독 폭주(ForceNextTradeHighLeverage),
-    /// 차트 힌트가 함께 죽으므로 "LLM 잔재"로 오인해 제거하지 마십시오.
+    /// FOMO 후회 기믹(OnSignalEvaluationCompleted 구독), 차트 힌트가 함께 죽으므로
+    /// "LLM 잔재"로 오인해 제거하지 마십시오.
     /// </summary>
     public class AITradingBrain : MonoBehaviour
     {
@@ -31,8 +31,6 @@ namespace FXOverdose.AI
         public event Action<MarketSignal, bool> OnSignalEvaluationCompleted; // (신호, 진입여부)
 
         public string LastDecisionLog => lastDecisionLog;
-        
-        public bool ForceNextTradeHighLeverage = false;
 
         private ITraderLevelProvider levelProvider;
         public bool IsBossAI { get; set; } = false;
@@ -65,7 +63,6 @@ namespace FXOverdose.AI
             // 구독하면 플레이어가 강제청산될 때 보스의 isProcessingSignal이 리셋되는 등 상태가 섞입니다.
             if (!IsBossAI && tradingController != null)
             {
-                tradingController.OnPositionClosed += HandlePositionClosed;
                 tradingController.OnPositionLiquidated += HandlePositionLiquidated;
             }
 
@@ -95,7 +92,6 @@ namespace FXOverdose.AI
 
             if (tradingController != null)
             {
-                tradingController.OnPositionClosed -= HandlePositionClosed;
                 tradingController.OnPositionLiquidated -= HandlePositionLiquidated;
             }
         }
@@ -260,29 +256,6 @@ namespace FXOverdose.AI
                 return;
             }
 
-            // 챌린지에서는 이전 프레임에 예약된 강제 AI 매매까지 폐기합니다.
-            if (SaveLoadManager.Instance != null && !SaveLoadManager.Instance.AllowsAITrading)
-            {
-                ForceNextTradeHighLeverage = false;
-            }
-
-            // 💡 [고배율 중독 강제 매매] 요미가 주도권을 뺏고 강제로 고배율 매매를 실행하는 상태
-            if (ForceNextTradeHighLeverage)
-            {
-                ForceNextTradeHighLeverage = false;
-                tradingController.UnlockManualMode(); // 포지션 진입을 시도하므로 수동 전환 잠금 해제
-
-                var levelSys = levelProvider ?? TraderLevelSystem.Instance;
-                int maxLev = levelSys != null ? levelSys.GetMaxAllowedLeverage() : 125;
-                int forceLev = Mathf.Max(50, maxLev); // 최소 50배 이상 고배율
-                
-
-                
-                // 정상적인 매매(요미 스킬 및 레벨 스탯 반영)처럼 진입
-                OpenNormalPosition(signal, availableBalance, tradeMarginRatio, forceLev);
-                return;
-            }
-
             // 💡 [매매 모드 분기] 플레이어 수동 매매 모드일 때는 AI가 자동으로 포지션을 개설하지 않고 시그널 브리핑만 제공
             if (!IsBossAI && tradingController.ActiveTradingMode == TradingController.TradingMode.Player_Manual)
             {
@@ -312,12 +285,9 @@ namespace FXOverdose.AI
                          return;
                     }
 
-                    TradingController.PositionType trapPos = signal.Type switch
-                    {
-                        MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                        MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                        _ => TradingController.PositionType.Long
-                    };
+                    // 유도 방향 그대로 들어가 속습니다. 예전 switch는 가짜 하락 돌파가 기본값(Long)으로 떨어져
+                    // 실제 가격 방향(상승)에 올라타 오히려 이겼습니다. (SIG-0)
+                    TradingController.PositionType trapPos = signal.LureDirection;
 
                     ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
                     float marginRatio = levelSystem != null ? levelSystem.GetStopLossTightness() * 10f : 0.8f;
@@ -378,14 +348,7 @@ namespace FXOverdose.AI
                          return;
                     }
 
-                    TradingController.PositionType weakPos = signal.Type switch
-                    {
-                        MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
-                        MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
-                        MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                        MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                        _ => TradingController.PositionType.Long
-                    };
+                    TradingController.PositionType weakPos = signal.LureDirection;
 
                     float marginRatio = 0.15f;
                     if (aiStyle == TradingController.AITradingStyle.Aggressive) marginRatio = 0.40f;
@@ -540,14 +503,8 @@ namespace FXOverdose.AI
                     float counterTrapProb = levelSystem != null ? levelSystem.GetSignalAccuracy() : 0.75f;
                     if (UnityEngine.Random.value < counterTrapProb)
                     {
-                        TradingController.PositionType counterPos = signal.Type switch
-                        {
-                            MarketSignalType.BullTrap => TradingController.PositionType.Short, // 롱 유도 함정이므로 숏 진입
-                            MarketSignalType.BearTrap => TradingController.PositionType.Long,  // 숏 유도 함정이므로 롱 진입
-                            MarketSignalType.BullishBreakout => TradingController.PositionType.Short,
-                            MarketSignalType.BearishBreakout => TradingController.PositionType.Long,
-                            _ => TradingController.PositionType.Short
-                        };
+                        // 함정을 간파했으므로 유도 방향의 반대로 진입합니다.
+                        TradingController.PositionType counterPos = Opposite(signal.LureDirection);
 
                         float margin = availableBalance * tradeMarginRatio;
                         int leverage = defaultLeverage * 2;
@@ -594,20 +551,18 @@ namespace FXOverdose.AI
             }
         }
 
+        private static TradingController.PositionType Opposite(TradingController.PositionType pos) =>
+            pos == TradingController.PositionType.Long ? TradingController.PositionType.Short
+            : pos == TradingController.PositionType.Short ? TradingController.PositionType.Long
+            : TradingController.PositionType.None;
+
         // 정상/확실한 진입
         private void OpenNormalPosition(MarketSignal signal, float balance, float ratio, int leverage)
         {
             TradingController.AITradingStyle aiStyle = tradingController != null ? tradingController.CurrentAITradingStyle : TradingController.AITradingStyle.Balanced;
             ITraderLevelProvider levelSystem = levelProvider ?? TraderLevelSystem.Instance;
 
-            TradingController.PositionType posType = signal.Type switch
-            {
-                MarketSignalType.BullishBreakout => TradingController.PositionType.Long,
-                MarketSignalType.BearishBreakout => TradingController.PositionType.Short,
-                MarketSignalType.BullTrap => TradingController.PositionType.Long,
-                MarketSignalType.BearTrap => TradingController.PositionType.Short,
-                _ => TradingController.PositionType.Long
-            };
+            TradingController.PositionType posType = signal.LureDirection;
 
             // 💡 [차트 공부 귀속] 정확도 검증: 차트 공부 레벨이 낮아 오판 시 정상 신호에서도 반대 방향으로 역진입(Error Entry)
             // 단, 선택 이벤트 등 확정적 신호(IsExternalEventOverride) 진행 중에는 요미가 완벽하게 맞추도록 오판 로직을 무시합니다.
@@ -707,36 +662,6 @@ namespace FXOverdose.AI
             }
         }
 
-        // 포지션 종료 시 리액션 (약한 손해 구간/적당히 속았을 때의 반응 등)
-        private void HandlePositionClosed(float returnedAmount, float pnl)
-        {
-            float balance = GetAvailableBalance();
-            float baseMargin = tradingController != null 
-                ? (tradingController.MarginAmount > 0f ? tradingController.MarginAmount : tradingController.LastMarginAmount) 
-                : 0f;
-            float roe = baseMargin > 0f ? (pnl / baseMargin) * 100f : 0f;
-
-            if (pnl < 0f)
-            {
-                if (currentActiveSignal.Strength == SignalStrength.Weak)
-                {
-
-                }
-                else
-                {
-
-                }
-            }
-            else if (pnl > 0f)
-            {
-
-            }
-            else
-            {
-
-            }
-        }
-
         private void HandlePositionLiquidated()
         {
             isProcessingSignal = false;
@@ -801,9 +726,6 @@ namespace FXOverdose.AI
             {
                 visual.DisplayDialogueBalloon(hintText, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.ChartMovement);
             }
-
-            // 기억 시스템에 저장
-            FXOverdose.AI.TraderMemoryManager.Instance?.AddMemory(FXOverdose.AI.EventCategory.ChartMovement, hintText, 6);
         }
 
     }

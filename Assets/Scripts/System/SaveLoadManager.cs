@@ -127,7 +127,6 @@ namespace FXOverdose.Core
             var gm = GameManager.Instance;
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
-            var memory = TraderMemoryManager.Instance;
             var trading = FindAnyObjectByType<TradingController>(FindObjectsInactive.Include);
             var marketEngine = FindAnyObjectByType<MarketSimulationEngine>(FindObjectsInactive.Include);
             var costumes = CostumeManager.Instance;
@@ -256,15 +255,6 @@ namespace FXOverdose.Core
                 Debug.LogWarning("[SaveLoadManager] DatingTimeManager가 없어 미연시 상태를 저장하지 못했습니다!");
             }
 
-            // MemoryManager
-            // private 필드들에 접근하기 위해 Reflection을 사용할 수도 있지만,
-            // SaveLoadManager에서 직접 데이터를 얻거나 GameManager처럼 public Getter가 있으면 좋음.
-            // 임시로 Reflection으로 추출. 추후 TraderMemoryManager에 GetData() 메서드를 추가하는 것이 좋음.
-            if (memory != null)
-            {
-                ExtractMemoryData(memory, data);
-            }
-
             if (!WriteSaveFile(slotIndex, data))
             {
                 return false;
@@ -342,46 +332,6 @@ namespace FXOverdose.Core
         {
             if (slotIndex < 0 || slotIndex >= MaxStorySlots) return StoryDifficulty.Hard;
             return ReadSaveFile(slotIndex)?.StoryDifficulty ?? StoryDifficulty.Hard;
-        }
-
-        private void ExtractMemoryData(TraderMemoryManager memory, SaveData data)
-        {
-            try
-            {
-                var type = typeof(TraderMemoryManager);
-                
-                // 단기 대사
-                var shortTermField = type.GetField("shortTermDialogues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (shortTermField != null)
-                {
-                    data.ShortTermDialogues = new List<string>((List<string>)shortTermField.GetValue(memory));
-                }
-
-                // 장기 기억
-                var longTermField = type.GetField("longTermMemories", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (longTermField != null)
-                {
-                    data.LongTermMemories = new List<MemoryEntry>((List<MemoryEntry>)longTermField.GetValue(memory));
-                }
-
-                // 일일 요약본
-                var dailyField = type.GetField("dailySummaries", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (dailyField != null)
-                {
-                    var dict = (Dictionary<int, string>)dailyField.GetValue(memory);
-                    data.DailySummaryKeys.Clear();
-                    data.DailySummaryValues.Clear();
-                    foreach (var kvp in dict)
-                    {
-                        data.DailySummaryKeys.Add(kvp.Key);
-                        data.DailySummaryValues.Add(kvp.Value);
-                    }
-                }
-            }
-            catch(Exception e)
-            {
-                Debug.LogError($"[SaveLoadManager] Memory 추출 오류: {e.Message}");
-            }
         }
 
         public bool PrepareLoadGame(int slotIndex)
@@ -529,7 +479,6 @@ namespace FXOverdose.Core
             var gm = GameManager.Instance;
             var status = TraderStatus.CanonicalInstance;
             var levelSys = TraderLevelSystem.Instance;
-            var memory = TraderMemoryManager.Instance;
             var costumes = CostumeManager.Instance;
             var activeItems = ActiveItemEffectManager.Instance;
             var deliveryFood = DeliveryFoodManager.EnsureInstance();
@@ -591,11 +540,6 @@ namespace FXOverdose.Core
                 
                 // 이벤트 수동 트리거로 UI 등 반영 유도 (단, 초기화 단계이므로 필요시 추가 제어)
                 // Reflection을 통해 OnProtagonistLevelChanged 등을 Invoke하는 것도 가능하나, 초기 렌더링에 의존
-            }
-
-            if (memory != null)
-            {
-                RestoreMemoryData(memory, CurrentData);
             }
 
             if (costumes != null)
@@ -665,41 +609,6 @@ namespace FXOverdose.Core
             // CurrentData는 비우지 않습니다. 매니저가 없는 씬에서 부분 저장을 할 때
             // 이 스냅샷이 베이스가 되어야 합니다. (SV-A6 / SV-A7)
             Debug.Log("[SaveLoadManager] 저장된 데이터를 인게임에 성공적으로 주입했습니다.");
-        }
-
-        private void RestoreMemoryData(TraderMemoryManager memory, SaveData data)
-        {
-            try
-            {
-                var type = typeof(TraderMemoryManager);
-                
-                var shortTermField = type.GetField("shortTermDialogues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (shortTermField != null)
-                {
-                    shortTermField.SetValue(memory, new List<string>(data.ShortTermDialogues));
-                }
-
-                var longTermField = type.GetField("longTermMemories", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (longTermField != null)
-                {
-                    longTermField.SetValue(memory, new List<MemoryEntry>(data.LongTermMemories));
-                }
-
-                var dailyField = type.GetField("dailySummaries", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (dailyField != null)
-                {
-                    var dict = new Dictionary<int, string>();
-                    for (int i = 0; i < data.DailySummaryKeys.Count; i++)
-                    {
-                        dict[data.DailySummaryKeys[i]] = data.DailySummaryValues[i];
-                    }
-                    dailyField.SetValue(memory, dict);
-                }
-            }
-            catch(Exception e)
-            {
-                Debug.LogError($"[SaveLoadManager] Memory 복구 오류: {e.Message}");
-            }
         }
     }
 }

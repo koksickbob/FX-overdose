@@ -14,6 +14,19 @@ namespace FXOverdose.Trading
         private const float CloseMentalGainCoefficient = 25f;  // 수익률 10% → +7.9
         private const float MaxCloseMentalGain = 15f;          // 수익률 36% 이상에서 상한
 
+        // 진입·청산 수수료율 (포지션 규모 = 증거금 × 레버리지 기준). 밸런스 조정에서 자주 건드리는 값이라 한 곳에 둡니다.
+        private const float TradeFeeRate = 0.0006f;
+
+        // 손절 강도(가격 비율, TraderLevelSystem.GetStopLossTightness)를 이벤트·고속 스킵 강제 손절의 ROE(%)로 바꾸는 배수.
+        // 레버리지와 무관한 고정 환산이라 LV.1(9%) → -30%, LV.10(1.5%) → -5%가 됩니다.
+        private const float StopLossTightnessToROE = 333f;
+
+        // 펀딩비: 인게임 매시 정각마다 포지션 규모(증거금 × 레버리지)의 0.01% × 국면 배율을 주고받습니다. (REAL-1)
+        // 배율이 양수면 롱이 내고 숏이 받습니다. 100배 레버리지면 시간당 증거금의 약 1%입니다.
+        private const float FundingRatePerHour = 0.0001f;
+        // 지불액이 증거금의 이 비율 이상일 때만 요미가 알려줍니다.
+        private const float FundingNoticeMarginRatio = 0.01f;
+
         private bool p2pExternalMode;
         private float p2pUnrealizedPnL;
         public void EnableP2PExternalMode(){p2pExternalMode=true;activeTradingMode=TradingMode.Player_Manual;IsManualModeLockedByYomi=false;}
@@ -86,27 +99,16 @@ namespace FXOverdose.Trading
         public bool IsManualModeLockedByYomi { get; private set; } = false;
 
         /// <summary>
-        /// 락 소유권 세대. 임시 락(<see cref="TemporaryLockRoutine"/>)이 대기하는 동안 다른 곳에서
-        /// 락/언락이 걸리면 세대가 바뀌고, 임시 락은 자기 세대가 아닐 때 해제를 포기합니다.
-        /// 이게 없으면 2초짜리 임시 락이 끝나면서 그 사이 걸린 영구 락(요미 주도권 강탈)까지 지웁니다.
+        /// 락 소유권 세대. 임시 락(<see cref="TemporaryLockRoutine"/>)이 대기하는 동안 새 임시 락이
+        /// 걸리면 세대가 바뀌고, 먼저 건 임시 락은 자기 세대가 아닐 때 해제를 포기합니다.
+        /// 이게 없으면 오버도즈 2초 락과 이벤트 지연 진입 락처럼 구간이 겹칠 때,
+        /// 먼저 끝난 쪽이 아직 살아 있어야 할 다른 쪽의 락까지 풀어 버립니다.
         /// </summary>
         private int manualLockGeneration;
 
-        public void LockManualMode()
-        {
-            // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
-            if (IsAITradingLockedByGameMode) return;
-            manualLockGeneration++;
-            IsManualModeLockedByYomi = true;
-        }
-        public void UnlockManualMode()
-        {
-            manualLockGeneration++;
-            IsManualModeLockedByYomi = false;
-        }
-
         public void LockManualModeTemporarily(float seconds)
         {
+            // 챌린지에서는 어떤 기믹도 USER 수동매매 주도권을 빼앗을 수 없습니다.
             if (IsAITradingLockedByGameMode) return;
             StartCoroutine(TemporaryLockRoutine(seconds));
         }
@@ -119,7 +121,7 @@ namespace FXOverdose.Trading
 
             yield return new WaitForSecondsRealtime(seconds);
 
-            // 대기 중에 다른 곳이 락/언락을 걸었다면 그쪽이 주인입니다. 덮어쓰지 않습니다.
+            // 대기 중에 다른 임시 락이 걸렸다면 그쪽이 주인입니다. 덮어쓰지 않습니다.
             if (manualLockGeneration == myGeneration) IsManualModeLockedByYomi = false;
         }
 
@@ -273,6 +275,7 @@ namespace FXOverdose.Trading
             {
                 marketEngine.OnPriceUpdated += HandlePriceUpdated;
             }
+            if (gameManager != null) gameManager.OnGameMinuteAdvanced += SettleHourlyFunding;
         }
 
         /// <summary>
@@ -354,6 +357,41 @@ namespace FXOverdose.Trading
             {
                 marketEngine.OnPriceUpdated -= HandlePriceUpdated;
             }
+            if (gameManager != null) gameManager.OnGameMinuteAdvanced -= SettleHourlyFunding;
+        }
+
+        /// <summary>
+        /// 무기한 선물의 펀딩비를 정산합니다. (REAL-1)
+        /// 국면이 오르는 쪽으로 쏠려 있으면 롱이, 내리는 쪽이면 숏이 상대에게 냅니다 — 추세를 거스른 포지션은 버티기만 해도 갉힙니다.
+        /// 실제 거래소는 8시간마다지만 하루 거래 시간이 15시간뿐이라 매시 정각(하루 15회)으로 압축했습니다.
+        /// </summary>
+        private void SettleHourlyFunding()
+        {
+            if (p2pExternalMode || marketEngine == null || gameManager.CurrentMinute != 0) return;
+            if (currentPosition == PositionType.None || marginAmount <= 0f) return;
+
+            float regimeFactor = marketEngine.CurrentRegime switch
+            {
+                MarketSimulationEngine.MarketRegime.Bull => 1f,
+                MarketSimulationEngine.MarketRegime.Bear => -1f,
+                MarketSimulationEngine.MarketRegime.Squeeze => 2f,
+                _ => 0.3f, // 횡보장도 실제처럼 롱이 약간 더 냅니다.
+            };
+            float payment = marginAmount * currentLeverage * FundingRatePerHour * regimeFactor;
+            if (currentPosition == PositionType.Short) payment = -payment;
+
+            // ponytail: 현금이 모자라면 있는 만큼만 냅니다(올인 포지션은 사실상 면제). 증거금 차감이 필요해지면 격리 마진 모델로 확장.
+            if (payment > 0f) payment = Mathf.Min(payment, Mathf.Max(0f, gameManager.CurrentBalance));
+            if (payment == 0f) return;
+
+            gameManager.ChangeBalance(-payment);
+
+            if (Mathf.Abs(payment) < marginAmount * FundingNoticeMarginRatio) return;
+            string line = payment > 0f
+                ? $"펀딩비 ${payment:N0} 나갔어... 오래 들고 있으면 계속 새어 나가, 오빠!"
+                : $"펀딩비 ${-payment:N0} 들어왔어! 반대쪽 사람들이 내준 거야, 헤헤~";
+            var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+            visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Low, FXOverdose.AI.EventCategory.ChartMovement);
         }
 
         
@@ -521,7 +559,7 @@ namespace FXOverdose.Trading
 
                 case EventPositionHandlingMode.InstantStopLoss:
                     float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
-                    float dynamicStopLoss = -stopLossTightness * 3.33f * 100f; // -30% ~ -5%
+                    float dynamicStopLoss = -stopLossTightness * StopLossTightnessToROE; // 책읽기 LV.1 -30% ~ LV.10 -5%
                     float targetStopLossROE = eventStopLossROELimit < 0f ? eventStopLossROELimit : dynamicStopLoss;
                     if (roe <= targetStopLossROE)
                     {
@@ -740,7 +778,7 @@ namespace FXOverdose.Trading
                 float stopLossTightness = levelSystem != null ? levelSystem.GetStopLossTightness() : 0.09f;
 
                 float dynamicTakeProfitRoe = 50f * takeProfitMultiplier;
-                float dynamicStopLossRoe = -stopLossTightness * 3.33f * 100f;
+                float dynamicStopLossRoe = -stopLossTightness * StopLossTightnessToROE;
 
                 if (skipRoe >= dynamicTakeProfitRoe)
                 {
@@ -912,7 +950,7 @@ namespace FXOverdose.Trading
             lastReportedROE = 0f;
 
             // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감해야 CheckEnding() 시 TotalEquity에 증거금이 정상 합산됩니다.
-            float entryFee = margin * leverage * 0.0006f;
+            float entryFee = margin * leverage * TradeFeeRate;
             gameManager.ChangeBalance(-(margin + entryFee));
 
             // 유지 증거금률 0.5% 반영한 청산가 연산
@@ -992,12 +1030,12 @@ namespace FXOverdose.Trading
                 return false;
             }
 
-            if (margin > gameManager.CurrentBalance)
-            {
-                margin = gameManager.CurrentBalance * 0.95f;
-            }
-
             leverage = Mathf.Clamp(leverage, 1, 125);
+
+            // 진입 수수료까지 잔고 안에서 치를 수 있게 증거금 상한을 둡니다.
+            // 없으면 100% 진입에서 현금 잔고가 음수가 됩니다(125배면 잔고의 -7.5%).
+            float maxMarginWithFee = gameManager.CurrentBalance / (1f + leverage * TradeFeeRate);
+            if (margin > maxMarginWithFee) margin = maxMarginWithFee;
 
             currentPosition = type;
             currentOwner = OwnerType.Player;
@@ -1020,7 +1058,9 @@ namespace FXOverdose.Trading
             lastReportedROE = 0f;
 
             // 💡 [조기 게임오버 오진 방지] 포지션 및 증거금을 먼저 설정한 후 잔고를 차감합니다.
-            gameManager.ChangeBalance(-margin);
+            // 진입 수수료는 AI 경로(OpenPosition)와 같은 규칙입니다. 예전에는 수동 진입에만 빠져 있었습니다.
+            float entryFee = margin * leverage * TradeFeeRate;
+            gameManager.ChangeBalance(-(margin + entryFee));
 
             float maintenanceMarginRate = 0.005f;
             if (type == PositionType.Long)
@@ -1072,7 +1112,7 @@ namespace FXOverdose.Trading
             float pnl = CalculateUnrealizedPnL();
 
             // 청산 수수료 적용 (총 포지션 규모의 0.06%)
-            float exitFee = marginAmount * currentLeverage * 0.0006f;
+            float exitFee = marginAmount * currentLeverage * TradeFeeRate;
             pnl -= exitFee;
 
             // 액티브 업그레이드 보정 적용
@@ -1208,9 +1248,10 @@ namespace FXOverdose.Trading
             isEventPlayerChoice = false;
             isEventTrueSignal = true;
             // ⚠️ 여기서 IsManualModeLockedByYomi를 지우면 안 됩니다.
-            //    바로 위 OnPositionClosed 구독자(MentalDrainGimmickController의 고배율 중독 폭주)가
-            //    LockManualMode()로 요미의 주도권 강탈을 거는데, 같은 콜스택이라 몇 μs 만에 지워졌습니다.
-            //    락 해제는 AITradingBrain이 강제 고배율 매매를 실제로 실행할 때(UnlockManualMode) 일어납니다.
+            //    임시 락이 걸린 대기 구간(오버도즈 2초, 뇌동매매 지연 진입) 중에도 이 메서드는
+            //    수동 청산·돌발 이벤트·24시 강제 청산으로 호출될 수 있습니다. 여기서 락을 풀면 그 사이에
+            //    플레이어가 수동 모드로 빠져나가 강제 진입을 피합니다. 해제는 TemporaryLockRoutine이
+            //    자기 세대를 확인한 뒤 직접 합니다.
             maxObservedEventROE = 0f;
             lastReportedROEBasket = 0;
             // 두 슬로우모션 연출은 포지션 단위 이벤트입니다. 되돌리는 곳이 없어

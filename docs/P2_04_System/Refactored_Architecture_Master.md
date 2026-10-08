@@ -12,7 +12,7 @@
 #### GameManager.cs
 * **하드코딩 제거 (데이터화):** 
   * 기존 코드에 하드코딩되었던 스토리 컷씬/독백용 텍스트(`day1Monologue` 등)를 `[SerializeField]` 리스트로 추출하여 외부 노출.
-  * 하드코딩된 일차별 페널티/지출 조건(`CalculateExpectedDeduction()`)을 `[System.Serializable] struct RegularDeductionEvent` 구조로 분리하고 인스펙터 리스트(`regularDeductions`)로 데이터 연동.
+  * ~~하드코딩된 일차별 페널티/지출 조건(`CalculateExpectedDeduction()`)을 `[System.Serializable] struct RegularDeductionEvent` 구조로 분리하고 인스펙터 리스트(`regularDeductions`)로 데이터 연동.~~ *(철회 2026-10-06: 정기 지출 자체가 삭제되어 데이터화할 대상이 없음 — §15.2)*
   * 보스 등장 및 패배 시 나오는 하드코딩 스트링 대사들을 배열(Format string)로 추출.
 * **이벤트 기반 최적화:** 
   * 인게임 타이머와 정산 구조에서 기존 이벤트(`Action`) 구조가 온전히 작동하도록 코드 흐름 정리.
@@ -310,7 +310,7 @@
 
 ### 7.7 `AITradingBrain`은 LLM 잔재가 아니다
 
-이름 때문에 폐기된 LLM 자동매매의 잔재로 오인되기 쉬우나, **파일 전체에 `LLM` 문자열이 0건인 규칙 기반 판정 엔진이며 현재 자동 매매의 실행 주체다.** 삭제하면 자동 매매·FOMO 후회 기믹(`OnSignalEvaluationCompleted` 구독)·고배율 중독 폭주·차트 힌트가 함께 죽는다. 클래스 요약 주석에 이 경고를 박아 뒀다.
+이름 때문에 폐기된 LLM 자동매매의 잔재로 오인되기 쉬우나, **파일 전체에 `LLM` 문자열이 0건인 규칙 기반 판정 엔진이며 현재 자동 매매의 실행 주체다.** 삭제하면 자동 매매·FOMO 후회 기믹(`OnSignalEvaluationCompleted` 구독)·차트 힌트가 함께 죽는다. (고배율 중독 폭주는 2026-10-06 기믹째 삭제 — §15.1) 클래스 요약 주석에 이 경고를 박아 뒀다.
 
 실제로 사장돼 있던 건 `TriggerDialogue`(본문 없음)와 `TriggerDialogueWithCategory`(호출자 0건) 두 메서드이며, 후자가 이 파일에서 멘탈을 건드리는 유일한 코드였다. 둘 다 제거했다.
 
@@ -377,7 +377,7 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 ### 8.5 날짜 점프의 함정
 
-`AdvanceDate(days)`를 넣었으나 **날짜만 옮긴다** — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋은 하지 않는다. 건너뛴 날의 정기 지출 정책도 미정이라 실제로 점프를 쓰는 스토리 작업에서 정해야 한다.
+`AdvanceDate(days)`를 넣었으나 **날짜만 옮긴다** — 체력/멘탈 회복, 시간 슬롯 리필, 차트 리셋은 하지 않는다. 건너뛴 날에 하루 전환 처리를 할지는 실제로 점프를 쓰는 스토리 작업에서 정해야 한다. *(정기 지출 정책 쟁점은 2026-10-06 정기 지출 삭제로 소멸 — §15.2)*
 
 예약 일차(보스·스토리 이벤트·`StoryLastDay`)는 넘지 못하고 그 날에서 멈추며 경고를 남긴다. 특히 **최종일 판정이 등호 비교(`CurrentDay == StoryLastDay`)라 뛰어넘으면 엔딩이 영영 발생하지 않는다.**
 
@@ -526,7 +526,7 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 
 ### 11.4 P2에서 바뀐 소유권
 
-- **`TraderStatus`의 기믹 카운터 4종에 `Owner` 프로퍼티 도입.** `CurrentLosingStreak` / `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`는 다른 mutator와 달리 정본 위임 가드가 없어, 미러 인스턴스에 쓰면 다음 동기화가 조용히 삼켰다. **읽기·쓰기 양쪽**을 `Owner`(정본이 있으면 정본)로 통과시킨다 — 쓰기만 위임하면 미러에서 쓴 직후 읽을 때 한 프레임 낡은 값이 나온다.
+- **`TraderStatus`의 기믹 카운터 4종에 `Owner` 프로퍼티 도입.** *(2026-10-06: 중독 관련 3종은 기믹 4 삭제로 제거되어 현재는 `CurrentLosingStreak` 1종만 남음 — §15.1)* `CurrentLosingStreak` / `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`는 다른 mutator와 달리 정본 위임 가드가 없어, 미러 인스턴스에 쓰면 다음 동기화가 조용히 삼켰다. **읽기·쓰기 양쪽**을 `Owner`(정본이 있으면 정본)로 통과시킨다 — 쓰기만 위임하면 미러에서 쓴 직후 읽을 때 한 프레임 낡은 값이 나온다.
 - **`MentalDrainGimmickController.FindPlayerBrain()`.** 보스가 스폰되면 `[RequireComponent]` 때문에 두 번째 `AITradingBrain`이 생기고 `FindAnyObjectByType`은 어느 쪽을 줄지 보장하지 않는다. `!IsBossAI` 필터를 한곳에 모았다. 짝으로 `AITradingBrain`의 `TradingController` 구독도 `!IsBossAI`로 막았다 — 보스 브레인이 플레이어의 청산 이벤트를 받고 있었다.
 - **인벤토리 복원 루프를 `SaveLoadManager.ApplySavedInventoryItems()`로 분리.** 새 게임 첫 진입 분기가 저장 목록을 통째로 버려, 1일차에 편의점 알바를 먼저 하면 선물이 사라졌다. 두 분기가 같은 헬퍼를 쓰게 해 시작 지급분 위에 얹는다.
 - **`ShopManager.GetPurchasePrice`가 최종가의 유일한 답이 되었다** (11.1 참조). 표시 경로도 이쪽으로 통일.
@@ -633,6 +633,308 @@ if (!string.IsNullOrEmpty(entry.eventCategory)) {
 **남은 부채**
 - 템플릿 요미 대사 726줄은 `GenerateTemplateFallbackText`가 조합표로 찍어낸 초안이라 실질 문구 다양성이 약 40종이다. 집필로 다듬어야 한다.
 - `YomiDialogueDatabase`(810줄)에는 `ChoiceEvent_*` 카테고리가 하나도 없다. 제거 이전에도 이 조회는 항상 빈손이었고, 이번에 조회 자체를 들어냈다. DB로 일원화하려면 카테고리 신설이 먼저다.
+
+## 15. 트레이딩 리팩토링 백로그 실행 (2026-10-06~)
+
+[Trading_System_Refactor_Backlog.md](Trading_System_Refactor_Backlog.md)의 항목을 Wave 순서로 처리한 기록입니다. **작업 1건 = 커밋 1건**이며 커밋 제목은 `[백로그 ID] 제목` 형식입니다. 근거·수치는 [Trading_System_Master.md](Trading_System_Master.md)에 있습니다.
+
+### 15.1 DEL-1 — 기믹 4 (고배율 중독 금단현상) 삭제
+
+**삭제**
+- `MentalDrainGimmickController.OnPositionClosed`의 중독 블록 전체와 손실 경로의 `ConsecutiveHighLevWins = 0` (기믹 2 블록 안에 섞여 있었음)
+- `AITradingBrain.ForceNextTradeHighLeverage` 필드, 챌린지 폐기 분기, 강제 고배율(최소 50배) 진입 블록
+- `ItemUser.RestoreMental`의 `curesAddiction` 경로 — 진정제는 이제 멘탈 만땅이면 사용 실패
+- `TraderStatus`: 중독 3필드·프로퍼티 3개·`CureLeverageAddiction()`과 그 동기화(`SyncFromCanonical`/`SyncAllInstances`)·세이브(`Capture`/`Restore`)·리셋 경로
+- `SaveData`: `IsLeverageAddicted` / `ConsecutiveHighLevWins` / `ConsecutiveLowLevTrades`
+- `TradingController.LockManualMode()` / `UnlockManualMode()` — 유일한 호출자가 기믹 4와 그 짝 블록이었음
+
+**유지 (이름이 비슷해 함께 지우기 쉬운 것)**
+- `LockManualModeTemporarily` / `IsManualModeLockedByYomi` / `manualLockGeneration` — 오버도즈 2초 락과 뇌동매매 지연 진입이 사용
+- `FindPlayerBrain()`과 `aiBrain` 구독 — FOMO 기믹이 사용
+
+**재작성**
+- `ClosePosition()`의 "여기서 락을 지우면 안 된다" 주석: 근거(중독 폭주가 같은 콜스택에서 락을 건다)가 사라졌지만 결론은 여전히 참이라 근거만 교체했다 — 임시 락 대기 구간 중에도 수동 청산·돌발 이벤트·24시 강제 청산이 이 메서드를 부른다.
+- `manualLockGeneration` 문서 주석: "영구 락까지 지운다" → "겹치는 임시 락끼리 서로 풀지 않게 한다".
+
+**검증 자산**: `SaveRoundTripTester`의 SV-A1(`IsLeverageAddicted`) 항목을 SV-A3(`CurrentLosingStreak == 3`) 왕복 검사로 교체. 항목만 빼면 그 회귀 가드가 사라진다.
+
+**세이브**: 구버전 세이브의 중독 필드는 `JsonUtility`가 무시한다. 마이그레이션 불필요. 멘탈 예산(`verify_mental_balance.py`)은 이 기믹이 멘탈을 직접 깎지 않으므로 무관.
+
+### 15.2 DEL-2 — 정기 지출 + 요미 지출 예고 삭제
+
+메인스토리 편입으로 지출 예고 기믹의 존재 의미가 사라졌고, 자산 압박은 추후 일괄 재설계하기로 해 정기 지출째 걷어냈다.
+
+**삭제**
+- `GameManager.CalculateExpectedDeduction()` — 3·7·11·15·18일차 금액표와 엔드리스 `150,000 × 1.3^사이클`
+- `TodayRegularDeduction` / `TodayRegularDeductionReason` 프로퍼티와 그 세이브(`Capture`/`RestoreSettlementContext`)·리셋(`StartNewGame`/`FinalizeProceedToNextDay`) 경로
+- `ProcessDailySettlementWithStory()`의 정기 지출 차감 블록
+- 요미 지출 예고 기믹: `AnnounceTodayExpenses()`, `expenseAnnouncedForDay`, `AdvanceOneMinute()`의 호출부. 위약금이 이미 꺼져 있어 정기 지출만 빼도 항상 조기 반환하는 빈 껍데기였으므로 통째로 제거
+- `DailySettlementUIController`의 `SYSTEM EXPENSE CHARGED` 반응 분기
+- `SaveData.TodayRegularDeduction` / `TodayRegularDeductionReason`
+
+**유지**: 스토리 위약금 경로 전체(`StoryPenaltiesEnabled` 스위치로 되살릴 수 있도록) — 24:00 파산 예정 판정도 위약금 항만 남겨 유지했다. 상점·스킬 인플레이션은 별도 압박 축이라 그대로.
+
+**주석 삭제**: `StoryDayLimitEnabled` doc의 "정기 지출로 압박 유지" 문단, `StoryPenaltiesEnabled` doc의 "정기 지출은 위약금이 아니다" 문단, `DisableStoryPenaltiesIfNeeded` 로그의 괄호, `AdvanceDate`의 정기 지출 정책 문장, `RoomSettlementUIBootstrap`의 근거 주석. **마지막 것은 주석만 지우고 `GameOverUIController` 설치 코드는 유지했다** — 방에서도 `WorldMapManager`의 데이트 비용·알바 경로로 파산할 수 있다.
+
+**세이브**: 구버전 세이브의 2필드는 `JsonUtility`가 무시. 마이그레이션 불필요.
+
+**남은 공백**: 엔드리스 21일차 이후 자산을 깎는 요소가 없다. 대체 후보는 펀딩비(백로그 REAL-1).
+
+### 15.3 FIX-3 — `dayVolatilityMultiplier` → `sweepIntensityMultiplier`
+
+이름은 "일차별 변동성 배수"였지만 `targetVol`에는 곱해지지 않고 유동성 사냥 꼬리의 길이·확률에만 쓰였다. 동작은 그대로 두고 이름을 실제 용도에 맞췄다. 선언부에 `tickInstability`가 분산 중립인 연출 노브라는 점도 함께 적었다(틱 주기를 1/I로 줄이면 틱당 분산도 1/I로 줄어 분당 σ가 상쇄된다). 씬에 직렬화된 값이 없어 `FormerlySerializedAs`는 불필요했다 — 값은 매 프레임 `UpdateDailyDifficulty`가 덮어쓴다.
+
+### 15.4 FIX-8 — 이벤트 선택지 ROE 한계값 주석 교정
+
+`ChoiceOptionData.CustomTargetROELimit`/`CustomStopLossROELimit`의 주석이 존재하지 않는 기본값(`StandardAuto: +300% / -60%`, `GreedyHold: +3000%`, `HoldToMitigateLoss: -85%`)을 적고 있었다. 모드별로 **실제로 읽는 필드와 기본 동작**(트레일링 배율, -88%, -65% 고정 등)으로 교체하고, 베팅 선택지의 `StandardAuto` 승격 규칙도 함께 적었다. `EventLogicOptionData`에는 같은 규칙을 가리키는 한 줄을 달았다. 템플릿 726 + 수작업 90개 선택지 전부 두 필드가 0이라 데이터 수정은 없었다.
+
+### 15.5 DEAD-3 — `AITradingBrain.HandlePositionClosed` 제거
+
+`roe`·`baseMargin`을 계산한 뒤 분기 4개가 전부 비어 있던 청산 리액션 메서드다. 계획 단계에서는 "구독은 `isProcessingSignal` 관리에 필요하니 유지"로 적었으나, 확인해 보니 이 메서드는 그 플래그를 건드리지 않는다(관리는 `HandlePositionLiquidated`·`HandleSignalPhaseChanged`). 남은 호출도 부작용 없는 조회뿐이라 메서드와 `OnPositionClosed` 구독/해제를 함께 걷어냈다. 동작 변화 없음. 청산 대사는 이미 `TradingController.ClosePosition()`이 출력한다.
+
+### 15.6 DEAD-6 — `TriggerGimmickDialogue`의 `gimmickContext` 인자 제거
+
+LLM에 넘기던 상황 설명 프롬프트였던 첫 인자가 본문에서 전혀 쓰이지 않았다. 호출부마다 긴 한국어 설명 문자열을 만들어 버리고 있었고, 그 리터럴이 폰트 프리베이크 대상에도 들어가 있었다. 인자를 제거하고 실제 대사인 둘째 인자를 `dialogue`로 개명했다(폴백이 아니라 유일한 경로). 호출부 6곳 수정. 출력 대사는 동일.
+
+### 15.7 SIG-B2 — 트랩 궤적 구간 분할 지터
+
+외부 이벤트 트랩 3종의 꺾임 시점이 항상 같았다(V 0.7 / W 0.4·0.6·0.85 / Slow Bleed 0.85). `GuaranteedOverride` 진입 시 `RollTrapSplits()`가 트랩 타입에 맞춰 기준값 ±0.1 범위에서 1회 추첨한다. W-Shape는 세 경계의 순서를 보장하고 탈출 구간이 0.1 이상 남도록 상한을 둔다. **각 구간 드리프트의 분모를 고정 상수가 아닌 실제 구간 길이로 바꿔** 구간별 총 이동량(예: W는 1.3Δ)이 분할과 무관하게 보존된다 — 분모를 그대로 두면 지터가 곧 빔 위력 변동이 된다.
+
+### 15.8 FIX-1 — 날짜 간 가격·차트 연속성
+
+계획은 "프리웜 출발점을 어제 종가로"였지만, 손대 보니 하루 전환 경로가 두 갈래이고 각각 다르게 깨져 있었다.
+
+| 경로 | 이전 동작 |
+|---|---|
+| GameScene에서 정산 | `ResetEngine(어제 종가)` → 프리웜이 인자를 무시하고 `initialPrice`(67,842)에서 출발 → 직후 자동저장이 리셋된 차트를 저장 |
+| 요미의 방에서 정산 | `InvalidateSavedChartForNewDay()`가 레거시 `ChartHistories`만 비우고 `FlatChartHistories`·가격은 남긴 채 `MarketTotalMinutes = 0` → 다음 날 어제 차트가 복원되면서 시간축만 0으로 |
+
+**변경**
+- `MarketSimulationEngine.RollOverToNewDay(int newDay)` 신설: 거래가 있었던 진행 중 캔들만 마감(24:00에 새로 열린 거래량 0 캔들은 버림) → 시간축을 다음 1440분 경계로(경계 위에 있어도 반드시 한 칸) → 일시 상태 초기화 → `UpdateDailyDifficulty(newDay)`로 새 날 국면 확정 → 새 라이브 캔들. 가격·히스토리는 유지. 밤사이는 시뮬레이션하지 않아 가격 공백이 없다.
+- GameScene 경로: `ResetEngine` 대신 `RollOverToNewDay` 호출.
+- 방 경로: `InvalidateSavedChartForNewDay()` 삭제. 다음 GameScene 진입 시 `RestoreFromSaveData`가 `MarketLastUpdatedDay < CurrentDay`를 보고 스스로 넘긴다. GameScene 경로는 롤오버가 `MarketLastUpdatedDay`를 새 일차로 맞춘 뒤 저장하므로 불러오기에서 두 번 넘기지 않는다.
+- `ResetTransientMarketState()`: 새 게임·불러오기·하루 넘김이 따로 들고 있던 일시 상태 초기화 목록을 하나로. 예전에도 목록 불일치가 버그였다(서버 렉 잔존).
+- `RestoreFromSaveData`: 라이브 M1 캔들이 없을 때 `KeyNotFoundException` 대신 새 캔들을 연다.
+- `PrewarmHistoricalCandles(int, float startPrice)`: `ResetEngine(startPrice)`의 인자가 버려지던 함정 제거. 현재 호출은 새 게임(`initialPrice`)뿐이라 동작 동일.
+
+**안전성**: 복원 중 국면 확정이 `DailyMarketOutlook.Persist()`로 저장을 시도하지만, GameScene 로딩 중에는 `GameState.Loading`이라 `SaveGame`이 거부한다. 롤오버는 `p2pExternalMode`에서 즉시 반환한다. 차트 UI는 캔들을 인덱스 순으로 그려 시간축 점프가 시각적 공백을 만들지 않는다.
+
+**구버전 세이브**: 예전 방 경로가 남긴 `MarketLastUpdatedDay = -1` 세이브는 롤오버 조건에 걸리지 않아 예전처럼 복원된다(1회성).
+
+**남은 영향**: 가격이 날짜를 넘어 복리로 이어지므로 20일 뒤 가격 수준이 초기값과 크게 벌어질 수 있다 — Wave 5 REAL-7(변동성 재조정)에서 다룬다.
+
+### 15.9 FIX-4 — H4·D1 타임프레임 (코드 변경 없음)
+
+프리웜 150분으로는 H4(240분)·D1(1440분)이 1개뿐이고 매일 리셋돼 두 버튼이 장식이었다. FIX-1이 차트를 날짜 너머로 이어 붙이면서 자연히 해결됐다 — 안 (a) 버튼 숨김, (b) 프리웜 1440분은 불필요해졌다. 캔들 집계(`StartNewLiveCandle`/`OnGameMinuteAdvanced`)와 `RollOverToNewDay`를 그대로 옮긴 5일 시뮬레이션으로 D1 하루 1개(타임스탬프 0/1440/2880…), H4 하루 4개·240분 경계 정렬, 거래량 0 캔들 미마감, 타임스탬프 중복 없음을 확인했다. 1일차에는 여전히 프리웜 스텁 1개 + 진행 캔들뿐이다.
+
+### 15.10 FIX-2 — 유동성 사냥 꼬리가 실제로 스탑을 헌팅
+
+`CheckLiquidationSweep()`이 1분봉의 high/low만 늘리고 가격·호가를 움직이지 않아, 꼬리가 아무리 길어도 청산·손절이 일어나지 않았다(주석은 "스탑 헌팅 기믹 강화"). 계획서의 "`OnPriceUpdated`를 꼬리 가격으로 한 번 더 발행" 안은 **통하지 않는다** — `TradingController.CheckLiquidation`은 전달된 가격이 아니라 엔진의 `CurrentBidPrice/AskPrice`를 직접 읽는다.
+
+**변경**: `PrintInstantTick(price, volume)` 신설 — 가격과 호가를 옮기고, 모든 타임프레임 진행 캔들과 24h 통계를 갱신한 뒤 `OnPriceUpdated`를 발행한다. 꼬리 끝에서 한 번, 원래 가격으로 한 번 찍는다. 서버 렉 중에는 꼬리를 찍지 않도록 차단 조건에 추가했다.
+
+**효과**: 청산(호가 기준), AI 목표가/손절가(전달 가격 기준), 이벤트 포지션 반응이 모두 꼬리를 본다. 진입 직후 3초 휩소 보호는 그대로라 진입 직후 즉사는 여전히 막힌다. 꼬리가 상위 타임프레임 진행 캔들에도 그려진다(예전엔 1분봉만). 꼬리가 청산가 0.5% 이내를 스치면 마진콜 슬로우모션이 발동할 수 있다 — 연출상 의도에 부합해 그대로 두었다. **난이도가 오른다**(고배율일수록).
+
+### 15.11 FIX-7 — 수동 진입 수수료 + `TradeFeeRate` 통합
+
+AI 진입(`OpenPosition`)은 포지션 규모의 0.06%를 진입 수수료로 떼는데 수동 진입(`OpenPlayerPosition`)은 빠져 있어, 수동 플레이가 왕복 수수료에서 유리했다. 수동 진입에도 같은 수수료를 부과하고, 흩어져 있던 리터럴 3곳(진입 2·청산 1)을 `TradingController.TradeFeeRate`로 묶었다.
+
+수수료를 그대로 더하면 100% 증거금 진입에서 현금이 음수가 된다(125배면 잔고의 −7.5%). 수동 경로의 "잔고 초과 시 95%" 안전망을 **증거금 + 수수료 ≤ 잔고** 상한(`잔고 / (1 + 레버리지 × 요율)`)으로 바꿨다. 100% 진입의 실제 증거금은 레버리지에 따라 잔고의 약 93~99.9%가 된다 — UI의 "투입" 미리보기(잔고 × 비율)와 그만큼 차이가 난다.
+
+AI 경로는 손대지 않았다. 고배율 올인(오버도즈 강제 진입 등)에서는 지금도 현금이 수수료만큼 음수가 될 수 있다 — 엔딩 판정은 총자산 기준이라 동작에는 문제가 없다.
+
+### 15.12 SIG-B3 — 확정 신호 경로에 평균 회귀 유지
+
+`GuaranteedOverride` 구간은 일방향 궤적을 보장하려고 OU 항을 0으로 껐다. 그래서 추세가 "끌려가듯" 움직였고, 노이즈 편차가 랜덤워크로 쌓여 목표가에 못 미치는 경우가 생겼다(그 보정이 AI의 "Cooldown 진입 즉시 익절" 2중 보장이다).
+
+**변경**: 정상 확정 경로는 OU를 유지하되 중심선을 `SignalStartPrice → 목표가` 경로 위의 현재 진행 지점으로 옮긴다. 강도는 국면별 `ouTheta`(0.01~0.15, 최대 15배 차이) 대신 전용 상수 `SignalPathOuTheta = 0.1`. 전역 `ouCenterPrice`는 건드리지 않는다(신호 종료 후 평시 회귀 기준 보존). **트랩 3종은 계속 OU를 끈다** — 직선 중심선이 V/W/Slow Bleed의 비선형 꺾임을 뭉갠다. 오버도즈 함정은 별도 분기라 영향 없음.
+
+**검증**: 틱 동역학(dt 0.2분, 분당 σ 0.375%, 20분, +4%)을 옮긴 4,000회 시뮬레이션 — 종료 시 목표 대비 편차 표준편차 1.79% → 0.89%(이론 σ/√(2θ) = 0.84%), 경로 최대 이탈 평균 2.10% → 1.49%.
+
+### 15.13 SIG-B5 — 확정 신호 구간의 거래량이 진위를 드러냄
+
+틱 거래량이 `|가격 변화| × 난수`라 거래량 막대가 가격 변화를 다시 보는 것과 같았다(정보량 0). 실제 트레이딩에서 돌파 진위의 1순위 단서가 거래량이라, 요미의 "거래량이 안 붙었어" 같은 간파 대사도 근거 데이터가 없었다.
+
+계획의 `|Δ| × 2.5 / × 0.7`은 **진짜 신호에서 역효과**였다 — 진짜 신호 구간은 노이즈를 ×0.15로 억제해 틱당 |Δ|가 평시보다 작으므로 배수를 곱해도 평시 수준이다.
+
+**변경**: `GuaranteedOverride` 구간(오버도즈 함정 제외)에서는 거래량 기준을 그 국면의 **평시 틱 변동폭**(`가격 × targetVol × √dt`)으로 잡는다. 진짜는 `max(|Δ|, 평시폭) × 2.5`, 가짜는 `평시폭 × 0.7`(상수 `TrueSignalVolumeMultiplier` / `FalseSignalVolumeMultiplier`). 평시 틱 평균 |Δ| ≈ 평시폭 × 0.8이므로 신호 구간 거래량은 진짜 ≈ 평시의 3.1배, 가짜 ≈ 0.9배 — 가짜는 가격이 크게 움직이는데 막대가 평평하다. `targetVol`을 쓰는 이유는 이벤트 빔이 `currentVolatility`를 ×1.8~3.0 부풀리기 때문이다. 평시 거래량은 그대로(REAL-6 잔여).
+
+### 15.14 SIG-A1 — 신호 종류가 일일 거시 기조를 따름
+
+`GenerateMarketSignal()`이 `currentDailyRegime`을 읽지 않아 하락 기조인 날에도 상승 돌파가 35%로 똑같이 나왔다. 일일 기조는 drift(분당 0.015%, 노이즈 대비 SNR 0.06)에만 영향을 줘, 세이브 스컴 방지까지 걸어 둔 요미의 일일 방향 힌트(`DailyMarketOutlook`)가 매매 판단에 거의 쓸모가 없었다.
+
+**변경**
+- 신호 종류 가중치를 기조별 표로(`SignalTypeWeights`): Bull 45/15/15/25, Bear 15/45/25/15, Sideways 20/20/30/30, Squeeze 30/30/20/20 (상승 돌파/하락 돌파/불트랩/베어트랩). 정적 배열이라 호출당 할당 없음.
+- 진위 확률에 기조 정합 보정(`TrendAlignmentBonus`): 같은 방향 돌파 +0.20, 반대 −0.20, 0.05~0.95 클램프.
+- Squeeze 기조: Strong 80%(기본 65%), 목표 변동률 ×1.25.
+
+**효과**: 신호가 기조 방향으로 가격을 움직일 확률이 50% → Bull/Bear 초반 70%, 16일차 이후 62.5%. 횡보·광기는 대칭(50%) 유지.
+
+### 15.15 DEAD-1 — 체력 임계 경고 대사
+
+`TraderStatus.ChangeHealth`의 "체력 임계치 돌파 시 유동적 대사 호출" 블록이 50%/20% 두 분기 모두 비어 있었다. 경계를 **실제로 동작이 바뀌는 지점**으로 다시 잡았다 — 50%(체력 감소가 멘탈로 번지기 시작), 40%(AI Tier 3: 강한 함정을 대박으로 오인), 15%(Tier 4: 다음 신호에서 반대 방향 125배 폭주). 기존 20%는 어떤 동작 경계와도 맞지 않았다. 한 번에 여러 경계를 넘으면(스킬 학습 −25 등) 가장 심각한 것 하나만 말한다. 대사는 요미 화법 규칙(오빠·반말·감정 고조 시 "요미" 자칭·말풍선 80자 이하)을 따랐고, `AIVisualController.DisplayDialogueBalloon`(`EventCategory.MentalChange`)로 띄운다 — 주변 코드와 같은 호출 방식. 새 글자가 모두 폰트 아틀라스(2,195자)에 있어 프리베이크는 불필요했다.
+
+### 15.16 DEAD-2 — 멘탈 안정 ↔ 불안 전이 대사
+
+멘탈 4단계 중 `Danger`(뇌동매매 40%)와 `Overdose`(폭주)는 동작하는데, 중간 두 단계의 전이 블록이 비어 있어 무음이었다. `SayMentalTransition()`을 두고 악화(안정 → 불안)·회복(→ 안정) 대사를 넣었다. 두 가지 오작동을 막았다 — ① 멘탈이 50 근처에서 오르내리면 같은 말이 반복되므로 실시간 20초 쿨다운, ② 다음 날 넘어갈 때 정산 화면에서 멘탈이 최대로 회복되며 회복 대사가 튀므로 `Playing` 상태에서만 말한다. 새 글자는 모두 아틀라스에 있어 프리베이크 불필요.
+
+### 15.17 SIG-0 — `MarketSignal.Direction` 분리
+
+`AITradingBrain`은 신호에서 방향만 뽑으려고 `signal.Type`을 switch 4곳에서 읽었다. 그래서 신호 종류를 하나 추가할 때마다 AI 코드를 함께 고쳐야 했다(셋업 확장 SIG-A4의 병목).
+
+**변경**: `MarketSignal.Direction`(신호가 진입을 유도하는 방향, 진위와 무관) + `AdvertisedDirectionOf(type)` + `LureDirection`(Direction이 비면 Type에서 유도하는 폴백). 신호를 만드는 3곳과 테스트 주입이 Direction을 채운다. AI의 switch 4개는 `signal.LureDirection` / `Opposite(...)`로 치환 — `AITradingBrain`은 더 이상 `signal.Type`을 읽지 않는다.
+
+**동작 변화 (버그 수정)**: Tier 3의 trap 방향 switch에 `BearishBreakout`이 없어 기본값 Long으로 떨어졌다. 이 분기는 "강한 **가짜** 신호"만 타므로 가짜 하락 돌파(실제로는 상승)에 Long으로 들어가 오히려 이겼다. 이제 유도 방향(Short)으로 들어가 Tier 3의 의도("함정을 대박으로 오인")대로 속는다.
+
+### 15.18 SIG-B1 — 확정 구간 궤적을 진행률 커브 데이터로
+
+트랩 3종(V/W/Slow Bleed)이 엔진 안에 구간별 if/else로 하드코딩돼 있었고 정상 신호는 직선 하나뿐이라, 새 패턴은 코드 수정이 필요했고 AI 신호가 실제로 쓰는 궤적은 사실상 1개였다.
+
+**신설 `TrajectoryProfile`** (`ScriptableObject`, 새 파일 `Assets/Scripts/Trading/TrajectoryProfile.cs` + `.meta`): `progress` 커브(경과 비율 → 목표 변동률의 몇 배), `noise` 커브, `timeWarpJitter`, `trackPathWithOu`, `weight`. `CreateAssetMenu`로 기획자가 에셋을 만들어 엔진의 `trapTrajectories` / `pathTrajectories`에 넣으면 가중 추첨된다. 비어 있으면 **`TrajectoryLibrary` 내장 궤적**을 쓴다 — 트랩 3종(예전 패턴과 모양·총 이동량 동일)과 정상 경로 4종(Linear / Breakout ease-out / Squeeze ease-in / Staircase). 내장 인스턴스는 `HideFlags.HideAndDontSave`로 씬 전환 시 회수되지 않게 했다.
+
+**드리프트 계산**: 계획은 커브 기울기였지만, 수치 미분 × 분 단위 진행은 꺾인 지점과 시간 비틀림(t^0.8은 0 근처 기울기 발산)에서 총 이동량이 최대 38% 어긋났다. 매 분 **그 1분의 진행률 변화량** `P(t+1/D) − P(t)`를 쓰도록 바꿔, 합이 망원급수가 되어 D=5~30분·비틀림 0.8~1.25 전 조합에서 오차 0이다. 예전 하드코딩도 구간 경계가 분 단위와 어긋나면 이동량이 틀어졌는데 함께 사라졌다. 경로 OU 중심과 노이즈 배수는 분 중간 지점에서 평가한다.
+
+**SIG-B2 대체**: `currentOverdriveTrapType` / `trapSplitA·B·C` / `RollTrapSplits()`를 제거하고, 커브 전체에 적용되는 시간 비틀림 `t^e`로 지터를 일반화했다.
+
+**SIG-B3 일반화**: 경로 OU 적용 여부를 "트랩이냐"가 아니라 프로필의 `trackPathWithOu`로 정한다. 중심선은 직선이 아니라 커브 위의 지점이다.
+
+새 파일은 Unity 배치모드(`RiderScriptEditor.SyncSolution`)로 `.meta`·csproj를 생성한 뒤 컴파일을 확인했다.
+
+### 15.19 SIG-A4 — 시장 신호 셋업 10종
+
+신호는 `Breakout × 2방향 + Trap × 2방향`이 전부였고, 가짜 신호는 처음부터 목표(유인 반대) 방향으로만 움직였다.
+
+**설계**: AI가 읽는 요약(종류·강도·진위·`Direction`)은 그대로 두고, `MarketSignal.Setup`(`SignalSetup` 10종)을 **연출 레이어**로 얹었다. SIG-0 덕에 AI 코드 변경은 0줄이다.
+
+**변경**
+- `SignalSetup`: 추세 돌파 / 가짜 돌파 / 추세 지속 / 박스권 반락 / 스탑 사냥 / 투매 후 V반등 / 고점 분산 / 뉴스 스파이크 / 변동성 수축 돌파 / 양방향 유동성 사냥.
+- `ChooseSetup(type, isTrue)`: A1이 정한 종류·진위와 그날 기조로 셋업을 가중 추첨(정적 표 8개, 할당 없음). 롱 유인 트랩은 고점 분산, 숏 유인 트랩은 투매 후 V반등이 전형이고, 횡보장 트랩은 박스권 반락이 많다. 뉴스 스파이크는 예고 1분·지속 5~10분.
+- `TrajectoryLibrary.ForSetup` / `PickForSetup`: 셋업별 내장 궤적 8종 신설 + 기존 정상 경로 4종 배분. 진행률이 먼저 음수로 내려가는 궤적은 유인 방향으로 찌른 뒤 반전한다 — 속은 쪽이 잠깐 이기다 털린다. `TrajectoryProfile.setup` 태그로 기획자 에셋을 셋업에 붙일 수 있다.
+- 외부 주입은 진위에 맞춰 추세 돌파/가짜 돌파, 오버도즈 함정은 가짜 돌파로 기본 셋업을 채운다. 이벤트 빔의 궤적 선택은 이전과 같다(트랩 3종 / 정상 경로 4종).
+- 로그의 신호 설명에 셋업 이름을 붙였다(신호 종류를 읽는 UI는 없음 — 플레이어에게는 차트 모양으로만 전달).
+
+**결과 빈도 (1~5일차)**: Bull 기조 — 추세 돌파 21% / 가짜 돌파 21% / 추세 지속 14% / 양방향 사냥 12% / 스탑 사냥 11% …, 횡보 기조 — 박스권 반락 27% / 가짜 돌파 23% … 16일차 이후 가짜 계열 비중 증가. Grace 구간의 셋업별 사전 연출은 SIG-B6 범위.
+
+### 15.20 SIG-A3 — 신호가 차트 모양을 읽음
+
+신호가 현재 차트와 무관하게 발생해, 캔들 히스토리를 200개씩 들고 있으면서도 차트를 봐서 얻을 단서가 없었다.
+
+**변경**: `ReadChartContext()` — 최근 60개 1분봉으로 고점/저점 근접(0.3%), 라운드 피겨 근접(0.2%, 오더블록 반발 범위와 동일), 박스 폭(1시간 변동폭 < 분당 σ × √60)을 판정한다. 신호 종류 추첨 시 기조 가중치(SIG-A1)에 배수를 곱해 다시 정규화한다 — 고점 근접이면 상승 돌파 ×1.6·불트랩 ×1.4, 저점 근접이면 하락 돌파 ×1.6·베어트랩 ×1.4, 라운드 피겨면 트랩 ×1.5. 박스가 조여 있었으면 진짜 돌파의 셋업을 변동성 수축 돌파 계열로(`ChooseSetup`에 인자 추가). 신호 생성 때만(수 분에 한 번) 60개를 순회하므로 비용은 무시할 수준. 로그에 컨텍스트를 남긴다.
+
+예: 횡보 기조·1시간 고점 근접 → 불트랩 34% / 상승 돌파 26% / 베어트랩 24% / 하락 돌파 16%. "직전 고점 돌파 실패 → 더블탑"은 신호 이력이 필요해 SIG-A2로 넘겼다.
+
+### 15.21 DEAD-4 — `TraderMemoryManager` 삭제
+
+LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddMemory`, 차트 힌트 1곳)·압축(`OnDayAdvanced`)·저장(Reflection)은 하는데, 유일한 읽기 메서드 `GetShortTermDialoguesText()`와 `RecordDialogue()`는 호출자가 0이었다 — LLM 제거(2026-09-22)로 소비자가 사라진 쓰기 전용 저장소.
+
+**삭제**: `TraderMemoryManager.cs`·`MemoryEntry.cs`(+ `.meta`), `AITradingBrain.ProvideChartHintToPlayer`의 `AddMemory` 호출, `GameManager`의 `ResetAll`(새 게임)·`OnDayAdvanced`(하루 넘김) 호출, `SaveLoadManager`의 `ExtractMemoryData`/`RestoreMemoryData`(private 필드 Reflection 접근)와 호출부, `SaveData`의 `ShortTermDialogues`/`LongTermMemories`/`DailySummaryKeys`/`DailySummaryValues`.
+
+**확인**: 씬·프리팹·에셋이 두 스크립트의 GUID를 참조하지 않는다. 다른 곳에서 쓰는 `EventCategory`/`DialoguePriority`는 `AIVisualController.cs`에 정의돼 있어 영향 없다. 구버전 세이브의 기억 필드는 `JsonUtility`가 무시한다. csproj는 Unity를 띄우지 않고 삭제된 두 `<Compile>` 항목만 뺀 뒤 빌드를 확인했다(Unity가 다음 실행 때 재생성하는 gitignore 파일).
+
+### 15.22 SIG-A2 — 직전 신호 기억
+
+신호가 매번 독립 추첨이라 연속 플레이에 "흐름"이 없었다.
+
+**변경**: `RememberSignal()`이 시장 신호(이벤트 빔·오버도즈 함정 제외)의 진위·강도·실제 이동 방향·유도 방향·고점/저점 근접 여부와 같은 방향 진짜 신호 연속 횟수를 기억한다. 다음 신호 생성 때
+- `ApplySignalMemory()` — 가짜 뒤에는 그 가짜가 실제로 간 방향의 돌파 ×1.5(휩소 뒤 진짜 움직임), 같은 방향 진짜 2연속 뒤에는 그 방향으로 꼬신 뒤 꺾는 트랩 ×1.6(과열), 고점(저점)에서 롱(숏)을 꼬신 가짜 뒤 다시 고점(저점)이면 같은 트랩 ×1.5(이중 천장/바닥 — SIG-A3에서 넘긴 항목)
+- `MemoryTruthBonus()` — 휩소 뒤 진짜 움직임 방향의 돌파는 진위 확률 +0.15
+- 직전이 약한 신호면 강한 신호 확률 +0.15
+
+기억은 저장하지 않는다(불러오면 기억 없이 시작). 예: 횡보장에서 위로 턴 가짜 뒤 진짜 상승 돌파 확률 12% → 20.5%.
+
+### 15.23 SIG-A5 — 신호 목표 변동률 로그정규화
+
+`Random.Range(3.0, 6.0)` / `(0.6, 1.5)` 균등분포라 신호 크기가 항상 중간쯤이었다. `LogNormalMagnitude(median, min, max)` — 로그 표준편차 0.45, 중앙값을 평균보다 낮게 두고 상·하한으로 극단을 막는다. 강한 신호 중앙값 4.1%(평균 4.51%, 90% 구간 2.0~8.6%, 상한 11%, 8% 초과 6.8%), 약한 신호 중앙값 0.95%(평균 1.05%, 상한 2.6%). **평균은 예전과 같아** 밸런스 축은 그대로이고 분포 모양만 바뀐다. 틱 노이즈의 인라인 Box-Muller를 같은 `GaussianSample()` 헬퍼로 묶었다(계산 동일).
+
+### 15.24 SIG-A7 — 신호 간격 지수분포 + 세션 가중
+
+다음 신호까지의 간격이 균등분포(쿨다운 후 8~15분, 무포지션 조기 종료 후 5~10분)라 늘 비슷한 간격이었고, 세션 시스템이 있는데도 신호 빈도와는 무관했다.
+
+**변경**: `NextSignalInterval(baseMean, minGap)` — 최소 간격 위에 지수분포를 얹고 평균에 세션 배수(`SessionSignalIntervalScale`: 아시아 1.5 / 런던 1.0 / 뉴욕 0.7, 시각 경계는 세션 변동성과 동일)를 곱한다. 기준 평균 4배에서 자른다. `Random.value`가 1을 포함하므로 `Log(0)`을 피하는 가드를 둔다. 기준 평균은 예전 균등분포의 평균(11.5 / 7.5분)과 같다 — 런던장 체감 빈도는 그대로, 뉴욕장 평균 8.0분으로 바빠진다(20만 회 표본). 개장 직후·롤오버·오버도즈 해제 후의 즉시 신호(3분)와 고속 스킵 종료 후(3~5분)는 그대로 두었다. 거래 시간이 09~24시라 아시아장 배수는 현재 쓰이지 않는다.
+
+### 15.25 SIG-B4 — 사인파 주기·위상 랜덤화
+
+틱 드리프트의 기본 파동(350/130/15초)과 확정 구간 파동 스타일의 사인(주파수 2.5/5.0, 0.5/0.2)이 주기·위상 모두 고정이라, 숙련 플레이어가 짧은 주기를 눈으로 익혀 읽을 수 있었다(실제 시장에 없는 결정론적 패턴).
+
+**변경**: `RollBaseWaveShape()` — 기본 파동 3개의 주기를 ±20%, 위상을 0~2π에서 추첨한다. 새 게임(`ResetEngine`)·불러오기(`RestoreFromSaveData`)·하루 넘김(`RollOverToNewDay`) 때 호출 — 하루 단위로 바뀐다(저장하지 않음). `RollStyleWaveShape()` — 확정 구간 진입 시 파동 스타일 사인 2개의 주파수를 ±30%, 위상을 추첨한다. 진폭은 그대로라 변동성 크기는 변하지 않는다.
+
+### 15.26 SIG-B6 — GraceWindow를 돌파 직전 변동성 수축으로
+
+신호 예고 구간(GraceWindow)이 "노이즈 ×0.4 + drift 0"으로 단조로웠고, 실제 돌파 직전의 모습(캔들이 작아지고 거래량이 마름)과도 달랐다.
+
+**변경**: `ApplyGraceShape()` — 경과 비율 g에 따라 노이즈를 0.6 → 0.15로 조이고, 틱 거래량에 0.8 → 0.4 배수(`graceVolumeScale`)를 곱하며, g ≥ 0.6부터 유인 방향으로 분당 0.05%(`GraceLeanPerMinute`) 기운다 — 진짜 신호면 예고, 가짜 신호면 미끼. SIG-A4가 미뤄둔 셋업별 사전 연출을 함께 넣었다: 변동성 수축 돌파는 0.4 → 0.05로 극단 수축, 스탑 사냥은 노이즈 0.3 고정·기울기 없음(스윕은 예고 없이), 추세 지속은 막바지에 유인 반대로 0.8배 눌림(얕은 되돌림), 뉴스 스파이크는 전조 없이 평시 노이즈·드리프트 그대로. 계획의 "페이크 틱 1~2회"는 작은 드리프트로 대체했다 — A4 가짜 계열 궤적이 먼저 유인 방향으로 찌르므로 그와 연속된다.
+
+### 15.27 REAL-4 — 점프 항 (두꺼운 꼬리)
+
+틱 노이즈가 정규분포(Box-Muller)라 큰 움직임은 신호 시스템이 예고한 것뿐이었고, 실제 BTC처럼 "평온하던 차트가 예고 없이 튀는" 일이 구조적으로 불가능했다.
+
+**변경**: 평시 구간(신호 예고·확정·오버도즈 함정·고속 스킵이 아닐 때) 매 틱 `JumpsPerMinute × dtFraction` 확률로 점프를 더한다. 분당 확률 3/900(거래일 900분당 3회 기준), 크기는 로그정규 중앙값 1.2%(로그 σ 0.4, 0.5~3% 클램프), 방향은 무작위. 점프 직후 순간 변동성 ×1.5로 여진이 남는다. 신호가 시간의 상당 부분을 차지하므로 실제 빈도는 거래일당 대략 1.5~2회. 점프는 일반 틱 경로로 반영되므로 청산 판정·캔들·거래량(가격 변화 비례)이 자연히 따라온다. 고배율 포지션은 점프 한 번에 청산될 수 있다 — 밸런스는 Wave 5에서 다룬다.
+
+### 15.28 REAL-5 — GARCH 풍 변동성 군집
+
+주석은 "GARCH 스타일 변동성 군집 (스파이크 후 유지)"였지만 `currentVolatility = Lerp(current, targetVol, dtFraction × 5)`는 1~5일차 틱(dtFraction 0.2)에서 보간 계수가 정확히 1.0이었다 — **매 틱 목표값으로 즉시 덮어써** 군집이 전혀 없었고, 유동성 사냥 ×2·이벤트 빔 ×1.8/×3.0·점프 ×1.5 같은 순간 변동성 증폭이 다음 틱에 지워졌다(6일차 이후엔 틱이 촘촘해져 계수가 1 미만이 되며 약간만 남았다).
+
+**변경**: 분산 공간에서 두 단계로 갱신한다.
+1. 틱 시작 — 국면 목표 분산으로 분당 0.1만큼 회귀(반감기 약 7분, `VolMeanReversionPerMinute`).
+2. 틱 끝 — 이번 틱 실현 분산(`수익률²/dtFraction`)을 향해 분당 0.1만큼 이동(`VolShockWeightPerMinute`). 정규 노이즈에서는 기댓값이 현재 분산과 같아 평균 수준은 유지되고, 큰 움직임 뒤에는 변동성이 커진 채 남는다. 국면 목표의 0.5~4배로 묶는다.
+
+**검증**: 틱 동역학(dt 0.2분, 목표 0.25%/분, 점프 포함) 2만 분 시뮬레이션 — 분당 |수익률| 자기상관이 기존 0.00 → lag1 +0.11 / lag5 +0.08 / lag15 +0.04(군집이 생기고 서서히 감쇠). 평균 실현 변동 0.263% → 0.285%(점프 여진이 이제 남으므로 약 8%↑) — Wave 5 REAL-7에서 수준을 재조정한다. 스프레드가 변동성 비례라 큰 움직임 뒤 호가도 넓어진다.
+
+### 15.29 REAL-7 — 배경 시장 변동성 절대 수준 재조정
+
+일간 변동성이 실제 BTC(2~4%)의 3~8배였다(Sideways 약 13.6%, Squeeze 약 65%). 국면 드리프트도 같은 과장이라, 순수 Bull 국면 하루면 OU 감쇠를 감안해도 약 26% 추세가 났다.
+
+**변경**: `MarketVolatilityScale = 0.5`를 **배경 시장 전체** — 국면 목표 변동성(`targetVol`, 세션 배수 적용 후), 국면 드리프트, 거시 드리프트, 기본 파동 — 에 곱한다. 노이즈만 줄이면 추세가 상대적으로 더 과장되므로 드리프트도 함께 줄였다. GraceWindow의 유인 기울기(SIG-B6)도 노이즈 대비 "살짝"이 유지되도록 같은 배율을 곱한다. 신호 목표 변동률·트랩 궤적·점프·유동성 사냥·오버도즈 함정 빔 같은 **사건은 곱하지 않는다** — 배경이 차분해지는 만큼 사건이 또렷해진다. 거래량 진위 기준(SIG-B5)은 `targetVol`을 쓰므로 자동으로 따라간다.
+
+**결과**: Sideways 일간 13.6% → 6.8%, Bull/Bear 19/24% → 9.5/12%, Squeeze 65% → 33%, 순수 Bull 국면 추세 26% → 13%(세션 보정·REAL-5 군집 포함 계산). REAL-8(세션 배수 현실화)까지 적용하면 Sideways 약 5% — 하루가 실시간 10분인 템포를 감안한 "실제의 약 1.5~2배" 목표. 스프레드가 변동성 비례라 평시 호가도 좁아진다.
+
+### 15.30 REAL-8 — 세션 변동성 배수 현실화
+
+세션 변동성 배수가 아시아 0.5 / 런던 1.2 / 뉴욕 2.0으로 최대 4배 차이였다. 실제 BTC의 세션 간 차이는 대략 1.3~1.8배다. 아시아 0.8 / 런던 1.0 / 뉴욕 1.4(최대 1.75배)로 바꿨다. 가짜돌파 확률 보정(아시아 ×0.5, 뉴욕 ×1.5)은 세션 "성격"이라 그대로 두었다. 거래 시간(09~24시) 세션 가중 배수가 1.675 → 1.230이 되어, REAL-7과 합쳐 Sideways 일간 변동성은 약 5.0%(실제 2~4%의 약 1.5~2배)다. 뉴욕장의 체감 차별화는 SIG-A7(신호 빈도 ×1/0.7)이 함께 맡는다.
+
+### 15.31 FIX-5 — 책읽기 스킬 손절 강도 테이블
+
+`GetStopLossTightness()`의 LV.1→10이 9.0% → 5.0%라 스킬 10단계의 효과 폭이 작았고, 그 메서드의 doc 주석(`-0.015 = -1.5%`), `TradingController`의 `-30% ~ -5%` 주석, AI Tier 3 증거금 공식(`손절강도 × 10`, "최소 15%")은 모두 LV.10 = 1.5%를 전제하고 있었다. 테이블을 주석 쪽에 맞춰 **9.0% → 1.5% 기하급수 곡선**(레벨당 약 18% 감소: 9.0 / 7.4 / 6.0 / 5.0 / 4.1 / 3.3 / 2.7 / 2.2 / 1.8 / 1.5%)으로 바꿨다. 초반 개선이 크고 후반은 체감한다. 이벤트 `InstantStopLoss`와 고속 스킵 강제 손절의 `3.33f * 100f` 마법 상수는 `StopLossTightnessToROE = 333`으로 명명했다(LV.1 −30% ~ LV.10 −5% ROE). 보스는 자체 `BossLevelProvider`라 영향 없고, 스킬 HUD는 값을 그대로 표시해 자동 반영된다. REAL-7로 배경 노이즈가 절반이 되어 1.5% 손절도 노이즈만으로는 잘 맞지 않는다(20분 신호의 노이즈 σ 약 0.56%).
+
+### 15.32 FIX-6 — 자연 체력 감소를 인게임 분 단위로 재정의
+
+이전 식은 `min(0.15, healthDecreasePerSecond + 일차 × 0.005) × 1.5 × (5 / secondsPerGameMinute)` 초당이었다. 하드코딩 1.5와 `speedScale`(0.666초/분에서 7.5배)이 겹쳐, 씬 직렬화값 0.04 기준으로 1일차에 아이템 없이 실시간 약 198초(인게임 약 5시간)면 체력이 바닥났다 — 하루 900분 거래를 버틸 수 없어 아이템 사용이 사실상 강제였다. 헤더 문구 "(게임 8시간 = 100 소모 속도)"도 사실과 달랐다.
+
+**변경**: `healthDrainPerGameMinuteDay1 = 0.078`(1일차 하루 약 70% 소모), `healthDrainGrowthPerDay = 0.111`(이전 식의 일차 증가 비율을 그대로 옮김), `maxHealthDrainDayFactor = 3.33`. 프레임 감소량 = 분당 감소 × 일차 배율 × (1 − 체력 보호율) × (deltaTime / secondsPerGameMinute). 인게임 분 기준이라 슬로우모션·배달 음식 배속에서도 게임 시간당 소모가 유지된다. 기존 직렬화 필드 `healthDecreasePerSecond`는 새 필드로 대체했다(씬의 옛 값은 Unity가 다음 저장 때 버린다).
+
+**결과**: 아이템 없이 하루 소모 — 1일차 70% / 5일차 101% / 10일차 140% / 20일차 218%. 체력 고갈 시점 1일차 인게임 4.9h → 21.4h, 20일차 1.6h → 6.9h. 체력 50% 이하에서의 멘탈 연동 감소도 같은 비율로 느려진다. `verify_mental_balance.py`는 체력 경로를 모델링하지 않으며 전 항목 통과.
+
+### 15.33 REAL-1 — 펀딩비 (보유 비용)
+
+진입·청산 수수료만 있고 보유가 공짜라 `GreedyHold`·`HoldToMitigateLoss` 같은 버티기 전략에 비용이 없었고, DEL-2(정기 지출 삭제)로 장기 자산 압박도 비어 있었다.
+
+**변경**: `TradingController`가 `GameManager.OnGameMinuteAdvanced`를 구독해 `SettleHourlyFunding()`에서 인게임 매시 정각(`CurrentMinute == 0`, 하루 15회)에 `증거금 × 레버리지 × FundingRatePerHour(0.01%) × 국면 배율`을 `ChangeBalance`로 주고받는다. 국면 배율은 Bull +1 / Bear −1 / Sideways +0.3 / Squeeze +2, 양수면 롱 지불·숏 수령. P2P 모드 제외. 지불이 현금보다 크면 현금만큼만 낸다(`ponytail:` 주석 — 올인 포지션 사실상 면제, 격리 마진 모델이 필요해지면 확장). |지불액| ≥ 증거금 1%면 요미 말풍선(Low 우선순위).
+
+**규모**: 100배 시간당 증거금 1%(스퀴즈 2%), 10배 0.1%. 추세를 거스른 100배 포지션을 하루 종일 들면 증거금의 약 15%가 빠진다. 세이브 필드 변경 없음, 새 대사 글자는 폰트 아틀라스에 모두 있음.
+
+### 15.34 SIG-A6 — 트랩 불확실성 (15% 반전)
+
+트랩은 가격이 100% 유인 반대로 가서, 요미가 간파하면(Tier 1 역진입) 무조건 이겼다.
+
+**변경**: `MarketSimulationEngine`에 `TrapFollowThroughProbability = 0.15`. 트랩 신호의 15%는 `TargetPercentageDelta`를 유인 방향으로 정한다. `IsTrueSignal`은 요미(AI)가 읽는 판정이므로 false로 유지 — 별도 플래그 없이 Tier 1 역진입이 15% 틀리고 Tier 3 오인 진입이 15% 맞는다. 셋업은 트랩 계열 그대로라 궤적이 반대로 한 번 찌른 뒤 유인 방향으로 간다. 목표 변동률 계산을 `lureSign × mag` 한 줄로 묶어 신호 종류 × 강도 8분기를 없앴다. `MarketSignal.IsTrueSignal` 주석에 "실제 방향은 TargetPercentageDelta 부호" 명시.
+
+**영향**: 실제 방향을 쓰는 곳(신호 기억 `RememberSignal`, 고속 스킵 강제 방향, 정답 방향 판정)은 이미 `TargetPercentageDelta` 부호를 써서 그대로 맞다. 반전 트랩은 `IsTrueSignal = false`라 진짜 신호용 노이즈 억제·거래량 2.5배를 받지 않는다(트랩다운 겉모습 유지). 세이브 변경 없음.
+
+### 15.35 SIG-B8 — 진짜 신호 노이즈 억제 완화
+
+`GuaranteedOverride`에서 진짜 신호(`!isExternalEventOverride && IsTrueSignal`)의 틱 노이즈를 ×0.15로 눌러, 구간이 눈에 띄게 매끈했다 — 차트의 매끄러움이 "진짜"라는 답을 흘렸다.
+
+**변경**: `stochasticNoise *= 0.15f` → `0.6f`. 좁은 손절선 보호는 원래 그 목적인 −25% ROE 스프링 꼬리 가드에 맡긴다. B3(경로 OU, `SignalPathOuTheta`)가 노이즈로 벗어난 가격을 중심선으로 되돌린다.
+
+**규모**: REAL-7 이후 배경 변동성이 절반이라 진짜 신호 구간 노이즈는 REAL-7 이전 평시의 약 0.3배(예전 억제 0.15배의 2배). 거래량 기준(SIG-B5)은 `max(|Δ|, 평시폭)`이라 무관. 트랩·이벤트 빔 경로는 변경 없음.
+
+### 15.36 SIG-B7 — 확정 구간 개미털기(shakeout)
+
+유동성 사냥이 `GuaranteedOverride` 구간에서 통째로 차단되어, 확정 추세가 한 번도 털지 않고 흘렀다.
+
+**변경**: `CheckLiquidationSweep()`의 확정 구간 조기 반환을 `TryShakeout()` 호출로 바꿨다. 진짜 시장 신호(`!isExternalEventOverride && IsTrueSignal`)만, 확정 구간 경과 2분 이후 매분 `1.5 / DurationMinutes` 확률로 목표 반대 방향 0.3~0.8% 꼬리를 `PrintInstantTick`으로 찍고 즉시 되돌린다(FIX-2와 같은 방식, 거래량 +50~200). 오버도즈·고속 스킵·서버 렉 차단과 P2P 제외는 기존 경로를 그대로 탄다.
+
+**영향**: 신호당 평균 강한 신호 약 1.3회 / 약한 신호 약 0.9회. 꼬리는 −25% 스프링 가드를 거치지 않으므로, 진입 직후라면 약 77배 이상 정방향 포지션도 청산될 수 있다(의도된 난이도 상승). 요미(AI)의 고배율 진짜 신호 진입도 같은 위협을 받는다. 세이브 변경 없음.
 
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

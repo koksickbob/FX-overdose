@@ -32,15 +32,16 @@ public class TraderStatus : MonoBehaviour
     [SerializeField] private float maxMental = 100f;     // 최대 멘탈
     [SerializeField] private float currentMental = 100f; // 현재 멘탈
 
-    [Header("시간에 따른 감소량 (게임 8시간 = 100 소모 속도)")]
-    [Tooltip("현실 시간 1초마다 감소하는 체력입니다.")]
-    [SerializeField] private float healthDecreasePerSecond = 0.05f;
+    [Header("시간에 따른 체력 감소 (인게임 분 단위)")]
+    [Tooltip("1일차 인게임 1분당 체력 감소량. 0.078이면 아이템 없이 하루(09~24시, 900분)에 약 70%를 씁니다.")]
+    [SerializeField] private float healthDrainPerGameMinuteDay1 = 0.078f;
+    [Tooltip("일차가 하루 오를 때마다 늘어나는 감소 비율. 0.111이면 20일차에 약 3.1배.")]
+    [SerializeField] private float healthDrainGrowthPerDay = 0.111f;
+    [Tooltip("일차에 따른 감소 배율의 상한.")]
+    [SerializeField] private float maxHealthDrainDayFactor = 3.33f;
 
     [Header("상시 멘탈 기믹 상태")]
     [SerializeField] private int currentLosingStreak = 0; // 연속 손절 카운터
-    [SerializeField] private bool isLeverageAddicted = false; // 고배율 중독 상태
-    [SerializeField] private int consecutiveHighLevWins = 0; // 50배 이상 연속 익절 카운터
-    [SerializeField] private int consecutiveLowLevTrades = 0; // 중독 상태에서 50배 이하 매매 카운터
 
     [Header("지속 멘탈 감소 누적기")]
     [SerializeField] private float healthDropMentalDrainAccumulator = 0f;
@@ -90,7 +91,7 @@ public class TraderStatus : MonoBehaviour
     }
     public MentalState CurrentMentalState => currentMentalState;
 
-    // 아래 네 상태는 ChangeMental/ChangeHealth 같은 mutator와 달리 프로퍼티 세터라
+    // 아래 기믹 상태는 ChangeMental/ChangeHealth 같은 mutator와 달리 프로퍼티 세터라
     // 정본 위임 가드가 빠져 있었습니다. 비정본 인스턴스에 쓰면 다음 SyncFromCanonical이
     // 조용히 되돌려 기믹이 무음 실패하므로, 읽기·쓰기 모두 정본을 거치게 합니다.
     private TraderStatus Owner
@@ -106,21 +107,6 @@ public class TraderStatus : MonoBehaviour
     {
         get => Owner.currentLosingStreak;
         set => Owner.currentLosingStreak = Mathf.Max(0, value);
-    }
-    public bool IsLeverageAddicted
-    {
-        get => Owner.isLeverageAddicted;
-        set => Owner.isLeverageAddicted = value;
-    }
-    public int ConsecutiveHighLevWins
-    {
-        get => Owner.consecutiveHighLevWins;
-        set => Owner.consecutiveHighLevWins = Mathf.Max(0, value);
-    }
-    public int ConsecutiveLowLevTrades
-    {
-        get => Owner.consecutiveLowLevTrades;
-        set => Owner.consecutiveLowLevTrades = Mathf.Max(0, value);
     }
     // 실시간 총 자산 (보유 현금 + 포지션 증거금 + 미실현 손익) 반환
     public float GetTotalEquity()
@@ -163,7 +149,7 @@ public class TraderStatus : MonoBehaviour
     private bool wasLoaded = false;
 
     /// <summary>
-    /// 세이브에 상태를 담습니다. 중독·연패 카운터가 빠져 있어
+    /// 세이브에 상태를 담습니다. 연패 카운터가 빠져 있어
     /// 불러오기 한 번으로 페널티가 해제되던 문제를 막습니다. (SV-A1~A3)
     /// </summary>
     public void CaptureSaveData(FXOverdose.Core.SaveData data)
@@ -175,9 +161,6 @@ public class TraderStatus : MonoBehaviour
         data.CurrentHealth = currentHealth;
         data.MaxMental = maxMental;
 
-        data.IsLeverageAddicted = isLeverageAddicted;
-        data.ConsecutiveHighLevWins = consecutiveHighLevWins;
-        data.ConsecutiveLowLevTrades = consecutiveLowLevTrades;
         data.CurrentLosingStreak = currentLosingStreak;
     }
 
@@ -196,9 +179,6 @@ public class TraderStatus : MonoBehaviour
             maxMental = data.MaxMental;
         }
 
-        isLeverageAddicted = data.IsLeverageAddicted;
-        consecutiveHighLevWins = data.ConsecutiveHighLevWins;
-        consecutiveLowLevTrades = data.ConsecutiveLowLevTrades;
         currentLosingStreak = data.CurrentLosingStreak;
 
         // 복원된 상태를 추적기와 구독자·미러 인스턴스에 반영합니다. 이게 없으면
@@ -240,9 +220,6 @@ public class TraderStatus : MonoBehaviour
             this.currentMental = canonical.currentMental;
             this.maxMental = canonical.maxMental;
             this.currentLosingStreak = canonical.currentLosingStreak;
-            this.isLeverageAddicted = canonical.isLeverageAddicted;
-            this.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
-            this.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
             this.currentMentalState = canonical.currentMentalState;
 
             this.healthDropMentalDrainAccumulator = canonical.healthDropMentalDrainAccumulator;
@@ -267,9 +244,6 @@ public class TraderStatus : MonoBehaviour
                 st.currentMental = canonical.currentMental;
                 st.maxMental = canonical.maxMental;
                 st.currentLosingStreak = canonical.currentLosingStreak;
-                st.isLeverageAddicted = canonical.isLeverageAddicted;
-                st.consecutiveHighLevWins = canonical.consecutiveHighLevWins;
-                st.consecutiveLowLevTrades = canonical.consecutiveLowLevTrades;
                 st.currentMentalState = canonical.currentMentalState;
             }
         }
@@ -324,9 +298,6 @@ public class TraderStatus : MonoBehaviour
         currentHealth = maxHealth;
         currentMental = maxMental;
         currentLosingStreak = 0;
-        isLeverageAddicted = false;
-        consecutiveHighLevWins = 0;
-        consecutiveLowLevTrades = 0;
         if (gameManager == null) gameManager = GameManager.Instance;
 
         healthDropMentalDrainAccumulator = 0f;
@@ -339,15 +310,17 @@ public class TraderStatus : MonoBehaviour
     // 시간에 따라 상태를 감소시키는 함수
     private void DecreaseStatusOverTime()
     {
-        // 인게임 1분 속도(SecondsPerGameMinute)에 동기화하여 체력/멘탈 감소 속도 자동 조절
-        float speedScale = 5.0f / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
-
+        // 자연 체력 감소는 인게임 분 단위로 정의합니다. (FIX-6)
+        // 예전 식(초당 감소량 × 1.5 × 5/SecondsPerGameMinute)은 배수가 겹쳐 1일차에 아이템 없이 실시간 약 198초
+        // (인게임 약 5시간)면 체력이 바닥났습니다 — 하루 거래 시간 900분을 버틸 수 없었습니다.
+        // 인게임 분으로 정의하면 슬로우모션·배달 음식 배속에도 "게임 시간당 소모"가 그대로 유지됩니다.
         float healthGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.HealthDrainReduction : 0f;
         float mentalGuard = ActiveItemEffectManager.Instance != null ? ActiveItemEffectManager.Instance.MentalDrainReduction : 0f;
 
         float currentDay = gameManager != null ? gameManager.CurrentDay : 1f;
-        float currentHealthDecrease = Mathf.Min(0.15f, healthDecreasePerSecond + (currentDay * 0.005f));
-        float healthDrainThisFrame = currentHealthDecrease * 1.5f * (1f - healthGuard) * speedScale * Time.deltaTime;
+        float dayFactor = Mathf.Min(maxHealthDrainDayFactor, 1f + (currentDay - 1f) * healthDrainGrowthPerDay);
+        float gameMinutesThisFrame = Time.deltaTime / Mathf.Max(0.001f, gameManager.SecondsPerGameMinute);
+        float healthDrainThisFrame = healthDrainPerGameMinuteDay1 * dayFactor * (1f - healthGuard) * gameMinutesThisFrame;
 
         ChangeHealth(-healthDrainThisFrame);
 
@@ -385,17 +358,29 @@ public class TraderStatus : MonoBehaviour
             OnHealthChanged?.Invoke(appliedHealthDelta);
         }
 
-        // 체력 임계치 돌파 시 유동적 대사 호출
+        // 체력 임계치 돌파 시 요미가 자기 상태 변화를 알립니다. (DEAD-1)
+        // 각 경계는 실제로 동작이 바뀌는 지점입니다.
+        //  · 50% — 이후 체력 감소가 같은 양만큼 멘탈로 번지기 시작
+        //  · 40% — AI가 강한 함정 신호를 대박 자리로 오인 (AITradingBrain Tier 3)
+        //  · 15% — 다음 신호에서 반대 방향 125배 폭주 매매 (Tier 4)
+        // 한 번에 여러 경계를 넘으면 가장 심각한 것 하나만 말합니다.
         if (amount < 0f && MaxHealth > 0f)
         {
             float prevRatio = prevHealth / MaxHealth;
             float currRatio = currentHealth / MaxHealth;
 
-            if (prevRatio > 0.5f && currRatio <= 0.5f)
+            string line = null;
+            if (prevRatio > 0.15f && currRatio <= 0.15f)
+                line = "더는 못 버텨... 요미 지금 제정신 아니야!! 오빠, 빨리 뭐라도 먹여줘...!";
+            else if (prevRatio > 0.40f && currRatio <= 0.40f)
+                line = "오빠... 눈이 자꾸 감겨... 지금 요미 판단 믿으면 큰일 날지도 몰라!!";
+            else if (prevRatio > 0.5f && currRatio <= 0.5f)
+                line = "하아... 머리가 핑 돌아... 이제부터 지치면 멘탈도 같이 깎여, 오빠...";
+
+            if (line != null)
             {
-            }
-            else if (prevRatio > 0.2f && currRatio <= 0.2f)
-            {
+                var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+                visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
             }
         }
 
@@ -544,6 +529,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Anxious;
                 if (lastTrackedMentalState == MentalState.Stable)
                 {
+                    SayMentalTransition("으음... 요미 슬슬 불안해지기 시작했어... 오빠, 우리 무리하지 말자 응...?");
                 }
             }
         }
@@ -554,6 +540,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Stable;
                 if (lastTrackedMentalState != MentalState.Stable)
                 {
+                    SayMentalTransition("후우~ 이제 좀 살 것 같아! 요미 다시 집중할 수 있어, 오빠!");
                 }
             }
         }
@@ -571,6 +558,25 @@ public class TraderStatus : MonoBehaviour
             OnMentalStateChanged?.Invoke(currentMentalState);
         }
         lastTrackedMentalState = currentMentalState;
+    }
+
+    // 멘탈 상태 전이 대사의 마지막 출력 시각(실시간). 멘탈이 50 근처에서 오르내릴 때 같은 말을 반복하지 않게 합니다.
+    private float lastMentalTransitionLineTime = -999f;
+    private const float MentalTransitionLineCooldown = 20f;
+
+    /// <summary>
+    /// 안정 ↔ 불안 전이를 요미가 말합니다. (DEAD-2)
+    /// 거래 중(Playing)에만 말합니다 — 다음 날로 넘어갈 때 정산 화면에서 멘탈이 최대로 회복되며
+    /// "회복" 대사가 튀어나오는 것을 막습니다.
+    /// </summary>
+    private void SayMentalTransition(string line)
+    {
+        if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing) return;
+        if (Time.unscaledTime - lastMentalTransitionLineTime < MentalTransitionLineCooldown) return;
+        lastMentalTransitionLineTime = Time.unscaledTime;
+
+        var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
+        visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.MentalChange);
     }
 
     // --- 돌발 선택 이벤트 연동 메서드 ---
@@ -591,21 +597,6 @@ public class TraderStatus : MonoBehaviour
         maxMental += amount;
         currentMental = Mathf.Min(currentMental + amount, MaxMental);
         UpdateMentalState();
-        SyncAllInstances();
-    }
-
-    public void CureLeverageAddiction()
-    {
-        if (this != CanonicalInstance && CanonicalInstance != null)
-        {
-            CanonicalInstance.CureLeverageAddiction();
-            return;
-        }
-
-        this.isLeverageAddicted = false;
-        this.consecutiveHighLevWins = 0;
-        this.consecutiveLowLevTrades = 0;
-        Debug.Log("[TraderStatus] 💊 고배율 레버리지 중독 상태가 치료/초기화되었습니다.");
         SyncAllInstances();
     }
 

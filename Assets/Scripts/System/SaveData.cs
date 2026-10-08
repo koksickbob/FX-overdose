@@ -140,12 +140,8 @@ namespace FXOverdose.Core
         public int CubePatienceLevel;
         public int BookJudgmentLevel;
 
-        // --- AI 기억 데이터 (TraderMemoryManager) ---
-        public List<string> ShortTermDialogues = new List<string>();
-        public List<MemoryEntry> LongTermMemories = new List<MemoryEntry>();
-        // Dictionary는 Serializable되지 않으므로 키와 값을 분리하거나 구조체 배열로 변환
-        public List<int> DailySummaryKeys = new List<int>();
-        public List<string> DailySummaryValues = new List<string>();
+        // AI 기억 데이터 4필드(ShortTermDialogues/LongTermMemories/DailySummaryKeys/Values)는 TraderMemoryManager와 함께
+        // 제거되었습니다(2026-10-06). 읽는 곳이 없던 LLM 프롬프트 맥락용이었습니다. 구버전 세이브는 JsonUtility가 무시합니다.
 
         // CurrentEmotion 제거(SV-D1): 수집부에도 주입부에도 쓰이지 않는 데드 필드였습니다.
         // 감정은 매 순간 상황에서 재계산되므로 복원할 이유가 없습니다.
@@ -192,10 +188,9 @@ namespace FXOverdose.Core
         // 기본값 0이라 구버전 세이브는 마이그레이션 없이 tier 0으로 안전하게 시작합니다.
         public int StoreTotalShifts = 0;
 
-        // --- TraderStatus 중독 / 연패 상태 (SV-A1~A3) ---
-        public bool IsLeverageAddicted = false;
-        public int ConsecutiveHighLevWins = 0;
-        public int ConsecutiveLowLevTrades = 0;
+        // --- TraderStatus 연패 상태 (SV-A3) ---
+        // 고배율 중독 3필드(SV-A1·A2)는 기믹 4 삭제와 함께 제거되었습니다. JsonUtility가 모르는 필드를
+        // 무시하므로 그 필드가 남아 있는 구버전 세이브도 그대로 열립니다.
         public int CurrentLosingStreak = 0;
 
         // --- 돌발 선택 이벤트 일일 스케줄 (SV-A4) ---
@@ -214,8 +209,7 @@ namespace FXOverdose.Core
         public bool IsEventTrueSignal = true;
 
         // --- 일일 정산 문맥 (SV-B6, SV-B9) ---
-        public float TodayRegularDeduction = 0f;
-        public string TodayRegularDeductionReason = "";
+        // 정기 지출 금액·사유 2필드는 정기 지출 삭제와 함께 제거되었습니다(구버전 세이브는 JsonUtility가 무시).
         public bool IsSettlementProcessing = false;
 
         // --- 요미 선택형 대화 (P4) ---

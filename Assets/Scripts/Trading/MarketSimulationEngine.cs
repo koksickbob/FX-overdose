@@ -138,7 +138,30 @@ namespace FXOverdose.Trading
 
         // 오버드라이브 연출 상태 변수
         private int currentOverdriveWaveStyle = 0; // 0: 자잘한 요동, 1: 큰 눌림목
-        private int currentOverdriveTrapType = 0;  // 0: Classic V-Shape, 1: W-Shape Double Trap, 2: Slow Bleed + Flash Spike
+
+        // 사인파 파동의 주기(초)·위상 (SIG-B4). 고정이면 숙련 플레이어가 15초 주기를 눈으로 익혀 그대로 읽습니다.
+        // 기본 파동은 하루마다(RollBaseWaveShape), 확정 구간 파동 스타일은 신호마다(RollStyleWaveShape) 다시 뽑습니다.
+        private float wavePeriod1 = 350f, wavePeriod2 = 130f, wavePeriod3 = 15f;
+        private float wavePhase1, wavePhase2, wavePhase3;
+        private float styleFreqScaleA = 1f, styleFreqScaleB = 1f, stylePhaseA, stylePhaseB;
+
+        [Header("확정 신호 궤적 (SIG-B1) — 비워 두면 내장 궤적(TrajectoryLibrary)을 씁니다")]
+        [Tooltip("가짜 이벤트 빔(트랩)용 궤적")]
+        [SerializeField] private List<TrajectoryProfile> trapTrajectories = new List<TrajectoryProfile>();
+        [Tooltip("정상 확정 경로용 궤적 (진짜 신호·AI 신호 전반)")]
+        [SerializeField] private List<TrajectoryProfile> pathTrajectories = new List<TrajectoryProfile>();
+
+        // GuaranteedOverride 진입 시 1회 추첨합니다. 시간 비틀림이 예전 트랩 분할 지점 지터(SIG-B2)를 일반화합니다.
+        private TrajectoryProfile activeTrajectory;
+        private float activeTrajectoryWarp = 1f;
+
+        // 확정 신호 경로를 따라가게 하는 평균 회귀 강도 (SIG-B3). 국면별 ouTheta(0.01~0.15)를 쓰지 않는 이유는
+        // 국면에 따라 경로 추종력이 15배까지 달라지기 때문입니다. 0.1이면 편차의 표준편차가 노이즈의 약 2배 수준에서 안정됩니다.
+        private const float SignalPathOuTheta = 0.1f;
+
+        // 확정 신호 구간의 거래량 배수 (평시 틱 변동폭 기준). 거래량 막대로 신호 진위를 읽을 수 있게 합니다. (SIG-B5)
+        private const float TrueSignalVolumeMultiplier = 2.5f;
+        private const float FalseSignalVolumeMultiplier = 0.7f;
 
         public bool IsOverdoseTrapOverride => isOverdoseTrapOverride;
         public bool IsMarketOpen { get; private set; } = false;
@@ -150,7 +173,11 @@ namespace FXOverdose.Trading
         public event Action<SignalPhase, MarketSignal> OnSignalPhaseChanged;
 
         [Header("Day-Based Difficulty Scaling (Phase 4)")]
-        [SerializeField] private float dayVolatilityMultiplier = 1.0f;
+        // 유동성 사냥 꼬리의 길이·발생 확률 배수입니다. 예전 이름(dayVolatilityMultiplier)과 달리
+        // 틱 변동성(targetVol)에는 곱해지지 않습니다 — 일차가 올라도 실제 변동성은 그대로입니다.
+        [SerializeField] private float sweepIntensityMultiplier = 1.0f;
+        // 틱 갱신 주기만 촘촘하게 만드는 연출 노브입니다. 틱당 분산도 같은 비율로 줄어
+        // 분당 실현 변동성은 그대로입니다(σ√(0.2/I) × √(5I) = σ). 난이도가 아니라 체감용입니다.
         [SerializeField] private float tickInstability = 1.0f; // 1.0 = normal, 10.0 = extremely shaky
         [SerializeField] private float fakeoutProbability = 0.0f;
         [SerializeField] private int slippageRange = 0; // Number of ticks offset
@@ -177,6 +204,7 @@ namespace FXOverdose.Trading
         // 테스트 및 디버그용 수동 신호 발행 Helper
         public void TriggerSignalForTest(MarketSignal signal)
         {
+            if (signal.Direction == TradingController.PositionType.None) signal.Direction = MarketSignal.AdvertisedDirectionOf(signal.Type);
             activeSignal = signal;
             currentSignalPhase = SignalPhase.GraceWindow;
             // 💡 [타이머 정상화] 신호 주입 시 여유 시간(GraceWindow)을 정상 반영하여 즉시 GuaranteedOverride로 건너뛰지 않도록 보호
@@ -316,17 +344,8 @@ namespace FXOverdose.Trading
             currentTotalMinutes = data.MarketTotalMinutes;
 
             // 로드 시 진행 중이던 신호(이벤트)는 activeSignal 객체가 없으므로 None으로 안전하게 초기화
-            currentSignalPhase = SignalPhase.None;
-            signalPhaseTimerMinutes = 0;
-            isExternalEventOverride = false;
-            isOverdoseTrapOverride = false;
-            // 두 초기화 경로(ResetEngine/여기)의 목록을 일치시킵니다.
-            // 특히 서버 렉을 남겨 두면 불러오기 직후 차트가 몇 초간 멈춘 채 시작합니다.
-            overdoseTrapEndTime = -1f;
-            isServerLagging = false;
-            serverLagTimer = 0f;
-            accumulatedLagPriceDelta = 0f;
-            accumulatedLagVolume = 0f;
+            ResetTransientMarketState();
+            RollBaseWaveShape();
 
             candleHistories.Clear();
             liveAggregatedCandles.Clear();
@@ -368,11 +387,20 @@ namespace FXOverdose.Trading
                 }
             }
             
-            if (candleHistories.TryGetValue(Timeframe.M1, out var m1List) && m1List.Count > 0)
+            liveAggregatedCandles.TryGetValue(Timeframe.M1, out liveM1Candle);
+
+            // 요미의 방에서 하루를 넘기면 이 엔진이 없는 채로 일차만 바뀝니다. 그 세이브는 어제 차트를
+            // 그대로 들고 있으므로 여기서 다음 날로 넘깁니다. GameScene에서 넘긴 경우는 RollOverToNewDay가
+            // 이미 MarketLastUpdatedDay를 새 일차로 맞춰 저장했으므로 이 조건에 걸리지 않습니다.
+            if (data.MarketLastUpdatedDay > 0 && data.MarketLastUpdatedDay < data.CurrentDay)
             {
-                liveM1Candle = liveAggregatedCandles[Timeframe.M1];
+                RollOverToNewDay(data.CurrentDay);
             }
-            
+            else if (liveM1Candle == null)
+            {
+                StartNewLiveCandle(currentPrice);
+            }
+
             Debug.Log("[MarketSimulationEngine] 차트 히스토리 및 현재 가격 복구 완료.");
         }
 
@@ -427,6 +455,142 @@ namespace FXOverdose.Trading
             }
         }
 
+        private const long MinutesPerDay = 1440;
+
+        // 배경 시장 스케일 (REAL-7). 1이면 예전 수준(실제 BTC의 3~8배), 0.5면 Sideways 일간 약 4~6%.
+        private const float MarketVolatilityScale = 0.5f;
+
+        // GARCH 풍 변동성 군집 (REAL-5). 분산 공간의 분당 회귀율·반응률과, 국면 목표 대비 상·하한.
+        private const float VolMeanReversionPerMinute = 0.1f;  // 반감기 약 7분
+        private const float VolShockWeightPerMinute = 0.1f;
+        private const float MinVolToTarget = 0.5f;
+        private const float MaxVolToTarget = 4f;
+
+        // 점프 항 (REAL-4). 거래일(09~24시 = 900분)당 평균 3회, 크기는 로그정규 중앙값 1.2% (0.5~3%).
+        private const float JumpsPerMinute = 3f / 900f;
+        private const float JumpMedianPct = 1.2f;
+
+        // GraceWindow 막바지(경과 60% 이후)에 유인 방향으로 기우는 분당 드리프트 (SIG-B6). 노이즈보다 작아 "기운다" 정도입니다.
+        private const float GraceLeanPerMinute = 0.0005f;
+
+        /// <summary>
+        /// GraceWindow의 노이즈·드리프트·거래량을 셋업에 맞춰 만듭니다. (SIG-B6)
+        /// 기본: 노이즈 0.6 → 0.15로 조이고 거래량도 0.8 → 0.4로 마르며, 막바지에 유인 방향으로 살짝 기웁니다.
+        ///  · 변동성 수축 돌파: 0.4 → 0.05로 극단적으로 조입니다
+        ///  · 스탑 사냥: 조용합니다(노이즈 0.3 고정, 기울기 없음) — 스윕은 예고 없이 옵니다
+        ///  · 추세 지속: 막바지에 유인 반대로 살짝 눌립니다(얕은 되돌림)
+        ///  · 뉴스 스파이크: 아무 전조도 없습니다(평시 그대로)
+        /// </summary>
+        private void ApplyGraceShape(ref float stochasticNoise, ref float drift, ref float volumeScale)
+        {
+            SignalSetup setup = activeSignal.Setup;
+            if (setup == SignalSetup.NewsSpike) return; // 평시 노이즈·드리프트 유지 — 전조 없음
+            drift = 0f;
+
+            float graceTotal = Mathf.Max(1f, activeSignal.GraceMinutes);
+            float g = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / graceTotal);
+
+            float noiseScale = setup == SignalSetup.VolatilitySqueeze ? Mathf.Lerp(0.4f, 0.05f, g)
+                             : setup == SignalSetup.StopRun ? 0.3f
+                             : Mathf.Lerp(0.6f, 0.15f, g);
+            stochasticNoise *= noiseScale;
+            volumeScale = Mathf.Lerp(0.8f, 0.4f, g);
+
+            if (g < 0.6f || setup == SignalSetup.StopRun) return;
+            float lure = activeSignal.LureDirection == TradingController.PositionType.Long ? 1f
+                       : activeSignal.LureDirection == TradingController.PositionType.Short ? -1f : 0f;
+            if (setup == SignalSetup.TrendContinuation) lure = -lure * 0.8f; // 얕은 되돌림
+            drift = lure * GraceLeanPerMinute * MarketVolatilityScale; // 노이즈 대비 "살짝"이 유지되도록 배경과 같은 배율
+        }
+
+        /// <summary>기본 파동 3개의 주기(기준 350/130/15초 ±20%)와 위상을 새로 뽑습니다. 하루 단위. (SIG-B4)</summary>
+        private void RollBaseWaveShape()
+        {
+            wavePeriod1 = 350f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePeriod2 = 130f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePeriod3 = 15f * UnityEngine.Random.Range(0.8f, 1.2f);
+            wavePhase1 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            wavePhase2 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            wavePhase3 = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+        }
+
+        /// <summary>확정 구간 파동 스타일의 주파수(±30%)와 위상을 새로 뽑습니다. 신호 단위. (SIG-B4)</summary>
+        private void RollStyleWaveShape()
+        {
+            styleFreqScaleA = UnityEngine.Random.Range(0.7f, 1.3f);
+            styleFreqScaleB = UnityEngine.Random.Range(0.7f, 1.3f);
+            stylePhaseA = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            stylePhaseB = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+        }
+
+        /// <summary>
+        /// 진행 중이던 신호·오버라이드·오버도즈 함정·서버 렉 같은 일시 상태를 비웁니다.
+        /// 새 게임(ResetEngine)·불러오기(RestoreFromSaveData)·하루 넘김(RollOverToNewDay) 세 경로가 공유합니다.
+        /// 예전에는 경로마다 목록을 따로 들고 있어 한쪽에만 빠진 항목이 버그가 됐습니다
+        /// (서버 렉을 남기면 불러오기 직후 차트가 몇 초간 멈춘 채 시작합니다).
+        /// </summary>
+        private void ResetTransientMarketState()
+        {
+            currentSignalPhase = SignalPhase.None;
+            signalPhaseTimerMinutes = 0;
+            isExternalEventOverride = false;
+            isOverdoseTrapOverride = false;
+            overdoseTrapEndTime = -1f;
+            isServerLagging = false;
+            serverLagTimer = 0f;
+            accumulatedLagPriceDelta = 0f;
+            accumulatedLagVolume = 0f;
+        }
+
+        /// <summary>
+        /// 하루가 넘어갈 때 차트를 <b>이어 붙입니다</b>. 가격과 캔들 히스토리는 그대로 두고,
+        /// 거래가 있었던 진행 중 캔들을 마감한 뒤 시간축을 다음 1440분 경계로 옮깁니다.
+        /// 그래서 어제 종가가 오늘 시가가 되고, D1 캔들이 하루에 하나씩 쌓입니다.
+        ///
+        /// 밤사이(24:00~09:00)는 시뮬레이션하지 않으므로 가격 공백 없이 그대로 이어집니다.
+        /// GameScene에서 정산하면 GameManager가, 요미의 방에서 정산하면 다음 GameScene 진입 시
+        /// RestoreFromSaveData가 호출합니다.
+        /// </summary>
+        public void RollOverToNewDay(int newDay)
+        {
+            if (p2pExternalMode) return;
+            EnsureCandleHistoriesInitialized();
+
+            // 24:00 마지막 분에 새로 열린 빈 캔들(거래량 0)은 버리고, 거래가 있었던 캔들만 마감합니다.
+            if (liveM1Candle != null && liveM1Candle.volume > 0f) FinalizeCandle(Timeframe.M1, liveM1Candle);
+            foreach (Timeframe tf in Enum.GetValues(typeof(Timeframe)))
+            {
+                if (tf == Timeframe.M1) continue;
+                if (liveAggregatedCandles.TryGetValue(tf, out CandleData live) && live != null && live.volume > 0f)
+                {
+                    FinalizeCandle(tf, live);
+                }
+            }
+            liveAggregatedCandles.Clear();
+
+            // 이미 경계 위에 있어도 반드시 한 칸 넘깁니다. 그대로 두면 같은 타임스탬프의 D1이 두 번 생깁니다.
+            currentTotalMinutes = (currentTotalMinutes / MinutesPerDay + 1) * MinutesPerDay;
+
+            IsMarketOpen = false;   // GameManager가 OpenMarketAfterLoading으로 다시 엽니다
+            tickTimer = 0f;
+            ResetTransientMarketState();
+            RollBaseWaveShape();
+            minutesUntilNextSignal = 3;
+            ouCenterPrice = currentPrice;
+            current24hHigh = currentPrice;
+            current24hLow = currentPrice;
+            current24hVolume = 0f;
+
+            // 새 날의 거시 기조를 지금 확정합니다. 이래야 직후 저장되는 MarketLastUpdatedDay가 새 일차를 가리켜
+            // 다음 불러오기에서 하루를 한 번 더 넘기지 않습니다.
+            UpdateDailyDifficulty(newDay);
+
+            StartNewLiveCandle(currentPrice);
+            IsDataPrepared = true;
+            Debug.Log($"[MarketEngine] 📅 {newDay}일차로 차트를 이어 붙였습니다. 시가 ${currentPrice:N1} (시간축 {currentTotalMinutes}분)");
+            OnEngineReset?.Invoke();
+        }
+
         public void ResetEngine(float startPrice)
         {
             EnsureCandleHistoriesInitialized();
@@ -439,17 +603,8 @@ namespace FXOverdose.Trading
             current24hVolume = 0f;
             currentTotalMinutes = 0;
             tickTimer = 0f;
-            currentSignalPhase = SignalPhase.None;
-            signalPhaseTimerMinutes = 0;
-            isExternalEventOverride = false;
-            // 아래 5개는 RestoreFromSaveData에서는 초기화하면서 여기서만 빠져 있었습니다.
-            // 일차 전환이 오버도즈 함정이나 서버 렉 도중에 일어나면 그 상태가 새 날로 넘어옵니다.
-            isOverdoseTrapOverride = false;
-            overdoseTrapEndTime = -1f;
-            isServerLagging = false;
-            serverLagTimer = 0f;
-            accumulatedLagPriceDelta = 0f;
-            accumulatedLagVolume = 0f;
+            ResetTransientMarketState();
+            RollBaseWaveShape();
             // 💡 [AI 매매 실시간 검증 최적화] 게임 시작 후 단 3초(3분봉) 만에 첫 매매 신호가 발생하여 주인공 AI가 즉시 판단 및 매매를 개시하도록 설정
             minutesUntilNextSignal = 3;
 
@@ -460,7 +615,7 @@ namespace FXOverdose.Trading
             liveAggregatedCandles.Clear();
 
             // 게임 시작 전 과거 150분(2시간 반) 데이터 Pre-warm 생성 및 최종 시뮬레이션 마감 종가를 현재 주가로 동기화
-            float prewarmedEndPrice = PrewarmHistoricalCandles(150);
+            float prewarmedEndPrice = PrewarmHistoricalCandles(150, startPrice);
             currentPrice = prewarmedEndPrice;
             ouCenterPrice = prewarmedEndPrice;
 
@@ -537,28 +692,28 @@ namespace FXOverdose.Trading
 
             if (currentDay <= 5)
             {
-                dayVolatilityMultiplier = 1.0f;
+                sweepIntensityMultiplier = 1.0f;
                 tickInstability = 1.0f;
                 fakeoutProbability = 0.0f;
                 slippageRange = 0;
             }
             else if (currentDay <= 10)
             {
-                dayVolatilityMultiplier = 1.2f;
+                sweepIntensityMultiplier = 1.2f;
                 tickInstability = 1.5f;
                 fakeoutProbability = 0.1f;
                 slippageRange = 0;
             }
             else if (currentDay <= 15)
             {
-                dayVolatilityMultiplier = 1.5f;
+                sweepIntensityMultiplier = 1.5f;
                 tickInstability = 3.0f;
                 fakeoutProbability = 0.3f;
                 slippageRange = 3;
             }
             else
             {
-                dayVolatilityMultiplier = 2.0f + (effectiveDay - 16) * 0.15f;
+                sweepIntensityMultiplier = 2.0f + (effectiveDay - 16) * 0.15f;
                 tickInstability = 5.0f + (effectiveDay - 16) * 1.0f;
                 fakeoutProbability = 0.5f;
                 slippageRange = 5;
@@ -613,9 +768,9 @@ namespace FXOverdose.Trading
 
             // 💡 [자연스러운 차트 파동 생성] 고정된 Drift로 인해 차트가 일직선으로 그려지는 것을 방지하기 위해 실시간 단기 파동(Sine Wave)을 결합합니다.
             float timeSec = Time.time;
-            float waveCycle1 = ((currentTotalMinutes * 60f + timeSec) % 350f) / 350f * Mathf.PI * 2f;
-            float waveCycle2 = ((currentTotalMinutes * 60f + timeSec) % 130f) / 130f * Mathf.PI * 2f;
-            float waveCycle3 = (timeSec % 15f) / 15f * Mathf.PI * 2f; // 초단기 미세 파동 추가 (현실감 부여)
+            float waveCycle1 = ((currentTotalMinutes * 60f + timeSec) % wavePeriod1) / wavePeriod1 * Mathf.PI * 2f + wavePhase1;
+            float waveCycle2 = ((currentTotalMinutes * 60f + timeSec) % wavePeriod2) / wavePeriod2 * Mathf.PI * 2f + wavePhase2;
+            float waveCycle3 = (timeSec % wavePeriod3) / wavePeriod3 * Mathf.PI * 2f + wavePhase3; // 초단기 미세 파동 추가 (현실감 부여)
             
             float waveDrift = (Mathf.Sin(waveCycle1) * 0.0004f) + (Mathf.Cos(waveCycle2) * 0.0002f) + (Mathf.Sin(waveCycle3) * 0.00015f);
             
@@ -635,39 +790,52 @@ namespace FXOverdose.Trading
             float activeFakeoutProb = fakeoutProbability;
             if (gameManager != null && !isOverdoseTrapOverride && !IsOverridingTrend)
             {
+                // 세션 간 변동성 차이 (REAL-8): 실제 BTC는 세션 간 대략 1.3~1.8배 차이입니다.
+                // 예전 0.5 / 1.2 / 2.0은 최대 4배라 뉴욕장이 과장됐습니다. 이제 최대 1.75배입니다.
                 int h = gameManager.CurrentHour;
                 if (h >= 0 && h < 8) // 아시아장: 거래량/변동성 감소, 횡보 강함
                 {
-                    sessionVolMultiplier = 0.5f;
+                    sessionVolMultiplier = 0.8f;
                     activeFakeoutProb = Mathf.Max(0.05f, fakeoutProbability * 0.5f);
                 }
-                else if (h >= 8 && h < 16) // 런던장: 변동성 증가 시작
+                else if (h >= 8 && h < 16) // 런던장: 기준
                 {
-                    sessionVolMultiplier = 1.2f;
+                    sessionVolMultiplier = 1.0f;
                 }
                 else // 뉴욕장 (16~24): 최고 변동성, 휩쏘 및 돌파 빈도 증가
                 {
-                    sessionVolMultiplier = 2.0f;
+                    sessionVolMultiplier = 1.4f;
                     activeFakeoutProb = Mathf.Min(0.85f, fakeoutProbability * 1.5f);
                 }
             }
             targetVol *= sessionVolMultiplier;
 
-            drift += waveDrift + macroDrift;
+            // 배경 시장 스케일 (REAL-7): 국면 목표 변동성·국면 드리프트·거시 드리프트·기본 파동을 한 배율로 줄입니다.
+            // 예전 수준은 일간 변동성이 실제 BTC(2~4%)의 3~8배였습니다. 신호 목표 변동률·점프·유동성 사냥 같은
+            // "사건"은 그대로 두므로 배경이 차분해지는 만큼 사건이 또렷해집니다.
+            targetVol *= MarketVolatilityScale;
 
-            // 2. GARCH 스타일 변동성 군집 (TargetVol로 서서히 수렴하거나 스파이크 후 유지)
-            currentVolatility = Mathf.Lerp(currentVolatility, targetVol, dtFraction * 5f);
+            drift = (drift + waveDrift + macroDrift) * MarketVolatilityScale;
+
+            // 2. GARCH 풍 변동성 군집 (REAL-5) — ① 국면 목표로 서서히 회귀
+            // 예전 Lerp(…, dtFraction × 5)는 1~5일차 틱(dtFraction 0.2)에서 계수가 정확히 1이라 매 틱 목표로 즉시 덮어썼습니다.
+            // 그래서 "스파이크 후 유지"가 없었고 유동성 사냥 ×2·이벤트 빔 ×1.8/×3.0·점프 ×1.5가 다음 틱에 지워졌습니다.
+            // 이제 분산 공간에서 분당 VolMeanReversionPerMinute만큼만 회귀합니다(반감기 약 7분). ② 실현 변동 반응은 틱 끝에서.
+            {
+                float v = currentVolatility * currentVolatility;
+                float vTarget = targetVol * targetVol;
+                v += (vTarget - v) * Mathf.Min(1f, VolMeanReversionPerMinute * dtFraction);
+                currentVolatility = Mathf.Sqrt(Mathf.Max(0f, v));
+            }
 
             // 3. OU (Ornstein-Uhlenbeck) 평균 회귀 항
             float ouTerm = ouTheta * (ouCenterPrice - currentPrice) / currentPrice;
 
             // 4. 확률적 위너 과정 (Brownian Motion Noise)
-            // Box-Muller 변환으로 정규 분포 난수 생성
-            float u1 = UnityEngine.Random.value;
-            float u2 = UnityEngine.Random.value;
-            float randNormal = Mathf.Sqrt(-2f * Mathf.Log(Mathf.Max(1e-6f, u1))) * Mathf.Sin(2f * Mathf.PI * u2);
+            float randNormal = GaussianSample();
 
             float stochasticNoise = currentVolatility * Mathf.Sqrt(dtFraction) * randNormal;
+            float graceVolumeScale = 1f; // GraceWindow의 거래량 마름 (SIG-B6)
 
             // ⭐ [Overdose 폭주 죽음의 차트 빔 주입] 오버도즈 상태일 때 주인공 포지션과 반대 방향으로 휩소(중간 반등) 없이 확실하고 가파르게 주가를 이동시켜 0원 청산을 유도!
             if (isOverdoseTrapOverride && Time.time < overdoseTrapEndTime)
@@ -687,9 +855,10 @@ namespace FXOverdose.Trading
             }
             else if (currentSignalPhase == SignalPhase.GraceWindow)
             {
-                // 1단계 판단 여유 시간: 너무 굳어있지 않게 노이즈를 40% 수준으로 살리고 횡보 유지 (골든타임 예고 방송 및 대기)
-                stochasticNoise *= 0.40f;
-                drift = 0f;
+                // 1단계 판단 여유 시간 = 돌파 직전의 변동성 수축 (SIG-B6)
+                // 예전엔 노이즈 ×0.4 + 횡보로 단조로웠습니다. 실제 돌파 직전처럼 캔들이 점점 작아지고 거래량이 마르다가,
+                // 막바지에 유인 방향으로 살짝 기웁니다 — 진짜 신호면 예고, 가짜 신호면 미끼입니다.
+                ApplyGraceShape(ref stochasticNoise, ref drift, ref graceVolumeScale);
             }
             else if (currentSignalPhase == SignalPhase.GuaranteedOverride)
             {
@@ -699,70 +868,61 @@ namespace FXOverdose.Trading
                 
                 if (!isExternalEventOverride && activeSignal.IsTrueSignal)
                 {
-                    // 일반 스킬(AI) 확정 수익 구간: 노이즈를 대폭 억제하여 좁은 스탑로스가 터지지 않게 보호
-                    stochasticNoise *= 0.15f; 
+                    // 진짜 신호 구간: 노이즈를 평시의 0.6배로만 줄입니다. (SIG-B8)
+                    // 예전 0.15배는 구간이 눈에 띄게 매끈해 "매끄러우면 진짜"라는 답을 차트가 흘렸습니다.
+                    // 좁은 손절선 보호는 아래 -25% 스프링 꼬리 가드가 맡습니다.
+                    stochasticNoise *= 0.6f;
                 }
                 else
                 {
                     if (currentOverdriveWaveStyle == 0)
                     {
                         stochasticNoise *= 1.5f; // 기존 0.35f에서 대폭 상향하여 음봉/양봉 섞임 유도
-                        drift += Mathf.Sin(Time.time * 2.5f) * 0.00015f + Mathf.Cos(Time.time * 5.0f) * 0.0001f;
+                        drift += Mathf.Sin(Time.time * 2.5f * styleFreqScaleA + stylePhaseA) * 0.00015f
+                               + Mathf.Cos(Time.time * 5.0f * styleFreqScaleB + stylePhaseB) * 0.0001f;
                     }
                     else
                     {
                         stochasticNoise *= 0.8f;
                         // 주기 20~30초 가량의 꽤 큰 역추세 파동 형성
-                        drift += Mathf.Sin(Time.time * 0.5f) * 0.0006f + Mathf.Cos(Time.time * 0.2f) * 0.0003f;
+                        drift += Mathf.Sin(Time.time * 0.5f * styleFreqScaleA + stylePhaseA) * 0.0006f
+                               + Mathf.Cos(Time.time * 0.2f * styleFreqScaleB + stylePhaseB) * 0.0003f;
                     }
                 }
 
-                if (isExternalEventOverride && !activeSignal.IsTrueSignal)
-                {
-                    float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
-                    float elapsedRatio = 1f - ((float)signalPhaseTimerMinutes / totalDuration);
+                // 궤적 (SIG-B1): 이번 1분 동안의 진행률 변화량이 드리프트, 노이즈 커브가 흔들림 배수입니다.
+                // 분마다 P(t+1/D) − P(t)를 쓰면 합이 망원급수라 총 이동량이 "목표 변동률 × progress(1)"로 정확히 보존됩니다.
+                TrajectoryProfile trajectory = activeTrajectory != null ? activeTrajectory : TrajectoryLibrary.Paths[0];
+                float totalDuration = Mathf.Max(1f, activeSignal.DurationMinutes);
+                float minuteStep = 1f / totalDuration;
+                float elapsedRatio = Mathf.Clamp01(1f - (float)signalPhaseTimerMinutes / totalDuration);
+                float midMinuteRatio = Mathf.Min(1f, elapsedRatio + minuteStep * 0.5f); // 이번 1분의 중간 지점
+                float pathDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f)
+                    * (trajectory.ProgressAt(Mathf.Min(1f, elapsedRatio + minuteStep), activeTrajectoryWarp)
+                       - trajectory.ProgressAt(elapsedRatio, activeTrajectoryWarp));
+                stochasticNoise *= trajectory.NoiseAt(midMinuteRatio, activeTrajectoryWarp);
 
-                    if (currentOverdriveTrapType == 0) // Classic V-Shape
-                    {
-                        if (elapsedRatio < 0.7f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.35f) / 100f) / Mathf.Max(1f, totalDuration * 0.7f);
-                        else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.3f);
-                    }
-                    else if (currentOverdriveTrapType == 1) // W-Shape Double Trap
-                    {
-                        if (elapsedRatio < 0.4f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.5f) / 100f) / Mathf.Max(1f, totalDuration * 0.4f); // 1차 급락
-                        else if (elapsedRatio < 0.6f)
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.8f) / 100f) / Mathf.Max(1f, totalDuration * 0.2f); // 페이크 반등
-                        else if (elapsedRatio < 0.85f)
-                            drift = ((activeSignal.TargetPercentageDelta * 1.2f) / 100f) / Mathf.Max(1f, totalDuration * 0.25f); // 2차 급락 (개미털기)
-                        else
-                            drift = ((-activeSignal.TargetPercentageDelta * 0.6f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f); // 최종 탈출 빔
-                    }
-                    else // 2: Slow Bleed + Flash Spike
-                    {
-                        if (elapsedRatio < 0.85f)
-                        {
-                            stochasticNoise *= 0.3f; // 말려죽이는 피말림 연출
-                            drift = ((activeSignal.TargetPercentageDelta * 0.9f) / 100f) / Mathf.Max(1f, totalDuration * 0.85f);
-                        }
-                        else
-                        {
-                            stochasticNoise *= 2.0f; // 극적 빔
-                            drift = ((activeSignal.TargetPercentageDelta * 0.45f) / 100f) / Mathf.Max(1f, totalDuration * 0.15f);
-                        }
-                    }
+                // 트랩은 파동 드리프트를 덮어쓰고(패턴이 그대로 보이도록), 정상 경로는 파동 위에 얹습니다. 예전 동작과 같습니다.
+                bool isTrapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
+                if (isTrapPath) drift = pathDriftPerMinute;
+                else drift += pathDriftPerMinute;
+
+                // OU 처리 (SIG-B3)
+                //  · 꺾임이 핵심인 궤적(내장 트랩 3종 등, trackPathWithOu = false): OU 무력화 — 당기면 패턴이 뭉개집니다
+                //  · 그 외: OU를 끄지 않고 중심선을 궤적 위의 현재 지점으로 옮깁니다. 가격이 경로보다 앞서면 당기고
+                //    뒤처지면 밀어 눌림목·되돌림이 저절로 생기고, 노이즈 편차가 쌓이지 않아 목표 도달이 안정됩니다.
+                //    전역 ouCenterPrice는 건드리지 않습니다 — 신호가 끝난 뒤 평시 회귀의 기준이 어긋나기 때문입니다.
+                if (!trajectory.trackPathWithOu || activeSignal.SignalStartPrice <= 0f)
+                {
+                    ouTerm = 0f;
                 }
                 else
                 {
-                    // 정상 확정 구간: 목표 변동률을 남은 보장 시간 동안 분할 반영하여 부드러운 드리프트 생성
-                    float targetDriftPerMinute = (activeSignal.TargetPercentageDelta / 100f) / Mathf.Max(1, activeSignal.DurationMinutes);
-                    drift += targetDriftPerMinute; // 파동(drift)에 목표 상승분 누적
+                    // 가격은 이 1분 동안 P(t) → P(t+1/D)로 움직이므로 중심은 분 중간 지점에 둡니다(평균 지연 0).
+                    float pathCenter = activeSignal.SignalStartPrice
+                                       * (1f + activeSignal.TargetPercentageDelta / 100f * trajectory.ProgressAt(midMinuteRatio, activeTrajectoryWarp));
+                    ouTerm = SignalPathOuTheta * (pathCenter - currentPrice) / currentPrice;
                 }
-
-                // OU 평균 회귀 항 무력화 (일방향 궤적 보장)
-                ouTerm = 0f;
             }
 
             // 🌟 [Realistic Feature 2] 눈에 보이지 않는 오더블록(저항/지지선) 로직
@@ -788,6 +948,18 @@ namespace FXOverdose.Trading
 
             // 5. 최종 수익률 
             float totalReturn = (drift * dtFraction) + (ouTerm * dtFraction) + stochasticNoise;
+
+            // 점프 항 (REAL-4) — 정규분포 노이즈만으로는 꼬리가 얇아 "평온하던 차트가 예고 없이 튀는" 일이
+            // 구조적으로 불가능했습니다. 평시 구간에만 낮은 확률로 무작위 점프를 넣고, 점프 직후엔 변동성이 남게 합니다.
+            // 신호 구간(예고·확정)·오버도즈 함정·고속 스킵에서는 끕니다 — 기획된 궤적과 연출을 방해하지 않도록.
+            if (!IsOverridingTrend && !isOverdoseTrapOverride && !IsFastForwarding
+                && UnityEngine.Random.value < JumpsPerMinute * dtFraction)
+            {
+                float jumpPct = Mathf.Clamp(JumpMedianPct * Mathf.Exp(0.4f * GaussianSample()), 0.5f, 3f);
+                totalReturn += (UnityEngine.Random.value < 0.5f ? jumpPct : -jumpPct) / 100f;
+                currentVolatility *= 1.5f;
+                Debug.Log($"[MarketEngine] ⚡ 가격 점프 {jumpPct:F2}% (예고 없음)");
+            }
 
             // ⭐ [안전망: 확정 주가 오버드라이브 구간 -25% ROE 청산 방어 (자연스러운 스프링 꼬리 효과)]
             // 주의: 오버도즈 폭주(isOverdoseTrapOverride) 발동 중에는 어떠한 가드도 무시하고 청산(-100%)을 우선시합니다.
@@ -853,9 +1025,34 @@ namespace FXOverdose.Trading
                 }
             }
 
+            // GARCH 풍 변동성 군집 (REAL-5) — ② 실현 변동에 반응
+            // 이번 틱의 실현 분산(분 단위로 환산)을 향해 조금 움직입니다. 정규 노이즈에서는 기댓값이 현재 분산과 같아
+            // 평균 수준은 그대로이고, 큰 움직임 뒤에는 변동성이 커진 채 한동안 남습니다(변동성 군집).
+            {
+                float realizedVar = totalReturn * totalReturn / Mathf.Max(1e-6f, dtFraction);
+                float v = currentVolatility * currentVolatility;
+                v += (realizedVar - v) * Mathf.Min(1f, VolShockWeightPerMinute * dtFraction);
+                currentVolatility = Mathf.Clamp(Mathf.Sqrt(Mathf.Max(0f, v)), targetVol * MinVolToTarget, targetVol * MaxVolToTarget);
+            }
+
             // 6. 가격 변동 적용
             float priceDelta = currentPrice * totalReturn;
-            float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f);
+            float tickVolume = Mathf.Abs(priceDelta) * UnityEngine.Random.Range(2f, 10f) * graceVolumeScale;
+
+            // 확정 신호 구간의 거래량은 신호의 진위를 드러냅니다. (SIG-B5)
+            // 기준을 이번 틱의 가격 변화가 아니라 "이 국면의 평시 틱 변동폭"으로 잡습니다. 진짜 신호 구간은
+            // 노이즈를 ×0.15로 억제하므로 틱당 변화가 평시보다 작아, 가격 변화에 배수를 곱하면 오히려 평시만 못합니다.
+            //  · 진짜: 평시의 2.5배 — 돌파에 거래량이 실림
+            //  · 가짜: 평시의 0.7배 — 가격은 크게 움직여도 거래량이 마름
+            // 오버도즈 함정은 AI가 확실한 기회로 착각하게 만드는 연출이라 제외합니다.
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride && !isOverdoseTrapOverride)
+            {
+                float typicalTickMove = currentPrice * targetVol * Mathf.Sqrt(dtFraction);
+                float volumeBasis = activeSignal.IsTrueSignal
+                    ? Mathf.Max(Mathf.Abs(priceDelta), typicalTickMove) * TrueSignalVolumeMultiplier
+                    : typicalTickMove * FalseSignalVolumeMultiplier;
+                tickVolume = volumeBasis * UnityEngine.Random.Range(2f, 10f);
+            }
 
             if (isServerLagging)
             {
@@ -1078,36 +1275,67 @@ namespace FXOverdose.Trading
         // 유동성 사냥 (꼬리 휩소 스파이크 발생 - 스탑 헌팅 기믹 강화)
         private void CheckLiquidationSweep()
         {
-            // 오버도즈 발동 중이거나 고속 스킵 중, 확정 주가 구간일 때는 스탑헌팅(무작위 휩쏘)을 방지합니다.
-            if (isOverdoseTrapOverride || IsFastForwarding || currentSignalPhase == SignalPhase.GuaranteedOverride) return;
+            // 오버도즈 발동 중이거나 고속 스킵 중에는 스탑헌팅(무작위 휩쏘)을 방지합니다.
+            // 서버 렉 중에는 차트가 멈춰 있어야 하므로 꼬리 틱도 찍지 않습니다.
+            if (isOverdoseTrapOverride || IsFastForwarding || isServerLagging) return;
+            // 확정 주가 구간에서는 무작위 휩쏘 대신 추세 반대 방향 개미털기만 넣습니다. (SIG-B7)
+            if (currentSignalPhase == SignalPhase.GuaranteedOverride) { TryShakeout(); return; }
 
             // Squeeze 국면에서는 30% 확률, 그 외에는 5% 확률 + 일차별 휩쏘 보정치
             float baseProb = currentRegime == MarketRegime.Squeeze ? 0.30f : 0.05f;
-            float sweepProb = baseProb + (dayVolatilityMultiplier > 1.0f ? 0.10f : 0.0f); 
+            float sweepProb = baseProb + (sweepIntensityMultiplier > 1.0f ? 0.10f : 0.0f); 
 
             if (UnityEngine.Random.value < sweepProb)
             {
                 // 일차별 변동성에 맞춰 꼬리(스파이크)의 크기도 증가합니다.
-                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * dayVolatilityMultiplier; 
+                float sweepMagnitude = UnityEngine.Random.Range(0.005f, 0.02f) * sweepIntensityMultiplier; 
                 bool sweepUp = UnityEngine.Random.value > 0.5f;
+                float restorePrice = currentPrice;
+                float spikePrice = currentPrice * (sweepUp ? 1f + sweepMagnitude : 1f - sweepMagnitude);
 
-                if (sweepUp)
-                {
-                    float spikePrice = currentPrice * (1f + sweepMagnitude);
-                    if (liveM1Candle != null && spikePrice > liveM1Candle.high) liveM1Candle.high = spikePrice;
-                }
-                else
-                {
-                    float spikePrice = currentPrice * (1f - sweepMagnitude);
-                    if (liveM1Candle != null && spikePrice < liveM1Candle.low) liveM1Candle.low = spikePrice;
-                }
+                // 꼬리 끝을 실제 시세로 1틱 찍었다가 곧바로 되돌립니다. (FIX-2)
+                // 예전에는 1분봉의 high/low만 늘려 청산·손절 판정이 꼬리를 보지 못했습니다(순수 시각 효과).
+                // 청산은 전달된 가격이 아니라 엔진의 호가(Bid/Ask)로 판정하므로, 이벤트만 쏘지 않고 호가까지 함께 옮깁니다.
+                PrintInstantTick(spikePrice, UnityEngine.Random.Range(50f, 200f)); // 거래량 폭증
+                PrintInstantTick(restorePrice, 0f);
 
-                if (liveM1Candle != null)
-                {
-                    liveM1Candle.volume += UnityEngine.Random.Range(50f, 200f); // 거래량 폭증
-                }
                 currentVolatility *= 2.0f; // 순간 변동성 폭발
             }
+        }
+
+        /// <summary>
+        /// 진짜 신호의 확정 구간 중간에 추세 반대 방향으로 짧은 꼬리를 찍고 되돌립니다. (SIG-B7)
+        /// 실제 추세는 중간에 한두 번 털어냅니다 — 신호당 평균 약 1.5회, 첫 2분은 건너뜁니다.
+        /// 꼬리는 실제 호가로 찍히므로 고배율 포지션은 방향이 맞아도 청산·손절될 수 있습니다.
+        /// 이벤트 빔·트랩 궤적은 이미 꺾임이 있어 제외합니다.
+        /// </summary>
+        private void TryShakeout()
+        {
+            if (isExternalEventOverride || !activeSignal.IsTrueSignal) return;
+            int duration = Mathf.Max(1, activeSignal.DurationMinutes);
+            if (duration - signalPhaseTimerMinutes < 2) return;
+            if (UnityEngine.Random.value >= 1.5f / duration) return;
+
+            float against = activeSignal.TargetPercentageDelta >= 0f ? -1f : 1f;
+            float restorePrice = currentPrice;
+            float wickPrice = currentPrice * (1f + against * UnityEngine.Random.Range(0.003f, 0.008f));
+            PrintInstantTick(wickPrice, UnityEngine.Random.Range(50f, 200f));
+            PrintInstantTick(restorePrice, 0f);
+            Debug.Log($"[MarketEngine] 🫨 개미털기 꼬리 {(wickPrice / restorePrice - 1f) * 100f:F2}% (확정 구간 {duration - signalPhaseTimerMinutes}/{duration}분)");
+        }
+
+        /// <summary>
+        /// 시뮬레이션 없이 가격 한 틱을 즉시 찍습니다. 호가·진행 캔들(모든 타임프레임)·24h 통계를 갱신하고
+        /// <see cref="OnPriceUpdated"/>를 발행해 청산·익절·손절 판정이 이 가격을 보게 합니다.
+        /// 스프레드는 직전 틱의 값을 그대로 씁니다.
+        /// </summary>
+        private void PrintInstantTick(float price, float volume)
+        {
+            currentPrice = price;
+            currentBidPrice = price - (currentSpread * 0.5f);
+            currentAskPrice = price + (currentSpread * 0.5f);
+            UpdateLiveCandlesWithTick(price, volume);
+            OnPriceUpdated?.Invoke(price);
         }
 
         // 돌발 선택 이벤트 차트 빔 점진 주입 및 골든타임 연동 (OverrideMarketTrend)
@@ -1171,9 +1399,10 @@ namespace FXOverdose.Trading
         }
 
         // 게임 시작 시 초기 과거 데이터(Pre-warm) 생성 및 최종 종가 반환
-        private float PrewarmHistoricalCandles(int minutesCount)
+        private float PrewarmHistoricalCandles(int minutesCount, float startPrice)
         {
-            float tempPrice = initialPrice;
+            // 예전에는 인자 없이 initialPrice에서 출발해, ResetEngine(startPrice)의 startPrice가 통째로 버려졌습니다.
+            float tempPrice = startPrice;
             long startTimestamp = -minutesCount;
 
             for (int i = 0; i < minutesCount; i++)
@@ -1277,9 +1506,15 @@ namespace FXOverdose.Trading
                         
                         // 오버드라이브 연출 패턴 무작위 설정
                         currentOverdriveWaveStyle = UnityEngine.Random.Range(0, 2);
-                        currentOverdriveTrapType = UnityEngine.Random.Range(0, 3);
-                        
-                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, Trap: {currentOverdriveTrapType})");
+                        RollStyleWaveShape();
+                        // 이벤트 빔은 트랩/정상 경로 목록에서, 시장 신호는 셋업별 궤적에서 고릅니다. (SIG-A4)
+                        bool trapPath = isExternalEventOverride && !activeSignal.IsTrueSignal;
+                        if (trapPath) activeTrajectory = TrajectoryLibrary.Pick(trapTrajectories, TrajectoryLibrary.Traps);
+                        else if (isExternalEventOverride) activeTrajectory = TrajectoryLibrary.Pick(pathTrajectories, TrajectoryLibrary.Paths);
+                        else activeTrajectory = TrajectoryLibrary.PickForSetup(pathTrajectories, activeSignal.Setup);
+                        activeTrajectoryWarp = activeTrajectory.RollWarp();
+
+                        Debug.Log($"[MarketEngine] ⚡ [2단계 확정 주가 오버라이드 돌입] {activeSignal.GetSignalDescription()} (Wave: {currentOverdriveWaveStyle}, 궤적: {activeTrajectory.name}, 시간 비틀림 {activeTrajectoryWarp:F2})");
                         OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                     }
                     break;
@@ -1308,7 +1543,7 @@ namespace FXOverdose.Trading
                                 {
                                     Debug.Log("[MarketEngine] ⏩ AI 무포지션 상태 10초 경과 감지 -> 장기 관망 방지를 위해 확정 구간 및 쿨다운을 생략하고 즉각 신규 신호 주기를 시작합니다.");
                                     currentSignalPhase = SignalPhase.None;
-                                    minutesUntilNextSignal = UnityEngine.Random.Range(5, 11);
+                                    minutesUntilNextSignal = NextSignalInterval(7.5f, 2); // 예전 균등 5~10분과 같은 평균 (SIG-A7)
                                     OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
                                 }
                             }
@@ -1322,7 +1557,7 @@ namespace FXOverdose.Trading
                     {
                         currentSignalPhase = SignalPhase.None;
                         isExternalEventOverride = false;
-                        minutesUntilNextSignal = UnityEngine.Random.Range(8, 16); // 쿨다운 종료 후 8~15분 내 신속 재진입
+                        minutesUntilNextSignal = NextSignalInterval(11.5f, 3); // 쿨다운 종료 후 재진입 — 예전 균등 8~15분과 같은 평균 (SIG-A7)
                     }
                     else
                     {
@@ -1337,51 +1572,300 @@ namespace FXOverdose.Trading
             }
         }
 
+        /// <summary>
+        /// 다음 신호까지의 인게임 분을 뽑습니다. (SIG-A7)
+        /// 예전 균등분포는 늘 비슷한 간격이었습니다. 최소 간격 위에 지수분포를 얹어 사건이 몰릴 때 몰리고 뜸할 때 뜸하게 하고,
+        /// 평균을 세션별로 둡니다 — 뉴욕장(16~24시)은 기준의 0.7배로 바쁘고, 아시아장(0~8시)은 1.5배로 한산합니다.
+        /// 너무 긴 공백을 막기 위해 기준 평균의 4배에서 자릅니다.
+        /// </summary>
+        private int NextSignalInterval(float baseMeanMinutes, int minGap)
+        {
+            float mean = baseMeanMinutes * SessionSignalIntervalScale();
+            float u = Mathf.Max(1e-6f, 1f - UnityEngine.Random.value); // Random.value는 1을 포함하므로 Log(0)을 피합니다
+            float extra = -Mathf.Log(u) * Mathf.Max(0f, mean - minGap);
+            return Mathf.Clamp(minGap + Mathf.RoundToInt(extra), minGap, Mathf.RoundToInt(baseMeanMinutes * 4f));
+        }
+
+        /// <summary>세션별 신호 간격 배수. 시각 경계는 세션 변동성(§2.5-③)과 같습니다.</summary>
+        private float SessionSignalIntervalScale()
+        {
+            if (gameManager == null) return 1f;
+            int h = gameManager.CurrentHour;
+            if (h < 8) return 1.5f;   // 아시아장
+            if (h < 16) return 1.0f;  // 런던장
+            return 0.7f;              // 뉴욕장
+        }
+
+        /// <summary>표준정규 난수 (Box-Muller).</summary>
+        private static float GaussianSample()
+        {
+            float u1 = UnityEngine.Random.value;
+            float u2 = UnityEngine.Random.value;
+            return Mathf.Sqrt(-2f * Mathf.Log(Mathf.Max(1e-6f, u1))) * Mathf.Sin(2f * Mathf.PI * u2);
+        }
+
+        // 신호 목표 변동률의 로그 표준편차 (SIG-A5). 0.45면 중앙값 대비 90% 구간이 약 ×0.48~×2.1입니다.
+        private const float SignalMagnitudeLogSigma = 0.45f;
+
+        /// <summary>
+        /// 신호 목표 변동률(%)을 로그정규로 뽑습니다. (SIG-A5)
+        /// 예전 균등분포는 "항상 중간쯤"이라 평범한 움직임과 가끔 터지는 큰 움직임의 대비가 없었습니다.
+        /// 중앙값을 평균보다 낮게 두고 오른쪽 꼬리를 길게 해, 평균은 예전과 거의 같습니다.
+        /// </summary>
+        private static float LogNormalMagnitude(float median, float min, float max)
+        {
+            return Mathf.Clamp(median * Mathf.Exp(SignalMagnitudeLogSigma * GaussianSample()), min, max);
+        }
+
+        // 직전 신호 기억 (SIG-A2) ------------------------------------------------------------------
+        // 시장이 만든 신호만 기억합니다(이벤트 빔·오버도즈 함정 제외). 저장하지 않으므로 불러오면 기억 없이 시작합니다.
+        private bool hasLastSignal;
+        private bool lastSignalWasTrue;
+        private bool lastSignalWasWeak;
+        private int lastSignalMoveDir;                       // 실제 가격이 간 방향 (+1 상승 / −1 하락)
+        private TradingController.PositionType lastSignalLure;
+        private bool lastSignalAtHigh, lastSignalAtLow;      // 신호가 날 때 1시간 고점/저점 근처였는가
+        private int sameDirectionTrueStreak;                 // 같은 방향 진짜 신호 연속 횟수
+        private int sameDirectionStreakDir;
+
+        private void RememberSignal(MarketSignal signal, ChartContext ctx)
+        {
+            int moveDir = signal.TargetPercentageDelta > 0f ? 1 : signal.TargetPercentageDelta < 0f ? -1 : 0;
+            if (signal.IsTrueSignal && moveDir != 0 && moveDir == sameDirectionStreakDir) sameDirectionTrueStreak++;
+            else if (signal.IsTrueSignal && moveDir != 0) { sameDirectionTrueStreak = 1; sameDirectionStreakDir = moveDir; }
+            else sameDirectionTrueStreak = 0;
+
+            hasLastSignal = true;
+            lastSignalWasTrue = signal.IsTrueSignal;
+            lastSignalWasWeak = signal.Strength == SignalStrength.Weak;
+            lastSignalMoveDir = moveDir;
+            lastSignalLure = signal.LureDirection;
+            lastSignalAtHigh = ctx.NearHigh;
+            lastSignalAtLow = ctx.NearLow;
+        }
+
+        /// <summary>
+        /// 직전 신호의 결과로 이번 신호 종류의 가중치를 조정합니다. 신호마다 독립 추첨이라 "흐름"이 없던 것을 메웁니다.
+        ///  ① 휩소 뒤 진짜 움직임 — 직전 가짜 신호가 실제로 간 방향의 돌파 ×1.5 (진위 보정은 MemoryTruthBonus)
+        ///  ② 과열 — 같은 방향 진짜 신호 2연속 뒤에는 그 방향으로 꼬신 뒤 꺾는 트랩 ×1.6
+        ///  ③ 이중 천장/바닥 — 고점(저점)에서 롱(숏)을 꼬신 가짜 신호 뒤 다시 고점(저점)이면 같은 트랩 ×1.5
+        /// </summary>
+        private void ApplySignalMemory(ChartContext ctx, ref float wBullBreak, ref float wBearBreak, ref float wBullTrap, ref float wBearTrap)
+        {
+            if (!hasLastSignal) return;
+
+            if (!lastSignalWasTrue)
+            {
+                if (lastSignalMoveDir > 0) wBullBreak *= 1.5f;
+                else if (lastSignalMoveDir < 0) wBearBreak *= 1.5f;
+
+                if (lastSignalLure == TradingController.PositionType.Long && lastSignalAtHigh && ctx.NearHigh) wBullTrap *= 1.5f;
+                if (lastSignalLure == TradingController.PositionType.Short && lastSignalAtLow && ctx.NearLow) wBearTrap *= 1.5f;
+            }
+
+            if (sameDirectionTrueStreak >= 2)
+            {
+                if (sameDirectionStreakDir > 0) wBullTrap *= 1.6f;
+                else wBearTrap *= 1.6f;
+            }
+        }
+
+        /// <summary>직전 가짜 신호가 실제로 간 방향의 돌파는 진짜일 확률 +0.15 — 털린 뒤에 나오는 진짜 움직임.</summary>
+        private float MemoryTruthBonus(MarketSignalType type)
+        {
+            if (!hasLastSignal || lastSignalWasTrue) return 0f;
+            int dir = type == MarketSignalType.BullishBreakout ? 1 : type == MarketSignalType.BearishBreakout ? -1 : 0;
+            return dir != 0 && dir == lastSignalMoveDir ? 0.15f : 0f;
+        }
+
+        // 차트 컨텍스트 (SIG-A3) ------------------------------------------------------------------
+        private const int ChartContextLookbackMinutes = 60;       // 최근 1시간 1분봉
+        private const float NearExtremeRatio = 0.003f;            // 고점/저점 0.3% 이내
+        private const float NearRoundRatio = 0.002f;              // 라운드 피겨 0.2% 이내 (오더블록 반발 범위와 같음)
+
+        private struct ChartContext
+        {
+            public bool NearHigh, NearLow, NearRound, NarrowRange;
+        }
+
+        /// <summary>
+        /// 최근 1시간 1분봉으로 지금 가격이 어디에 있는지 읽습니다. 신호 생성 때만(수 분에 한 번) 호출되므로 순회 비용은 무시할 수준입니다.
+        /// 박스 폭은 같은 시간 랜덤워크의 1σ(분당 σ × √분)보다 좁으면 "조여 있다"고 봅니다.
+        /// </summary>
+        private ChartContext ReadChartContext()
+        {
+            var ctx = new ChartContext();
+            if (currentPrice <= 0f || !candleHistories.TryGetValue(Timeframe.M1, out List<CandleData> m1) || m1.Count < 20) return ctx;
+
+            int n = Mathf.Min(ChartContextLookbackMinutes, m1.Count);
+            float hi = currentPrice, lo = currentPrice;
+            for (int i = m1.Count - n; i < m1.Count; i++)
+            {
+                if (m1[i].high > hi) hi = m1[i].high;
+                if (m1[i].low < lo) lo = m1[i].low;
+            }
+
+            ctx.NearHigh = (hi - currentPrice) / currentPrice < NearExtremeRatio;
+            ctx.NearLow = (currentPrice - lo) / currentPrice < NearExtremeRatio;
+            float round = Mathf.Round(currentPrice / 1000f) * 1000f;
+            ctx.NearRound = round > 10f && Mathf.Abs(currentPrice - round) / currentPrice < NearRoundRatio;
+            ctx.NarrowRange = (hi - lo) / currentPrice < currentVolatility * Mathf.Sqrt(n);
+            return ctx;
+        }
+
+        // 셋업 가중치 표 (SIG-A4). 신호 종류·진위·기조 조합마다 하나씩입니다.
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueSqueeze =
+            { (SignalSetup.VolatilitySqueeze, 50f), (SignalSetup.Breakout, 35f), (SignalSetup.NewsSpike, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueWithTrend =
+            { (SignalSetup.TrendContinuation, 40f), (SignalSetup.Breakout, 45f), (SignalSetup.NewsSpike, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsTrueOther =
+            { (SignalSetup.Breakout, 80f), (SignalSetup.NewsSpike, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsFalseBreakout =
+            { (SignalSetup.FalseBreakout, 50f), (SignalSetup.StopRun, 30f), (SignalSetup.LiquidityGrab, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBullTrapRange =
+            { (SignalSetup.RangeRejection, 45f), (SignalSetup.FalseBreakout, 25f), (SignalSetup.LiquidityGrab, 15f), (SignalSetup.Distribution, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBearTrapRange =
+            { (SignalSetup.RangeRejection, 45f), (SignalSetup.FalseBreakout, 25f), (SignalSetup.LiquidityGrab, 15f), (SignalSetup.Capitulation, 15f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBullTrap =
+            { (SignalSetup.Distribution, 35f), (SignalSetup.FalseBreakout, 30f), (SignalSetup.StopRun, 15f), (SignalSetup.LiquidityGrab, 20f) };
+        private static readonly (SignalSetup setup, float weight)[] SetupsBearTrap =
+            { (SignalSetup.Capitulation, 35f), (SignalSetup.FalseBreakout, 30f), (SignalSetup.StopRun, 15f), (SignalSetup.LiquidityGrab, 20f) };
+
+        /// <summary>
+        /// 신호 종류·진위·그날 기조에서 연출 계열(셋업)을 고릅니다. (SIG-A4)
+        /// 롱을 꼬시는 트랩은 고점 분산, 숏을 꼬시는 트랩은 투매 후 V반등이 전형이고, 횡보장 트랩은 박스권 반락이 많습니다.
+        /// </summary>
+        private SignalSetup ChooseSetup(MarketSignalType type, bool isTrue, bool narrowRange)
+        {
+            bool breakout = type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout;
+            (SignalSetup setup, float weight)[] table;
+            if (breakout && isTrue)
+            {
+                // 박스 폭이 좁게 조여 있었다면(SIG-A3) 기조와 무관하게 변동성 수축 돌파 계열입니다.
+                table = currentDailyRegime == MarketRegime.Squeeze || narrowRange ? SetupsTrueSqueeze
+                      : TrendAlignmentBonus(type) > 0f ? SetupsTrueWithTrend
+                      : SetupsTrueOther;
+            }
+            else if (breakout)
+            {
+                table = SetupsFalseBreakout;
+            }
+            else
+            {
+                bool range = currentDailyRegime == MarketRegime.Sideways;
+                bool lureLong = type == MarketSignalType.BullTrap;
+                table = range ? (lureLong ? SetupsBullTrapRange : SetupsBearTrapRange)
+                              : (lureLong ? SetupsBullTrap : SetupsBearTrap);
+            }
+
+            float total = 0f;
+            for (int i = 0; i < table.Length; i++) total += table[i].weight;
+            float r = UnityEngine.Random.value * total;
+            for (int i = 0; i < table.Length; i++)
+            {
+                r -= table[i].weight;
+                if (r <= 0f) return table[i].setup;
+            }
+            return table[table.Length - 1].setup;
+        }
+
+        // 트랩이 "트랩인 줄 알았는데 진짜"로 유인 방향을 따라가는 확률. (SIG-A6)
+        private const float TrapFollowThroughProbability = 0.15f;
+
+        // 일일 기조별 신호 종류 가중치 [상승 돌파, 하락 돌파, 불트랩, 베어트랩] (SIG-A1)
+        // 추세장에서는 추세 방향 돌파와 "역추세 쪽을 꼬신 뒤 추세 방향으로 가는" 트랩(상승장의 베어트랩)이 많고,
+        // 박스권은 양 끝단의 가짜 돌파가 지배적입니다.
+        private static readonly float[] BullSignalWeights     = { 0.45f, 0.15f, 0.15f, 0.25f };
+        private static readonly float[] BearSignalWeights     = { 0.15f, 0.45f, 0.25f, 0.15f };
+        private static readonly float[] SidewaysSignalWeights = { 0.20f, 0.20f, 0.30f, 0.30f };
+        private static readonly float[] SqueezeSignalWeights  = { 0.30f, 0.30f, 0.20f, 0.20f };
+
+        private static float[] SignalTypeWeights(MarketRegime dailyRegime)
+        {
+            switch (dailyRegime)
+            {
+                case MarketRegime.Bull: return BullSignalWeights;
+                case MarketRegime.Bear: return BearSignalWeights;
+                case MarketRegime.Squeeze: return SqueezeSignalWeights;
+                default: return SidewaysSignalWeights;
+            }
+        }
+
+        /// <summary>돌파 신호가 그날 기조와 같은 방향이면 +0.2, 반대면 -0.2, 그 외(트랩·횡보·광기) 0.</summary>
+        private float TrendAlignmentBonus(MarketSignalType type)
+        {
+            int trend = currentDailyRegime == MarketRegime.Bull ? 1 : currentDailyRegime == MarketRegime.Bear ? -1 : 0;
+            int dir = type == MarketSignalType.BullishBreakout ? 1 : type == MarketSignalType.BearishBreakout ? -1 : 0;
+            return trend * dir * 0.20f;
+        }
+
         // 새 차트 신호 생성 및 방송
         public void GenerateMarketSignal()
         {
-            float rand = UnityEngine.Random.value;
+            // 신호 종류는 그날의 거시 기조를 따릅니다. (SIG-A1)
+            // 예전엔 기조와 무관하게 35/35/15/15라, 하락 기조인 날에도 상승 돌파가 똑같이 나와
+            // 요미의 일일 방향 힌트가 매매 판단에 거의 쓸모가 없었습니다.
+            float[] w = SignalTypeWeights(currentDailyRegime);
+
+            // 지금 차트 모양도 읽습니다. (SIG-A3) 돌파는 고점/저점에서, 트랩은 라운드 피겨와 고점/저점 위에서 잘 납니다.
+            // 예전엔 신호가 차트와 완전히 무관하게 터져, 차트를 봐도 다음 신호를 짐작할 단서가 없었습니다.
+            ChartContext ctx = ReadChartContext();
+            float wBullBreak = w[0], wBearBreak = w[1], wBullTrap = w[2], wBearTrap = w[3];
+            if (ctx.NearHigh) { wBullBreak *= 1.6f; wBullTrap *= 1.4f; } // 저항선 돌파 시도 — 진짜든 가짜든
+            if (ctx.NearLow) { wBearBreak *= 1.6f; wBearTrap *= 1.4f; }  // 지지선 이탈 시도
+            if (ctx.NearRound) { wBullTrap *= 1.5f; wBearTrap *= 1.5f; } // 라운드 피겨 = 오더블록 반발 자리
+            ApplySignalMemory(ctx, ref wBullBreak, ref wBearBreak, ref wBullTrap, ref wBearTrap); // SIG-A2
+            float wTotal = wBullBreak + wBearBreak + wBullTrap + wBearTrap;
+
+            float rand = UnityEngine.Random.value * wTotal;
             MarketSignalType type;
-            if (rand < 0.35f) type = MarketSignalType.BullishBreakout;
-            else if (rand < 0.70f) type = MarketSignalType.BearishBreakout;
-            else if (rand < 0.85f) type = MarketSignalType.BullTrap;
+            if (rand < wBullBreak) type = MarketSignalType.BullishBreakout;
+            else if (rand < wBullBreak + wBearBreak) type = MarketSignalType.BearishBreakout;
+            else if (rand < wBullBreak + wBearBreak + wBullTrap) type = MarketSignalType.BullTrap;
             else type = MarketSignalType.BearTrap;
 
-            // 강도 설정 (65% 확률로 Strong, 35% 확률로 Weak)
-            SignalStrength strength = UnityEngine.Random.value < 0.65f ? SignalStrength.Strong : SignalStrength.Weak;
+            // 강도 설정 (기본 65% Strong, 광기 기조는 80%)
+            float strongProb = currentDailyRegime == MarketRegime.Squeeze ? 0.80f : 0.65f;
+            if (hasLastSignal && lastSignalWasWeak) strongProb = Mathf.Min(0.95f, strongProb + 0.15f); // 약한 신호 뒤 에너지 축적 (SIG-A2)
+            SignalStrength strength = UnityEngine.Random.value < strongProb ? SignalStrength.Strong : SignalStrength.Weak;
 
-            // IsTrueSignal 결정: Breakout은 60% 확률로 진짜, Trap은 100% 가짜 속임수. 
-            // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가
-            float trueSignalProb = 0.60f - (fakeoutProbability * 0.5f); // fakeoutProbability가 0.5면 trueSignalProb은 0.35가 됨
-            bool isTrue = (type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout) && UnityEngine.Random.value < trueSignalProb;
+            // IsTrueSignal 결정: Breakout은 기본 60% 확률로 진짜, Trap은 항상 가짜 판정(단 15%는 반전 — 아래 SIG-A6).
+            // Phase 3 이후(fakeoutProbability 증가) 시 낚시(가짜 돌파) 확률 증가 — fakeoutProbability 0.5면 0.35.
+            // 기조와 같은 방향의 돌파는 +20%p, 반대 방향은 -20%p (SIG-A1).
+            float trueSignalProb = Mathf.Clamp(0.60f - (fakeoutProbability * 0.5f) + TrendAlignmentBonus(type) + MemoryTruthBonus(type), 0.05f, 0.95f);
+            bool breakoutType = type == MarketSignalType.BullishBreakout || type == MarketSignalType.BearishBreakout;
+            bool isTrue = breakoutType && UnityEngine.Random.value < trueSignalProb;
+            // 트랩의 15%는 유인 방향으로 갑니다. IsTrueSignal(요미가 읽는 판정)은 false 그대로라 요미의 간파(역진입)도 15%는 틀립니다.
+            // 셋업도 트랩 계열 그대로라, 궤적이 반대로 한 번 찔러 "역시 트랩"처럼 보인 뒤 유인 방향으로 터집니다. (SIG-A6)
+            bool trapFollowsThrough = !breakoutType && UnityEngine.Random.value < TrapFollowThroughProbability;
+
+            // 광기 기조는 움직임 자체도 큽니다.
+            float magnitudeScale = currentDailyRegime == MarketRegime.Squeeze ? 1.25f : 1.0f;
 
             int duration = strength == SignalStrength.Strong ? UnityEngine.Random.Range(15, 31) : UnityEngine.Random.Range(5, 11);
             int grace = UnityEngine.Random.Range(3, 6); // 3~5분 골든타임 여유 시간
 
+            // 연출 계열(셋업) — 궤적 모양과 예고 시간만 바꿉니다. AI가 읽는 종류·진위·방향은 위에서 이미 정해졌습니다. (SIG-A4)
+            SignalSetup setup = ChooseSetup(type, isTrue, ctx.NarrowRange);
+            if (setup == SignalSetup.NewsSpike)
+            {
+                duration = UnityEngine.Random.Range(5, 11); // 짧고 굵게
+                grace = 1;                                  // 예고가 거의 없습니다
+            }
+
             // 확정 변동률(TargetPercentageDelta) 연산
-            float targetDelta = 0f;
-            if (strength == SignalStrength.Strong)
-            {
-                // 강한 신호: ±3.0% ~ ±6.0% (10배 레버리지 기준 ±30%~±60% ROE)
-                float mag = UnityEngine.Random.Range(3.0f, 6.0f);
-                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
-                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
-                else if (type == MarketSignalType.BullTrap) targetDelta = -mag; // 롱 유도 후 급락 빔
-                else if (type == MarketSignalType.BearTrap) targetDelta = mag;  // 숏 유도 후 급등 빔
-            }
-            else
-            {
-                // 약한 신호(단타/미끼): ±0.6% ~ ±1.5% (10배 레버리지 기준 ±6%~±15% ROE)
-                float mag = UnityEngine.Random.Range(0.6f, 1.5f);
-                if (type == MarketSignalType.BullishBreakout) targetDelta = isTrue ? mag : -mag;
-                else if (type == MarketSignalType.BearishBreakout) targetDelta = isTrue ? -mag : mag;
-                else if (type == MarketSignalType.BullTrap) targetDelta = -mag;
-                else if (type == MarketSignalType.BearTrap) targetDelta = mag;
-            }
+            // 강한 신호: 로그정규 중앙값 4.1% (평균 ≈ 4.5%, 90%가 1.9~8.6%, 상한 11%) — 10배 기준 ROE 약 ±20~85%
+            // 약한 신호(단타/미끼): 로그정규 중앙값 0.95% (평균 ≈ 1.05%, 90%가 0.45~2.0%, 상한 2.6%)
+            float mag = (strength == SignalStrength.Strong ? LogNormalMagnitude(4.1f, 1.5f, 11f) : LogNormalMagnitude(0.95f, 0.35f, 2.6f)) * magnitudeScale;
+            // 진짜면 유인 방향, 가짜(트랩 포함)면 반대 방향 빔입니다.
+            float lureSign = MarketSignal.AdvertisedDirectionOf(type) == TradingController.PositionType.Long ? 1f : -1f;
+            float targetDelta = isTrue || trapFollowsThrough ? lureSign * mag : -lureSign * mag;
 
             activeSignal = new MarketSignal
             {
                 Type = type,
+                Direction = MarketSignal.AdvertisedDirectionOf(type),
+                Setup = setup,
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1392,8 +1876,9 @@ namespace FXOverdose.Trading
 
             currentSignalPhase = SignalPhase.GraceWindow;
             signalPhaseTimerMinutes = grace;
+            RememberSignal(activeSignal, ctx);
 
-            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()}");
+            Debug.Log($"[MarketEngine] 📣 [신호 방송 - 1단계 판단 여유 골든타임 돌입] {activeSignal.GetSignalDescription()}{(trapFollowsThrough ? " [트랩 반전: 유인 방향 진행]" : "")} (차트: 고점근접 {ctx.NearHigh} / 저점근접 {ctx.NearLow} / 라운드 {ctx.NearRound} / 좁은박스 {ctx.NarrowRange})");
             OnMarketSignalGenerated?.Invoke(activeSignal);
             OnSignalPhaseChanged?.Invoke(currentSignalPhase, activeSignal);
         }
@@ -1404,6 +1889,8 @@ namespace FXOverdose.Trading
             activeSignal = new MarketSignal
             {
                 Type = type,
+                Direction = MarketSignal.AdvertisedDirectionOf(type),
+                Setup = isTrue ? SignalSetup.Breakout : SignalSetup.FalseBreakout,
                 Strength = strength,
                 IsTrueSignal = isTrue,
                 TargetPercentageDelta = targetDelta,
@@ -1436,6 +1923,8 @@ namespace FXOverdose.Trading
             activeSignal = new MarketSignal
             {
                 Type = trapSigType,
+                Direction = trapPosType,
+                Setup = SignalSetup.FalseBreakout,
                 Strength = SignalStrength.Strong,
                 IsTrueSignal = false,
                 TargetPercentageDelta = trapTargetDelta,
