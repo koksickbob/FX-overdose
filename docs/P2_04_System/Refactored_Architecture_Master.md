@@ -936,5 +936,17 @@ LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddM
 
 **영향**: 신호당 평균 강한 신호 약 1.3회 / 약한 신호 약 0.9회. 꼬리는 −25% 스프링 가드를 거치지 않으므로, 진입 직후라면 약 77배 이상 정방향 포지션도 청산될 수 있다(의도된 난이도 상승). 요미(AI)의 고배율 진짜 신호 진입도 같은 위협을 받는다. 세이브 변경 없음.
 
+## 16. 타이틀 복귀 시 상주 트레이딩 코어 폐기 — 슬롯 간 상태 누수 (2026-10-08)
+
+**증상**: 기존 슬롯으로 거래하다 타이틀로 나간 뒤 다른 슬롯에서 새 게임을 시작하면 요미의 방 PC가 "포지션이 열려 있어요"로 막혔다. 그때 기록된 `save_slot_7.json`에는 새 게임 표식(`NeedsStartingItems=true`, `DatingDay=1`, 호감도 0)과 이전 판의 트레이딩 상태(잔고 34,610 / 09:15 / 체력 96.7 / AI 숏 보유 / 캔들 214개)가 섞여 있었다.
+
+**원인**: 세이브 필드 누락이 아니다. `GameManager`는 c91c773(2026-08-15)부터 `DontDestroyOnLoad`이고 같은 오브젝트에 `TradingController`·`TraderStatus`·`MarketSimulationEngine`·`TraderLevelSystem`·`ChoiceEventController`·`BossManager` 등이 붙어 있는데, 타이틀로 돌아가도 파괴되지 않았다. `PrepareNewGame`/`PrepareLoadGame`은 `SaveData`와 `DatingTimeManager`만 갈아 끼우므로, 방의 진입 저장(`YomiRoomManager.Start`)과 시간 슬롯·알바비가 `GameManager.Instance`로 이전 판 인스턴스를 잡아 그 상태를 지금 슬롯 파일에 썼다. 새 게임뿐 아니라 **방으로 복귀하는 불러오기도 같은 경로로 오염**된다.
+
+**변경**
+- `GameManager.HandleSceneLoaded` — `TitleScene`이 로드되면 상주 오브젝트를 `Destroy`한다. GameScene 재진입 때 새 인스턴스가 상주본을 대체하던 일을 타이틀에서 먼저 할 뿐이라, 잃는 것은 저장되지 않은 진행분뿐이다.
+- `SaveLoadManager.PrepareLoadGame` — `DailyMarketOutlook.Load`와 `DeliveryFoodManager.Restore`를 `DatingTimeManager`와 함께 즉시 복원한다. 둘은 `SaveGame`이 매번 수집하는데 복원은 GameScene 진입 때만 해서, 방으로 복귀하는 불러오기의 진입 저장이 이전 세션 값이나 초기값으로 덮어썼다(그날 방향성 재추첨 = S6 무력화, 스테이크 재구매 대기 해제).
+
+**세이브 형식 변경 없음.** 이미 오염된 슬롯은 자동 복구되지 않으므로 새로 시작해야 한다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

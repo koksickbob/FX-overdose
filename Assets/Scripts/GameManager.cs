@@ -471,6 +471,16 @@ public class GameManager : MonoBehaviour
     {
         if (this != Instance) return;
 
+        // 타이틀 복귀 = 세션 종료. 상주 트레이딩 코어(잔고·시계·포지션·차트·레벨…)를 여기서 버립니다.
+        // 남겨 두면 다음 새 게임/불러오기가 요미의 방에서 시작할 때 방의 진입 저장(YomiRoomManager.Start)이
+        // 이전 판 상태를 그 슬롯 파일에 그대로 써 넣고, PC는 이전 판 포지션 때문에 막힙니다.
+        // 다음 GameScene 진입 때 씬의 새 인스턴스가 세이브에서 복원하므로 잃는 것은 저장 안 된 진행분뿐입니다.
+        if (scene.name == "TitleScene")
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (IsTradingScene(scene.name))
         {
             // 거래 씬에 (다시) 들어왔습니다. 최초 진입 때 Start가 하던 준비를 그대로 반복합니다 —

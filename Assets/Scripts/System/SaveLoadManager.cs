@@ -394,9 +394,13 @@ namespace FXOverdose.Core
             ActiveStorySlotIndex = slotIndex;
             IsPendingLoad = true;
 
-            // 아래 둘은 GameScene 진입을 기다리지 않고 지금 복원합니다.
+            // 아래 셋은 GameScene 진입을 기다리지 않고 지금 복원합니다.
             // 요미의 방/월드맵으로 바로 복귀하면 ApplyLoadedDataToGame이 돌지 않는데,
             // 그 씬들도 이 값을 읽고 또 저장까지 하기 때문입니다.
+            // static 둘은 SaveGame이 씬과 무관하게 매번 수집하므로, 빠뜨리면 방 진입 저장이 이전 세션(다른 슬롯)
+            // 값이나 초기값을 이 슬롯에 덮어씁니다 — 그날 방향성 재추첨(S6 무력화)과 스테이크 재구매 대기 해제.
+            DailyMarketOutlook.Load(CurrentData);
+            DeliveryFoodManager.EnsureInstance().Restore(CurrentData.LastSteakPurchaseDay, CurrentData.PastaBuffRemainingSeconds);
             if (FXOverdose.DatingSim.Core.DatingTimeManager.Instance != null)
             {
                 FXOverdose.DatingSim.Core.DatingTimeManager.Instance.LoadFromSaveData(CurrentData);
