@@ -1,0 +1,221 @@
+{
+  "기준": "B1_Morning_v05 / Room_Ambient_Base_v02_1080p",
+  "출력_캔버스": [
+    1920,
+    1080
+  ],
+  "후처리": "기존 승인된 계산 마스크·정렬·알파 정리",
+  "소스": {
+    "Door": {
+      "크기": [
+        1672,
+        941
+      ],
+      "모드": "RGBA",
+      "클릭_외곽": [
+        1167,
+        96,
+        1417,
+        842
+      ]
+    },
+    "Phone": {
+      "크기": [
+        1717,
+        916
+      ],
+      "모드": "RGBA",
+      "클릭_외곽": [
+        918,
+        247,
+        1409,
+        776
+      ]
+    },
+    "Computer_v02": {
+      "크기": [
+        1254,
+        1254
+      ],
+      "모드": "RGBA",
+      "클릭_외곽": [
+        114,
+        48,
+        1236,
+        1215
+      ]
+    },
+    "Bed": {
+      "크기": [
+        1672,
+        941
+      ],
+      "모드": "RGBA",
+      "클릭_외곽": [
+        1100,
+        206,
+        1672,
+        941
+      ]
+    }
+  },
+  "오브젝트": {
+    "Door": {
+      "뒤쪽_실면적_가림_비율": 0.0964518105687024,
+      "클릭_영역_픽셀": 61931,
+      "클릭_외곽": [
+        1450,
+        108,
+        1583,
+        688
+      ],
+      "요미_예약_영역_픽셀": 0,
+      "알파_범위": [
+        0,
+        255
+      ],
+      "연결_성분_크기": [
+        61804,
+        127
+      ]
+    },
+    "Phone": {
+      "뒤쪽_실면적_가림_비율": 0.0,
+      "클릭_영역_픽셀": 20303,
+      "클릭_외곽": [
+        1249,
+        535,
+        1418,
+        718
+      ],
+      "요미_예약_영역_픽셀": 0,
+      "알파_범위": [
+        0,
+        255
+      ],
+      "연결_성분_크기": [
+        20303
+      ]
+    },
+    "Computer": {
+      "뒤쪽_실면적_가림_비율": 0.0,
+      "클릭_영역_픽셀": 179265,
+      "클릭_외곽": [
+        115,
+        436,
+        665,
+        1008
+      ],
+      "요미_예약_영역_픽셀": 0,
+      "알파_범위": [
+        0,
+        255
+      ],
+      "연결_성분_크기": [
+        179265
+      ]
+    },
+    "Bed": {
+      "뒤쪽_실면적_가림_비율": 0.0,
+      "클릭_영역_픽셀": 200580,
+      "클릭_외곽": [
+        1479,
+        586,
+        1920,
+        1080
+      ],
+      "요미_예약_영역_픽셀": 0,
+      "알파_범위": [
+        0,
+        255
+      ],
+      "연결_성분_크기": [
+        200580
+      ]
+    }
+  },
+  "배경": {
+    "Morning": {
+      "기준": "기존 v05를 보존하고 접지 음영만 추가",
+      "기하학_변환": "없음"
+    },
+    "Noon": {
+      "기하학_변환": "없음 — 공통 1080p 원본 픽셀에 RGB 조명 배율만 적용",
+      "조명_참고_생성본": "Noon.png",
+      "조명장_블러_px": [
+        24,
+        8
+      ],
+      "태양_마스크": "기존 남동향·북위37도·춘추분·태양시12시 계산 재사용"
+    },
+    "Evening": {
+      "기하학_변환": "없음 — 공통 1080p 원본 픽셀에 RGB 조명 배율만 적용",
+      "조명_참고_생성본": "Evening.png",
+      "조명장_블러_px": [
+        24,
+        8
+      ],
+      "태양_표현": "남동향 창의 해질녘은 하늘의 간접광. 잘못된 긴 직사광 패턴을 추가하지 않음."
+    },
+    "Night": {
+      "기하학_변환": "없음 — 공통 1080p 원본 픽셀에 RGB 조명 배율만 적용",
+      "조명_참고_생성본": "Night.png",
+      "조명장_블러_px": [
+        24,
+        8
+      ]
+    }
+  },
+  "합성_요미": {
+    "원본_수정": false,
+    "실루엣_검토용_높이": 760,
+    "발바닥_y": 940,
+    "비고": "원본 투명 여백을 제외한 표시 영역 기준. 런타임 빌더의 전체 스프라이트 사각형 배치와 미세하게 다를 수 있음."
+  },
+  "검수": {
+    "PNG_개수": 8,
+    "알파_클릭_임계": 0.1,
+    "주의": "투영은 리뷰의 근사 모델. 모든 가구 선의 동일 소실점 수렴 및 Unity 실제 클릭/화면비 검수는 별도."
+  },
+  "PSD": {
+    "파일": "YomiRoom_PointClick_Layers_4K.psd",
+    "크기": [
+      3840,
+      2160
+    ],
+    "레이어": [
+      "BG_Morning",
+      "BG_Noon",
+      "BG_Evening",
+      "BG_Night",
+      "OBJ_Door",
+      "OBJ_Phone",
+      "OBJ_Computer",
+      "OBJ_Bed",
+      "GUIDE_Perspective",
+      "GUIDE_Zones"
+    ],
+    "재열기_검증": true,
+    "오브젝트_알파_보존": true,
+    "PNG_합성과의_평균_RGB_오차": 4.4568222736625514e-05,
+    "원화_해상도_주의": "1080p 정렬본을 2배 보간한 편집용 레이어 묶음. 네이티브 4K 생성 원화가 아님."
+  },
+  "Unity_임포트": {
+    "경로": "Assets/Resources/DatingSim/YomiRoom/PointClick",
+    "형식": "Sprite Single / Bilinear / Full Rect / Mipmaps Off",
+    "오브젝트": "Read/Write On / Compression None / Alpha Is Transparency On",
+    "배경": "Read/Write Off / Compression High Quality",
+    "게임_코드_수정": false,
+    "에디터_Play_검증": false
+  },
+  "파일_SHA256": {
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Bed.png": "13e420bb9e443621afcc60ddf4d5f715dbb311db0b89d71c0503bb5335d234d3",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Computer.png": "c4e9e5dca13d3b9b3424dd29b5168a2d47120d0f7d428608830ae9e09f73e046",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Door.png": "d7ee261e7898dd047b391f73d1f16c46eeab57c45aabf5fa41e416b1a41bce74",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Evening/Room.png": "024955c378e0c75c3404ffc57945cd387cb01ca2cb2a2da70bc138c2e6e167af",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Morning/Room.png": "f9317eca9e5572b12c1c818bad97b2cc72214e9577be49fddb353bcebade7ebe",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Night/Room.png": "3957332f6874cb93ddfcfcdd1cb57f24f57001a3ca2fe01b591c359316df4f27",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Noon/Room.png": "f85bbc356d03efabd442e2bf531231bb84b57a9ab12e0678bfc05e98decad02f",
+    "Assets/Resources/DatingSim/YomiRoom/PointClick/Phone.png": "e9465741c63fc7207079d80c8aded8d9a431b156694985b91d9fd60007f9ddc5"
+  }
+}
