@@ -387,9 +387,9 @@ namespace FXOverdose.Trading
             gameManager.ChangeBalance(-payment);
 
             if (Mathf.Abs(payment) < marginAmount * FundingNoticeMarginRatio) return;
-            string line = payment > 0f
-                ? $"펀딩비 ${payment:N0} 나갔어... 오래 들고 있으면 계속 새어 나가, 오빠!"
-                : $"펀딩비 ${-payment:N0} 들어왔어! 반대쪽 사람들이 내준 거야, 헤헤~";
+            // 대사는 DB 카테고리 FundingPaid / FundingReceived. {amount}는 주고받은 금액으로 바뀝니다.
+            string line = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue(payment > 0f ? "FundingPaid" : "FundingReceived")
+                ?.Replace("{amount}", $"{Mathf.Abs(payment):N0}");
             var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
             visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Low, FXOverdose.AI.EventCategory.ChartMovement);
         }
@@ -854,18 +854,12 @@ namespace FXOverdose.Trading
                 {
                     lastReportedROE = roe;
                     lastROEDialogueTime = Time.time;
-                    string directionHint = currentPosition == PositionType.Short
-                        ? "Short(공매도 하락 배팅) 중이므로 주가가 폭락해서 바닥으로 내려가고 있어 수익이 나고 있는 기분 좋은 상황입니다! (더 내려가라고 소리치세요)"
-                        : "Long(상승 배팅) 중이므로 주가가 치솟아 고점을 뚫고 올라가서 수익이 나고 있는 상황입니다! (더 올라가라고 소리치세요)";
                     OutputYomiDialogue(FXOverdose.AI.EventCategory.ChartMovement, FXOverdose.AI.DialoguePriority.Normal);
                 }
                 else if ((roe <= -15f && lastReportedROE > -15f) || (roe <= -30f && lastReportedROE > -30f))
                 {
                     lastReportedROE = roe;
                     lastROEDialogueTime = Time.time;
-                    string directionHint = currentPosition == PositionType.Short
-                        ? "Short(공매도 하락 배팅) 중인데 주가가 반대로 솟구쳐올라 고점을 부수며 손실이 커지고 있는 위기 상황입니다! (제발 폭락하라고 비세요)"
-                        : "Long(상승 배팅) 중인데 주가가 바닥으로 떨어지며 손실이 커지고 있는 위기 상황입니다! (제발 반등하라고 비세요)";
                     OutputYomiDialogue(FXOverdose.AI.EventCategory.ChartMovement, FXOverdose.AI.DialoguePriority.Normal);
                 }
             }

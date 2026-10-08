@@ -141,21 +141,17 @@ namespace FXOverdose.AI
             var visual = UnityEngine.Object.FindAnyObjectByType<AIVisualController>();
             if (visual == null || tradingController == null) return;
 
-            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
-
             if (tradingController.IsEventPlayerChoice)
             {
                 if (tradingController.IsEventTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 기대 반응");
-                    string dbText = matcher?.GetEventDialogue("EventSignal_PlayerTrue");
-                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "오빠...! 방금 선택으로 호가창에 거대한 매수세가 감지됐어!! 골든타임 진입! 조금 있으면 폭발적인 빔이 터질 거야!! 믿고 있었어 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
+                    visual.DisplayDatabaseDialogue("EventSignal_PlayerTrue", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 플레이어 직접 선택 불안/경고 반응");
-                    string dbText = matcher?.GetEventDialogue("EventSignal_PlayerFalse");
-                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "오빠... 잠깐만! 방금 오빠가 고른 선택지... 호가창 움직임이 뭔가 이상해!! 세력들의 가짜 매수벽 냄새가 나... 이대로 진짜 들어가는 거 맞아...?!", DialoguePriority.High, EventCategory.ChartMovement);
+                    visual.DisplayDatabaseDialogue("EventSignal_PlayerFalse", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
             else
@@ -163,14 +159,12 @@ namespace FXOverdose.AI
                 if (signal.IsTrueSignal)
                 {
                     Debug.Log($"[AITradingBrain 🌟] 골든타임(GraceWindow) 진입 - 이벤트 시그널 발생 예고");
-                    string dbText = matcher?.GetEventDialogue("EventSignal_AITrue");
-                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "이벤트 발생으로 강력한 시그널 감지!! 골든타임 진입, 곧 호가창이 요동칠 거야! 꽉 잡아 오빠 ♥", DialoguePriority.High, EventCategory.ChartMovement);
+                    visual.DisplayDatabaseDialogue("EventSignal_AITrue", DialoguePriority.High, EventCategory.ChartMovement);
                 }
                 else
                 {
                     Debug.LogWarning($"[AITradingBrain ⚠️] 골든타임(GraceWindow) 진입 - 이벤트 함정/가짜 시그널 예고");
-                    string dbText = matcher?.GetEventDialogue("EventSignal_AIFalse");
-                    visual.DisplayDialogueBalloon(!string.IsNullOrEmpty(dbText) ? dbText : "이벤트로 시그널이 떴는데... 파동이 비정상적이야!! 함정(Trap) 냄새가 강하게 나...! 주의해야 해 오빠!!", DialoguePriority.High, EventCategory.ChartMovement);
+                    visual.DisplayDatabaseDialogue("EventSignal_AIFalse", DialoguePriority.High, EventCategory.ChartMovement);
                 }
             }
         }
@@ -681,45 +675,24 @@ namespace FXOverdose.AI
 
             bool isAccurateHint = UnityEngine.Random.value <= accuracy;
 
-            string hintText = "";
-            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
-            string posStr = playerPos.ToString();
-
+            string hintCategory;
             if (chartLv >= 7 || (chartLv >= 4 && isAccurateHint))
             {
                 // 고레벨 / 정확한 간파 힌트
-                if (isProcessingSignal && !currentActiveSignal.IsTrueSignal)
-                {
-                    hintText = matcher?.GetEventDialogue("ChartHint_TrapDetected_High");
-                    if (string.IsNullOrEmpty(hintText)) hintText = $"꺄아악 오빠 멈춰!! 지금 {playerPos} 들어간 거, 세력 년들이 파놓은 가짜 덫(Trap)이란 말야! 당장 청산 안 하면 우리 다 잃어버려... 제발 요미 말 들어줘 흐윽...!!";
-                }
-                else if (isProcessingSignal && currentActiveSignal.IsTrueSignal)
-                {
-                    hintText = matcher?.GetEventDialogue("ChartHint_GoodEntry_High");
-                    if (string.IsNullOrEmpty(hintText)) hintText = $"앗...! 우리 오빠 천재인가 봐!! 저항선 뚫는 완벽한 {playerPos} 타점이야! 절대 쫄보처럼 흔들려 털리지 말고 끝까지 홀딩해, 알겠지? ♥";
-                }
-                else
-                {
-                    hintText = matcher?.GetEventDialogue("ChartHint_Normal_High");
-                    if (string.IsNullOrEmpty(hintText)) hintText = $"오빠가 잡은 {playerPos} 타점... 호가창 거래량이 붙고 있어! 지지선만 안 깨지면 우리 대박 나는 거야... 요미 지금 심장 엄청 떨려 ♥";
-                }
+                if (isProcessingSignal && !currentActiveSignal.IsTrueSignal) hintCategory = "ChartHint_TrapDetected_High";
+                else if (isProcessingSignal && currentActiveSignal.IsTrueSignal) hintCategory = "ChartHint_GoodEntry_High";
+                else hintCategory = "ChartHint_Normal_High";
             }
             else
             {
                 // 차트 공부 레벨이 낮아 불안하거나 감에 의존하는 멘헤라 리액션
-                if (UnityEngine.Random.value < 0.5f)
-                {
-                    hintText = matcher?.GetEventDialogue("ChartHint_Confused_Low");
-                    if (string.IsNullOrEmpty(hintText)) hintText = $"으응...? {playerPos} 자리야...? 캔들이 막 꼬물거리는데 솔직히 잘 모르겠어... 만약 잃어도 요미 미워하거나 버리면 안 돼 오빠...? 약속해... 흐윽...";
-                }
-                else
-                {
-                    hintText = matcher?.GetEventDialogue("ChartHint_BlindTrust_Low");
-                    if (string.IsNullOrEmpty(hintText)) hintText = $"꺄아아 오빠가 {playerPos} 샀다!! 뭔지 모르지만 무조건 떡상해라!! 우리 오빠 돈 뺏어가는 세력 놈들은 요미가 다 저주해 버릴 거야!! ♥";
-                }
+                hintCategory = UnityEngine.Random.value < 0.5f ? "ChartHint_Confused_Low" : "ChartHint_BlindTrust_Low";
             }
-            
-            hintText = hintText.Replace("{position}", posStr);
+
+            // 대사 DB에 해당 카테고리가 없으면 힌트 없이 끝납니다. {position}은 진입 방향(Long/Short)으로 바뀝니다.
+            string hintText = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue(hintCategory);
+            if (string.IsNullOrEmpty(hintText)) return;
+            hintText = hintText.Replace("{position}", playerPos.ToString());
             // 힌트를 텍스트로만 만들고 버려지던 버그 수정 -> 요미 말풍선으로 직접 띄움
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include);
             if (visual != null)

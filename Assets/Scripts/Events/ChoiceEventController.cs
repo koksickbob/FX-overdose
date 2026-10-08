@@ -511,10 +511,12 @@ namespace FXOverdose.Events
         /// 표시할 텍스트 3요소를 템플릿 자산에서 결정합니다.
         ///
         /// 제목/본문   : 템플릿 사전 텍스트 → 테마 서술 기반 자동 문구
-        /// 요미 대사   : 템플릿 사전 대사 후보 → 기본 문구
+        /// 요미 대사   : 템플릿 사전 대사 후보 → 대사 DB ChoiceEventFallback → 없음(빈 문자열)
         ///
         /// 자동 문구는 사전 텍스트를 아직 채우지 않은 템플릿이 들어와도 빈 팝업이 뜨지 않도록
-        /// 남겨 둔 최후의 방어선입니다. 현재 자산 242개는 모두 사전 텍스트가 채워져 있습니다.
+        /// 남겨 둔 최후의 방어선입니다. 현재 자산 242개는 제목·본문이 채워져 있고 요미 대사는 비어 있습니다
+        /// (2026-10-08 전면 삭제). 요미 대사는 선택 사항이라 성공 판정에 넣지 않습니다 — 넣으면 대사가 빈
+        /// 템플릿이 전부 "깨진 템플릿"이 되어 이벤트가 하드코딩 EVENT_* 풀로만 뜹니다.
         /// </summary>
         private bool TryResolveEventText(
             EventLogicTemplateSO template,
@@ -533,13 +535,12 @@ namespace FXOverdose.Events
             monologue = ResolveYomiLine(template);
 
             return !string.IsNullOrWhiteSpace(title)
-                && !string.IsNullOrWhiteSpace(description)
-                && !string.IsNullOrWhiteSpace(monologue);
+                && !string.IsNullOrWhiteSpace(description);
         }
 
         /// <summary>
         /// 이벤트 팝업에 띄울 요미 반응을 템플릿의 사전 대사 후보에서 고릅니다.
-        /// 후보가 비어 있을 때만 기본 문구로 떨어집니다.
+        /// 후보가 비어 있으면 대사 DB의 ChoiceEventFallback 카테고리에서, 그것도 없으면 빈 문자열입니다.
         /// </summary>
         private string ResolveYomiLine(EventLogicTemplateSO template)
         {
@@ -553,7 +554,7 @@ namespace FXOverdose.Events
                 }
             }
 
-            return "오빠...! 이거 지금 어떻게 할지 빨리 정해줘!";
+            return FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue("ChoiceEventFallback") ?? string.Empty;
         }
 
         private ChoiceOptionData ConvertTemplateOption(EventLogicOptionData logicOption)

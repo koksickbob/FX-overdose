@@ -275,7 +275,8 @@ namespace FXOverdose.DatingSim.YomiRoom
             if (today < 0 || data.TalkLastGreetingDay == today) return;
 
             data.TalkLastGreetingDay = today;
-            OnYomiGreeted?.Invoke(YomiTalkTopics.GreetingFor(CurrentTalkTime));
+            string greeting = YomiTalkTopics.GreetingFor(CurrentTalkTime);
+            if (!string.IsNullOrEmpty(greeting)) OnYomiGreeted?.Invoke(greeting);
         }
 
         /// <summary>남은 시간 슬롯에서 지금이 언제인지 정합니다. 슬롯이 없으면 밤으로 봅니다.</summary>

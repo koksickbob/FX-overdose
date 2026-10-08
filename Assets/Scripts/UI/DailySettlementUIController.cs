@@ -840,13 +840,14 @@ namespace FXOverdose.UI
             };
         }
 
+        /// <summary>당일 손익 부호로 정산 반응을 고릅니다. 대사는 DB 카테고리 SettlementProfit / SettlementLoss / SettlementEven.</summary>
         private static string GetImmediateReaction(float dailyPnl)
         {
-            if (dailyPnl > 0.005f)
-                return "“오빠, 오늘 기록 정리 중이야... 우리 목표에 조금 더 가까워졌지? ♥”";
-            if (dailyPnl < -0.005f)
-                return "“오빠... 오늘 손실 기록을 봐도 요미 버리면 안 돼. 내일은 꼭 되찾을게...”";
-            return "“오늘은 간신히 본전이네... 내일은 요미가 확실한 수익을 보여줄게.”";
+            string dbCategory = dailyPnl > 0.005f ? "SettlementProfit"
+                              : dailyPnl < -0.005f ? "SettlementLoss"
+                              : "SettlementEven";
+            string line = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue(dbCategory);
+            return string.IsNullOrEmpty(line) ? string.Empty : $"“{line}”";
         }
 
         private static string FormatSignedCurrency(float value)

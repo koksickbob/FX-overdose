@@ -465,28 +465,10 @@ namespace FXOverdose.Trading
             //    (익절 인내 배율·손절 기준을 쓰는 강제 청산 판정 포함).
             gameManager.AdvanceGameMinutes(timeHours * 60);
 
-            // 스킬 업그레이드 동적 반응 대사 트리거
-            var matcher = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance;
-            if (matcher == null) matcher = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.Dialogue.YomiDialogueMatcher>(UnityEngine.FindObjectsInactive.Include);
-            
-            string dialogue = null;
-            if (matcher != null)
-            {
-                dialogue = matcher.GetEventDialogue("SkillUpgraded");
-            }
-            
-            // 데이터베이스에 이벤트 대사가 없거나 매처가 없을 때를 대비한 하드코딩 Fallback
-            if (string.IsNullOrEmpty(dialogue))
-            {
-                int currentLevel = GetSkillLevel(type);
-                dialogue = type switch
-                {
-                    SkillType.ChartStudy => $"차트 공부 완료! (LV.{currentLevel}) 눈알이 빠질 것 같지만 타점 분석 능력이 올랐어!",
-                    SkillType.CubePatience => $"큐브 풀기 완료! (LV.{currentLevel}) 인내심이 크게 늘었어. 이제 목표가까지 묵묵히 버텨주지.",
-                    SkillType.BookJudgment => $"독서 완료! (LV.{currentLevel}) 파산 회고록을 읽으니 손절의 중요성을 뼈저리게 느꼈어.",
-                    _ => $"트레이딩 실력이 성장하여 더 똑똑해졌다! (LV.{currentLevel})"
-                };
-            }
+            // 스킬 업그레이드 반응 대사. DB 카테고리 SkillUpgraded_ChartStudy / _CubePatience / _BookJudgment,
+            // {level}은 오른 뒤의 레벨로 바뀝니다. 대사가 없으면 말하지 않습니다.
+            string dialogue = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue($"SkillUpgraded_{type}")
+                ?.Replace("{level}", GetSkillLevel(type).ToString());
 
             var visual = UnityEngine.Object.FindAnyObjectByType<FXOverdose.AI.AIVisualController>(UnityEngine.FindObjectsInactive.Include);
             if (visual != null)

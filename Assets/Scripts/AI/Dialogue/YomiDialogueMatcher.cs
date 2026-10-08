@@ -47,7 +47,7 @@ namespace FXOverdose.AI.Dialogue
                 return null; // 쿨다운 중에는 대사 갱신 안 함
             }
 
-            if (database == null) return "데이터베이스가 연결되지 않았어!";
+            if (database == null) return null;
 
             // 1. 딕셔너리 기반 1차 필터링
             var candidates = new List<YomiDialogueEntry>();

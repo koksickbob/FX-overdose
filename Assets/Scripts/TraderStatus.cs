@@ -363,24 +363,24 @@ public class TraderStatus : MonoBehaviour
         //  · 50% — 이후 체력 감소가 같은 양만큼 멘탈로 번지기 시작
         //  · 40% — AI가 강한 함정 신호를 대박 자리로 오인 (AITradingBrain Tier 3)
         //  · 15% — 다음 신호에서 반대 방향 125배 폭주 매매 (Tier 4)
-        // 한 번에 여러 경계를 넘으면 가장 심각한 것 하나만 말합니다.
+        // 한 번에 여러 경계를 넘으면 가장 심각한 것 하나만 말합니다. 대사는 DB 카테고리 HealthWarning15/40/50.
         if (amount < 0f && MaxHealth > 0f)
         {
             float prevRatio = prevHealth / MaxHealth;
             float currRatio = currentHealth / MaxHealth;
 
-            string line = null;
+            string dbCategory = null;
             if (prevRatio > 0.15f && currRatio <= 0.15f)
-                line = "더는 못 버텨... 요미 지금 제정신 아니야!! 오빠, 빨리 뭐라도 먹여줘...!";
+                dbCategory = "HealthWarning15";
             else if (prevRatio > 0.40f && currRatio <= 0.40f)
-                line = "오빠... 눈이 자꾸 감겨... 지금 요미 판단 믿으면 큰일 날지도 몰라!!";
+                dbCategory = "HealthWarning40";
             else if (prevRatio > 0.5f && currRatio <= 0.5f)
-                line = "하아... 머리가 핑 돌아... 이제부터 지치면 멘탈도 같이 깎여, 오빠...";
+                dbCategory = "HealthWarning50";
 
-            if (line != null)
+            if (dbCategory != null)
             {
                 var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-                visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
+                visual?.DisplayDatabaseDialogue(dbCategory, FXOverdose.AI.DialoguePriority.High, FXOverdose.AI.EventCategory.MentalChange);
             }
         }
 
@@ -529,7 +529,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Anxious;
                 if (lastTrackedMentalState == MentalState.Stable)
                 {
-                    SayMentalTransition("으음... 요미 슬슬 불안해지기 시작했어... 오빠, 우리 무리하지 말자 응...?");
+                    SayMentalTransition("MentalAnxious");
                 }
             }
         }
@@ -540,7 +540,7 @@ public class TraderStatus : MonoBehaviour
                 currentMentalState = MentalState.Stable;
                 if (lastTrackedMentalState != MentalState.Stable)
                 {
-                    SayMentalTransition("후우~ 이제 좀 살 것 같아! 요미 다시 집중할 수 있어, 오빠!");
+                    SayMentalTransition("MentalRecovered");
                 }
             }
         }
@@ -565,18 +565,18 @@ public class TraderStatus : MonoBehaviour
     private const float MentalTransitionLineCooldown = 20f;
 
     /// <summary>
-    /// 안정 ↔ 불안 전이를 요미가 말합니다. (DEAD-2)
+    /// 안정 ↔ 불안 전이를 요미가 말합니다. (DEAD-2) 대사는 DB 카테고리 <paramref name="dbCategory"/>에서 뽑습니다.
     /// 거래 중(Playing)에만 말합니다 — 다음 날로 넘어갈 때 정산 화면에서 멘탈이 최대로 회복되며
     /// "회복" 대사가 튀어나오는 것을 막습니다.
     /// </summary>
-    private void SayMentalTransition(string line)
+    private void SayMentalTransition(string dbCategory)
     {
         if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing) return;
         if (Time.unscaledTime - lastMentalTransitionLineTime < MentalTransitionLineCooldown) return;
         lastMentalTransitionLineTime = Time.unscaledTime;
 
         var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-        visual?.DisplayDialogueBalloon(line, FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.MentalChange);
+        visual?.DisplayDatabaseDialogue(dbCategory, FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.MentalChange);
     }
 
     // --- 돌발 선택 이벤트 연동 메서드 ---
@@ -629,7 +629,7 @@ public class TraderStatus : MonoBehaviour
             tradingController.ExecuteEmergencyTrade(randomPos, leverage, 30, FXOverdose.Trading.TradingController.EventPositionHandlingMode.StandardAuto, 0f, 0f, false, true, allowedMarginRatio, 2.0f);
 
             var visual = FindAnyObjectByType<FXOverdose.AI.AIVisualController>();
-            visual?.DisplayDialogueBalloon("더는 못 참아!! 100배로 싹 다 복구한다!!");
+            visual?.DisplayDatabaseDialogue("ImpulsiveTrade", FXOverdose.AI.DialoguePriority.Normal, FXOverdose.AI.EventCategory.General);
             Debug.LogWarning($"[TraderStatus] ⚠️ TriggerImpulsiveTrade 발동: {randomPos} {leverage}배 강제 진입 대기 시작 (마진 비율: {allowedMarginRatio:F2})");
         }
     }

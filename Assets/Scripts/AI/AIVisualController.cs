@@ -799,6 +799,15 @@ namespace FXOverdose.AI
             DisplayDialogueBalloon(text, priority, EventCategory.General);
         }
 
+        /// <summary>
+        /// 대사 DB의 이벤트 카테고리(<paramref name="dbCategory"/>)에서 한 줄을 뽑아 띄웁니다.
+        /// 그 카테고리에 대사가 없으면 아무 말도 하지 않습니다 — 코드에 대사를 두지 않고 DB만 정본으로 삼는 진입점입니다.
+        /// </summary>
+        public void DisplayDatabaseDialogue(string dbCategory, DialoguePriority priority, EventCategory category)
+        {
+            DisplayDialogueBalloon(Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue(dbCategory), priority, category);
+        }
+
         public void DisplayDialogueBalloon(string text, DialoguePriority priority, EventCategory category)
         {
             if (string.IsNullOrEmpty(text) || dialogueBalloonPanel == null || dialogueText == null) return;

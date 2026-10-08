@@ -948,5 +948,26 @@ LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddM
 
 **세이브 형식 변경 없음.** 이미 오염된 슬롯은 자동 복구되지 않으므로 새로 시작해야 한다.
 
+## 17. 요미 대사 전면 삭제 — 출력 장치·트리거만 남김 (2026-10-08)
+
+요미의 대사 텍스트를 트레이딩·미연시 가리지 않고 모두 지웠다. 새 대사로 다시 채우기 위한 정리다. 범위·키 목록·저작 방법은 [Yomi_Trading_Dialogue_Master.md](Yomi_Trading_Dialogue_Master.md) §3·§11·§13.
+
+**구조 변경**
+- **대사의 정본을 DB 하나로.** 코드에 박혀 있던 대사(체력 경고·멘탈 전이·뇌동매매·기믹·차트 힌트·골든타임·스킬·펀딩비·보스 등장·정산 반응·게임오버 메시지·이벤트 팝업 폴백)를 전부 `YomiDialogueDatabase`의 카테고리 키 조회로 바꿨다. 키가 비어 있으면 침묵한다. 공용 진입점 `AIVisualController.DisplayDatabaseDialogue(키, 우선순위, 분류)` 신설. 동적 값은 호출부 치환자 `{position}` `{level}` `{amount}` `{boss}`로 넘긴다.
+- 순서형 독백(6·16일차, 보스 등장·승패)은 DB와 맞지 않아 `GameManager`의 빈 목록으로 남겼다. 빈 목록이면 재생기가 곧바로 다음 단계로 간다.
+- 대사 생성기 `YomiDialogueGenerator.cs`·`YomiDailyDialogueGenerator.cs` 삭제(실행하면 옛 대사로 DB를 덮어씀). 저작은 `DialogueDB_Import.json` → Import. 템플릿 텍스트 생성기에서 요미 대사 풀 제거.
+- `PrebakeTMPFont`가 `YomiDialogueDatabase.asset`·`Resources/Events` 에셋도 스캔(`\uXXXX` 해독) — 생성기 삭제로 DB 대사가 `.cs`에 없어졌기 때문.
+
+**대사를 지우며 바꾼 판정**
+- `ChoiceEventController.TryResolveEventText`와 `EventLogicTemplateSO.HasFallbackText`에서 요미 대사 조건 제거. 그대로 두면 템플릿 242개가 전부 "깨진 템플릿"이 되어 이벤트가 하드코딩 `EVENT_*` 풀로만 뜬다.
+- `AITradingBrain.ProvideChartHintToPlayer`는 대사가 없으면 반환(폴백 삭제 후 `null.Replace` 예외 방지). 요미의 방 인사는 빈 문자열이면 발화하지 않음.
+
+**알려진 영향**
+- 매처 쿨다운 공유(YD-4)와 매처의 GameScene 한정(YD-11)이 예전보다 넓게 작용한다 — 옛 하드코딩 자리까지 DB를 거치기 때문.
+- `python yomi_dialogue_lint.py`는 미연시 대화 테이블 최소 분량 검사 12건으로 exit 1. 대사를 채우면 풀린다.
+- 폐기된 대화 토픽 ID 9개는 세이브 이력에 남아 있어 재사용 금지(TS5). 목록은 `YomiTalkTopics.All` 주석.
+
+**세이브 형식 변경 없음.**
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

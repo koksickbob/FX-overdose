@@ -7,7 +7,8 @@ using FXOverdose.Events;
 namespace FXOverdose.Editor
 {
     /// <summary>
-    /// 로직 템플릿 242개에 사전 작성 텍스트(FallbackTitle / FallbackDescription / FallbackMonologues) 초안을 채웁니다.
+    /// 로직 템플릿 242개에 사전 작성 텍스트(FallbackTitle / FallbackDescription) 초안을 채웁니다.
+    /// 요미 대사(FallbackMonologues)는 만들지 않습니다 — 2026-10-08 요미 대사 전면 삭제 때 대사 풀을 걷어냈습니다.
     ///
     /// Phase 4 하이브리드의 전제는 "LLM이 실패해도 템플릿 로직 그대로 정상 텍스트가 나온다"입니다.
     /// 템플릿 ID가 {카테고리}_{흐름}_{위험도}_{시간대} 조합이므로, 조합별 문구 표에서 결정적으로 조립합니다.
@@ -83,43 +84,6 @@ namespace FXOverdose.Editor
         {
             ["AsiaSession"] = "아시아장이 열린 직후",
             ["USSession"] = "미국장 개장과 동시에",
-        };
-
-        // ── 요미 대사 풀 (흐름별) ─────────────────────────────────────────
-        private static readonly Dictionary<string, string[]> MonologuePool = new()
-        {
-            ["Pump"] = new[]
-            {
-                "오빠...! 지금 안 타면 이거 놓치는 거야! 어떡해, 빨리 정해줘!",
-                "올라가! 올라간다고! 근데 이거 꼭지면 어쩌지... 오빠가 정해줘!",
-                "호가창이 다 녹아버렸어...! 오빠, 이건 진짜야? 아니면 함정이야?!",
-                "심장이 터질 것 같아! 지금 들어가면 먹는 거 맞지? 맞다고 해줘 오빠!",
-                "거래량이 미쳤어... 이런 건 처음 봐. 오빠, 요미 무서워. 어떡할 거야?",
-            },
-            ["Crash"] = new[]
-            {
-                "오빠...! 이거 그냥 흘러내리고 있어! 지금 안 던지면 다 죽어!",
-                "안 돼... 이 속도면 청산이야. 오빠, 제발 빨리 정해줘...!",
-                "밑이 안 보여... 받쳐줄 매수벽이 하나도 없어! 어떻게 해야 돼?!",
-                "요미 계산이 다 틀렸어... 오빠가 대신 정해줘. 위야, 아래야?!",
-                "손절 물량이 손절을 부르고 있어...! 여기서 버티는 게 맞아, 오빠?",
-            },
-            ["Sideways"] = new[]
-            {
-                "오빠... 아무도 안 움직여. 이거 터지기 직전이라는 뜻이야...",
-                "숨 막혀... 거래량이 완전히 말랐어. 이럴 때가 제일 무서운데.",
-                "양쪽 다 눈치만 보고 있어. 오빠, 우리는 어느 쪽에 설 거야?",
-                "변동성이 응축되고 있어... 터지면 한쪽으로 크게 갈 거야. 준비해야 해!",
-                "지루하다고 방심하면 안 돼 오빠. 이런 장이 제일 무섭게 터진다고.",
-            },
-            ["Whipsaw"] = new[]
-            {
-                "오빠...! 위아래로 다 털어내고 있어! 이건 그냥 청산 사냥이야!",
-                "롱도 숏도 다 죽었어... 이런 장에서 뭘 어떻게 하라는 거야?!",
-                "속지 마 오빠! 이거 위로 한 번 보여주고 밑으로 꽂을 거야!",
-                "심지가 이렇게 길다고?! 오빠, 여기 들어가면 진짜 위험해...!",
-                "양쪽 다 물리게 만드는 장이야... 오빠, 신중하게 정해줘. 제발.",
-            },
         };
 
         // ── 선택지 문구 ───────────────────────────────────────────────────
@@ -286,7 +250,6 @@ namespace FXOverdose.Editor
 
                 t.FallbackTitle = BuildTitle(cat, flow, risk);
                 t.FallbackDescription = BuildDescription(cat, flow, risk, time);
-                t.FallbackMonologues = BuildMonologues(flow, t.TemplateID);
 
                 EditorUtility.SetDirty(t);
                 filled++;
@@ -385,37 +348,6 @@ namespace FXOverdose.Editor
                    $"{RiskClosing[risk]}.";
         }
 
-        /// <summary>
-        /// 흐름별 대사 풀에서 3개를 고릅니다. TemplateID 해시로 시작 위치를 정해
-        /// 템플릿마다 조합이 다르면서도 재실행 시 결과가 같도록 합니다.
-        /// </summary>
-        private static string[] BuildMonologues(string flow, string templateId)
-        {
-            string[] pool = MonologuePool[flow];
-            int offset = Mathf.Abs(StableHash(templateId)) % pool.Length;
-
-            var picked = new string[3];
-            for (int i = 0; i < 3; i++)
-            {
-                picked[i] = pool[(offset + i) % pool.Length];
-            }
-            return picked;
-        }
-
-        /// <summary>
-        /// string.GetHashCode()는 실행마다 값이 달라질 수 있어(랜덤 해시 시드) 재현성이 없습니다.
-        /// 자산에 기록될 값을 정하는 용도이므로 안정적인 해시를 직접 계산합니다.
-        /// </summary>
-        private static int StableHash(string s)
-        {
-            unchecked
-            {
-                int hash = 23;
-                foreach (char c in s) hash = hash * 31 + c;
-                return hash;
-            }
-        }
-
         /// <summary>생성기 조합 밖의 수제 템플릿용. ThemeTag 서술만으로 최소한의 기사를 만듭니다.</summary>
         private static void BuildFromThemeOnly(EventLogicTemplateSO t)
         {
@@ -424,12 +356,6 @@ namespace FXOverdose.Editor
             t.FallbackTitle = "[속보] 시장을 뒤흔든 돌발 변수";
             t.FallbackDescription = $"{theme} 시장 참여자들이 대응 방향을 두고 극심하게 갈리고 있다. " +
                                     "레버리지를 쥔 계좌라면 지금 판단이 하루 손익을 가른다.";
-            t.FallbackMonologues = new[]
-            {
-                "오빠...! 이거 지금 어떻게 할지 빨리 정해줘!",
-                "차트가 이상해... 오빠, 요미 판단이 안 서. 대신 정해줘!",
-                "이런 건 처음 봐... 오빠, 신중하게 골라야 해.",
-            };
         }
     }
 }

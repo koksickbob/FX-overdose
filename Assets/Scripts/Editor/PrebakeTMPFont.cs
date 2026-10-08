@@ -56,11 +56,22 @@ public class PrebakeTMPFont
         }
 
         HashSet<char> uniqueChars = new HashSet<char>();
-        string[] scriptFiles = Directory.GetFiles(Application.dataPath, "*.cs", SearchOption.AllDirectories);
+        var scriptFiles = new List<string>(Directory.GetFiles(Application.dataPath, "*.cs", SearchOption.AllDirectories));
+
+        // 대사가 실제로 사는 에셋도 읽습니다. 2026-10-08 대사 생성기(.cs)를 지운 뒤로 DB 대사는 .cs 어디에도 없어,
+        // 이게 없으면 새로 넣은 대사가 □(폴백 폰트)로 렌더됩니다. Unity YAML은 한글을 \uXXXX로 저장하므로 풀어서 셉니다.
+        string eventsDir = Path.Combine(Application.dataPath, "Resources/Events");
+        scriptFiles.Add(Path.Combine(Application.dataPath, "YomiDialogueDatabase.asset"));
+        if (Directory.Exists(eventsDir))
+            scriptFiles.AddRange(Directory.GetFiles(eventsDir, "*.asset", SearchOption.AllDirectories));
 
         foreach (string file in scriptFiles)
         {
+            if (!File.Exists(file)) continue;
             string content = File.ReadAllText(file);
+            if (file.EndsWith(".asset"))
+                content = System.Text.RegularExpressions.Regex.Replace(content, @"\\u([0-9A-Fa-f]{4})",
+                    m => ((char)System.Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
             foreach (char c in content)
             {
                 // Only add hangul and common symbols

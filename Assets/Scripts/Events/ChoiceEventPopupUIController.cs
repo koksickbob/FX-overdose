@@ -132,13 +132,10 @@ namespace FXOverdose.Events
 
             if (aiMonologueText != null)
             {
-                string monologue = string.IsNullOrWhiteSpace(eventData.AIMonologue)
-                    ? "시장 데이터가 불안정해요. 대응 방향을 정해 주세요."
-                    : eventData.AIMonologue;
-                monologue = TruncateForDisplay(monologue, DisplayMaxMonologueLength, "AIMonologue");
-                aiMonologueText.text =
-                    $"<color=#06B6D4><b>YOMI // AI MARKET ANALYST</b></color>\n" +
-                    $"<color=#CFFAFE>“{monologue}”</color>";
+                // 요미 대사가 없는 이벤트는 카드 머리글만 남깁니다(2026-10-08 대사 전면 삭제 이후 기본 상태).
+                string monologue = TruncateForDisplay(eventData.AIMonologue, DisplayMaxMonologueLength, "AIMonologue");
+                aiMonologueText.text = "<color=#06B6D4><b>YOMI // AI MARKET ANALYST</b></color>" +
+                    (string.IsNullOrWhiteSpace(monologue) ? string.Empty : $"\n<color=#CFFAFE>“{monologue}”</color>");
             }
 
             GameManager gameManager = GameManager.Instance;

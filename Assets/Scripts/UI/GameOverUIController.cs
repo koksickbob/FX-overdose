@@ -293,15 +293,11 @@ namespace FXOverdose.UI
             };
         }
 
+        /// <summary>엔딩별 요미 최종 메시지. 대사는 DB 카테고리 GameOverFinal_{엔딩}(Bankruptcy / Overdose / Success / None).</summary>
         private static string GetFinalMessage(GameManager.EndingType endingType)
         {
-            return endingType switch
-            {
-                GameManager.EndingType.Bankruptcy => "“다 잃어버렸어... 그래도 오빠, 요미를 혼자 두고 가지 마...”",
-                GameManager.EndingType.Overdose => "“머릿속이 멈추질 않아... 오빠만 여기 남아 있으면 돼...”",
-                GameManager.EndingType.Success => "“해냈어, 오빠! 우리의 기록은 여기서 끝이 아니라 시작이야.”",
-                _ => "“세션이 끝났어... 타이틀 화면에서 다시 만나자.”"
-            };
+            string line = FXOverdose.AI.Dialogue.YomiDialogueMatcher.Instance?.GetEventDialogue($"GameOverFinal_{endingType}");
+            return string.IsNullOrEmpty(line) ? string.Empty : $"“{line}”";
         }
 
         public void ReturnToTitle()
@@ -542,7 +538,7 @@ namespace FXOverdose.UI
 
             finalMessageText = CreateText(messageCard.transform, "FinalMessage", 21f, new Color32(207, 250, 254, 255), TextAlignmentOptions.TopLeft);
             SetTopRect(finalMessageText.rectTransform, 20f, 20f, 38f, 46f);
-            finalMessageText.text = "“다 잃어버렸어... 그래도 오빠, 요미를 혼자 두고 가지 마...”";
+            finalMessageText.text = string.Empty;
             finalMessageText.textWrappingMode = TextWrappingModes.Normal;
 
             BuildReturnButton(parent);

@@ -78,12 +78,12 @@ namespace FXOverdose.Events
         }
 
         /// <summary>
-        /// 사전 작성 텍스트가 3요소 모두 채워져 있는지. Phase 4 폴백 가능 여부 판정용.
+        /// 사전 작성 텍스트(제목·본문)가 채워져 있는지. 요미 대사(<see cref="FallbackMonologues"/>)는 선택 사항이라
+        /// 보지 않습니다 — 2026-10-08 전면 삭제로 242개 모두 비어 있습니다.
         /// </summary>
         public bool HasFallbackText =>
             !string.IsNullOrWhiteSpace(FallbackTitle) &&
-            !string.IsNullOrWhiteSpace(FallbackDescription) &&
-            FallbackMonologues != null && FallbackMonologues.Length > 0;
+            !string.IsNullOrWhiteSpace(FallbackDescription);
 
         /// <summary>
         /// LogicOptions가 3개 모두 유효한지 검사합니다. (R3)

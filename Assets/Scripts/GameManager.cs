@@ -450,13 +450,6 @@ public class GameManager : MonoBehaviour
             cleared++;
         }
 
-        // 16일차 독백의 첫 줄만 금액을 명시합니다. 나머지 두 줄(100배 레버리지·남은 5일)은
-        // 위약금과 무관하게 성립하므로 첫 줄만 갈아끼워 스토리 기능을 유지합니다.
-        if (day16Monologue != null && day16Monologue.Count > 0)
-        {
-            day16Monologue[0] = "슬슬 한계야... 이 속도로는 사채업자 마감일까지 절대 못 맞춰!! 멘탈이 부서질 것 같지만, 여기서 포기할 순 없어.";
-        }
-
         if (cleared > 0)
             Debug.Log($"[GameManager] ⚠️ 스토리 위약금 비활성화 상태입니다. 위약금 {cleared}건을 0으로, 위약금 만화 {comicsCleared}건을 비웠습니다.");
     }
@@ -709,17 +702,11 @@ public class GameManager : MonoBehaviour
         bossManager.SpawnBossForDay(CurrentDay, encounterEquity);
     }
 
-    private System.Collections.Generic.List<string> day6Monologue = new System.Collections.Generic.List<string> {
-        "하아... 이런 푼돈 단타로는 사채업자 근처도 못 가! 더 큰 돈을 벌려면 레버리지 배율을 높여야 해.",
-        "부지런히 거래해서 경험치를 쌓고 레벨을 올려야만 중고배율 레버리지가 해금된다고!",
-        "지금부터는 어떻게든 레벨을 올려서 자산을 공격적으로 뻥튀기해야만 살아남을 수 있어. 가자!"
-    };
+    // 6·16일차 아침 독백 — 한 줄씩 클릭해 넘기는 말풍선 목록입니다. 비어 있으면 독백 없이 다음 단계로 진행합니다.
+    // 보스 등장·승패 독백(PlayBossMorningSequence / 보스전 판정)도 같은 방식입니다. (2026-10-08 요미 대사 전면 삭제)
+    private System.Collections.Generic.List<string> day6Monologue = new System.Collections.Generic.List<string>();
 
-    private System.Collections.Generic.List<string> day16Monologue = new System.Collections.Generic.List<string> {
-        "말도 안 돼... 10만 달러 배상 청구 폭탄이라니!! 잔고가 박살나고 멘탈이 부서질 것 같지만, 여기서 포기할 순 없어.",
-        "단숨에 복구하려면 '100배 풀레버리지'가 반드시 필요해. 아직 해금을 못했다면 어떻게든 최고 레벨(LV.9)까지 올려야 해!",
-        "남은 시간은 단 5일. 모 아니면 도다. 가즈아아아!!!"
-    };
+    private System.Collections.Generic.List<string> day16Monologue = new System.Collections.Generic.List<string>();
 
     private System.Collections.IEnumerator PlayStoryMonologueAndWait(System.Collections.Generic.List<string> lines, System.Action onComplete)
     {
@@ -985,11 +972,7 @@ public class GameManager : MonoBehaviour
                 }
                 else
                 {
-                    System.Collections.Generic.List<string> winReaction = new System.Collections.Generic.List<string> {
-                        $"[{boss.Name} 격파 결과]", 
-                        $"흐응~ 고작 그 정도 자본으로 나한테 덤빈 거야?", 
-                        $"역시 넌 평생 알바생 피나 빨아먹는 하수일 뿐이야!"
-                    };
+                    System.Collections.Generic.List<string> winReaction = new System.Collections.Generic.List<string>();
                     StartCoroutine(PlayStoryMonologueAndWait(winReaction, () => {
                         FinalizeProceedToNextDay();
                     }));
@@ -998,11 +981,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                System.Collections.Generic.List<string> loseReaction = new System.Collections.Generic.List<string> {
-                    $"[{boss.Name} 패배 결과]",
-                    $"말도 안 돼... 내가, 내가 졌다고...?",
-                    $"이건 다 저 차트가 조작된 탓이야!!! 다시 매매해야 해!!!"
-                };
+                System.Collections.Generic.List<string> loseReaction = new System.Collections.Generic.List<string>();
                 StartCoroutine(PlayStoryMonologueAndWait(loseReaction, () => {
                     EndGame(EndingType.Overdose);
                 }));
@@ -1217,11 +1196,7 @@ public class GameManager : MonoBehaviour
 
     private void PlayBossMorningSequence(FXOverdose.Core.BossData boss, FXOverdose.Core.BossManager bossManager)
     {
-        System.Collections.Generic.List<string> bossIntro = new System.Collections.Generic.List<string> {
-            $"[{boss.Name} 등장!]",
-            boss.Description,
-            $"감히 내 앞길을 막아? 내 트레이딩으로 네 놈의 영혼까지 털어주겠어!"
-        };
+        System.Collections.Generic.List<string> bossIntro = new System.Collections.Generic.List<string>();
         StartCoroutine(PlayStoryMonologueAndWait(bossIntro, () => {
             // 보스 스폰을 이 시점으로 지연시킴 (보스 등장 연출 UI 트리거)
             bossManager.SpawnBossForDay(CurrentDay, StartOfDayEquity);
