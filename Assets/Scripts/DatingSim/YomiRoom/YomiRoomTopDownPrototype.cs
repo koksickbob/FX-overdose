@@ -464,7 +464,8 @@ namespace FXOverdose.DatingSim.YomiRoom
         private float animationTime;
 
         // 이동량의 출처. null이면 기존대로 부모의 YomiRoomTopDownController를 찾습니다.
-        // 편의점 씬의 요미·손님처럼 그 컨트롤러가 없는 경우에만 주입합니다.
+        // 편의점 씬의 요미·손님을 위해 만든 주입 경로인데, 편의점 폐기(2026-10-08)로 지금은 주입하는 곳이 없습니다.
+        // 탑다운 방 잔재와 함께 요미의 방 리뉴얼 Phase 4에서 정리합니다.
         private System.Func<Vector2> inputSource;
         private System.Func<bool> movingSource;
 

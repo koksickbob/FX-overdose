@@ -1,5 +1,7 @@
 # P2_05 편의점 스프라이트 — Gemini 전달용 완성 프롬프트 시트
 
+> ⛔ **폐기 (2026-10-08)** — 편의점 알바 타이쿤은 트레이딩 파트와 피로가 겹쳐 폐기되었습니다. 알바는 이제 월드맵에서 누르면 바로 결과가 뜨는 즉시 정산입니다. 경위와 대체 사양은 [ConvenienceStore_Tycoon_Removal_Plan.md](../P2_04_System/ConvenienceStore_Tycoon_Removal_Plan.md). 이 문서는 이력으로만 남깁니다.
+
 > **작성일**: 2026-08-14
 > **용도**: [P2_05_ConvenienceStore_UI_And_Sprite_Spec.md](P2_05_ConvenienceStore_UI_And_Sprite_Spec.md) §3~§6 에셋 35장 제작. **각 코드 블록이 완성 프롬프트다 — 조립·치환 없이 블록 통째로 복사해서 Gemini에 붙여넣는다.**
 > **주의**: [P2_07 캐주얼 일러스트 프롬프트](../P2_07_emotion/P2_07_Yomi_Emotion_Sprite_Prompt_Plan.md)와 섞지 말 것 — 이쪽은 탑다운 픽셀아트 계열이다.

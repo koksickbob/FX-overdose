@@ -490,7 +490,7 @@ public class GameManager : MonoBehaviour
         // 거래 씬을 떠났으므로 다음 진입에서 다시 준비해야 합니다.
         initializedForCurrentScene = false;
 
-        // 거래 씬 밖(요미의 방·월드맵·편의점): 시계와 체력·멘탈 감소를 멈춥니다.
+        // 거래 씬 밖(요미의 방·월드맵): 시계와 체력·멘탈 감소를 멈춥니다.
         // Paused를 고른 이유는 저장과 잔고 변동은 계속 허용되기 때문입니다 —
         // 그 둘이 막히면 방에서의 저장이 조용히 실패합니다.
         if (currentState != GameState.Settlement && currentState != GameState.GameOver)

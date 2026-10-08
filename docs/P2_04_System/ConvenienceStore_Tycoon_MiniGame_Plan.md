@@ -1,5 +1,7 @@
 # 편의점 알바 타이쿤 미니게임 계획서
 
+> ⛔ **폐기 (2026-10-08)** — 편의점 알바 타이쿤은 트레이딩 파트와 피로가 겹쳐 폐기되었습니다. 알바는 이제 월드맵에서 누르면 바로 결과가 뜨는 즉시 정산입니다. 경위와 대체 사양은 [ConvenienceStore_Tycoon_Removal_Plan.md](ConvenienceStore_Tycoon_Removal_Plan.md). 이 문서는 이력으로만 남깁니다.
+
 > 위치: `docs/P2_04_System/ConvenienceStore_Tycoon_MiniGame_Plan.md`
 > 대상: DatingSim 파트(Phase 2) — 월드맵 `아르바이트` 액션의 실제 내용물
 > 작성일: 2026-08-14

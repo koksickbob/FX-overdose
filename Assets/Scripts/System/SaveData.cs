@@ -184,8 +184,8 @@ namespace FXOverdose.Core
         public int DatingDay = 1;
 
         // --- 편의점 알바 (Phase 2) ---
-        // 누적 근무 횟수. 손님 스폰 tier 선택에만 쓰입니다. 근무 중간 상태는 저장하지 않습니다.
-        // 기본값 0이라 구버전 세이브는 마이그레이션 없이 tier 0으로 안전하게 시작합니다.
+        // 누적 근무 횟수. 알바 즉시 정산(WorldMapManager.TryStartPartTimeJob)이 1씩 올리고 결과 모달에 "n회차"로 보여줍니다.
+        // 타이쿤 시절에는 손님 밀도 티어 선택에 쓰였습니다(2026-10-08 타이쿤 폐기). 기본값 0이라 구버전 세이브도 그대로 열립니다.
         public int StoreTotalShifts = 0;
 
         // --- TraderStatus 연패 상태 (SV-A3) ---

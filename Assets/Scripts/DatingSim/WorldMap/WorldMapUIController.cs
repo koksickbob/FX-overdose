@@ -45,6 +45,14 @@ namespace FXOverdose.DatingSim.WorldMap
         private GameObject locationDetailPanel;
         private int currentRegionIndex;
 
+        // 알바 결과 모달 (ConfigureJobResultModal로 주입)
+        private GameObject jobResultModal;
+        private TextMeshProUGUI jobResultTitle;
+        private TextMeshProUGUI jobResultPay;
+        private GameObject jobResultGiftRow;
+        private TextMeshProUGUI jobResultGift;
+        private TextMeshProUGUI jobResultBody;
+
         private static readonly string[] RegionNames = { "SEOUL", "INCHEON", "GAPYEONG", "DONGHAE", "BUSAN", "JEJU" };
         private static readonly string[] RegionSpritePaths =
         {
@@ -111,6 +119,18 @@ namespace FXOverdose.DatingSim.WorldMap
             locationPinLayer=pinLayer;
             locationDetailPanel=detailPanel;
             currentRegionIndex=0;
+        }
+
+        public void ConfigureJobResultModal(GameObject modal, TextMeshProUGUI title, TextMeshProUGUI pay,
+            GameObject giftRow, TextMeshProUGUI gift, TextMeshProUGUI body, Button confirm)
+        {
+            jobResultModal = modal;
+            jobResultTitle = title;
+            jobResultPay = pay;
+            jobResultGiftRow = giftRow;
+            jobResultGift = gift;
+            jobResultBody = body;
+            confirm?.onClick.AddListener(() => jobResultModal.SetActive(false));
         }
 
         private void Start()
@@ -194,6 +214,7 @@ namespace FXOverdose.DatingSim.WorldMap
             {
                 WorldMapManager.Instance.OnActionFailed += HandleActionFailed;
                 WorldMapManager.Instance.OnDateStarted += HandleDateStarted;
+                WorldMapManager.Instance.OnJobFinished += HandleJobFinished;
             }
         }
 
@@ -210,6 +231,7 @@ namespace FXOverdose.DatingSim.WorldMap
             {
                 WorldMapManager.Instance.OnActionFailed -= HandleActionFailed;
                 WorldMapManager.Instance.OnDateStarted -= HandleDateStarted;
+                WorldMapManager.Instance.OnJobFinished -= HandleJobFinished;
             }
         }
 
@@ -247,15 +269,23 @@ namespace FXOverdose.DatingSim.WorldMap
 
         private void UpdateBalanceUI()
         {
+            if (balanceText != null && TryGetBalance(out float balance))
+                balanceText.text = $"보유 자산  ₩{balance:N0}";
+        }
+
+        /// <summary>상주 GameManager가 있으면 그 잔고를, 없으면 세이브 스냅샷의 잔고를 읽습니다.</summary>
+        private static bool TryGetBalance(out float balance)
+        {
             var gm = GameManager.Instance;
-            if (gm != null && balanceText != null)
+            if (gm != null)
             {
-                balanceText.text = $"보유 자산  ₩{gm.CurrentBalance:N0}";
+                balance = gm.CurrentBalance;
+                return true;
             }
-            else if (balanceText != null && SaveLoadManager.Instance?.CurrentData != null)
-            {
-                balanceText.text = $"보유 자산  ₩{SaveLoadManager.Instance.CurrentData.Balance:N0}";
-            }
+
+            var data = SaveLoadManager.Instance?.CurrentData;
+            balance = data != null ? data.Balance : 0f;
+            return data != null;
         }
 
         private void UpdateAffectionUI(int value)
@@ -272,7 +302,7 @@ namespace FXOverdose.DatingSim.WorldMap
             switch (location)
             {
                 case MapLocation.Job:
-                    SetDetails("편의점 알바", "체력 -20  ·  시간 -2  ·  보상 ₩1,200", "야간 편의점 업무를 마치고 자산을 획득합니다.", "알바 시작");
+                    SetDetails("편의점 알바", JobMetaText(), "야간 편의점 업무를 마치고 자산을 획득합니다.", "알바 시작");
                     break;
                 case MapLocation.Date:
                     SetDetails("한강공원 데이트", "체력 -10  ·  시간 -1  ·  비용 ₩500", "한강 야경을 보며 요미와 데이트합니다.", "데이트 시작");
@@ -287,6 +317,19 @@ namespace FXOverdose.DatingSim.WorldMap
                     SetDetails("요미의 방", "현재 위치  ·  비용 없음", "휴식을 취하고 다음 일정을 계획할 수 있습니다.", "돌아가기");
                     break;
             }
+        }
+
+        /// <summary>
+        /// 알바 카드 문구. 지급과 같은 데이터(availableJobs)에서 만듭니다 —
+        /// 즉시 정산은 "적힌 그대로 받는 것"이라 숫자를 따로 박아 두면 어긋납니다.
+        /// </summary>
+        private static string JobMetaText()
+        {
+            var manager = WorldMapManager.Instance;
+            if (manager == null || manager.availableJobs.Count == 0) return "준비 중";
+
+            PartTimeJobData job = manager.availableJobs[0];
+            return $"체력 -{job.staminaCost}  ·  시간 -{WorldMapManager.PartTimeJobSlotCost}  ·  일급 ₩{job.rewardAmount:N0}";
         }
 
         private void UpdateRoute(MapLocation location)
@@ -349,6 +392,34 @@ namespace FXOverdose.DatingSim.WorldMap
         private void HandleActionFailed()
         {
             if (feedbackText != null) feedbackText.text = "행동 불가: 자원(체력/시간/자금)이 부족합니다.";
+        }
+
+        /// <summary>알바 즉시 정산 결과를 모달로 보여줍니다. 매니저는 이벤트만 내고 이 모달을 모릅니다.</summary>
+        private void HandleJobFinished(PartTimeJobResult result)
+        {
+            UpdateBalanceUI();
+            if (feedbackText != null) feedbackText.text = $"{result.JobName} 완료  ·  일급 ₩{result.Pay:N0}";
+            AudioManager.Play(AudioCue.Profit, true);
+            if (jobResultModal == null) return;
+
+            jobResultTitle.text = $"{result.JobName}  ·  근무 완료";
+            jobResultPay.text = $"일급  + ₩{result.Pay:N0}";
+
+            bool hasGift = !string.IsNullOrEmpty(result.GiftItemId);
+            jobResultGiftRow.SetActive(hasGift);
+            if (hasGift) jobResultGift.text = $"선물  {result.GiftName} × 1";
+
+            var body = new System.Text.StringBuilder();
+            body.AppendLine($"근무 시간   {DatingTimeManager.ClockTextForSlots(result.SlotsBefore)} → " +
+                            $"{DatingTimeManager.ClockTextForSlots(result.SlotsAfter)}   (시간 -{result.SlotsBefore - result.SlotsAfter})");
+            body.AppendLine($"체력        {result.StaminaBefore} → {result.StaminaAfter}   (-{result.StaminaBefore - result.StaminaAfter})");
+            if (TryGetBalance(out float balance)) body.AppendLine($"보유 자산   ₩{balance:N0}");
+            if (result.TotalShifts > 0) body.AppendLine($"누적 근무   {result.TotalShifts}회차");
+            if (result.SaveFailed) body.AppendLine("<color=#EF4444>저장에 실패했습니다. 다음 저장 때 함께 기록됩니다.</color>");
+            jobResultBody.text = body.ToString();
+
+            jobResultModal.SetActive(true);
+            jobResultModal.transform.SetAsLastSibling();
         }
 
         private void HandleDateStarted(string courseName)

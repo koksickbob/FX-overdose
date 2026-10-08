@@ -50,14 +50,13 @@ namespace FXOverdose.DatingSim.UI
             }
 
             bool pointClickTest = scene.name == YomiRoomPointClickBuilder.TestSceneName;
-            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && scene.name != "ConvenienceStoreScene" && !pointClickTest) return;
+            if (scene.name != "YomiRoomScene" && scene.name != "WorldMapScene" && !pointClickTest) return;
 
             EnsureCamera(scene);
             EnsureEventSystem(scene);
             EnsureTimeManager(scene);
 
-            if (scene.name == "ConvenienceStoreScene") ConvenienceStorePrototype.Build(scene);
-            else if (scene.name == "YomiRoomScene" || pointClickTest) BuildYomiRoom(scene);
+            if (scene.name == "YomiRoomScene" || pointClickTest) BuildYomiRoom(scene);
             else BuildWorldMap(scene);
         }
 
@@ -242,6 +241,46 @@ namespace FXOverdose.DatingSim.UI
                 routeDots, new[] { room.GetComponent<RectTransform>(), job.GetComponent<RectTransform>(), date.GetComponent<RectTransform>(),
                     arcade.GetComponent<RectTransform>(), cafe.GetComponent<RectTransform>() });
             ui.ConfigureRegionNavigation(map, title, previousRegion, nextRegion, pinLayer.gameObject, detail.gameObject);
+            BuildJobResultModal(canvas.transform, ui);
+        }
+
+        /// <summary>
+        /// 알바 즉시 정산의 결과 모달. 숨긴 채 만들고, 정산이 끝나면 WorldMapUIController가 채워서 띄웁니다.
+        /// 전면 딤이 입력을 막아 결과를 보는 중에 [알바 시작]이 다시 눌려 근무가 두 번 처리되지 않게 합니다.
+        /// </summary>
+        private static void BuildJobResultModal(Transform canvas, WorldMapUIController ui)
+        {
+            Image dim = CreateImage(canvas, "JobResultModal", new Color32(2, 7, 18, 200), Vector2.zero, Vector2.one);
+            RectTransform card = CreatePanel(dim.transform, "Card", new Vector2(0.3f, 0.22f), new Vector2(0.7f, 0.78f));
+            card.GetComponent<Outline>().effectColor = Gold;
+
+            TextMeshProUGUI title = CreateText(card, "Title", "근무 완료", 26f, new Vector2(0.06f, 0.83f), new Vector2(0.94f, 0.95f), TextAlignmentOptions.Left);
+            title.color = Gold;
+            title.fontStyle = FontStyles.Bold;
+
+            Image payIcon = CreateImage(card, "PayIcon", Color.white, new Vector2(0.06f, 0.64f), new Vector2(0.15f, 0.79f));
+            payIcon.sprite = LoadResourceSprite("DatingSim/WorldMap/UI/Icon_Money");
+            payIcon.preserveAspect = true;
+            TextMeshProUGUI pay = CreateText(card, "Pay", string.Empty, 30f, new Vector2(0.18f, 0.64f), new Vector2(0.94f, 0.79f), TextAlignmentOptions.Left);
+            pay.color = new Color32(134, 239, 172, 255);
+            pay.fontStyle = FontStyles.Bold;
+
+            RectTransform giftRow = new GameObject("GiftRow", typeof(RectTransform)).GetComponent<RectTransform>();
+            giftRow.SetParent(card, false);
+            SetRect(giftRow, new Vector2(0.06f, 0.52f), new Vector2(0.94f, 0.62f));
+            Image giftIcon = CreateImage(giftRow, "GiftIcon", Color.white, Vector2.zero, new Vector2(0.1f, 1f));
+            giftIcon.sprite = LoadResourceSprite("DatingSim/WorldMap/UI/Icon_Gift");
+            giftIcon.preserveAspect = true;
+            TextMeshProUGUI gift = CreateText(giftRow, "Gift", string.Empty, 20f, new Vector2(0.135f, 0f), Vector2.one, TextAlignmentOptions.Left);
+            gift.color = Pink;
+
+            TextMeshProUGUI body = CreateText(card, "Body", string.Empty, 18f, new Vector2(0.06f, 0.2f), new Vector2(0.94f, 0.5f), TextAlignmentOptions.TopLeft);
+            body.color = Text;
+
+            Button confirm = CreateStandaloneButton(card, "ConfirmButton", "확인", new Vector2(0.66f, 0.05f), new Vector2(0.94f, 0.16f), Gold);
+
+            dim.gameObject.SetActive(false);
+            ui.ConfigureJobResultModal(dim.gameObject, title, pay, giftRow.gameObject, gift, body, confirm);
         }
 
         private static RectTransform[] CreateDottedRoute(Transform parent)

@@ -142,6 +142,7 @@ public enum YomiRoomHotspotType { Bed, Computer, Phone, Door, Yomi }
 
 - `YomiRoomTopDownPrototype.Build`를 대체하는 `YomiRoomPointClickBuilder.Build(scene)`를 새로 만든다. 모달·상태 카드·대화 패널 생성부는 기존 빌더의 헬퍼를 재사용하고, 대화 패널·상태 카드는 좌우 분할 위치에서 **전체 화면 기준 오버레이 앵커**로 옮긴다.
 - **주의**: 편의점 빌더(`ConvenienceStorePrototypeBuilder`)가 `YomiRoomTopDownPrototype`의 헬퍼(`CreateBlock`, `LoadWalkFrames`, `CreateCanvas` 등)와 `YomiTopDownWalkAnimator`, `YomiWalkSheet`를 공유한다. 탑다운 코드 삭제 시 이 헬퍼들은 **남기거나 공용 위치로 옮긴다.**
+  - **2026-10-08 갱신**: 편의점 타이쿤 폐기로 이 공유는 사라졌다. UI 헬퍼(`CreateCanvas`·`CreateText` 등)는 요미의 방 빌더가 계속 쓰고, `YomiTopDownWalkAnimator`·`YomiWalkSheet`와 걷기 애니메이터의 입력 주입 경로(`inputSource`·`movingSource`)는 옛 탑다운 방 빌더만 참조한다 — Phase 4에서 함께 지울 수 있다.
 - `DatingSimSceneBuilder`의 씬 이름 분기에 테스트 씬 이름을 추가해, 같은 빌더가 두 씬에서 돌게 한다.
 
 ### 3.7 확정 사항 (미결 사항 답변)
@@ -207,7 +208,7 @@ UI가 들어올 때마다 반복한다.
 | --- | --- |
 | `YomiRoomTopDownController`, `YomiRoomInteractable`, `YomiRoomExitTrigger`, `YomiRoomTopDownHUD`(미사용) | 삭제 |
 | `YomiRoomTopDownPrototype.BuildRoom` / `BuildPlayer` / `BuildInteractables` | 삭제. 편의점이 쓰는 헬퍼는 유지 (3.6) |
-| `YomiTopDownWalkAnimator`, `YomiWalkSheet.png` | **편의점이 사용 중 → 유지** |
+| `YomiTopDownWalkAnimator`, `YomiWalkSheet.png` | ~~편의점이 사용 중 → 유지~~ 편의점 폐기(2026-10-08)로 옛 탑다운 방 빌더만 참조 — Phase 4에서 함께 삭제 가능 |
 | `DatingSimSceneBuilder.cs:216` 썸네일의 `Morning/RoomLeft` 참조 | 새 배경 경로로 교체 또는 유지 판단 |
 | `YomiRoomUIController`, `Assets/Editor/YomiRoomTestSceneBuilder.cs`, `YomiRoom_Test.unity`, `DatingSimSceneBuilder` 72–116행 죽은 코드 | 옛 버튼 메뉴 잔재. 삭제 |
 | `YomiRoomScene.unity`에 저장된 옛 `Canvas_YomiRoom` | 삭제 (런타임에 어차피 파괴됨) |
@@ -227,5 +228,5 @@ UI가 들어올 때마다 반복한다.
 | `YomiRoomDialogueUI` | 표시 방식 변경 — CanvasGroup 숨김·닫기 버튼·대화 중 닫기 잠금 추가. 대화 로직은 불변 |
 | `YomiRoomVerticalStatusUI` | 위치만 전체 화면 기준으로 재배치 |
 | `YomiTalkTopics.TimeOfSlot` | 읽기 전용 재사용 (변경 없음) |
-| 편의점 씬 | 공용 헬퍼·걷기 애니메이터 유지 필수 → Phase 4에서 확인 |
+| 편의점 씬 | 2026-10-08 폐기 — 확인 불필요. 공용 헬퍼는 요미의 방 빌더가 계속 사용 |
 | 폰트 아틀라스 | 새 한글 문자열 추가 시 프리베이크 재실행 |

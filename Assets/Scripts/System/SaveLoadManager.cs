@@ -63,7 +63,7 @@ namespace FXOverdose.Core
         }
 
         /// <summary>
-        /// GameScene 밖(요미의 방·월드맵·편의점)에서 아이템을 지급합니다.
+        /// GameScene 밖(요미의 방·월드맵 — 알바 선물 등)에서 아이템을 지급합니다.
         /// 그 씬들에는 Inventory 인스턴스가 없어 AddItem을 부를 대상이 없으므로 세이브 스냅샷에 직접 누적합니다.
         /// 다음 GameScene 진입 때 ApplyLoadedDataToGame이 이 목록으로 인벤토리를 재구성합니다.
         ///

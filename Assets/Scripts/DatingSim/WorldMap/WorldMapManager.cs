@@ -16,6 +16,19 @@ namespace FXOverdose.DatingSim.WorldMap
         public float rewardAmount;
     }
 
+    /// <summary>알바 1회의 즉시 정산 결과. 월드맵 결과 모달이 그대로 보여줍니다.</summary>
+    public struct PartTimeJobResult
+    {
+        public string JobName;
+        public float Pay;
+        public string GiftItemId;   // 선물이 없으면 null
+        public string GiftName;
+        public int SlotsBefore, SlotsAfter;
+        public int StaminaBefore, StaminaAfter;
+        public int TotalShifts;     // 이번 근무를 포함한 누적 근무 횟수 (세이브가 없으면 0)
+        public bool SaveFailed;
+    }
+
     [Serializable]
     public struct DateCourseData
     {
@@ -29,7 +42,22 @@ namespace FXOverdose.DatingSim.WorldMap
     {
         public static WorldMapManager Instance { get; private set; }
 
-        private const string StoreSceneName = "ConvenienceStoreScene";
+        /// <summary>알바 1회가 쓰는 시간 슬롯. 기획서 고정값이며 월드맵 카드 표기도 이 값을 읽습니다.</summary>
+        public const int PartTimeJobSlotCost = 2;
+
+        /// <summary>근무 1회당 선물 확률. 타이쿤의 "계산 손님마다 5%"를 대신합니다 (2026-10-08 확정).</summary>
+        public const float JobGiftChance = 0.35f;
+
+        /// <summary>
+        /// 알바 선물 후보. 당첨되면 이 중 하나를 1개 줍니다.
+        /// ItemId는 상점 카탈로그의 ItemData.ItemId와 같아야 합니다 — 오타는 조용한 아이템 증발입니다.
+        /// 검사: FXOverdose/Debug/Part-Time Job Test.
+        /// </summary>
+        public static readonly (string ItemId, string Name)[] JobGifts =
+        {
+            ("energy_drink", "에너지 드링크"),
+            ("dessert", "파르페"),
+        };
 
         [Header("Job & Date Configuration")]
         public List<PartTimeJobData> availableJobs = new List<PartTimeJobData>();
@@ -37,8 +65,7 @@ namespace FXOverdose.DatingSim.WorldMap
 
         public event Action OnActionFailed; // 자원 부족 시 발생
         public event Action<string> OnDateStarted; // 데이트 진입 콜백
-        // OnJobFinished 제거: 알바 결과는 편의점 씬의 결과 패널이 보여주며, 씬을 넘어온 뒤에는
-        // 발행할 주체도 시점도 없습니다. 발화되지 않는 이벤트를 남겨 두지 않습니다.
+        public event Action<PartTimeJobResult> OnJobFinished; // 알바 즉시 정산 완료 — 결과 모달이 구독합니다
 
         private void Awake()
         {
@@ -58,49 +85,59 @@ namespace FXOverdose.DatingSim.WorldMap
             if (jobIndex < 0 || jobIndex >= availableJobs.Count) return;
             
             var job = availableJobs[jobIndex];
-            int requiredSlots = 2; // 기획서 고정 (알바는 2슬롯 소모)
 
-            if (DatingTimeManager.Instance == null) return;
+            var time = DatingTimeManager.Instance;
+            if (time == null) return;
 
             // 1. 체력 및 슬롯 사전 검사
-            if (DatingTimeManager.Instance.CurrentStamina < job.staminaCost || DatingTimeManager.Instance.CurrentTimeSlot < requiredSlots)
+            if (time.CurrentStamina < job.staminaCost || time.CurrentTimeSlot < PartTimeJobSlotCost)
             {
                 OnActionFailed?.Invoke();
                 return;
             }
 
-            // 1.5 목적지 씬이 빌드에 등록돼 있는지 먼저 확인합니다.
-            //     차감이 끝난 뒤에 로드가 실패하면 슬롯 2개와 체력만 날아가고 로딩 화면에 갇힙니다.
-            //     자원을 쓰기 전에 갈 수 있는지부터 봐야 합니다.
-            if (!Application.CanStreamedLevelBeLoaded(StoreSceneName))
+            var result = new PartTimeJobResult
             {
-                Debug.LogError($"[WorldMap] {StoreSceneName}이 빌드 세팅에 없습니다. " +
-                               "메뉴 'FX Overdose/Build Convenience Store Scene'을 먼저 실행하십시오.");
-                OnActionFailed?.Invoke();
-                return;
+                JobName = job.jobName,
+                Pay = job.rewardAmount,
+                SlotsBefore = time.CurrentTimeSlot,
+                StaminaBefore = time.CurrentStamina,
+            };
+
+            // 2. 자원 차감 — 지급보다 먼저 합니다. 그 사이에 종료돼도 공짜 일급이 생기지 않습니다.
+            time.TryConsumeTimeSlot(PartTimeJobSlotCost);
+            time.TryConsumeStamina(job.staminaCost);
+
+            // 3. 즉시 정산. 실시간 타이쿤 미니게임은 트레이딩과 피로가 겹쳐 폐기했습니다.
+            //    (docs/P2_04_System/ConvenienceStore_Tycoon_Removal_Plan.md)
+            PayWage(job.rewardAmount);
+
+            var save = SaveLoadManager.Instance;
+            if (save != null && UnityEngine.Random.value < JobGiftChance)
+            {
+                var gift = JobGifts[UnityEngine.Random.Range(0, JobGifts.Length)];
+                if (save.GrantItemToSave(gift.ItemId))
+                {
+                    result.GiftItemId = gift.ItemId;
+                    result.GiftName = gift.Name;
+                }
             }
+            if (save?.CurrentData != null) result.TotalShifts = ++save.CurrentData.StoreTotalShifts;
 
-            // 2. 자원 차감
-            DatingTimeManager.Instance.TryConsumeTimeSlot(requiredSlots);
-            DatingTimeManager.Instance.TryConsumeStamina(job.staminaCost);
+            // 일급·선물·누적 근무를 한 번에 디스크에 확정합니다.
+            result.SaveFailed = save == null || !save.SaveCurrentGame();
 
-            // 3. 편의점 타이쿤 미니게임으로 진입합니다. 보상은 근무 결과에 따라 그쪽에서 정산합니다.
-            //    차감을 먼저 확정해야 씬 전환 중 종료해도 슬롯이 되살아나지 않습니다.
-            SaveLoadManager.Instance?.SaveCurrentGame();
-
-            // WorldMapManager는 씬 스코프라 편의점 씬에서는 조회할 수 없습니다. 기본급을 값으로 넘깁니다.
-            FXOverdose.DatingSim.Store.StoreShiftManager.PendingBasePay = job.rewardAmount;
-
-            LoadingScreenController.TargetSceneToLoad = StoreSceneName;
-            SceneManager.LoadScene("LoadingScene");
+            result.SlotsAfter = time.CurrentTimeSlot;
+            result.StaminaAfter = time.CurrentStamina;
+            OnJobFinished?.Invoke(result);
         }
 
         /// <summary>
-        /// 일급을 트레이딩 코어 자산에 반영합니다. 편의점 씬에는 이 매니저의 인스턴스가 없으므로 static입니다.
+        /// 일급을 트레이딩 코어 자산에 반영합니다. 상주 GameManager가 없으면 세이브 스냅샷에 직접 씁니다.
         ///
-        /// ⚠️ 음수를 넣지 마십시오. 감점은 지급액을 줄일 뿐이며, 알바가 잔고를 깎는 행동이 되면 안 됩니다. (R12)
+        /// ⚠️ 음수를 넣지 마십시오. 알바가 잔고를 깎는 행동이 되면 안 됩니다. (R12)
         /// </summary>
-        public static void PayWage(float amount)
+        private static void PayWage(float amount)
         {
             if (amount <= 0f) return;
 

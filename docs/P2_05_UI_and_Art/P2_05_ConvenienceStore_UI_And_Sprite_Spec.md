@@ -1,5 +1,8 @@
 # P2_05 편의점 알바 타이쿤 — UI · 스프라이트 명세서
 
+> ⛔ **폐기 (2026-10-08)** — 편의점 알바 타이쿤은 트레이딩 파트와 피로가 겹쳐 폐기되었습니다. 알바는 이제 월드맵에서 누르면 바로 결과가 뜨는 즉시 정산입니다. 경위와 대체 사양은 [ConvenienceStore_Tycoon_Removal_Plan.md](../P2_04_System/ConvenienceStore_Tycoon_Removal_Plan.md). 이 문서는 이력으로만 남깁니다.
+> 스프라이트 36장 중 `Icon_Money`·`Icon_Gift` 2장만 `Resources/DatingSim/WorldMap/UI/`로 옮겨 알바 결과 모달에 쓰고, 나머지는 삭제했습니다.
+
 > **작성일**: 2026-08-14
 > **범위**: [ConvenienceStore_Tycoon_MiniGame_Plan.md](../P2_04_System/ConvenienceStore_Tycoon_MiniGame_Plan.md)의 구현에 필요한 **모든** 아트 에셋과 UI 요소
 > **근거 실측**: `Assets/Resources/DatingSim/YomiRoom/Morning/` 실물 · `Assets/Scripts/DatingSim/UI/YomiRoomTopDownPrototypeBuilder.cs`(로딩 규격) · [P2_05_UI_Asset_Assembly.md](P2_05_UI_Asset_Assembly.md)(조립 규약)

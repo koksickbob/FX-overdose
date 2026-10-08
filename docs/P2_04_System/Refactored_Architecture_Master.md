@@ -969,5 +969,23 @@ LLM 프롬프트에 넣을 대화 맥락용 기억 저장소였다. 기록(`AddM
 
 **세이브 형식 변경 없음.**
 
+## 18. 편의점 알바 타이쿤 폐기 — 월드맵 즉시 정산 (2026-10-08)
+
+계획서: [ConvenienceStore_Tycoon_Removal_Plan.md](ConvenienceStore_Tycoon_Removal_Plan.md). 본편 트레이딩이 이미 실시간 조작을 요구하는데 알바까지 3분짜리 실시간 타이쿤을 요구해 피로가 겹친다고 판단해 폐기했다.
+
+**흐름 변경**: 월드맵 → 로딩 → 편의점 씬(180초 근무) → 결과 패널 → 로딩 → 월드맵 에서 **월드맵 [알바 시작] → 결과 모달 → [확인]** 으로. 씬 전환 0회.
+
+**구조 변경**
+- `WorldMapManager.TryStartPartTimeJob`이 한 프레임 안에서 정산을 끝낸다: 슬롯 2·체력 차감 → `PayWage`(기본급 그대로) → 선물 1회 추첨(35%, 에너지 드링크·파르페) → `StoreTotalShifts++` → 저장 1회 → `OnJobFinished(PartTimeJobResult)`. 차감이 지급보다 먼저라 중간에 종료돼도 공짜 일급이 생기지 않는다.
+- 결과 모달은 `DatingSimSceneBuilder.BuildWorldMap`이 숨긴 채 조립하고 `WorldMapUIController`가 이벤트를 받아 채운다(매니저는 모달을 모름). 전면 딤이 입력을 막아 결과 표시 중 근무가 두 번 처리되지 않는다.
+- 알바 카드 문구(`체력 -20 · 시간 -2 · 일급 ₩1,200`)를 `availableJobs[0]`과 `PartTimeJobSlotCost`에서 생성. 즉시 정산은 "적힌 그대로 받는 것"이라 숫자를 따로 박아 두면 어긋난다.
+- `PayWage`는 호출처가 `WorldMapManager` 안뿐이라 `private static`으로 좁혔다.
+
+**삭제**: `Assets/Scripts/DatingSim/Store/` 6개(1,865줄), `ConvenienceStorePrototypeBuilder.cs`(443줄), 에디터 도구 3개(212줄), `ConvenienceStoreScene` + 빌드 세팅 항목, 편의점 스프라이트 34장. 아이콘 2장(`Icon_Money`·`Icon_Gift`)은 `Resources/DatingSim/WorldMap/UI/`로 옮겨 결과 모달에 쓴다. 선물 ID 카탈로그 검사와 `GrantItemToSave` 합산 검사는 `PartTimeJobTestRunner`(`FXOverdose/Debug/Part-Time Job Test`)로 옮겼다.
+
+**남긴 것**: `StoreTotalShifts`(이제 결과 모달의 "n회차"), `GrantItemToSave`, 편의점 스토리 이벤트(`[편의점-1]` 등 — 별개 시스템). `YomiTopDownWalkAnimator`의 입력 주입 경로는 편의점 전용이었으나 탑다운 방 잔재와 함께 요미의 방 리뉴얼 Phase 4에서 정리한다.
+
+**세이브 형식 변경 없음.** 편의점 씬은 원래 재접속 복귀 대상이 아니었다.
+
 ---
 *이하 Phase 5 내용은 리팩토링 진행 시 순차적으로 업데이트됩니다.*

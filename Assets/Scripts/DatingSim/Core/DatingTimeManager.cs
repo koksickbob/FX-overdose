@@ -164,7 +164,7 @@ namespace FXOverdose.DatingSim.Core
 
             // 데이터 변경 시 자동 저장 플래그 혹은 직접 저장.
             // 슬롯과 시계는 이미 메모리에서 소모됐으므로 여기서 되돌리지 않습니다(되돌리면 행동만 무효가 됩니다).
-            // 다만 디스크와 어긋난 상태는 알려야 합니다 — StoreShiftManager.Commit과 같은 방침입니다.
+            // 다만 디스크와 어긋난 상태는 알려야 합니다 — 알바 결과 모달의 저장 실패 경고와 같은 방침입니다.
             SaveLoadManager save = SaveLoadManager.Instance;
             if (save != null && !save.SaveCurrentGame())
             {
@@ -177,7 +177,7 @@ namespace FXOverdose.DatingSim.Core
         /// <summary>
         /// 소모한 슬롯만큼 게임 시계를 앞으로 밉니다.
         ///
-        /// GameManager가 있는 씬(GameScene)과 없는 씬(요미의 방·월드맵·편의점)에서 경로가 갈립니다 —
+        /// GameManager가 있는 씬(GameScene)과 없는 씬(요미의 방·월드맵)에서 경로가 갈립니다 —
         /// 잔고를 다루는 <c>WorldMapManager.PayWage</c>와 같은 이분기입니다.
         ///
         /// ⚠️ GameManager가 있어도 <c>AdvanceGameMinutes</c>를 쓰면 안 됩니다. 그쪽은 Playing이
